@@ -1,1 +1,72 @@
+# macOS
 .DS_Store
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.env
+.env.local
+.env.*.local
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# Logs
+logs/
+*.log
+log.txt
+
+# Optional build files
+dist/
+build/
+out/
+
+# React Native
+android/.gradle
+android/.idea
+android/app/build
+android/build
+ios/Pods/
+ios/build/
+ios/DerivedData/
+
+# Xcode
+*.xcworkspace
+*.xcuserdata
+*.xcodeproj/project.xcworkspace/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/*.xcuserdatad/
+xcuserdata/
+
+# Watchman
+.watchmanconfig
+
+# Metro
+.expo/
+.expo-shared/
+babel.config.js
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# Test coverage
+coverage/
+
+# Misc
+*.keystore
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
