@@ -62,6 +62,16 @@ export function filterDebtEntries(
     const statusMatch = filters.status === 'all' || entry.status === filters.status;
     const verificationMatch =
       filters.verificationStatus === 'all' || entry.verificationStatus === filters.verificationStatus;
+    const involvedMembers = [entry.fromId, entry.toId]
+      .filter((id) => id !== 'me')
+      .map((id) => memberById.get(id))
+      .filter(Boolean);
+    const hasLinkedMember = involvedMembers.some((member) => member?.linkStatus === 'linked');
+    const linkMatch =
+      filters.linkMode === 'all' ||
+      (filters.linkMode === 'linked' && hasLinkedMember) ||
+      (filters.linkMode === 'unlinked' && !hasLinkedMember);
+    const visibilityMatch = filters.visibility === 'all' || entry.visibility === filters.visibility;
     const tagMatch = !filters.tag || entry.tags.includes(filters.tag);
     const kindMatch = filters.kind === 'all' || entry.kind === filters.kind;
     const amountMatch =
@@ -79,6 +89,8 @@ export function filterDebtEntries(
       currencyMatch &&
       statusMatch &&
       verificationMatch &&
+      linkMatch &&
+      visibilityMatch &&
       tagMatch &&
       kindMatch &&
       amountMatch &&

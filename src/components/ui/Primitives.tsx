@@ -190,6 +190,7 @@ export function TextField({
   placeholder,
   keyboardType,
   multiline,
+  secureTextEntry,
 }: {
   label: string;
   value: string;
@@ -197,6 +198,7 @@ export function TextField({
   placeholder?: string;
   keyboardType?: 'default' | 'numeric' | 'email-address' | 'phone-pad';
   multiline?: boolean;
+  secureTextEntry?: boolean;
 }) {
   return (
     <View style={styles.field}>
@@ -208,6 +210,7 @@ export function TextField({
         placeholderTextColor={palette.faint}
         keyboardType={keyboardType}
         multiline={multiline}
+        secureTextEntry={secureTextEntry}
         style={[styles.input, multiline && styles.inputMultiline]}
       />
     </View>

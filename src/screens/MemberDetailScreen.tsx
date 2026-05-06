@@ -1,9 +1,9 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 
 import { DebtRow, EventRow } from '@/src/components/EntityRows';
-import { TagChips } from '@/src/components/ui/Badges';
+import { LinkStatusBadge, TagChips } from '@/src/components/ui/Badges';
 import { BalanceStack } from '@/src/components/ui/Money';
 import {
   Button,
@@ -14,15 +14,23 @@ import {
   PageHeader,
   Screen,
   SectionTitle,
+  TextField,
 } from '@/src/components/ui/Primitives';
 import { palette, spacing } from '@/src/constants/design';
 import { entriesForMember, explainEventSettlement } from '@/src/services/ledger';
+import { createRemoteLinkRequest } from '@/src/services/stage2Sync';
 import { useAppData } from '@/src/state/AppDataProvider';
+import { useAuth } from '@/src/state/AuthProvider';
+import type { LedgerEntry, MoneyMap } from '@/src/types/models';
+import { addMoney } from '@/src/utils/money';
 
 export function MemberDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const data = useAppData();
+  const auth = useAuth();
   const member = data.members.find((item) => item.id === id);
+  const [linkTarget, setLinkTarget] = useState(member?.email ?? member?.phone ?? '');
+  const [linkMessage, setLinkMessage] = useState('');
 
   const memberEntries = useMemo(
     () => (member ? entriesForMember(member.id, data.ledgerEntries) : []),
@@ -37,6 +45,10 @@ export function MemberDetailScreen() {
             .filter(Boolean)
         : [],
     [data.eventMembers, data.events, member],
+  );
+  const trustBalances = useMemo(
+    () => calculateTrustBalances(member?.id ?? '', memberEntries),
+    [member?.id, memberEntries],
   );
 
   if (data.loading) {
@@ -68,6 +80,9 @@ export function MemberDetailScreen() {
           currencyRates={data.currencyRates}
           empty="Settled with this member"
         />
+        <View style={styles.badgeLine}>
+          <LinkStatusBadge status={member.linkStatus} />
+        </View>
         <TagChips tags={member.tags} />
         {member.email || member.phone ? (
           <View style={styles.metaBlock}>
@@ -89,6 +104,94 @@ export function MemberDetailScreen() {
             onPress={() => data.updateMember(member.id, { archived: !member.archived })}
           />
         </View>
+      </Card>
+
+      <Card>
+        <SectionTitle
+          title="Link member"
+          subtitle="Linking enables verification but does not share historical debts automatically."
+        />
+        {member.linkStatus === 'linked' ? (
+          <>
+            <Text style={styles.body}>
+              Linked to {member.linkedProfileDisplayName ?? member.linkedProfileEmail ?? member.linkedUserId}. You can
+              still call this member {member.displayName} in your local ledger.
+            </Text>
+            <Button
+              title="Unlink member"
+              icon="link-outline"
+              variant="secondary"
+              onPress={() => data.unlinkMember(member.id, auth.identity.authenticatedUserId)}
+            />
+          </>
+        ) : (
+          <>
+            <Text style={styles.body}>
+              Enter an email or phone to send a link request. Accepting a link request does not expose old private debts.
+            </Text>
+            <TextField
+              label="Email or phone"
+              value={linkTarget}
+              onChangeText={setLinkTarget}
+              placeholder="name@example.com"
+              keyboardType={linkTarget.includes('@') ? 'email-address' : 'default'}
+            />
+            <TextField
+              label="Message"
+              value={linkMessage}
+              onChangeText={setLinkMessage}
+              placeholder="Optional"
+              multiline
+            />
+            <Button
+              title={member.linkStatus === 'invite_pending' ? 'Resend link request' : 'Link member'}
+              icon="link"
+              onPress={async () => {
+                if (!auth.identity.authenticatedUserId) {
+                  Alert.alert('Account required', 'Sign in before linking a member to a real user.');
+                  return;
+                }
+                const cleanTarget = linkTarget.trim();
+                const remoteId = await createRemoteLinkRequest({
+                  requesterUserId: auth.identity.authenticatedUserId,
+                  targetEmail: cleanTarget.includes('@') ? cleanTarget : null,
+                  targetPhone: cleanTarget.includes('@') ? null : cleanTarget,
+                  requesterMemberId: member.id,
+                  requesterLabel: member.displayName,
+                  message: linkMessage,
+                });
+                await data.sendMemberLinkRequest(member.id, {
+                  requesterUserId: auth.identity.authenticatedUserId,
+                  targetEmail: cleanTarget.includes('@') ? cleanTarget : null,
+                  targetPhone: cleanTarget.includes('@') ? null : cleanTarget,
+                  message: linkMessage,
+                  remoteId,
+                });
+              }}
+              disabled={!linkTarget.trim()}
+            />
+          </>
+        )}
+      </Card>
+
+      <Card tone={member.linkStatus === 'linked' ? 'blue' : 'default'}>
+        <SectionTitle
+          title="Trust levels"
+          subtitle={member.linkStatus === 'linked' ? 'Shared verified balances stay separate from private totals.' : 'Unlinked members show local/private balance only.'}
+        />
+        {member.linkStatus === 'linked' ? (
+          <>
+            <TrustBalance label="Verified" balances={trustBalances.verified} data={data} />
+            <TrustBalance label="Pending" balances={trustBalances.pending} data={data} />
+            <TrustBalance label="Rejected/Disputed" balances={trustBalances.rejectedDisputed} data={data} />
+            <TrustBalance label="Private total" balances={trustBalances.privateTotal} data={data} />
+          </>
+        ) : (
+          <>
+            <TrustBalance label="Local/private" balances={data.memberBalances[member.id] ?? {}} data={data} />
+            <Text style={styles.body}>Link member to request verification.</Text>
+          </>
+        )}
       </Card>
 
       <SectionTitle title="Debt history" subtitle="Includes direct debts and event split obligations involving this member." />
@@ -161,4 +264,69 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.md,
   },
+  badgeLine: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  trustRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: palette.line,
+  },
+  trustLabel: {
+    color: palette.ink,
+    fontSize: 15,
+    fontWeight: '800',
+  },
 });
+
+function calculateTrustBalances(memberId: string, entries: LedgerEntry[]) {
+  const verified: MoneyMap = {};
+  const pending: MoneyMap = {};
+  const rejectedDisputed: MoneyMap = {};
+  const privateTotal: MoneyMap = {};
+
+  for (const entry of entries) {
+    const signedAmount = entry.toId === 'me' && entry.fromId === memberId ? entry.amount : -entry.amount;
+    addMoney(privateTotal, entry.currency, signedAmount);
+    if (entry.verificationStatus === 'verified') {
+      addMoney(verified, entry.currency, signedAmount);
+    }
+    if (entry.verificationStatus === 'pending') {
+      addMoney(pending, entry.currency, signedAmount);
+    }
+    if (entry.verificationStatus === 'rejected' || entry.verificationStatus === 'disputed') {
+      addMoney(rejectedDisputed, entry.currency, signedAmount);
+    }
+  }
+
+  return { verified, pending, rejectedDisputed, privateTotal };
+}
+
+function TrustBalance({
+  label,
+  balances,
+  data,
+}: {
+  label: string;
+  balances: MoneyMap;
+  data: ReturnType<typeof useAppData>;
+}) {
+  return (
+    <View style={styles.trustRow}>
+      <Text style={styles.trustLabel}>{label}</Text>
+      <BalanceStack
+        balances={balances}
+        settings={data.settings}
+        currencyRates={data.currencyRates}
+        empty="None"
+        align="right"
+      />
+    </View>
+  );
+}

@@ -16,7 +16,7 @@ import type {
 import { formatMoney } from '@/src/utils/money';
 import { initials } from '@/src/utils/text';
 import { BalanceStack } from '@/src/components/ui/Money';
-import { StatusBadge, TagChips, VerificationBadge } from '@/src/components/ui/Badges';
+import { LinkStatusBadge, StatusBadge, TagChips, VerificationBadge, VisibilityBadge } from '@/src/components/ui/Badges';
 
 export function MemberRow({
   member,
@@ -33,7 +33,13 @@ export function MemberRow({
     <Pressable onPress={() => router.push({ pathname: '/member/[id]', params: { id: member.id } })} style={styles.row}>
       <Avatar label={member.displayName} />
       <View style={styles.rowMain}>
-        <Text style={styles.rowTitle}>{member.displayName}</Text>
+        <View style={styles.rowTitleLine}>
+          <Text style={styles.rowTitle}>{member.displayName}</Text>
+          <LinkStatusBadge status={member.linkStatus} />
+        </View>
+        {member.linkedProfileDisplayName ? (
+          <Text style={styles.rowMeta}>Linked to {member.linkedProfileDisplayName}</Text>
+        ) : null}
         <TagChips tags={member.tags} limit={3} />
       </View>
       <BalanceStack balances={balance} settings={settings} currencyRates={currencyRates} align="right" />
@@ -51,6 +57,10 @@ export function DebtRow({
   event?: Event;
 }) {
   const rejected = entry.verificationStatus === 'rejected' || entry.verificationStatus === 'disputed';
+  const member = [entry.fromId, entry.toId]
+    .filter((participantId) => participantId !== 'me')
+    .map((participantId) => members.find((item) => item.id === participantId))
+    .find(Boolean);
   return (
     <Pressable
       onPress={() =>
@@ -73,6 +83,8 @@ export function DebtRow({
         <View style={styles.badgeLine}>
           <StatusBadge status={entry.status} />
           <VerificationBadge status={entry.verificationStatus} />
+          <VisibilityBadge visibility={entry.visibility} />
+          {member ? <LinkStatusBadge status={member.linkStatus} /> : null}
         </View>
       </View>
       <View style={styles.amountBlock}>

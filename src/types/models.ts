@@ -12,7 +12,27 @@ export type VerificationStatus =
   | 'verified'
   | 'rejected'
   | 'disputed'
-  | 'resolved';
+  | 'resolved'
+  | 'cancelled';
+
+export type MemberLinkStatus =
+  | 'unlinked'
+  | 'invite_pending'
+  | 'linked'
+  | 'link_rejected'
+  | 'link_removed';
+
+export type LinkRequestStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled' | 'expired';
+
+export type DebtVisibility = 'private' | 'shared_with_involved_member' | 'future_event_shared';
+
+export type SyncStatus =
+  | 'local_only'
+  | 'pending_upload'
+  | 'synced'
+  | 'pending_update'
+  | 'sync_error'
+  | 'remote_deleted';
 
 export type EventStatus = 'planning' | 'active' | 'finalising' | 'settled' | 'archived';
 
@@ -21,6 +41,13 @@ export type SplitMethod = 'equal';
 export type LedgerEntryKind = 'simple_debt' | 'expense_obligation';
 
 export type EntityKind = 'member' | 'debt' | 'event' | 'shared_expense';
+
+export type ActivityTargetKind =
+  | EntityKind
+  | 'member_link'
+  | 'link_request'
+  | 'debt_verification'
+  | 'profile';
 
 export type SortMode =
   | 'date_desc'
@@ -36,6 +63,14 @@ export type Member = {
   notes: string | null;
   email: string | null;
   phone: string | null;
+  remoteId: string | null;
+  linkedUserId: string | null;
+  linkStatus: MemberLinkStatus;
+  linkRequestId: string | null;
+  linkedProfileDisplayName: string | null;
+  linkedProfileEmail: string | null;
+  linkedProfilePhone: string | null;
+  syncStatus: SyncStatus;
   tags: string[];
   archived: boolean;
   createdAt: string;
@@ -46,17 +81,30 @@ export type Debt = {
   id: string;
   type: 'simple';
   memberId: string;
+  remoteId: string | null;
+  verificationRequestId: string | null;
+  visibility: DebtVisibility;
+  syncStatus: SyncStatus;
   direction: DebtDirection;
   amount: number;
   currency: CurrencyCode;
   title: string;
   notes: string | null;
+  sharedNotes: string | null;
   debtDate: string;
   dueDate: string | null;
   tags: string[];
   eventId: string | null;
   status: DebtStatus;
   verificationStatus: VerificationStatus;
+  verifiedByUserId: string | null;
+  verifiedAt: string | null;
+  rejectedByUserId: string | null;
+  rejectedAt: string | null;
+  rejectionReason: string | null;
+  disputeReason: string | null;
+  resolutionNote: string | null;
+  suggestedChange: SuggestedDebtChange | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -92,6 +140,7 @@ export type GeneratedObligation = {
 
 export type SharedExpense = {
   id: string;
+  remoteId: string | null;
   eventId: string;
   payerId: ParticipantId;
   amount: number;
@@ -105,6 +154,8 @@ export type SharedExpense = {
   tags: string[];
   status: DebtStatus;
   verificationStatus: VerificationStatus;
+  visibility: DebtVisibility;
+  syncStatus: SyncStatus;
   createdAt: string;
   updatedAt: string;
 };
@@ -118,11 +169,64 @@ export type Tag = {
 
 export type ActivityLog = {
   id: string;
-  entityKind: EntityKind;
+  entityKind: ActivityTargetKind;
   entityId: string;
+  actorUserId: string | null;
   action: string;
   metadata: Record<string, unknown>;
   createdAt: string;
+};
+
+export type UserProfile = {
+  id: string;
+  displayName: string;
+  email: string | null;
+  phone: string | null;
+  avatarUrl: string | null;
+  baseCurrency: CurrencyCode;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type LinkRequest = {
+  id: string;
+  remoteId: string | null;
+  requesterUserId: string;
+  targetUserId: string | null;
+  targetEmail: string | null;
+  targetPhone: string | null;
+  requesterMemberId: string;
+  requesterLabel: string;
+  status: LinkRequestStatus;
+  message: string | null;
+  createdAt: string;
+  updatedAt: string;
+  syncStatus: SyncStatus;
+};
+
+export type SuggestedDebtChange = {
+  amount?: number;
+  currency?: CurrencyCode;
+  debtDate?: string;
+  note?: string;
+  reason?: string;
+};
+
+export type DebtVerification = {
+  id: string;
+  remoteId: string | null;
+  debtId: string;
+  remoteDebtId: string | null;
+  requesterUserId: string;
+  responderUserId: string;
+  status: VerificationStatus;
+  rejectionReason: string | null;
+  suggestedChange: SuggestedDebtChange | null;
+  requestedAt: string;
+  respondedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  syncStatus: SyncStatus;
 };
 
 export type CurrencyRate = {
@@ -153,6 +257,8 @@ export type LedgerEntry = {
   tags: string[];
   status: DebtStatus;
   verificationStatus: VerificationStatus;
+  visibility: DebtVisibility;
+  syncStatus: SyncStatus;
 };
 
 export type MoneyMap = Partial<Record<CurrencyCode, number>>;
@@ -192,6 +298,8 @@ export type DebtFilters = {
   direction: DebtDirection | 'all';
   status: DebtStatus | 'all';
   verificationStatus: VerificationStatus | 'all';
+  linkMode: 'all' | 'linked' | 'unlinked';
+  visibility: DebtVisibility | 'all';
   tag: string | null;
   kind: LedgerEntryKind | 'all';
   sort: SortMode;

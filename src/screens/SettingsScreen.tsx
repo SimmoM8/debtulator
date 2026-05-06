@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import { router } from 'expo-router';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, StyleSheet, Switch, Text, View } from 'react-native';
 
 import {
@@ -14,11 +15,16 @@ import {
 import { CURRENCIES } from '@/src/constants/currencies';
 import { palette, spacing } from '@/src/constants/design';
 import { useAppData } from '@/src/state/AppDataProvider';
+import { useAuth } from '@/src/state/AuthProvider';
 import type { CurrencyCode } from '@/src/types/models';
 
 export function SettingsScreen() {
   const data = useAppData();
+  const auth = useAuth();
   const [rateDrafts, setRateDrafts] = useState<Record<string, string>>({});
+  const [displayName, setDisplayName] = useState(auth.identity.profile?.displayName ?? auth.identity.displayName);
+  const [phone, setPhone] = useState(auth.identity.profile?.phone ?? '');
+  const [profileCurrency, setProfileCurrency] = useState<CurrencyCode>(auth.identity.baseCurrency);
 
   const rates = useMemo(
     () =>
@@ -27,6 +33,12 @@ export function SettingsScreen() {
       ),
     [data.currencyRates, rateDrafts],
   );
+
+  useEffect(() => {
+    setDisplayName(auth.identity.profile?.displayName ?? auth.identity.displayName);
+    setPhone(auth.identity.profile?.phone ?? '');
+    setProfileCurrency(auth.identity.baseCurrency);
+  }, [auth.identity.baseCurrency, auth.identity.displayName, auth.identity.profile]);
 
   if (data.loading) {
     return <LoadingState />;
@@ -45,10 +57,46 @@ export function SettingsScreen() {
   return (
     <Screen>
       <PageHeader
-        eyebrow="Local settings"
+        eyebrow="Settings"
         title="Settings"
-        subtitle="Stage 1 keeps data on-device and uses editable static exchange rates."
+        subtitle="Local data remains on-device. Accounts unlock linking and verification."
       />
+
+      <Card tone={auth.user ? 'mint' : 'amber'}>
+        <SectionTitle
+          title="Account"
+          subtitle={auth.user ? 'Signed in account identity and local profile cache.' : 'Continue without account keeps your ledger local/private.'}
+        />
+        {auth.user ? (
+          <>
+            <Text style={styles.rowBody}>Signed in as {auth.identity.email ?? auth.user.id}</Text>
+            <TextField label="Display name" value={displayName} onChangeText={setDisplayName} />
+            <TextField label="Phone placeholder" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+            <SelectChips
+              label="Profile base currency"
+              value={profileCurrency}
+              options={CURRENCIES.map((currency) => ({ label: currency, value: currency }))}
+              onChange={setProfileCurrency}
+            />
+            <View style={styles.buttonRow}>
+              <Button
+                title="Save profile"
+                icon="save"
+                onPress={() => auth.updateProfile({ displayName, phone, baseCurrency: profileCurrency })}
+              />
+              <Button title="Sign out" icon="log-out" variant="secondary" onPress={auth.signOut} />
+            </View>
+            <Text style={styles.rowBody}>Delete account and data export controls are placeholders for production hardening.</Text>
+          </>
+        ) : (
+          <>
+            <Text style={styles.rowBody}>
+              Signed-out mode is fully usable. Sign in when you want linked members, verification requests, and future synced events.
+            </Text>
+            <Button title="Sign in or create account" icon="person-circle" onPress={() => router.push('/auth')} />
+          </>
+        )}
+      </Card>
 
       <Card>
         <SectionTitle title="Base currency" subtitle="Estimated balances are approximate and never merge native balances." />

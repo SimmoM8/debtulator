@@ -1,5 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useMemo, useState } from 'react';
+import { Alert } from 'react-native';
 
 import {
   Button,
@@ -26,12 +27,14 @@ export function DebtFormScreen() {
   const [currency, setCurrency] = useState<CurrencyCode>(debt?.currency ?? 'SEK');
   const [title, setTitle] = useState(debt?.title ?? '');
   const [notes, setNotes] = useState(debt?.notes ?? '');
+  const [sharedNotes, setSharedNotes] = useState(debt?.sharedNotes ?? '');
   const [debtDate, setDebtDate] = useState(debt?.debtDate ?? todayIsoDate());
   const [dueDate, setDueDate] = useState(debt?.dueDate ?? '');
   const [tags, setTags] = useState(debt?.tags.join(', ') ?? '');
   const [selectedEventId, setSelectedEventId] = useState(debt?.eventId ?? eventId ?? 'none');
   const [status, setStatus] = useState<DebtStatus>(debt?.status ?? 'active');
   const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>(debt?.verificationStatus ?? 'local_only');
+  const [visibility, setVisibility] = useState(debt?.visibility ?? 'private');
 
   const memberOptions = useMemo(
     () => data.members.filter((member) => !member.archived).map((member) => ({ label: member.displayName, value: member.id })),
@@ -57,14 +60,42 @@ export function DebtFormScreen() {
       currency,
       title,
       notes,
+      sharedNotes,
       debtDate,
       dueDate,
       tags: splitTags(tags),
       eventId: selectedEventId === 'none' ? null : selectedEventId,
       status,
       verificationStatus,
+      visibility,
     };
 
+    const financialFieldsChanged =
+      debt &&
+      debt.verificationStatus === 'verified' &&
+      (selectedMemberId !== debt.memberId ||
+        direction !== debt.direction ||
+        Number(amount) !== debt.amount ||
+        currency !== debt.currency ||
+        debtDate !== debt.debtDate ||
+        (selectedEventId === 'none' ? null : selectedEventId) !== debt.eventId);
+
+    if (financialFieldsChanged) {
+      Alert.alert(
+        'Verification required again',
+        'Changing financial details will require verification again.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Save', style: 'destructive', onPress: () => persist(input) },
+        ],
+      );
+      return;
+    }
+
+    await persist(input);
+  }
+
+  async function persist(input: Parameters<typeof data.createDebt>[0]) {
     if (debt) {
       await data.updateDebt(debt.id, input);
     } else {
@@ -112,6 +143,13 @@ export function DebtFormScreen() {
         <TextField label="Debt date" value={debtDate} onChangeText={setDebtDate} placeholder="YYYY-MM-DD" />
         <TextField label="Due date" value={dueDate} onChangeText={setDueDate} placeholder="Optional YYYY-MM-DD" />
         <TextField label="Notes" value={notes} onChangeText={setNotes} multiline />
+        <TextField
+          label="Shared notes"
+          value={sharedNotes}
+          onChangeText={setSharedNotes}
+          placeholder="Visible only after requesting verification"
+          multiline
+        />
         <TextField label="Tags" value={tags} onChangeText={setTags} placeholder="Food, Travel" />
         <SelectChips label="Event" value={selectedEventId} options={eventOptions} onChange={setSelectedEventId} />
         <SelectChips
@@ -134,8 +172,19 @@ export function DebtFormScreen() {
             { label: 'Rejected', value: 'rejected' },
             { label: 'Disputed', value: 'disputed' },
             { label: 'Resolved', value: 'resolved' },
+            { label: 'Cancelled', value: 'cancelled' },
           ]}
           onChange={setVerificationStatus}
+        />
+        <SelectChips
+          label="Visibility"
+          value={visibility}
+          options={[
+            { label: 'Private', value: 'private' },
+            { label: 'Shared with member', value: 'shared_with_involved_member' },
+            { label: 'Event shared later', value: 'future_event_shared' },
+          ]}
+          onChange={setVisibility}
         />
       </Card>
     </Screen>

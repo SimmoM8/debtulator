@@ -31,6 +31,8 @@ const defaultFilters: DebtFilters = {
   direction: 'all',
   status: 'all',
   verificationStatus: 'all',
+  linkMode: 'all',
+  visibility: 'all',
   tag: null,
   kind: 'all',
   sort: 'date_desc',
@@ -161,8 +163,30 @@ export function DebtsScreen() {
             { label: 'Rejected', value: 'rejected' },
             { label: 'Disputed', value: 'disputed' },
             { label: 'Resolved', value: 'resolved' },
+            { label: 'Cancelled', value: 'cancelled' },
           ]}
           onChange={(verificationStatus) => setFilters((current) => ({ ...current, verificationStatus }))}
+        />
+        <SelectChips
+          label="Member link"
+          value={filters.linkMode}
+          options={[
+            { label: 'All', value: 'all' },
+            { label: 'Linked', value: 'linked' },
+            { label: 'Unlinked', value: 'unlinked' },
+          ]}
+          onChange={(linkMode) => setFilters((current) => ({ ...current, linkMode }))}
+        />
+        <SelectChips
+          label="Visibility"
+          value={filters.visibility}
+          options={[
+            { label: 'All', value: 'all' },
+            { label: 'Private', value: 'private' },
+            { label: 'Shared', value: 'shared_with_involved_member' },
+            { label: 'Event later', value: 'future_event_shared' },
+          ]}
+          onChange={(visibility) => setFilters((current) => ({ ...current, visibility }))}
         />
         <SelectChips
           label="Tags"

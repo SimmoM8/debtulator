@@ -49,7 +49,7 @@ export function MembersScreen() {
       <PageHeader
         eyebrow="People"
         title="Members"
-        subtitle="Manual, unlinked contacts in your local ledger."
+        subtitle="Manual contacts can stay local or be linked to real Debtulator users."
         action={<Button title="Add" icon="person-add" onPress={() => router.push('/member/form')} />}
       />
 

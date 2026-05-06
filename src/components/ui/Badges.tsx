@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { palette, radii, spacing } from '@/src/constants/design';
-import type { DebtStatus, EventStatus, VerificationStatus } from '@/src/types/models';
+import type { DebtStatus, DebtVisibility, EventStatus, MemberLinkStatus, SyncStatus, VerificationStatus } from '@/src/types/models';
 
 export function TagChips({ tags, limit }: { tags: string[]; limit?: number }) {
   const visibleTags = limit ? tags.slice(0, limit) : tags;
@@ -52,6 +52,28 @@ export function VerificationBadge({ status }: { status: VerificationStatus }) {
   return <Badge label={verificationLabel(status)} tone={tone} />;
 }
 
+export function LinkStatusBadge({ status }: { status: MemberLinkStatus }) {
+  const tone =
+    status === 'linked'
+      ? 'positive'
+      : status === 'invite_pending'
+        ? 'amber'
+        : status === 'link_rejected' || status === 'link_removed'
+          ? 'negative'
+          : 'neutral';
+  return <Badge label={linkStatusLabel(status)} tone={tone} />;
+}
+
+export function VisibilityBadge({ visibility }: { visibility: DebtVisibility }) {
+  const tone = visibility === 'private' ? 'neutral' : visibility === 'shared_with_involved_member' ? 'blue' : 'amber';
+  return <Badge label={visibilityLabel(visibility)} tone={tone} />;
+}
+
+export function SyncBadge({ status }: { status: SyncStatus }) {
+  const tone = status === 'synced' ? 'positive' : status === 'sync_error' ? 'negative' : status === 'local_only' ? 'neutral' : 'amber';
+  return <Badge label={status.replace('_', ' ')} tone={tone} />;
+}
+
 export function Badge({
   label,
   tone = 'neutral',
@@ -72,6 +94,30 @@ function statusLabel(status: DebtStatus | EventStatus) {
 
 export function verificationLabel(status: VerificationStatus) {
   return status === 'local_only' ? 'local only' : status.replace('_', ' ');
+}
+
+export function linkStatusLabel(status: MemberLinkStatus) {
+  switch (status) {
+    case 'invite_pending':
+      return 'invite pending';
+    case 'link_rejected':
+      return 'link rejected';
+    case 'link_removed':
+      return 'link removed';
+    default:
+      return status;
+  }
+}
+
+export function visibilityLabel(visibility: DebtVisibility) {
+  switch (visibility) {
+    case 'private':
+      return 'private';
+    case 'shared_with_involved_member':
+      return 'shared';
+    case 'future_event_shared':
+      return 'event shared later';
+  }
 }
 
 const badgeTone = StyleSheet.create({

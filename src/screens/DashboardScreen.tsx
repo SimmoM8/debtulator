@@ -19,10 +19,12 @@ import {
 import { palette, radii, spacing } from '@/src/constants/design';
 import { explainEventSettlement } from '@/src/services/ledger';
 import { useAppData } from '@/src/state/AppDataProvider';
+import { useAuth } from '@/src/state/AuthProvider';
 import { sumMoneyMap } from '@/src/utils/money';
 
 export function DashboardScreen() {
   const data = useAppData();
+  const auth = useAuth();
 
   const activeEvents = data.events.filter((event) => !event.archived && event.status !== 'settled').slice(0, 3);
   const recentEntries = data.ledgerEntries.slice(0, 5);
@@ -48,8 +50,12 @@ export function DashboardScreen() {
       <PageHeader
         eyebrow="Local-first ledger"
         title="Debtulator"
-        subtitle="Track debts, event splits, balances, and settlements without needing accounts or sync."
-        action={<Button title="Add debt" icon="add" onPress={() => router.push('/debt/form')} />}
+        subtitle={
+          auth.user
+            ? `Signed in as ${auth.identity.displayName}. Local debts remain private until shared.`
+            : 'Track debts locally without an account. Sign in only when you want linking and verification.'
+        }
+        action={<Button title={auth.user ? 'Requests' : 'Sign in'} icon={auth.user ? 'notifications' : 'person-circle'} onPress={() => router.push(auth.user ? '/requests' : '/auth')} />}
       />
 
       <Card tone="mint" style={styles.heroCard}>
@@ -67,6 +73,10 @@ export function DashboardScreen() {
             <Ionicons name="wallet" size={26} color={palette.brandDark} />
           </View>
         </View>
+        <View style={styles.badgeLine}>
+          <Badge label={auth.user ? 'signed in' : 'local-only'} tone={auth.user ? 'positive' : 'neutral'} />
+          <Badge label="private by default" tone="blue" />
+        </View>
 
         <View style={styles.summaryGrid}>
           <SummaryTile title="Owed to you" balances={data.personalTotals.owedToMe} tone="positive" />
@@ -79,6 +89,7 @@ export function DashboardScreen() {
         <QuickAction label="Add member" icon="person-add" onPress={() => router.push('/member/form')} />
         <QuickAction label="Add event" icon="people" onPress={() => router.push('/event/form')} />
         <QuickAction label="Add expense" icon="cart" onPress={() => router.push('/expense/form')} />
+        <QuickAction label="Requests" icon="notifications" onPress={() => router.push('/requests')} />
       </View>
 
       <ResponsiveGrid>
@@ -155,6 +166,20 @@ export function DashboardScreen() {
           </Card>
         </View>
       </ResponsiveGrid>
+
+      <SectionTitle title="Recent activity" subtitle="Verification and linking changes" />
+      <Card>
+        {data.activityLogs.length > 0 ? (
+          data.activityLogs.slice(0, 6).map((activity) => (
+            <View key={activity.id} style={styles.activityRow}>
+              <Text style={styles.quickText}>{activity.action.replaceAll('_', ' ')}</Text>
+              <Text style={styles.activityMeta}>{new Date(activity.createdAt).toLocaleString()}</Text>
+            </View>
+          ))
+        ) : (
+          <EmptyState title="No activity yet" body="Linking and verification events will appear here." />
+        )}
+      </Card>
     </Screen>
   );
 }
@@ -235,6 +260,11 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     flexWrap: 'wrap',
   },
+  badgeLine: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
   summaryTile: {
     flex: 1,
     minWidth: 150,
@@ -290,5 +320,16 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 320,
     gap: spacing.md,
+  },
+  activityRow: {
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: palette.line,
+  },
+  activityMeta: {
+    color: palette.muted,
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

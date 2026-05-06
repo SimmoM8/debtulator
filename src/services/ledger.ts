@@ -35,6 +35,8 @@ export function buildLedgerEntries(debts: Debt[], sharedExpenses: SharedExpense[
     tags: debt.tags,
     status: debt.status,
     verificationStatus: debt.verificationStatus,
+    visibility: debt.visibility,
+    syncStatus: debt.syncStatus,
   }));
 
   const expenseEntries = sharedExpenses.flatMap((expense) =>
@@ -54,6 +56,8 @@ export function buildLedgerEntries(debts: Debt[], sharedExpenses: SharedExpense[
       tags: expense.tags,
       status: expense.status,
       verificationStatus: expense.verificationStatus,
+      visibility: expense.visibility,
+      syncStatus: expense.syncStatus,
     })),
   );
 

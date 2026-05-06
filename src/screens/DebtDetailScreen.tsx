@@ -1,8 +1,8 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 
-import { StatusBadge, TagChips, VerificationBadge } from '@/src/components/ui/Badges';
+import { LinkStatusBadge, StatusBadge, SyncBadge, TagChips, VerificationBadge, VisibilityBadge } from '@/src/components/ui/Badges';
 import { Amount } from '@/src/components/ui/Money';
 import {
   Button,
@@ -17,12 +17,15 @@ import {
 } from '@/src/components/ui/Primitives';
 import { palette, spacing } from '@/src/constants/design';
 import { buildLedgerEntries, entryDirectionText } from '@/src/services/ledger';
+import { createRemoteDebtVerification } from '@/src/services/stage2Sync';
 import { useAppData } from '@/src/state/AppDataProvider';
+import { useAuth } from '@/src/state/AuthProvider';
 import type { DebtStatus, VerificationStatus } from '@/src/types/models';
 
 export function DebtDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const data = useAppData();
+  const auth = useAuth();
   const debt = data.debts.find((item) => item.id === id);
   const member = debt ? data.members.find((item) => item.id === debt.memberId) : undefined;
   const event = debt?.eventId ? data.events.find((item) => item.id === debt.eventId) : undefined;
@@ -50,6 +53,33 @@ export function DebtDetailScreen() {
     await data.updateDebt(currentDebt.id, { verificationStatus });
   }
 
+  async function requestVerification() {
+    if (!auth.identity.authenticatedUserId) {
+      Alert.alert('Account required', 'Sign in to request verification from a linked member.');
+      return;
+    }
+    if (!member || member.linkStatus !== 'linked' || !member.linkedUserId) {
+      Alert.alert('Linked member required', 'Link this member to a real user before requesting verification.');
+      return;
+    }
+
+    const remote = await createRemoteDebtVerification({
+      debt: currentDebt,
+      member,
+      requesterUserId: auth.identity.authenticatedUserId,
+      responderUserId: member.linkedUserId,
+      sharedNotes: currentDebt.sharedNotes ?? currentDebt.notes,
+    });
+
+    await data.requestDebtVerification(currentDebt.id, {
+      requesterUserId: auth.identity.authenticatedUserId,
+      responderUserId: member.linkedUserId,
+      remoteDebtId: remote?.remoteDebtId ?? null,
+      remoteVerificationId: remote?.remoteVerificationId ?? null,
+      sharedNotes: currentDebt.sharedNotes ?? currentDebt.notes,
+    });
+  }
+
   return (
     <Screen>
       <PageHeader
@@ -68,6 +98,8 @@ export function DebtDetailScreen() {
           <View style={styles.badgeStack}>
             <StatusBadge status={debt.status} />
             <VerificationBadge status={debt.verificationStatus} />
+            <VisibilityBadge visibility={debt.visibility} />
+            <SyncBadge status={debt.syncStatus} />
           </View>
         </View>
         <Text style={styles.body}>
@@ -79,27 +111,90 @@ export function DebtDetailScreen() {
         <TagChips tags={debt.tags} />
       </Card>
 
+      <Card>
+        <SectionTitle
+          title="Verification"
+          subtitle={
+            member?.linkStatus === 'linked'
+              ? 'Request verification without sharing unrelated historical debts.'
+              : 'Link this member to request verification.'
+          }
+        />
+        <View style={styles.badgeLine}>
+          {member ? <LinkStatusBadge status={member.linkStatus} /> : null}
+          <VerificationBadge status={debt.verificationStatus} />
+          <VisibilityBadge visibility={debt.visibility} />
+        </View>
+        <Text style={styles.body}>
+          {debt.visibility === 'private'
+            ? 'This debt is private in your local ledger.'
+            : 'This debt is shared only with the involved linked member for verification.'}
+        </Text>
+        <View style={styles.actionRow}>
+          <Button
+            title="Request verification"
+            icon="shield-checkmark"
+            onPress={requestVerification}
+            disabled={debt.verificationStatus === 'pending' || member?.linkStatus !== 'linked'}
+          />
+          {debt.verificationStatus === 'pending' ? (
+            <Button
+              title="Cancel request"
+              icon="close-circle"
+              variant="secondary"
+              onPress={() => data.cancelDebtVerification(debt.id, auth.identity.authenticatedUserId)}
+            />
+          ) : null}
+        </View>
+      </Card>
+
       {debt.verificationStatus === 'rejected' ? (
         <Card tone="coral">
           <SectionTitle title="Rejected debt" subtitle="This remains in your personal ledger." />
+          <InfoRow label="Rejected by" value={debt.rejectedByUserId ?? 'Linked member'} />
+          <InfoRow label="Rejected at" value={debt.rejectedAt ? new Date(debt.rejectedAt).toLocaleString() : 'Unknown'} />
+          <InfoRow label="Reason" value={debt.rejectionReason ?? 'No reason provided'} />
           <Text style={styles.body}>
             Rejected and disputed debts are excluded from shared settlement suggestions by default. You can keep this
             privately, edit it, mark it disputed or resolved, or archive it.
           </Text>
           <View style={styles.actionRow}>
             <Button title="Keep privately" icon="lock-closed" variant="secondary" onPress={() => updateVerification('local_only')} />
-            <Button title="Edit" icon="create" variant="secondary" onPress={() => router.push({ pathname: '/debt/form', params: { id: debt.id } })} />
-            <Button title="Mark disputed" icon="warning" variant="secondary" onPress={() => updateVerification('disputed')} />
-            <Button title="Mark resolved" icon="checkmark-circle" variant="secondary" onPress={() => updateVerification('resolved')} />
+            <Button title="Edit and resend" icon="create" variant="secondary" onPress={() => router.push({ pathname: '/debt/form', params: { id: debt.id } })} />
+            <Button title="Mark disputed" icon="warning" variant="secondary" onPress={() => data.markDebtDisputed(debt.id, auth.identity.authenticatedUserId)} />
+            <Button title="Mark resolved" icon="checkmark-circle" variant="secondary" onPress={() => data.markDebtResolved(debt.id, auth.identity.authenticatedUserId)} />
             <Button title="Archive" icon="archive" variant="danger" onPress={() => updateStatus('archived')} />
           </View>
+        </Card>
+      ) : null}
+
+      {debt.verificationStatus === 'disputed' ? (
+        <Card tone="amber">
+          <SectionTitle title="Disputed debt" subtitle="The other party rejected it and you marked the rejection as disputed." />
+          <InfoRow label="Rejection reason" value={debt.rejectionReason ?? 'No reason provided'} />
+          <InfoRow label="Private dispute note" value={debt.disputeReason ?? 'None'} />
+          <View style={styles.actionRow}>
+            <Button title="Edit and resend" icon="create" variant="secondary" onPress={() => router.push({ pathname: '/debt/form', params: { id: debt.id } })} />
+            <Button title="Mark resolved" icon="checkmark-circle" variant="secondary" onPress={() => data.markDebtResolved(debt.id, auth.identity.authenticatedUserId)} />
+            <Button title="Archive" icon="archive" variant="danger" onPress={() => updateStatus('archived')} />
+          </View>
+        </Card>
+      ) : null}
+
+      {debt.verificationStatus === 'resolved' ? (
+        <Card tone="blue">
+          <SectionTitle title="Resolved" subtitle="Excluded from verified shared balances unless verified again later." />
+          <InfoRow label="Resolution note" value={debt.resolutionNote ?? 'Resolved without verifying the original debt.'} />
         </Card>
       ) : null}
 
       <Card>
         <SectionTitle title="Metadata" subtitle="Financial edits to verified debts reset local verification to pending." />
         <InfoRow label="Member" value={member?.displayName ?? 'Unknown'} />
+        <InfoRow label="Member link" value={member?.linkStatus ?? 'unlinked'} />
         <InfoRow label="Event" value={event?.name ?? 'Not attached'} />
+        <InfoRow label="Visibility" value={debt.visibility.replaceAll('_', ' ')} />
+        <InfoRow label="Sync" value={debt.syncStatus.replaceAll('_', ' ')} />
         <InfoRow label="Debt date" value={debt.debtDate} />
         <InfoRow label="Due date" value={debt.dueDate ?? 'None'} />
         <InfoRow label="Created" value={new Date(debt.createdAt).toLocaleString()} />
@@ -108,6 +203,8 @@ export function DebtDetailScreen() {
           label="Balance impact"
           value={debt.direction === 'they_owe_me' ? 'Increases owed to you' : 'Increases what you owe'}
         />
+        {debt.verifiedAt ? <InfoRow label="Verified at" value={new Date(debt.verifiedAt).toLocaleString()} /> : null}
+        {debt.verifiedByUserId ? <InfoRow label="Verified by" value={debt.verifiedByUserId} /> : null}
       </Card>
 
       <Card>
@@ -132,9 +229,27 @@ export function DebtDetailScreen() {
             { label: 'Rejected', value: 'rejected' },
             { label: 'Disputed', value: 'disputed' },
             { label: 'Resolved', value: 'resolved' },
+            { label: 'Cancelled', value: 'cancelled' },
           ]}
           onChange={updateVerification}
         />
+      </Card>
+
+      <Card>
+        <SectionTitle title="Activity" subtitle="Linking and verification history for this debt." />
+        {data.activityLogs.filter((activity) => activity.entityKind === 'debt' && activity.entityId === debt.id).length > 0 ? (
+          data.activityLogs
+            .filter((activity) => activity.entityKind === 'debt' && activity.entityId === debt.id)
+            .map((activity) => (
+              <InfoRow
+                key={activity.id}
+                label={activity.action.replaceAll('_', ' ')}
+                value={new Date(activity.createdAt).toLocaleString()}
+              />
+            ))
+        ) : (
+          <Text style={styles.body}>No activity yet.</Text>
+        )}
       </Card>
     </Screen>
   );
@@ -175,6 +290,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.md,
+  },
+  badgeLine: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
   },
   infoRow: {
     flexDirection: 'row',
