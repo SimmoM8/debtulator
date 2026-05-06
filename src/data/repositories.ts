@@ -16,9 +16,16 @@ import {
   insertEventVerificationResponse,
   insertLinkRequest,
   insertMember,
+  insertOverpaymentCredit,
+  insertPayment,
   insertProfile,
+  insertRecurringTemplate,
+  insertReminder,
+  insertSettlement,
+  insertSettlementLine,
   insertSharedEventMember,
   insertSharedExpense,
+  insertSoftReminder,
   loadSnapshot,
   resetDatabase,
   updateCurrencyRate,
@@ -48,12 +55,20 @@ import type {
   EventRole,
   EventStatus,
   EventVerificationResponse,
+  ExpensePayer,
   LinkRequest,
   Member,
   MemberLinkStatus,
   ParticipantId,
+  OverpaymentCredit,
+  Payment,
+  RecurringTemplate,
+  Reminder,
   SharedEventMember,
   SharedExpense,
+  Settlement,
+  SettlementLine,
+  SoftReminder,
   SuggestedDebtChange,
   SyncStatus,
   VerificationStatus,
@@ -84,6 +99,7 @@ type DebtInput = {
   sharedNotes?: string | null;
   debtDate?: string;
   dueDate?: string | null;
+  recurringTemplateId?: string | null;
   tags?: string[];
   eventId?: string | null;
   status?: DebtStatus;
@@ -117,6 +133,11 @@ type SharedExpenseInput = {
   notes?: string | null;
   expenseDate?: string;
   participantIds: ParticipantId[];
+  splitMethod?: SharedExpense['splitMethod'];
+  splitAllocations?: Record<ParticipantId, number>;
+  expensePayers?: { eventMemberId: ParticipantId; amountPaid: number }[];
+  dueDate?: string | null;
+  recurringTemplateId?: string | null;
   tags?: string[];
   status?: DebtStatus;
   verificationStatus?: VerificationStatus;
@@ -166,12 +187,61 @@ type EventDebtInput = {
   title: string;
   notes?: string | null;
   debtDate?: string;
+  dueDate?: string | null;
   tags?: string[];
   verificationStatus?: VerificationStatus;
   settlementStatus?: DebtStatus;
   status?: DebtStatus;
   remoteId?: string | null;
   syncStatus?: SyncStatus;
+};
+
+type CreatePaymentInput = {
+  payerId: ParticipantId;
+  payeeId: ParticipantId;
+  amount: number;
+  currency: CurrencyCode;
+  paymentDate?: string;
+  notes?: string | null;
+  eventId?: string | null;
+  relatedMemberId?: string | null;
+  visibility?: Payment['visibility'];
+  status?: Payment['status'];
+  confirmationStatus?: Payment['confirmationStatus'];
+  createdByUserId?: string | null;
+  lines?: {
+    sourceRecordType: SettlementLine['sourceRecordType'];
+    sourceRecordId: string;
+    appliedAmount: number;
+  }[];
+  settlementType?: Settlement['type'];
+  settlementNotes?: string | null;
+  convertedSettlement?: {
+    originalCurrency: CurrencyCode;
+    originalAmount: number;
+    settlementCurrency: CurrencyCode;
+    settlementAmount: number;
+    exchangeRateUsed: number;
+    exchangeRateDate: string;
+    conversionNote: string;
+  } | null;
+};
+
+type CreateRecurringTemplateInput = {
+  createdByUserId?: string | null;
+  eventId?: string | null;
+  memberId?: string | null;
+  type: RecurringTemplate['type'];
+  title: string;
+  amount: number;
+  currency: CurrencyCode;
+  recurrenceRule: string;
+  startDate?: string;
+  endDate?: string | null;
+  nextOccurrenceDate?: string;
+  autoGenerate?: boolean;
+  reminderSettings?: Record<string, unknown> | null;
+  payload: Record<string, unknown>;
 };
 
 type LinkMemberInput = {
@@ -273,6 +343,7 @@ export class DebtulatorRepository {
       sharedNotes: cleanOptional(input.sharedNotes),
       debtDate: input.debtDate || todayIsoDate(),
       dueDate: cleanOptional(input.dueDate),
+      recurringTemplateId: cleanOptional(input.recurringTemplateId),
       tags: cleanTags(input.tags),
       eventId: input.eventId ?? null,
       status: input.status ?? 'active',
@@ -327,6 +398,8 @@ export class DebtulatorRepository {
       sharedNotes: input.sharedNotes === undefined ? debt.sharedNotes : cleanOptional(input.sharedNotes),
       debtDate: input.debtDate ?? debt.debtDate,
       dueDate: input.dueDate === undefined ? debt.dueDate : cleanOptional(input.dueDate),
+      recurringTemplateId:
+        input.recurringTemplateId === undefined ? debt.recurringTemplateId : cleanOptional(input.recurringTemplateId),
       tags: input.tags === undefined ? debt.tags : cleanTags(input.tags),
       eventId: input.eventId === undefined ? debt.eventId : input.eventId,
       status: input.status ?? debt.status,
@@ -507,19 +580,29 @@ export class DebtulatorRepository {
 
   async createSharedExpense(input: SharedExpenseInput) {
     const timestamp = nowIso();
+    const expenseId = createId('expense');
     const expense = withGeneratedObligations({
-      id: createId('expense'),
+      id: expenseId,
       remoteId: input.remoteId ?? null,
       eventId: input.eventId,
       creatorUserId: cleanOptional(input.creatorUserId),
       payerId: input.payerId,
+      expensePayers: buildExpensePayers(
+        expenseId,
+        input.expensePayers ?? [{ eventMemberId: input.payerId, amountPaid: toAmount(input.amount) }],
+        input.currency,
+        timestamp,
+      ),
       amount: toAmount(input.amount),
       currency: input.currency,
       title: input.title.trim(),
       notes: cleanOptional(input.notes),
       expenseDate: input.expenseDate || todayIsoDate(),
       participantIds: cleanParticipants(input.participantIds),
-      splitMethod: 'equal',
+      splitMethod: input.splitMethod ?? 'equal',
+      splitAllocations: input.splitAllocations ?? {},
+      dueDate: cleanOptional(input.dueDate),
+      recurringTemplateId: cleanOptional(input.recurringTemplateId),
       tags: cleanTags(input.tags),
       status: input.status ?? 'active',
       verificationStatus: input.verificationStatus ?? 'local_only',
@@ -546,9 +629,12 @@ export class DebtulatorRepository {
     const financialFieldsChanged = [
       input.eventId !== undefined && input.eventId !== expense.eventId,
       input.payerId !== undefined && input.payerId !== expense.payerId,
+      input.expensePayers !== undefined,
       input.amount !== undefined && toAmount(input.amount) !== expense.amount,
       input.currency !== undefined && input.currency !== expense.currency,
       input.participantIds !== undefined && nextParticipantIds.join('|') !== expense.participantIds.join('|'),
+      input.splitMethod !== undefined && input.splitMethod !== expense.splitMethod,
+      input.splitAllocations !== undefined,
     ].some(Boolean);
 
     const nextVerificationStatus =
@@ -562,12 +648,23 @@ export class DebtulatorRepository {
       eventId: input.eventId ?? expense.eventId,
       creatorUserId: input.creatorUserId === undefined ? expense.creatorUserId : cleanOptional(input.creatorUserId),
       payerId: input.payerId ?? expense.payerId,
+      expensePayers:
+        input.expensePayers === undefined
+          ? expense.expensePayers
+          : buildExpensePayers(expense.id, input.expensePayers, input.currency ?? expense.currency, expense.createdAt),
       amount: input.amount === undefined ? expense.amount : toAmount(input.amount),
       currency: input.currency ?? expense.currency,
       title: input.title?.trim() ?? expense.title,
       notes: input.notes === undefined ? expense.notes : cleanOptional(input.notes),
       expenseDate: input.expenseDate ?? expense.expenseDate,
       participantIds: nextParticipantIds,
+      splitMethod: input.splitMethod ?? expense.splitMethod,
+      splitAllocations: input.splitAllocations ?? expense.splitAllocations,
+      dueDate: input.dueDate === undefined ? expense.dueDate : cleanOptional(input.dueDate),
+      recurringTemplateId:
+        input.recurringTemplateId === undefined
+          ? expense.recurringTemplateId
+          : cleanOptional(input.recurringTemplateId),
       tags: input.tags === undefined ? expense.tags : cleanTags(input.tags),
       status: input.status ?? expense.status,
       verificationStatus: nextVerificationStatus,
@@ -947,6 +1044,7 @@ export class DebtulatorRepository {
       title: input.title.trim(),
       notes: cleanOptional(input.notes),
       debtDate: input.debtDate || todayIsoDate(),
+      dueDate: cleanOptional(input.dueDate),
       tags: cleanTags(input.tags),
       verificationStatus: input.verificationStatus ?? 'pending',
       settlementStatus: input.settlementStatus ?? 'active',
@@ -978,6 +1076,7 @@ export class DebtulatorRepository {
       title: input.title?.trim() ?? debt.title,
       notes: input.notes === undefined ? debt.notes : cleanOptional(input.notes),
       debtDate: input.debtDate ?? debt.debtDate,
+      dueDate: input.dueDate === undefined ? debt.dueDate : cleanOptional(input.dueDate),
       tags: input.tags === undefined ? debt.tags : cleanTags(input.tags),
       verificationStatus: input.verificationStatus ?? debt.verificationStatus,
       settlementStatus: input.settlementStatus ?? debt.settlementStatus,
@@ -1260,6 +1359,295 @@ export class DebtulatorRepository {
     return activity;
   }
 
+  async upsertPayment(payment: Payment) {
+    await insertPayment(this.db, payment);
+    return payment;
+  }
+
+  async upsertSettlement(settlement: Settlement) {
+    await insertSettlement(this.db, settlement);
+    return settlement;
+  }
+
+  async upsertSettlementLine(line: SettlementLine) {
+    await insertSettlementLine(this.db, line);
+    return line;
+  }
+
+  async createPaymentSettlement(input: CreatePaymentInput) {
+    const timestamp = nowIso();
+    const eventScoped = Boolean(input.eventId);
+    const payment: Payment = {
+      id: createId('payment'),
+      localId: null,
+      remoteId: null,
+      createdByUserId: cleanOptional(input.createdByUserId),
+      payerUserId: null,
+      payeeUserId: null,
+      payerMemberId: eventScoped || input.payerId === 'me' ? null : input.payerId,
+      payeeMemberId: eventScoped || input.payeeId === 'me' ? null : input.payeeId,
+      payerEventMemberId: eventScoped ? input.payerId : null,
+      payeeEventMemberId: eventScoped ? input.payeeId : null,
+      eventId: input.eventId ?? null,
+      relatedMemberId: input.relatedMemberId ?? (!eventScoped && input.payerId !== 'me' ? input.payerId : input.payeeId !== 'me' ? input.payeeId : null),
+      amount: toAmount(input.amount),
+      currency: input.currency,
+      paymentDate: input.paymentDate || todayIsoDate(),
+      notes: cleanOptional(input.notes),
+      status: input.status ?? 'recorded',
+      confirmationStatus: input.confirmationStatus ?? (eventScoped ? 'pending_confirmation' : 'local_only'),
+      visibility: input.visibility ?? (eventScoped ? 'shared_event' : 'private'),
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      archivedAt: null,
+      syncStatus: eventScoped ? 'pending_upload' : 'local_only',
+    };
+    const settlement: Settlement = {
+      id: createId('settlement'),
+      localId: null,
+      remoteId: null,
+      createdByUserId: payment.createdByUserId,
+      eventId: input.eventId ?? null,
+      memberId: payment.relatedMemberId,
+      type: input.settlementType ?? 'manual',
+      currency: payment.currency,
+      totalAmount: payment.amount,
+      status: payment.status === 'pending_confirmation' ? 'pending_confirmation' : 'recorded',
+      confirmationStatus: payment.confirmationStatus,
+      notes: cleanOptional(input.settlementNotes) ?? payment.notes,
+      originalCurrency: input.convertedSettlement?.originalCurrency ?? null,
+      originalAmount: input.convertedSettlement?.originalAmount ?? null,
+      settlementCurrency: input.convertedSettlement?.settlementCurrency ?? null,
+      settlementAmount: input.convertedSettlement?.settlementAmount ?? null,
+      exchangeRateUsed: input.convertedSettlement?.exchangeRateUsed ?? null,
+      exchangeRateDate: input.convertedSettlement?.exchangeRateDate ?? null,
+      conversionNote: input.convertedSettlement?.conversionNote ?? null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      archivedAt: null,
+      syncStatus: payment.syncStatus,
+    };
+    const lines = (input.lines ?? []).map<SettlementLine>((line) => ({
+      id: createId('settlement_line'),
+      settlementId: settlement.id,
+      paymentId: payment.id,
+      sourceRecordType: line.sourceRecordType,
+      sourceRecordId: line.sourceRecordId,
+      appliedAmount: toAmount(line.appliedAmount),
+      currency: payment.currency,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    }));
+    const appliedAmount = toAmount(lines.reduce((total, line) => total + line.appliedAmount, 0));
+    const overpaymentAmount = toAmount(payment.amount - appliedAmount);
+
+    await insertPayment(this.db, payment);
+    await insertSettlement(this.db, settlement);
+    for (const line of lines) {
+      await insertSettlementLine(this.db, line);
+    }
+
+    let overpaymentCredit: OverpaymentCredit | null = null;
+    if (overpaymentAmount > 0.005) {
+      overpaymentCredit = {
+        id: createId('overpayment'),
+        createdByUserId: payment.createdByUserId,
+        payerMemberId: payment.payerMemberId,
+        payeeMemberId: payment.payeeMemberId,
+        payerEventMemberId: payment.payerEventMemberId,
+        payeeEventMemberId: payment.payeeEventMemberId,
+        eventId: payment.eventId,
+        amount: overpaymentAmount,
+        currency: payment.currency,
+        sourcePaymentId: payment.id,
+        status: 'open',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      };
+      await insertOverpaymentCredit(this.db, overpaymentCredit);
+    }
+
+    await this.logActivity('payment', payment.id, 'payment_recorded', payment.createdByUserId, {
+      settlementId: settlement.id,
+      appliedAmount,
+      overpaymentAmount,
+    });
+    await this.logActivity('settlement', settlement.id, 'settlement_record_created', payment.createdByUserId, {
+      paymentId: payment.id,
+      lineCount: lines.length,
+    });
+    if (payment.eventId) {
+      await this.logEventActivity(payment.eventId, 'settlement_record_created', payment.createdByUserId, 'settlement', settlement.id, {
+        paymentId: payment.id,
+        lineCount: lines.length,
+        overpaymentAmount,
+      });
+    }
+    return { payment, settlement, lines, overpaymentCredit };
+  }
+
+  async createRecurringTemplate(input: CreateRecurringTemplateInput) {
+    const timestamp = nowIso();
+    const template: RecurringTemplate = {
+      id: createId('recurring'),
+      createdByUserId: cleanOptional(input.createdByUserId),
+      eventId: cleanOptional(input.eventId),
+      memberId: cleanOptional(input.memberId),
+      type: input.type,
+      title: input.title.trim(),
+      amount: toAmount(input.amount),
+      currency: input.currency,
+      recurrenceRule: input.recurrenceRule,
+      startDate: input.startDate || todayIsoDate(),
+      endDate: cleanOptional(input.endDate),
+      nextOccurrenceDate: input.nextOccurrenceDate || input.startDate || todayIsoDate(),
+      lastGeneratedDate: null,
+      status: 'active',
+      autoGenerate: input.autoGenerate ?? false,
+      reminderSettings: input.reminderSettings ?? null,
+      payload: input.payload,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    await insertRecurringTemplate(this.db, template);
+    await this.logActivity('recurring_template', template.id, 'recurring_template_created', template.createdByUserId, {
+      type: template.type,
+      recurrenceRule: template.recurrenceRule,
+    });
+    return template;
+  }
+
+  async updateRecurringTemplate(template: RecurringTemplate, input: Partial<CreateRecurringTemplateInput> & { status?: RecurringTemplate['status'] }) {
+    const updated: RecurringTemplate = {
+      ...template,
+      title: input.title?.trim() ?? template.title,
+      amount: input.amount === undefined ? template.amount : toAmount(input.amount),
+      currency: input.currency ?? template.currency,
+      recurrenceRule: input.recurrenceRule ?? template.recurrenceRule,
+      endDate: input.endDate === undefined ? template.endDate : cleanOptional(input.endDate),
+      nextOccurrenceDate: input.nextOccurrenceDate ?? template.nextOccurrenceDate,
+      status: input.status ?? template.status,
+      autoGenerate: input.autoGenerate ?? template.autoGenerate,
+      reminderSettings: input.reminderSettings === undefined ? template.reminderSettings : input.reminderSettings,
+      payload: input.payload ?? template.payload,
+      updatedAt: nowIso(),
+    };
+    await insertRecurringTemplate(this.db, updated);
+    await this.logActivity(
+      'recurring_template',
+      template.id,
+      input.status === 'paused' ? 'recurring_template_paused' : input.status === 'ended' ? 'recurring_template_ended' : 'recurring_template_edited',
+      updated.createdByUserId,
+      { status: updated.status },
+    );
+    return updated;
+  }
+
+  async generateDueRecurringRecords() {
+    const snapshot = await loadSnapshot(this.db);
+    const today = todayIsoDate();
+    const generated: string[] = [];
+    for (const template of snapshot.recurringTemplates) {
+      if (template.status !== 'active' || template.nextOccurrenceDate > today || (template.endDate && template.nextOccurrenceDate > template.endDate)) {
+        continue;
+      }
+      const existingDebt = snapshot.debts.find(
+        (debt) => debt.recurringTemplateId === template.id && debt.debtDate === template.nextOccurrenceDate,
+      );
+      const existingExpense = snapshot.sharedExpenses.find(
+        (expense) => expense.recurringTemplateId === template.id && expense.expenseDate === template.nextOccurrenceDate,
+      );
+      if (existingDebt || existingExpense) {
+        await insertRecurringTemplate(this.db, {
+          ...template,
+          lastGeneratedDate: template.nextOccurrenceDate,
+          nextOccurrenceDate: nextOccurrenceDate(template.nextOccurrenceDate, template.recurrenceRule),
+          updatedAt: nowIso(),
+        });
+        continue;
+      }
+      if (template.type === 'simple_debt') {
+        await this.createDebt({
+          memberId: String(template.payload.memberId ?? template.memberId ?? ''),
+          direction: template.payload.direction === 'i_owe_them' ? 'i_owe_them' : 'they_owe_me',
+          amount: template.amount,
+          currency: template.currency,
+          title: template.title,
+          notes: typeof template.payload.notes === 'string' ? template.payload.notes : null,
+          debtDate: template.nextOccurrenceDate,
+          dueDate: typeof template.payload.dueDate === 'string' ? template.payload.dueDate : null,
+          recurringTemplateId: template.id,
+          tags: Array.isArray(template.payload.tags) ? (template.payload.tags as string[]) : ['Recurring'],
+        });
+      } else if (template.type === 'shared_expense') {
+        await this.createSharedExpense({
+          eventId: String(template.payload.eventId ?? template.eventId ?? ''),
+          creatorUserId: template.createdByUserId,
+          payerId: String(template.payload.payerId ?? 'me'),
+          amount: template.amount,
+          currency: template.currency,
+          title: template.title,
+          notes: typeof template.payload.notes === 'string' ? template.payload.notes : null,
+          expenseDate: template.nextOccurrenceDate,
+          participantIds: Array.isArray(template.payload.participantIds) ? (template.payload.participantIds as ParticipantId[]) : ['me'],
+          splitMethod: (template.payload.splitMethod as SharedExpense['splitMethod'] | undefined) ?? 'equal',
+          splitAllocations: (template.payload.splitAllocations as Record<ParticipantId, number> | undefined) ?? {},
+          expensePayers: Array.isArray(template.payload.expensePayers)
+            ? (template.payload.expensePayers as { eventMemberId: ParticipantId; amountPaid: number }[])
+            : undefined,
+          recurringTemplateId: template.id,
+          tags: Array.isArray(template.payload.tags) ? (template.payload.tags as string[]) : ['Recurring'],
+        });
+      }
+      generated.push(template.id);
+      await insertRecurringTemplate(this.db, {
+        ...template,
+        lastGeneratedDate: template.nextOccurrenceDate,
+        nextOccurrenceDate: nextOccurrenceDate(template.nextOccurrenceDate, template.recurrenceRule),
+        updatedAt: nowIso(),
+      });
+      await this.logActivity('recurring_template', template.id, 'recurring_record_generated', template.createdByUserId, {
+        generatedDate: template.nextOccurrenceDate,
+      });
+    }
+    return generated;
+  }
+
+  async createReminder(input: Omit<Reminder, 'id' | 'createdAt' | 'updatedAt' | 'status'> & { status?: Reminder['status'] }) {
+    const timestamp = nowIso();
+    const reminder: Reminder = {
+      ...input,
+      id: createId('reminder'),
+      status: input.status ?? 'scheduled',
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    await insertReminder(this.db, reminder);
+    await this.logActivity('reminder', reminder.id, 'reminder_scheduled', reminder.userId, {
+      targetType: reminder.targetType,
+      targetId: reminder.targetId,
+    });
+    return reminder;
+  }
+
+  async createSoftReminder(input: Omit<SoftReminder, 'id' | 'createdAt' | 'updatedAt' | 'status'> & { status?: SoftReminder['status'] }) {
+    const timestamp = nowIso();
+    const reminder: SoftReminder = {
+      ...input,
+      id: createId('soft_reminder'),
+      status: input.status ?? 'sent',
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    await insertSoftReminder(this.db, reminder);
+    await this.logActivity('soft_reminder', reminder.id, 'reminder_sent', reminder.senderUserId, {
+      relatedMemberId: reminder.relatedMemberId,
+      relatedEventId: reminder.relatedEventId,
+      relatedRecordId: reminder.relatedRecordId,
+    });
+    return reminder;
+  }
+
   async respondToDebtVerification(
     verification: DebtVerification,
     debt: Debt,
@@ -1481,6 +1869,43 @@ function cleanParticipants(participantIds: ParticipantId[]) {
 
 function toAmount(value: number) {
   return Math.max(0, Math.round((Number(value) || 0) * 100) / 100);
+}
+
+function buildExpensePayers(
+  expenseId: string,
+  payers: { eventMemberId: ParticipantId; amountPaid: number }[],
+  currency: CurrencyCode,
+  timestamp: string,
+): ExpensePayer[] {
+  return payers
+    .filter((payer) => payer.eventMemberId && toAmount(payer.amountPaid) > 0)
+    .map((payer, index) => ({
+      id: `${expenseId}_payer_${payer.eventMemberId}_${index}`,
+      expenseId,
+      eventMemberId: payer.eventMemberId,
+      amountPaid: toAmount(payer.amountPaid),
+      currency,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    }));
+}
+
+function nextOccurrenceDate(currentDate: string, recurrenceRule: string) {
+  const date = new Date(`${currentDate}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime())) {
+    return todayIsoDate();
+  }
+  const lower = recurrenceRule.toLowerCase();
+  const intervalMatch = lower.match(/interval=(\d+)/);
+  const interval = Math.max(1, Number(intervalMatch?.[1] ?? 1));
+  if (lower.includes('weekly')) {
+    date.setUTCDate(date.getUTCDate() + 7 * interval);
+  } else if (lower.includes('yearly')) {
+    date.setUTCFullYear(date.getUTCFullYear() + interval);
+  } else {
+    date.setUTCMonth(date.getUTCMonth() + interval);
+  }
+  return date.toISOString().slice(0, 10);
 }
 
 function hasEventUpdate(input: Partial<EventInput> & { archived?: boolean; ignoredDuplicateKeys?: string[] }) {

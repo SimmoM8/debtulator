@@ -98,6 +98,27 @@ export function MemberDetailScreen() {
             onPress={() => router.push({ pathname: '/debt/form', params: { memberId: member.id } })}
           />
           <Button
+            title="Record settlement"
+            icon="card"
+            variant="secondary"
+            onPress={() => router.push({ pathname: '/payment/form', params: { memberId: member.id } })}
+          />
+          <Button
+            title="Send reminder"
+            icon="notifications"
+            variant="secondary"
+            onPress={() =>
+              data.createSoftReminder({
+                senderUserId: auth.identity.authenticatedUserId,
+                recipientUserId: member.linkedUserId,
+                relatedMemberId: member.id,
+                relatedEventId: null,
+                relatedRecordId: null,
+                message: `${auth.identity.displayName} shared a reminder about an open balance.`,
+              })
+            }
+          />
+          <Button
             title={member.archived ? 'Restore' : 'Archive'}
             icon={member.archived ? 'archive-outline' : 'archive'}
             variant="secondary"
@@ -207,6 +228,22 @@ export function MemberDetailScreen() {
           ))
         ) : (
           <EmptyState title="No debt history" body="Add a simple debt or include this member in an event expense." />
+        )}
+      </Card>
+
+      <SectionTitle title="Payment history" subtitle="Recorded payments and settlement records with this member." />
+      <Card>
+        {data.payments.filter((payment) => payment.relatedMemberId === member.id || payment.payerMemberId === member.id || payment.payeeMemberId === member.id).length > 0 ? (
+          data.payments
+            .filter((payment) => payment.relatedMemberId === member.id || payment.payerMemberId === member.id || payment.payeeMemberId === member.id)
+            .map((payment) => (
+              <View key={payment.id} style={styles.trustRow}>
+                <Text style={styles.trustLabel}>{payment.paymentDate}</Text>
+                <Text style={styles.body}>{payment.amount} {payment.currency} · {payment.status.replaceAll('_', ' ')}</Text>
+              </View>
+            ))
+        ) : (
+          <EmptyState title="No payment history" body="Record a payment or settlement to reduce open balances." />
         )}
       </Card>
 

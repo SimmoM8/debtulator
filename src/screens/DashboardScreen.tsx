@@ -41,6 +41,16 @@ export function DashboardScreen() {
   const eventVerificationItems = data.ledgerEntries
     .filter((entry) => entry.visibility === 'shared_event' && ['pending', 'partially_verified', 'rejected', 'disputed'].includes(entry.verificationStatus))
     .slice(0, 4);
+  const today = new Date().toISOString().slice(0, 10);
+  const dueSoon = data.ledgerEntries
+    .filter((entry) => entry.dueDate && entry.dueDate >= today && entry.remainingAmount > 0.005)
+    .slice(0, 4);
+  const overdue = data.ledgerEntries
+    .filter((entry) => entry.dueDate && entry.dueDate < today && entry.remainingAmount > 0.005)
+    .slice(0, 4);
+  const paymentAttention = data.ledgerEntries
+    .filter((entry) => entry.paymentStatus === 'partially_paid' || entry.paymentStatus === 'overpaid')
+    .slice(0, 4);
 
   const topMembers = useMemo(
     () =>
@@ -100,8 +110,41 @@ export function DashboardScreen() {
         <QuickAction label="Add event" icon="people" onPress={() => router.push('/event/form')} />
         <QuickAction label="Shared event" icon="globe" onPress={() => router.push({ pathname: '/event/form', params: { visibility: 'shared' } })} />
         <QuickAction label="Add expense" icon="cart" onPress={() => router.push('/expense/form')} />
+        <QuickAction label="Recurring" icon="repeat" onPress={() => router.push('/recurring')} />
         <QuickAction label="Requests" icon="notifications" onPress={() => router.push('/requests')} />
       </View>
+
+      <ResponsiveGrid>
+        <View style={styles.gridItem}>
+          <SectionTitle title="Due and overdue" subtitle="Due dates do not change amounts; they help reminders." />
+          <Card>
+            <View style={styles.badgeLine}>
+              <Badge label={`${dueSoon.length} due soon`} tone={dueSoon.length ? 'amber' : 'neutral'} />
+              <Badge label={`${overdue.length} overdue`} tone={overdue.length ? 'negative' : 'neutral'} />
+            </View>
+            {[...overdue, ...dueSoon].slice(0, 4).map((entry) => (
+              <DebtRow key={entry.id} entry={entry} members={data.members} sharedEventMembers={data.sharedEventMembers} />
+            ))}
+          </Card>
+        </View>
+        <View style={styles.gridItem}>
+          <SectionTitle title="Payments" subtitle="Recent payments and partial/overpaid records." />
+          <Card>
+            {data.payments.slice(0, 3).map((payment) => (
+              <View key={payment.id} style={styles.activityRow}>
+                <Text style={styles.quickText}>{payment.amount} {payment.currency} · {payment.status.replaceAll('_', ' ')}</Text>
+                <Text style={styles.activityMeta}>{payment.paymentDate}</Text>
+              </View>
+            ))}
+            {paymentAttention.map((entry) => (
+              <DebtRow key={entry.id} entry={entry} members={data.members} sharedEventMembers={data.sharedEventMembers} />
+            ))}
+            {data.payments.length === 0 && paymentAttention.length === 0 ? (
+              <EmptyState title="No payment activity" body="Partial payments and recent settlements will appear here." />
+            ) : null}
+          </Card>
+        </View>
+      </ResponsiveGrid>
 
       <ResponsiveGrid>
         <View style={styles.gridItem}>

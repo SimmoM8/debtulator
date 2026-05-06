@@ -90,10 +90,13 @@ export function DebtRow({
           <VerificationBadge status={entry.verificationStatus} />
           <VisibilityBadge visibility={entry.visibility} />
           {member ? <LinkStatusBadge status={member.linkStatus} /> : null}
+          <Text style={styles.rowMeta}>{entry.paymentStatus.replaceAll('_', ' ')}</Text>
         </View>
       </View>
       <View style={styles.amountBlock}>
-        <Text style={styles.amountText}>{formatMoney(entry.amount, entry.currency)}</Text>
+        <Text style={styles.amountText}>{formatMoney(entry.remainingAmount, entry.currency)}</Text>
+        {entry.amountPaid > 0 ? <Text style={styles.kindText}>paid {formatMoney(entry.amountPaid, entry.currency)}</Text> : null}
+        {entry.dueDate ? <Text style={styles.kindText}>due {entry.dueDate}</Text> : null}
         <Text style={styles.kindText}>{entry.kind === 'simple_debt' ? 'Debt' : entry.kind === 'event_direct_debt' ? 'Event debt' : 'Split'}</Text>
       </View>
     </Pressable>

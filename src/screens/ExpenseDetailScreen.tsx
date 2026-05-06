@@ -17,6 +17,7 @@ import {
 } from '@/src/components/ui/Primitives';
 import { palette, spacing } from '@/src/constants/design';
 import { participantName } from '@/src/services/ledger';
+import { explainSplit } from '@/src/services/splits';
 import { useAppData } from '@/src/state/AppDataProvider';
 import type { DebtStatus, VerificationStatus } from '@/src/types/models';
 import { formatMoney } from '@/src/utils/money';
@@ -40,6 +41,14 @@ export function ExpenseDetailScreen() {
   }
 
   const currentExpense = expense;
+  const splitExplanation = explainSplit({
+    amount: expense.amount,
+    currency: expense.currency,
+    participantIds: expense.participantIds,
+    splitMethod: expense.splitMethod,
+    splitAllocations: expense.splitAllocations,
+    expensePayers: expense.expensePayers,
+  });
 
   async function updateStatus(status: DebtStatus) {
     await data.updateSharedExpense(currentExpense.id, { status });
@@ -70,7 +79,7 @@ export function ExpenseDetailScreen() {
           </View>
         </View>
         <Text style={styles.body}>
-          Split equally between{' '}
+          Split by {expense.splitMethod.replaceAll('_', ' ')} between{' '}
           {expense.participantIds
             .map((participantId) => participantName(participantId, data.members, data.sharedEventMembers))
             .join(', ')}
@@ -96,7 +105,22 @@ export function ExpenseDetailScreen() {
       ) : null}
 
       <Card>
-        <SectionTitle title="Generated obligations" subtitle="Payer's own share is excluded from generated rows." />
+        <SectionTitle title="Split explanation" subtitle="Shares, payer contributions, and resulting obligations." />
+        <Text style={styles.label}>Paid by</Text>
+        {expense.expensePayers.map((payer) => (
+          <View key={payer.id} style={styles.infoRow}>
+            <Text style={styles.infoValue}>{participantName(payer.eventMemberId, data.members, data.sharedEventMembers)}</Text>
+            <Text style={styles.money}>{formatMoney(payer.amountPaid, payer.currency)}</Text>
+          </View>
+        ))}
+        <Text style={styles.label}>Participant shares</Text>
+        {Object.entries(splitExplanation.participantShares).map(([participantId, share]) => (
+          <View key={participantId} style={styles.infoRow}>
+            <Text style={styles.infoValue}>{participantName(participantId, data.members, data.sharedEventMembers)}</Text>
+            <Text style={styles.money}>{formatMoney(share, expense.currency)}</Text>
+          </View>
+        ))}
+        <Text style={styles.label}>Generated obligations</Text>
         {expense.generatedObligations.map((obligation) => (
           <View key={obligation.id} style={styles.infoRow}>
             <Text style={styles.infoValue}>
@@ -106,6 +130,10 @@ export function ExpenseDetailScreen() {
             <Text style={styles.money}>{formatMoney(obligation.amount, obligation.currency)}</Text>
           </View>
         ))}
+        <Text style={styles.body}>
+          Rounding adjustment: {formatMoney(splitExplanation.roundingAdjustment, expense.currency)}. Payer contribution total:{' '}
+          {formatMoney(splitExplanation.payerContributionTotal, expense.currency)}.
+        </Text>
       </Card>
 
       <Card>

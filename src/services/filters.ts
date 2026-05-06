@@ -50,6 +50,10 @@ export function filterDebtEntries(
   const eventById = new Map(events.map((event) => [event.id, event]));
   const minAmount = Number(filters.minAmount);
   const maxAmount = Number(filters.maxAmount);
+  const today = new Date().toISOString().slice(0, 10);
+  const soon = new Date();
+  soon.setDate(soon.getDate() + 7);
+  const soonDate = soon.toISOString().slice(0, 10);
 
   const filtered = entries.filter((entry) => {
     const memberNames = [entry.fromId, entry.toId]
@@ -84,6 +88,12 @@ export function filterDebtEntries(
     const visibilityMatch = filters.visibility === 'all' || entry.visibility === filters.visibility;
     const tagMatch = !filters.tag || entry.tags.includes(filters.tag);
     const kindMatch = filters.kind === 'all' || entry.kind === filters.kind;
+    const paymentMatch = filters.paymentStatus === 'all' || entry.paymentStatus === filters.paymentStatus;
+    const dueMatch =
+      filters.dueMode === 'all' ||
+      (filters.dueMode === 'no_due_date' && !entry.dueDate) ||
+      (filters.dueMode === 'overdue' && Boolean(entry.dueDate && entry.dueDate < today && entry.remainingAmount > 0.005)) ||
+      (filters.dueMode === 'due_soon' && Boolean(entry.dueDate && entry.dueDate >= today && entry.dueDate <= soonDate));
     const amountMatch =
       (!Number.isFinite(minAmount) || entry.amount >= minAmount) &&
       (!Number.isFinite(maxAmount) || entry.amount <= maxAmount);
@@ -103,6 +113,8 @@ export function filterDebtEntries(
       visibilityMatch &&
       tagMatch &&
       kindMatch &&
+      paymentMatch &&
+      dueMatch &&
       amountMatch &&
       directionMatch
     );
@@ -116,6 +128,10 @@ export function filterDebtEntries(
         return second.amount - first.amount;
       case 'amount_asc':
         return first.amount - second.amount;
+      case 'due_date':
+        return (first.dueDate ?? '9999-12-31').localeCompare(second.dueDate ?? '9999-12-31');
+      case 'remaining_amount':
+        return second.remainingAmount - first.remainingAmount;
       case 'name_asc':
         return first.title.localeCompare(second.title);
       case 'date_desc':

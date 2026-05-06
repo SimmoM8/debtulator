@@ -10,16 +10,17 @@ import {
   MultiSelectChips,
   PageHeader,
   Screen,
+  SectionTitle,
   SelectChips,
   TextField,
 } from '@/src/components/ui/Primitives';
 import { CURRENCIES } from '@/src/constants/currencies';
 import { palette, spacing } from '@/src/constants/design';
-import { buildEqualSplitObligations } from '@/src/services/splits';
+import { buildSplitObligations, calculateParticipantShares, validateSplit } from '@/src/services/splits';
 import { participantName } from '@/src/services/ledger';
 import { useAppData } from '@/src/state/AppDataProvider';
 import { useAuth } from '@/src/state/AuthProvider';
-import type { CurrencyCode, DebtStatus, DebtVisibility, ParticipantId, VerificationStatus } from '@/src/types/models';
+import type { CurrencyCode, DebtStatus, DebtVisibility, ExpensePayer, ParticipantId, SplitMethod, VerificationStatus } from '@/src/types/models';
 import { createId, todayIsoDate } from '@/src/utils/id';
 import { formatMoney } from '@/src/utils/money';
 
@@ -67,6 +68,13 @@ export function ExpenseFormScreen() {
   const [notes, setNotes] = useState(expense?.notes ?? '');
   const [expenseDate, setExpenseDate] = useState(expense?.expenseDate ?? todayIsoDate());
   const [participantIds, setParticipantIds] = useState<ParticipantId[]>(expense?.participantIds ?? defaultParticipants);
+  const [splitMethod, setSplitMethod] = useState<SplitMethod>(expense?.splitMethod ?? 'equal');
+  const [splitAllocations, setSplitAllocations] = useState<Record<ParticipantId, string>>(
+    Object.fromEntries(Object.entries(expense?.splitAllocations ?? {}).map(([participantId, value]) => [participantId, String(value)])),
+  );
+  const [payerAmounts, setPayerAmounts] = useState<Record<ParticipantId, string>>(
+    Object.fromEntries((expense?.expensePayers ?? []).map((payer) => [payer.eventMemberId, String(payer.amountPaid)])),
+  );
   const [tags, setTags] = useState(expense?.tags.join(', ') ?? '');
   const [status, setStatus] = useState<DebtStatus>(expense?.status ?? 'active');
   const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>(expense?.verificationStatus ?? 'local_only');
@@ -99,13 +107,34 @@ export function ExpenseFormScreen() {
     [data.members, data.sharedEventMembers, eventMemberIds, isSharedEvent],
   );
 
-  const obligations = buildEqualSplitObligations({
+  const numericSplitAllocations = Object.fromEntries(
+    participantIds.map((participantId) => [participantId, Number(splitAllocations[participantId]) || 0]),
+  ) as Record<ParticipantId, number>;
+  const expensePayers = buildPayersForSave(expense?.id ?? createId('expense_preview'), payerId, amount, currency, payerAmounts);
+  const splitErrors = validateSplit({
+    amount: Number(amount) || 0,
+    participantIds,
+    splitMethod,
+    splitAllocations: numericSplitAllocations,
+    expensePayers,
+    currency,
+  });
+  const shares = calculateParticipantShares({
+    amount: Number(amount) || 0,
+    participantIds,
+    splitMethod,
+    splitAllocations: numericSplitAllocations,
+  });
+  const obligations = buildSplitObligations({
     expenseId: expense?.id ?? createId('expense_preview'),
     eventId: selectedEventId,
     payerId,
+    expensePayers,
     amount: Number(amount) || 0,
     currency,
     participantIds,
+    splitMethod,
+    splitAllocations: numericSplitAllocations,
   });
 
   if (data.loading || auth.loading) {
@@ -124,6 +153,12 @@ export function ExpenseFormScreen() {
       notes,
       expenseDate,
       participantIds,
+      splitMethod,
+      splitAllocations: numericSplitAllocations,
+      expensePayers: buildPayersForSave(expense?.id ?? createId('expense_preview'), payerId, amount, currency, payerAmounts).map((payer) => ({
+        eventMemberId: payer.eventMemberId,
+        amountPaid: payer.amountPaid,
+      })),
       tags: splitTags(tags),
       status,
       verificationStatus,
@@ -159,7 +194,7 @@ export function ExpenseFormScreen() {
           title={expense ? 'Save expense' : 'Create expense'}
           icon="checkmark"
           onPress={save}
-          disabled={!selectedEventId || !title.trim() || Number(amount) <= 0 || participantIds.length === 0}
+          disabled={!selectedEventId || !title.trim() || Number(amount) <= 0 || participantIds.length === 0 || splitErrors.length > 0}
         />
       }>
       <PageHeader
@@ -170,7 +205,7 @@ export function ExpenseFormScreen() {
 
       <Card>
         <SelectChips label="Event" value={selectedEventId} options={eventOptions} onChange={setSelectedEventId} />
-        <SelectChips label="Payer" value={payerId} options={participantOptions} onChange={setPayerId} />
+        <SelectChips label="Primary payer" value={payerId} options={participantOptions} onChange={setPayerId} />
         <TextField label="Title" value={title} onChangeText={setTitle} placeholder="Groceries" />
         <TextField label="Amount" value={amount} onChangeText={setAmount} keyboardType="numeric" />
         <SelectChips
@@ -183,6 +218,40 @@ export function ExpenseFormScreen() {
         <TextField label="Notes" value={notes} onChangeText={setNotes} multiline />
         <TextField label="Tags" value={tags} onChangeText={setTags} placeholder="Food, Travel" />
         <MultiSelectChips label="Split participants" values={participantIds} options={participantOptions} onChange={setParticipantIds} />
+        <SelectChips
+          label="Split method"
+          value={splitMethod}
+          options={[
+            { label: 'Equal', value: 'equal' },
+            { label: 'Custom amounts', value: 'custom_amount' },
+            { label: 'Percentages', value: 'custom_percentage' },
+            { label: 'Shares', value: 'shares' },
+          ]}
+          onChange={setSplitMethod}
+        />
+        {splitMethod !== 'equal'
+          ? participantIds.map((participantId) => (
+              <TextField
+                key={participantId}
+                label={`${participantName(participantId, data.members, data.sharedEventMembers)} ${
+                  splitMethod === 'custom_amount' ? 'amount' : splitMethod === 'custom_percentage' ? 'percent' : 'weight'
+                }`}
+                value={splitAllocations[participantId] ?? ''}
+                onChangeText={(value) => setSplitAllocations((current) => ({ ...current, [participantId]: value }))}
+                keyboardType="numeric"
+              />
+            ))
+          : null}
+        <SectionTitle title="Paid by" subtitle="Multiple payer contributions must total the expense amount." />
+        {participantOptions.map((option) => (
+          <TextField
+            key={option.value}
+            label={`${option.label} paid`}
+            value={payerAmounts[option.value] ?? (option.value === payerId && Object.keys(payerAmounts).length === 0 ? amount : '')}
+            onChangeText={(value) => setPayerAmounts((current) => ({ ...current, [option.value]: value }))}
+            keyboardType="numeric"
+          />
+        ))}
         <SelectChips
           label="Status"
           value={status}
@@ -209,7 +278,16 @@ export function ExpenseFormScreen() {
       </Card>
 
       <Card tone="blue">
-        <Text style={styles.label}>Equal split preview</Text>
+        <Text style={styles.label}>Split preview</Text>
+        {splitErrors.map((error) => (
+          <Text key={error} style={styles.errorText}>{error}</Text>
+        ))}
+        {participantIds.map((participantId) => (
+          <View key={`share_${participantId}`} style={styles.previewRow}>
+            <Text style={styles.previewText}>{participantName(participantId, data.members, data.sharedEventMembers)} share</Text>
+            <Text style={styles.previewMoney}>{formatMoney(shares[participantId] ?? 0, currency)}</Text>
+          </View>
+        ))}
         {obligations.length > 0 ? (
           obligations.map((obligation) => (
             <View key={obligation.id} style={styles.previewRow}>
@@ -261,4 +339,31 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '900',
   },
+  errorText: {
+    color: palette.negative,
+    fontSize: 13,
+    fontWeight: '800',
+  },
 });
+
+function buildPayersForSave(
+  expenseId: string,
+  payerId: ParticipantId,
+  amount: string,
+  currency: CurrencyCode,
+  payerAmounts: Record<ParticipantId, string>,
+): ExpensePayer[] {
+  const entries = Object.entries(payerAmounts)
+    .map(([eventMemberId, paid]) => ({ eventMemberId, amountPaid: Number(paid) || 0 }))
+    .filter((payer) => payer.amountPaid > 0);
+  const payers = entries.length ? entries : [{ eventMemberId: payerId, amountPaid: Number(amount) || 0 }];
+  return payers.map((payer, index) => ({
+    id: `${expenseId}_payer_${payer.eventMemberId}_${index}`,
+    expenseId,
+    eventMemberId: payer.eventMemberId,
+    amountPaid: payer.amountPaid,
+    currency,
+    createdAt: '',
+    updatedAt: '',
+  }));
+}

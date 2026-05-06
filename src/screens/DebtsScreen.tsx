@@ -35,6 +35,11 @@ const defaultFilters: DebtFilters = {
   visibility: 'all',
   tag: null,
   kind: 'all',
+  paymentStatus: 'all',
+  dueMode: 'all',
+  reminderMode: 'all',
+  recurringMode: 'all',
+  settlementRecordMode: 'all',
   sort: 'date_desc',
 };
 
@@ -152,6 +157,29 @@ export function DebtsScreen() {
             { label: 'Archived', value: 'archived' },
           ]}
           onChange={(status) => setFilters((current) => ({ ...current, status }))}
+        />
+        <SelectChips
+          label="Payment state"
+          value={filters.paymentStatus}
+          options={[
+            { label: 'All', value: 'all' },
+            { label: 'Unpaid', value: 'unpaid' },
+            { label: 'Partially paid', value: 'partially_paid' },
+            { label: 'Paid', value: 'paid' },
+            { label: 'Overpaid', value: 'overpaid' },
+          ]}
+          onChange={(paymentStatus) => setFilters((current) => ({ ...current, paymentStatus }))}
+        />
+        <SelectChips
+          label="Due date"
+          value={filters.dueMode}
+          options={[
+            { label: 'All', value: 'all' },
+            { label: 'Due soon', value: 'due_soon' },
+            { label: 'Overdue', value: 'overdue' },
+            { label: 'No due date', value: 'no_due_date' },
+          ]}
+          onChange={(dueMode) => setFilters((current) => ({ ...current, dueMode }))}
         />
         <SelectChips
           label="Verification"

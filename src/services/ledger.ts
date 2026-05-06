@@ -10,7 +10,12 @@ import type {
   LedgerEntry,
   Member,
   MoneyMap,
+  OverpaymentCredit,
   ParticipantId,
+  Payment,
+  ObligationPaymentStatus,
+  SettlementLine,
+  SettlementSourceRecordType,
   SettlementSuggestion,
   SettlementMatchStep,
   SharedEventMember,
@@ -26,13 +31,25 @@ export const DEFAULT_EVENT_SETTLEMENT_SETTINGS: EventSettlementSettings = {
   includeRejectedDisputed: false,
   includeArchived: false,
   includeSettled: false,
+  directDebtOnly: false,
+  verifiedOnly: false,
+  includeLocalPrivate: true,
+  convertedCurrency: false,
+  settlementCurrency: null,
 };
 
 const DEFAULT_SETTLEMENT_VERIFICATIONS: VerificationStatus[] = ['local_only', 'verified', 'resolved'];
 const PERSONAL_BALANCE_EXCLUDED_VERIFICATIONS: VerificationStatus[] = ['rejected', 'disputed'];
 const EPSILON = 0.005;
 
-export function buildLedgerEntries(debts: Debt[], sharedExpenses: SharedExpense[], eventDebts: EventDebt[] = []): LedgerEntry[] {
+export function buildLedgerEntries(
+  debts: Debt[],
+  sharedExpenses: SharedExpense[],
+  eventDebts: EventDebt[] = [],
+  settlementLines: SettlementLine[] = [],
+  payments: Payment[] = [],
+  overpaymentCredits: OverpaymentCredit[] = [],
+): LedgerEntry[] {
   const simpleEntries: LedgerEntry[] = debts.map((debt) => ({
     id: `ledger_${debt.id}`,
     kind: 'simple_debt',
@@ -41,10 +58,16 @@ export function buildLedgerEntries(debts: Debt[], sharedExpenses: SharedExpense[
     fromId: debt.direction === 'they_owe_me' ? debt.memberId : 'me',
     toId: debt.direction === 'they_owe_me' ? 'me' : debt.memberId,
     amount: debt.amount,
+    originalAmount: debt.amount,
+    amountPaid: 0,
+    remainingAmount: debt.amount,
+    overpaidAmount: 0,
+    paymentStatus: debt.status === 'archived' ? 'archived' : 'unpaid',
     currency: debt.currency,
     title: debt.title,
     notes: debt.notes,
     date: debt.debtDate,
+    dueDate: debt.dueDate,
     tags: debt.tags,
     status: debt.status,
     verificationStatus: debt.verificationStatus,
@@ -62,10 +85,16 @@ export function buildLedgerEntries(debts: Debt[], sharedExpenses: SharedExpense[
       fromId: obligation.fromParticipantId,
       toId: obligation.toParticipantId,
       amount: obligation.amount,
+      originalAmount: obligation.amount,
+      amountPaid: 0,
+      remainingAmount: obligation.amount,
+      overpaidAmount: 0,
+      paymentStatus: expense.status === 'archived' ? 'archived' : 'unpaid',
       currency: obligation.currency,
       title: expense.title,
       notes: expense.notes,
       date: expense.expenseDate,
+      dueDate: expense.dueDate,
       tags: expense.tags,
       status: expense.status,
       verificationStatus: expense.verificationStatus,
@@ -82,10 +111,16 @@ export function buildLedgerEntries(debts: Debt[], sharedExpenses: SharedExpense[
     fromId: debt.debtorEventMemberId,
     toId: debt.creditorEventMemberId,
     amount: debt.amount,
+    originalAmount: debt.amount,
+    amountPaid: 0,
+    remainingAmount: debt.amount,
+    overpaidAmount: 0,
+    paymentStatus: debt.status === 'archived' ? 'archived' : 'unpaid',
     currency: debt.currency,
     title: debt.title,
     notes: debt.notes,
     date: debt.debtDate,
+    dueDate: debt.dueDate,
     tags: debt.tags,
     status: debt.status,
     verificationStatus: debt.verificationStatus,
@@ -93,7 +128,38 @@ export function buildLedgerEntries(debts: Debt[], sharedExpenses: SharedExpense[
     syncStatus: debt.syncStatus,
   }));
 
-  return [...simpleEntries, ...expenseEntries, ...eventDebtEntries].sort((a, b) => b.date.localeCompare(a.date));
+  const overpaymentEntries = overpaymentCredits
+    .filter((credit) => credit.status === 'open' && credit.amount > EPSILON)
+    .map<LedgerEntry>((credit) => ({
+      id: `ledger_${credit.id}`,
+      kind: 'overpayment_credit',
+      sourceId: credit.id,
+      eventId: credit.eventId,
+      fromId: credit.payeeEventMemberId ?? credit.payeeMemberId ?? 'me',
+      toId: credit.payerEventMemberId ?? credit.payerMemberId ?? 'me',
+      amount: credit.amount,
+      originalAmount: credit.amount,
+      amountPaid: 0,
+      remainingAmount: credit.amount,
+      overpaidAmount: 0,
+      paymentStatus: 'unpaid',
+      currency: credit.currency,
+      title: 'Unallocated overpayment credit',
+      notes: `Created from payment ${credit.sourcePaymentId}.`,
+      date: credit.createdAt.slice(0, 10),
+      dueDate: null,
+      tags: [],
+      status: 'active',
+      verificationStatus: 'local_only',
+      visibility: credit.eventId ? 'shared_event' : 'private',
+      syncStatus: 'local_only',
+    }));
+
+  return applySettlementsToEntries(
+    [...simpleEntries, ...expenseEntries, ...eventDebtEntries, ...overpaymentEntries],
+    settlementLines,
+    payments,
+  ).sort((a, b) => b.date.localeCompare(a.date));
 }
 
 export function isActiveLedgerEntry(entry: LedgerEntry) {
@@ -105,7 +171,7 @@ export function isIncludedInPersonalBalance(entry: LedgerEntry) {
 }
 
 export function isIncludedInSettlement(entry: LedgerEntry, includeStatuses = DEFAULT_SETTLEMENT_VERIFICATIONS) {
-  return isActiveLedgerEntry(entry) && includeStatuses.includes(entry.verificationStatus);
+  return isActiveLedgerEntry(entry) && entry.remainingAmount > EPSILON && includeStatuses.includes(entry.verificationStatus);
 }
 
 export function participantName(participantId: ParticipantId, members: Member[], sharedEventMembers: SharedEventMember[] = []) {
@@ -259,6 +325,18 @@ function excludedReason(
   if (entry.verificationStatus === 'cancelled') {
     return 'cancelled';
   }
+  if (settings.directDebtOnly && entry.kind !== 'simple_debt' && entry.kind !== 'event_direct_debt') {
+    return 'pending_excluded';
+  }
+  if (settings.verifiedOnly && entry.verificationStatus !== 'verified') {
+    return 'pending_excluded';
+  }
+  if (!settings.includeLocalPrivate && entry.verificationStatus === 'local_only') {
+    return 'pending_excluded';
+  }
+  if (entry.remainingAmount <= EPSILON && !settings.includeSettled) {
+    return 'settled';
+  }
   if (entry.verificationStatus === 'rejected' && !settings.includeRejectedDisputed) {
     return 'rejected';
   }
@@ -272,6 +350,61 @@ function excludedReason(
     return 'pending_excluded';
   }
   return null;
+}
+
+export function sourceRecordTypeForEntry(entry: LedgerEntry): SettlementSourceRecordType {
+  switch (entry.kind) {
+    case 'simple_debt':
+      return 'simple_debt';
+    case 'event_direct_debt':
+      return 'event_debt';
+    case 'overpayment_credit':
+      return 'overpayment_credit';
+    case 'expense_obligation':
+    default:
+      return 'shared_expense_obligation';
+  }
+}
+
+export function activeSettlementLines(lines: SettlementLine[], payments: Payment[]) {
+  const paymentById = new Map(payments.map((payment) => [payment.id, payment]));
+  return lines.filter((line) => {
+    const payment = line.paymentId ? paymentById.get(line.paymentId) : null;
+    return !payment || !['rejected', 'cancelled', 'archived'].includes(payment.status);
+  });
+}
+
+export function applySettlementsToEntries(entries: LedgerEntry[], lines: SettlementLine[], payments: Payment[]) {
+  const appliedBySource = new Map<string, number>();
+  for (const line of activeSettlementLines(lines, payments)) {
+    const key = `${line.sourceRecordType}:${line.sourceRecordId}:${line.currency}`;
+    appliedBySource.set(key, roundMoney((appliedBySource.get(key) ?? 0) + line.appliedAmount));
+  }
+
+  return entries.map((entry) => {
+    const key = `${sourceRecordTypeForEntry(entry)}:${entry.sourceId}:${entry.currency}`;
+    const amountPaid = roundMoney(appliedBySource.get(key) ?? 0);
+    const remainingAmount = roundMoney(Math.max(entry.originalAmount - amountPaid, 0));
+    const overpaidAmount = roundMoney(Math.max(amountPaid - entry.originalAmount, 0));
+    const paymentStatus: ObligationPaymentStatus =
+      entry.status === 'archived'
+        ? 'archived'
+        : entry.status === 'settled' || (remainingAmount <= EPSILON && overpaidAmount <= EPSILON && amountPaid > EPSILON)
+          ? 'paid'
+          : overpaidAmount > EPSILON
+            ? 'overpaid'
+            : amountPaid > EPSILON
+              ? 'partially_paid'
+              : 'unpaid';
+    return {
+      ...entry,
+      amount: remainingAmount,
+      amountPaid,
+      remainingAmount,
+      overpaidAmount,
+      paymentStatus,
+    };
+  });
 }
 
 export function simplifySettlements(nets: Record<ParticipantId, MoneyMap>) {

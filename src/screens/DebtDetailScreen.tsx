@@ -2,7 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import React from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 
-import { LinkStatusBadge, StatusBadge, SyncBadge, TagChips, VerificationBadge, VisibilityBadge } from '@/src/components/ui/Badges';
+import { Badge, LinkStatusBadge, StatusBadge, SyncBadge, TagChips, VerificationBadge, VisibilityBadge } from '@/src/components/ui/Badges';
 import { Amount } from '@/src/components/ui/Money';
 import {
   Button,
@@ -30,6 +30,9 @@ export function DebtDetailScreen() {
   const member = debt ? data.members.find((item) => item.id === debt.memberId) : undefined;
   const event = debt?.eventId ? data.events.find((item) => item.id === debt.eventId) : undefined;
   const entry = debt ? buildLedgerEntries([debt], [])[0] : undefined;
+  const currentEntry = data.ledgerEntries.find((item) => item.kind === 'simple_debt' && item.sourceId === id) ?? entry;
+  const paymentLines = data.settlementLines.filter((line) => line.sourceRecordType === 'simple_debt' && line.sourceRecordId === id);
+  const payments = data.payments.filter((payment) => paymentLines.some((line) => line.paymentId === payment.id));
 
   if (data.loading) {
     return <LoadingState />;
@@ -100,8 +103,19 @@ export function DebtDetailScreen() {
             <VerificationBadge status={debt.verificationStatus} />
             <VisibilityBadge visibility={debt.visibility} />
             <SyncBadge status={debt.syncStatus} />
+            <Badge label={currentEntry!.paymentStatus.replaceAll('_', ' ')} tone={currentEntry!.paymentStatus === 'overpaid' ? 'amber' : currentEntry!.paymentStatus === 'paid' ? 'positive' : 'blue'} />
           </View>
         </View>
+        <View style={styles.paymentGrid}>
+          <InfoTile label="Original" value={`${debt.amount} ${debt.currency}`} />
+          <InfoTile label="Paid" value={`${currentEntry!.amountPaid} ${debt.currency}`} />
+          <InfoTile label="Remaining" value={`${currentEntry!.remainingAmount} ${debt.currency}`} />
+        </View>
+        {currentEntry!.overpaidAmount > 0 ? (
+          <Text style={styles.body}>
+            Overpaid by {currentEntry!.overpaidAmount} {debt.currency}. This creates an explainable unallocated credit between the same people.
+          </Text>
+        ) : null}
         <Text style={styles.body}>
           {debt.direction === 'they_owe_me'
             ? `${member?.displayName ?? 'This member'} owes you.`
@@ -109,6 +123,28 @@ export function DebtDetailScreen() {
         </Text>
         {debt.notes ? <Text style={styles.body}>{debt.notes}</Text> : null}
         <TagChips tags={debt.tags} />
+        <View style={styles.actionRow}>
+          <Button
+            title="Record payment"
+            icon="card"
+            onPress={() => router.push({ pathname: '/payment/form', params: { debtId: debt.id } })}
+          />
+        </View>
+      </Card>
+
+      <Card>
+        <SectionTitle title="Payment history" subtitle="Payments are real transfers; settlement lines show how they apply." />
+        {payments.length > 0 ? (
+          payments.map((payment) => (
+            <InfoRow
+              key={payment.id}
+              label={`${payment.paymentDate} · ${payment.status.replaceAll('_', ' ')}`}
+              value={`${payment.amount} ${payment.currency}`}
+            />
+          ))
+        ) : (
+          <Text style={styles.body}>No payments recorded yet.</Text>
+        )}
       </Card>
 
       <Card>
@@ -264,6 +300,15 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function InfoTile({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.infoTile}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={styles.infoValue}>{value}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   amountRow: {
     flexDirection: 'row',
@@ -290,6 +335,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.md,
+  },
+  paymentGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  infoTile: {
+    flex: 1,
+    minWidth: 120,
+    borderWidth: 1,
+    borderColor: palette.line,
+    borderRadius: 14,
+    padding: spacing.md,
+    backgroundColor: '#FFFFFF',
   },
   badgeLine: {
     flexDirection: 'row',

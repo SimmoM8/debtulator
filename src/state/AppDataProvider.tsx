@@ -28,9 +28,15 @@ import type {
   LinkRequest,
   Member,
   MoneyMap,
+  Payment,
   ParticipantId,
+  RecurringTemplate,
+  Reminder,
   SharedEventMember,
   SharedExpense,
+  Settlement,
+  SettlementLine,
+  SoftReminder,
   SyncStatus,
   SuggestedDebtChange,
   VerificationStatus,
@@ -60,6 +66,7 @@ type CreateDebtInput = {
   sharedNotes?: string | null;
   debtDate?: string;
   dueDate?: string | null;
+  recurringTemplateId?: string | null;
   tags?: string[];
   eventId?: string | null;
   status?: DebtStatus;
@@ -93,6 +100,11 @@ type CreateExpenseInput = {
   notes?: string | null;
   expenseDate?: string;
   participantIds: ParticipantId[];
+  splitMethod?: SharedExpense['splitMethod'];
+  splitAllocations?: Record<ParticipantId, number>;
+  expensePayers?: { eventMemberId: ParticipantId; amountPaid: number }[];
+  dueDate?: string | null;
+  recurringTemplateId?: string | null;
   tags?: string[];
   status?: DebtStatus;
   verificationStatus?: VerificationStatus;
@@ -142,12 +154,61 @@ type CreateEventDebtInput = {
   title: string;
   notes?: string | null;
   debtDate?: string;
+  dueDate?: string | null;
   tags?: string[];
   verificationStatus?: VerificationStatus;
   settlementStatus?: DebtStatus;
   status?: DebtStatus;
   remoteId?: string | null;
   syncStatus?: SyncStatus;
+};
+
+type CreatePaymentSettlementInput = {
+  payerId: ParticipantId;
+  payeeId: ParticipantId;
+  amount: number;
+  currency: CurrencyCode;
+  paymentDate?: string;
+  notes?: string | null;
+  eventId?: string | null;
+  relatedMemberId?: string | null;
+  visibility?: Payment['visibility'];
+  status?: Payment['status'];
+  confirmationStatus?: Payment['confirmationStatus'];
+  createdByUserId?: string | null;
+  lines?: {
+    sourceRecordType: SettlementLine['sourceRecordType'];
+    sourceRecordId: string;
+    appliedAmount: number;
+  }[];
+  settlementType?: Settlement['type'];
+  settlementNotes?: string | null;
+  convertedSettlement?: {
+    originalCurrency: CurrencyCode;
+    originalAmount: number;
+    settlementCurrency: CurrencyCode;
+    settlementAmount: number;
+    exchangeRateUsed: number;
+    exchangeRateDate: string;
+    conversionNote: string;
+  } | null;
+};
+
+type CreateRecurringTemplateInput = {
+  createdByUserId?: string | null;
+  eventId?: string | null;
+  memberId?: string | null;
+  type: RecurringTemplate['type'];
+  title: string;
+  amount: number;
+  currency: CurrencyCode;
+  recurrenceRule: string;
+  startDate?: string;
+  endDate?: string | null;
+  nextOccurrenceDate?: string;
+  autoGenerate?: boolean;
+  reminderSettings?: Record<string, unknown> | null;
+  payload: Record<string, unknown>;
 };
 
 type AppDataContextValue = DatabaseSnapshot & {
@@ -173,6 +234,9 @@ type AppDataContextValue = DatabaseSnapshot & {
   upsertEventDebt: (debt: EventDebt) => Promise<EventDebt>;
   upsertEventVerificationResponse: (response: EventVerificationResponse) => Promise<EventVerificationResponse>;
   upsertEventActivityLog: (activity: EventActivityLog) => Promise<EventActivityLog>;
+  upsertPayment: (payment: Payment) => Promise<Payment>;
+  upsertSettlement: (settlement: Settlement) => Promise<Settlement>;
+  upsertSettlementLine: (line: SettlementLine) => Promise<SettlementLine>;
   createMember: (input: CreateMemberInput) => Promise<Member>;
   updateMember: (memberId: string, input: Partial<CreateMemberInput> & { archived?: boolean }) => Promise<Member>;
   sendMemberLinkRequest: (
@@ -254,6 +318,23 @@ type AppDataContextValue = DatabaseSnapshot & {
   ) => Promise<{ sourceId: string; targetId: string }>;
   createEventDebt: (input: CreateEventDebtInput) => Promise<EventDebt>;
   updateEventDebt: (eventDebtId: string, input: Partial<CreateEventDebtInput>) => Promise<EventDebt>;
+  createPaymentSettlement: (input: CreatePaymentSettlementInput) => Promise<{
+    payment: Payment;
+    settlement: Settlement;
+    lines: SettlementLine[];
+  }>;
+  createRecurringTemplate: (input: CreateRecurringTemplateInput) => Promise<RecurringTemplate>;
+  updateRecurringTemplate: (
+    templateId: string,
+    input: Partial<CreateRecurringTemplateInput> & { status?: RecurringTemplate['status'] },
+  ) => Promise<RecurringTemplate>;
+  generateDueRecurringRecords: () => Promise<string[]>;
+  createReminder: (
+    input: Omit<Reminder, 'id' | 'createdAt' | 'updatedAt' | 'status'> & { status?: Reminder['status'] },
+  ) => Promise<Reminder>;
+  createSoftReminder: (
+    input: Omit<SoftReminder, 'id' | 'createdAt' | 'updatedAt' | 'status'> & { status?: SoftReminder['status'] },
+  ) => Promise<SoftReminder>;
   respondToEventVerification: (input: {
     eventId: string;
     targetType: EventVerificationResponse['targetType'];
@@ -280,6 +361,14 @@ const emptySnapshot: DatabaseSnapshot = {
   eventDuplicateWarnings: [],
   sharedExpenses: [],
   eventDebts: [],
+  payments: [],
+  settlements: [],
+  settlementLines: [],
+  expensePayers: [],
+  recurringTemplates: [],
+  reminders: [],
+  softReminders: [],
+  overpaymentCredits: [],
   eventVerificationResponses: [],
   eventActivityLogs: [],
   linkRequests: [],
@@ -291,6 +380,12 @@ const emptySnapshot: DatabaseSnapshot = {
     baseCurrency: 'SEK',
     showEstimatedBase: true,
     theme: 'system',
+    convertedSettlementOptIn: false,
+    defaultReminderPreference: 'none',
+    recurringGenerationPreference: 'prompt',
+    includePendingSettlements: false,
+    includeRejectedDisputedSettlements: false,
+    verifiedOnlySettlements: false,
   },
 };
 
@@ -310,8 +405,13 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         const { repo, loaded } = await withBootTimeout(
           (async () => {
             const db = await openDebtulatorDatabase();
+            const repo = new DebtulatorRepository(db);
+            const initial = await loadSnapshot(db);
+            if (initial.settings.recurringGenerationPreference === 'auto') {
+              await repo.generateDueRecurringRecords();
+            }
             return {
-              repo: new DebtulatorRepository(db),
+              repo,
               loaded: await loadSnapshot(db),
             };
           })(),
@@ -364,8 +464,23 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   );
 
   const ledgerEntries = useMemo(
-    () => buildLedgerEntries(snapshot.debts, snapshot.sharedExpenses, snapshot.eventDebts),
-    [snapshot.debts, snapshot.eventDebts, snapshot.sharedExpenses],
+    () =>
+      buildLedgerEntries(
+        snapshot.debts,
+        snapshot.sharedExpenses,
+        snapshot.eventDebts,
+        snapshot.settlementLines,
+        snapshot.payments,
+        snapshot.overpaymentCredits,
+      ),
+    [
+      snapshot.debts,
+      snapshot.eventDebts,
+      snapshot.overpaymentCredits,
+      snapshot.payments,
+      snapshot.settlementLines,
+      snapshot.sharedExpenses,
+    ],
   );
   const memberBalances = useMemo(() => calculateMemberBalances(ledgerEntries), [ledgerEntries]);
   const personalTotals = useMemo(() => calculatePersonalTotals(ledgerEntries), [ledgerEntries]);
@@ -398,6 +513,9 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       upsertEventVerificationResponse: (response) =>
         runAndRefresh((repo) => repo.upsertEventVerificationResponse(response)),
       upsertEventActivityLog: (activity) => runAndRefresh((repo) => repo.upsertEventActivityLog(activity)),
+      upsertPayment: (payment) => runAndRefresh((repo) => repo.upsertPayment(payment)),
+      upsertSettlement: (settlement) => runAndRefresh((repo) => repo.upsertSettlement(settlement)),
+      upsertSettlementLine: (line) => runAndRefresh((repo) => repo.upsertSettlementLine(line)),
       createMember: (input) => runAndRefresh((repo) => repo.createMember(input)),
       updateMember: (memberId, input) =>
         runAndRefresh((repo) => {
@@ -576,6 +694,19 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           }
           return repo.updateEventDebt(debt, input);
         }),
+      createPaymentSettlement: (input) => runAndRefresh((repo) => repo.createPaymentSettlement(input)),
+      createRecurringTemplate: (input) => runAndRefresh((repo) => repo.createRecurringTemplate(input)),
+      updateRecurringTemplate: (templateId, input) =>
+        runAndRefresh((repo) => {
+          const template = snapshot.recurringTemplates.find((item) => item.id === templateId);
+          if (!template) {
+            throw new Error('Recurring template not found.');
+          }
+          return repo.updateRecurringTemplate(template, input);
+        }),
+      generateDueRecurringRecords: () => runAndRefresh((repo) => repo.generateDueRecurringRecords()),
+      createReminder: (input) => runAndRefresh((repo) => repo.createReminder(input)),
+      createSoftReminder: (input) => runAndRefresh((repo) => repo.createSoftReminder(input)),
       respondToEventVerification: (input) => runAndRefresh((repo) => repo.respondToEventVerification(input)),
       updateSettings: async (settings) => {
         await runAndRefresh((repo) => repo.updateSettings(settings));

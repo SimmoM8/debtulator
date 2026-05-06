@@ -19,10 +19,19 @@ import type {
   EventParticipant,
   EventStatus,
   EventVerificationResponse,
+  ExpensePayer,
   LinkRequest,
   Member,
+  OverpaymentCredit,
+  ParticipantId,
+  Payment,
+  RecurringTemplate,
+  Reminder,
   SharedEventMember,
   SharedExpense,
+  Settlement,
+  SettlementLine,
+  SoftReminder,
   SyncStatus,
   Tag,
   UserProfile,
@@ -45,6 +54,14 @@ export type DatabaseSnapshot = {
   eventDuplicateWarnings: EventDuplicateWarning[];
   sharedExpenses: SharedExpense[];
   eventDebts: EventDebt[];
+  payments: Payment[];
+  settlements: Settlement[];
+  settlementLines: SettlementLine[];
+  expensePayers: ExpensePayer[];
+  recurringTemplates: RecurringTemplate[];
+  reminders: Reminder[];
+  softReminders: SoftReminder[];
+  overpaymentCredits: OverpaymentCredit[];
   eventVerificationResponses: EventVerificationResponse[];
   eventActivityLogs: EventActivityLog[];
   linkRequests: LinkRequest[];
@@ -90,6 +107,7 @@ type DebtRow = {
   shared_notes: string | null;
   debt_date: string;
   due_date: string | null;
+  recurring_template_id: string | null;
   tags_json: string | null;
   event_id: string | null;
   status: Debt['status'];
@@ -232,7 +250,10 @@ type SharedExpenseRow = {
   expense_date: string;
   participant_ids_json: string | null;
   split_method: SharedExpense['splitMethod'];
+  split_allocations_json: string | null;
   generated_obligations_json: string | null;
+  due_date: string | null;
+  recurring_template_id: string | null;
   tags_json: string | null;
   status: Debt['status'];
   verification_status: VerificationStatus;
@@ -255,6 +276,7 @@ type EventDebtRow = {
   title: string;
   notes: string | null;
   debt_date: string;
+  due_date: string | null;
   tags_json: string | null;
   verification_status: EventDebt['verificationStatus'];
   settlement_status: EventDebt['settlementStatus'];
@@ -263,6 +285,144 @@ type EventDebtRow = {
   updated_at: string;
   archived_at: string | null;
   sync_status: SyncStatus | null;
+};
+
+type PaymentRow = {
+  id: string;
+  local_id: string | null;
+  remote_id: string | null;
+  created_by_user_id: string | null;
+  payer_user_id: string | null;
+  payee_user_id: string | null;
+  payer_member_id: string | null;
+  payee_member_id: string | null;
+  payer_event_member_id: string | null;
+  payee_event_member_id: string | null;
+  event_id: string | null;
+  related_member_id: string | null;
+  amount: number;
+  currency: CurrencyCode;
+  payment_date: string;
+  notes: string | null;
+  status: Payment['status'];
+  confirmation_status: Payment['confirmationStatus'];
+  visibility: Payment['visibility'];
+  created_at: string;
+  updated_at: string;
+  archived_at: string | null;
+  sync_status: SyncStatus | null;
+};
+
+type SettlementRow = {
+  id: string;
+  local_id: string | null;
+  remote_id: string | null;
+  created_by_user_id: string | null;
+  event_id: string | null;
+  member_id: string | null;
+  type: Settlement['type'];
+  currency: CurrencyCode;
+  total_amount: number;
+  status: Settlement['status'];
+  confirmation_status: Settlement['confirmationStatus'];
+  notes: string | null;
+  original_currency: CurrencyCode | null;
+  original_amount: number | null;
+  settlement_currency: CurrencyCode | null;
+  settlement_amount: number | null;
+  exchange_rate_used: number | null;
+  exchange_rate_date: string | null;
+  conversion_note: string | null;
+  created_at: string;
+  updated_at: string;
+  archived_at: string | null;
+  sync_status: SyncStatus | null;
+};
+
+type SettlementLineRow = {
+  id: string;
+  settlement_id: string;
+  payment_id: string | null;
+  source_record_type: SettlementLine['sourceRecordType'];
+  source_record_id: string;
+  applied_amount: number;
+  currency: CurrencyCode;
+  created_at: string;
+  updated_at: string;
+};
+
+type ExpensePayerRow = {
+  id: string;
+  expense_id: string;
+  event_member_id: string;
+  amount_paid: number;
+  currency: CurrencyCode;
+  created_at: string;
+  updated_at: string;
+};
+
+type RecurringTemplateRow = {
+  id: string;
+  created_by_user_id: string | null;
+  event_id: string | null;
+  member_id: string | null;
+  type: RecurringTemplate['type'];
+  title: string;
+  amount: number;
+  currency: CurrencyCode;
+  recurrence_rule: string;
+  start_date: string;
+  end_date: string | null;
+  next_occurrence_date: string;
+  last_generated_date: string | null;
+  status: RecurringTemplate['status'];
+  auto_generate: number;
+  reminder_settings_json: string | null;
+  payload_json: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type ReminderRow = {
+  id: string;
+  user_id: string | null;
+  target_type: Reminder['targetType'];
+  target_id: string;
+  remind_at: string;
+  repeat_rule: string | null;
+  status: Reminder['status'];
+  message: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type SoftReminderRow = {
+  id: string;
+  sender_user_id: string | null;
+  recipient_user_id: string | null;
+  related_member_id: string | null;
+  related_event_id: string | null;
+  related_record_id: string | null;
+  message: string;
+  status: SoftReminder['status'];
+  created_at: string;
+  updated_at: string;
+};
+
+type OverpaymentCreditRow = {
+  id: string;
+  created_by_user_id: string | null;
+  payer_member_id: string | null;
+  payee_member_id: string | null;
+  payer_event_member_id: string | null;
+  payee_event_member_id: string | null;
+  event_id: string | null;
+  amount: number;
+  currency: CurrencyCode;
+  source_payment_id: string;
+  status: OverpaymentCredit['status'];
+  created_at: string;
+  updated_at: string;
 };
 
 type EventVerificationResponseRow = {
@@ -541,6 +701,7 @@ export async function migrate(db: SQLite.SQLiteDatabase) {
       shared_notes TEXT,
       debt_date TEXT NOT NULL,
       due_date TEXT,
+      recurring_template_id TEXT,
       tags_json TEXT NOT NULL DEFAULT '[]',
       event_id TEXT,
       status TEXT NOT NULL,
@@ -570,7 +731,10 @@ export async function migrate(db: SQLite.SQLiteDatabase) {
       expense_date TEXT NOT NULL,
       participant_ids_json TEXT NOT NULL DEFAULT '[]',
       split_method TEXT NOT NULL,
+      split_allocations_json TEXT NOT NULL DEFAULT '{}',
       generated_obligations_json TEXT NOT NULL DEFAULT '[]',
+      due_date TEXT,
+      recurring_template_id TEXT,
       tags_json TEXT NOT NULL DEFAULT '[]',
       status TEXT NOT NULL,
       verification_status TEXT NOT NULL,
@@ -593,6 +757,7 @@ export async function migrate(db: SQLite.SQLiteDatabase) {
       title TEXT NOT NULL,
       notes TEXT,
       debt_date TEXT NOT NULL,
+      due_date TEXT,
       tags_json TEXT NOT NULL DEFAULT '[]',
       verification_status TEXT NOT NULL,
       settlement_status TEXT NOT NULL DEFAULT 'active',
@@ -601,6 +766,144 @@ export async function migrate(db: SQLite.SQLiteDatabase) {
       updated_at TEXT NOT NULL,
       archived_at TEXT,
       sync_status TEXT NOT NULL DEFAULT 'local_only'
+    );
+
+    CREATE TABLE IF NOT EXISTS payments (
+      id TEXT PRIMARY KEY NOT NULL,
+      local_id TEXT,
+      remote_id TEXT,
+      created_by_user_id TEXT,
+      payer_user_id TEXT,
+      payee_user_id TEXT,
+      payer_member_id TEXT,
+      payee_member_id TEXT,
+      payer_event_member_id TEXT,
+      payee_event_member_id TEXT,
+      event_id TEXT,
+      related_member_id TEXT,
+      amount REAL NOT NULL,
+      currency TEXT NOT NULL,
+      payment_date TEXT NOT NULL,
+      notes TEXT,
+      status TEXT NOT NULL,
+      confirmation_status TEXT NOT NULL,
+      visibility TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      archived_at TEXT,
+      sync_status TEXT NOT NULL DEFAULT 'local_only'
+    );
+
+    CREATE TABLE IF NOT EXISTS settlements (
+      id TEXT PRIMARY KEY NOT NULL,
+      local_id TEXT,
+      remote_id TEXT,
+      created_by_user_id TEXT,
+      event_id TEXT,
+      member_id TEXT,
+      type TEXT NOT NULL,
+      currency TEXT NOT NULL,
+      total_amount REAL NOT NULL,
+      status TEXT NOT NULL,
+      confirmation_status TEXT NOT NULL,
+      notes TEXT,
+      original_currency TEXT,
+      original_amount REAL,
+      settlement_currency TEXT,
+      settlement_amount REAL,
+      exchange_rate_used REAL,
+      exchange_rate_date TEXT,
+      conversion_note TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      archived_at TEXT,
+      sync_status TEXT NOT NULL DEFAULT 'local_only'
+    );
+
+    CREATE TABLE IF NOT EXISTS settlement_lines (
+      id TEXT PRIMARY KEY NOT NULL,
+      settlement_id TEXT NOT NULL,
+      payment_id TEXT,
+      source_record_type TEXT NOT NULL,
+      source_record_id TEXT NOT NULL,
+      applied_amount REAL NOT NULL,
+      currency TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS expense_payers (
+      id TEXT PRIMARY KEY NOT NULL,
+      expense_id TEXT NOT NULL,
+      event_member_id TEXT NOT NULL,
+      amount_paid REAL NOT NULL,
+      currency TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS recurring_templates (
+      id TEXT PRIMARY KEY NOT NULL,
+      created_by_user_id TEXT,
+      event_id TEXT,
+      member_id TEXT,
+      type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      amount REAL NOT NULL,
+      currency TEXT NOT NULL,
+      recurrence_rule TEXT NOT NULL,
+      start_date TEXT NOT NULL,
+      end_date TEXT,
+      next_occurrence_date TEXT NOT NULL,
+      last_generated_date TEXT,
+      status TEXT NOT NULL,
+      auto_generate INTEGER NOT NULL DEFAULT 0,
+      reminder_settings_json TEXT,
+      payload_json TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS reminders (
+      id TEXT PRIMARY KEY NOT NULL,
+      user_id TEXT,
+      target_type TEXT NOT NULL,
+      target_id TEXT NOT NULL,
+      remind_at TEXT NOT NULL,
+      repeat_rule TEXT,
+      status TEXT NOT NULL,
+      message TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS soft_reminders (
+      id TEXT PRIMARY KEY NOT NULL,
+      sender_user_id TEXT,
+      recipient_user_id TEXT,
+      related_member_id TEXT,
+      related_event_id TEXT,
+      related_record_id TEXT,
+      message TEXT NOT NULL,
+      status TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS overpayment_credits (
+      id TEXT PRIMARY KEY NOT NULL,
+      created_by_user_id TEXT,
+      payer_member_id TEXT,
+      payee_member_id TEXT,
+      payer_event_member_id TEXT,
+      payee_event_member_id TEXT,
+      event_id TEXT,
+      amount REAL NOT NULL,
+      currency TEXT NOT NULL,
+      source_payment_id TEXT NOT NULL,
+      status TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS event_verification_responses (
@@ -735,6 +1038,8 @@ export async function migrate(db: SQLite.SQLiteDatabase) {
   await ensureColumn(db, 'debts', 'visibility', "TEXT NOT NULL DEFAULT 'private'");
   await ensureColumn(db, 'debts', 'sync_status', "TEXT NOT NULL DEFAULT 'local_only'");
   await ensureColumn(db, 'debts', 'shared_notes', 'TEXT');
+  await ensureColumn(db, 'debts', 'due_date', 'TEXT');
+  await ensureColumn(db, 'debts', 'recurring_template_id', 'TEXT');
   await ensureColumn(db, 'debts', 'verified_by_user_id', 'TEXT');
   await ensureColumn(db, 'debts', 'verified_at', 'TEXT');
   await ensureColumn(db, 'debts', 'rejected_by_user_id', 'TEXT');
@@ -746,9 +1051,13 @@ export async function migrate(db: SQLite.SQLiteDatabase) {
 
   await ensureColumn(db, 'shared_expenses', 'remote_id', 'TEXT');
   await ensureColumn(db, 'shared_expenses', 'creator_user_id', 'TEXT');
+  await ensureColumn(db, 'shared_expenses', 'split_allocations_json', "TEXT NOT NULL DEFAULT '{}'");
+  await ensureColumn(db, 'shared_expenses', 'due_date', 'TEXT');
+  await ensureColumn(db, 'shared_expenses', 'recurring_template_id', 'TEXT');
   await ensureColumn(db, 'shared_expenses', 'visibility', "TEXT NOT NULL DEFAULT 'private'");
   await ensureColumn(db, 'shared_expenses', 'sync_status', "TEXT NOT NULL DEFAULT 'local_only'");
 
+  await ensureColumn(db, 'event_debts', 'due_date', 'TEXT');
   await ensureColumn(db, 'activity_log', 'actor_user_id', 'TEXT');
 }
 
@@ -768,6 +1077,14 @@ export async function resetDatabase(db: SQLite.SQLiteDatabase, seed = true) {
   await db.execAsync(`
     DELETE FROM event_activity_logs;
     DELETE FROM event_verification_responses;
+    DELETE FROM overpayment_credits;
+    DELETE FROM soft_reminders;
+    DELETE FROM reminders;
+    DELETE FROM recurring_templates;
+    DELETE FROM expense_payers;
+    DELETE FROM settlement_lines;
+    DELETE FROM settlements;
+    DELETE FROM payments;
     DELETE FROM event_debts;
     DELETE FROM event_duplicate_warnings;
     DELETE FROM event_member_claims;
@@ -823,6 +1140,30 @@ export async function seedDefaults(db: SQLite.SQLiteDatabase) {
   await db.runAsync(`INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, [
     'theme',
     'system',
+  ]);
+  await db.runAsync(`INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, [
+    'convertedSettlementOptIn',
+    'false',
+  ]);
+  await db.runAsync(`INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, [
+    'defaultReminderPreference',
+    'none',
+  ]);
+  await db.runAsync(`INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, [
+    'recurringGenerationPreference',
+    'prompt',
+  ]);
+  await db.runAsync(`INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, [
+    'includePendingSettlements',
+    'false',
+  ]);
+  await db.runAsync(`INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, [
+    'includeRejectedDisputedSettlements',
+    'false',
+  ]);
+  await db.runAsync(`INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, [
+    'verifiedOnlySettlements',
+    'false',
   ]);
 
   for (const [currency, rate] of Object.entries(DEFAULT_CURRENCY_RATES_TO_SEK)) {
@@ -1242,6 +1583,7 @@ export async function seedDemoData(db: SQLite.SQLiteDatabase) {
       sharedNotes: null,
       debtDate: todayIsoDate(),
       dueDate: null,
+      recurringTemplateId: null,
       tags: ['Family', 'Gift'],
       eventId: 'event_christmas',
       status: 'active',
@@ -1273,6 +1615,7 @@ export async function seedDemoData(db: SQLite.SQLiteDatabase) {
       sharedNotes: 'Bought while Daniel was in Sydney.',
       debtDate: todayIsoDate(),
       dueDate: null,
+      recurringTemplateId: null,
       tags: ['Travel'],
       eventId: null,
       status: 'active',
@@ -1304,6 +1647,7 @@ export async function seedDemoData(db: SQLite.SQLiteDatabase) {
       sharedNotes: 'Deposit covered before the trip.',
       debtDate: todayIsoDate(),
       dueDate: null,
+      recurringTemplateId: null,
       tags: ['Food', 'Travel'],
       eventId: null,
       status: 'active',
@@ -1335,6 +1679,7 @@ export async function seedDemoData(db: SQLite.SQLiteDatabase) {
       sharedNotes: 'Train change fee after the cabin plan changed.',
       debtDate: todayIsoDate(),
       dueDate: null,
+      recurringTemplateId: null,
       tags: ['Travel'],
       eventId: 'event_ski_sweden',
       status: 'active',
@@ -1359,6 +1704,7 @@ export async function seedDemoData(db: SQLite.SQLiteDatabase) {
       eventId: 'event_ski_sweden',
       creatorUserId: 'demo_user_local',
       payerId: 'event_member_ski_benjamin',
+      expensePayers: [],
       amount: 1200,
       currency: 'SEK',
       title: 'Cabin groceries',
@@ -1371,6 +1717,9 @@ export async function seedDemoData(db: SQLite.SQLiteDatabase) {
         'event_member_ski_emma',
       ],
       splitMethod: 'equal',
+      splitAllocations: {},
+      dueDate: null,
+      recurringTemplateId: null,
       tags: ['Food', 'Travel'],
       status: 'active',
       verificationStatus: 'partially_verified',
@@ -1385,6 +1734,7 @@ export async function seedDemoData(db: SQLite.SQLiteDatabase) {
       eventId: 'event_ski_sweden',
       creatorUserId: 'demo_user_daniel',
       payerId: 'event_member_ski_daniel',
+      expensePayers: [],
       amount: 360,
       currency: 'EUR',
       title: 'Ski rentals',
@@ -1392,6 +1742,9 @@ export async function seedDemoData(db: SQLite.SQLiteDatabase) {
       expenseDate: todayIsoDate(),
       participantIds: ['event_member_ski_benjamin', 'event_member_ski_daniel', 'event_member_ski_sarah'],
       splitMethod: 'equal',
+      splitAllocations: {},
+      dueDate: null,
+      recurringTemplateId: null,
       tags: ['Travel'],
       status: 'active',
       verificationStatus: 'verified',
@@ -1406,6 +1759,7 @@ export async function seedDemoData(db: SQLite.SQLiteDatabase) {
       eventId: 'event_apartment',
       creatorUserId: null,
       payerId: 'member_sarah',
+      expensePayers: [],
       amount: 180,
       currency: 'USD',
       title: 'Utilities',
@@ -1413,6 +1767,9 @@ export async function seedDemoData(db: SQLite.SQLiteDatabase) {
       expenseDate: todayIsoDate(),
       participantIds: ['me', 'member_daniel', 'member_sarah'],
       splitMethod: 'equal',
+      splitAllocations: {},
+      dueDate: null,
+      recurringTemplateId: null,
       tags: ['Apartment', 'Rent'],
       status: 'active',
       verificationStatus: 'disputed',
@@ -1437,6 +1794,7 @@ export async function seedDemoData(db: SQLite.SQLiteDatabase) {
       title: 'Lift-card cash',
       notes: 'Daniel owes Sarah for the group lift-card cash collection.',
       debtDate: todayIsoDate(),
+      dueDate: null,
       tags: ['Travel'],
       verificationStatus: 'pending',
       settlementStatus: 'active',
@@ -1683,6 +2041,14 @@ export async function loadSnapshot(db: SQLite.SQLiteDatabase): Promise<DatabaseS
     eventDuplicateWarnings,
     sharedExpenses,
     eventDebts,
+    payments,
+    settlements,
+    settlementLines,
+    expensePayers,
+    recurringTemplates,
+    reminders,
+    softReminders,
+    overpaymentCredits,
     eventVerificationResponses,
     eventActivityLogs,
     linkRequests,
@@ -1705,6 +2071,14 @@ export async function loadSnapshot(db: SQLite.SQLiteDatabase): Promise<DatabaseS
       getEventDuplicateWarnings(db),
       getSharedExpenses(db),
       getEventDebts(db),
+      getPayments(db),
+      getSettlements(db),
+      getSettlementLines(db),
+      getExpensePayers(db),
+      getRecurringTemplates(db),
+      getReminders(db),
+      getSoftReminders(db),
+      getOverpaymentCredits(db),
       getEventVerificationResponses(db),
       getEventActivityLogs(db),
       getLinkRequests(db),
@@ -1726,8 +2100,19 @@ export async function loadSnapshot(db: SQLite.SQLiteDatabase): Promise<DatabaseS
     sharedEventMembers,
     eventMemberClaims,
     eventDuplicateWarnings,
-    sharedExpenses,
+    sharedExpenses: sharedExpenses.map((expense) => ({
+      ...expense,
+      expensePayers: expensePayers.filter((payer) => payer.expenseId === expense.id),
+    })),
     eventDebts,
+    payments,
+    settlements,
+    settlementLines,
+    expensePayers,
+    recurringTemplates,
+    reminders,
+    softReminders,
+    overpaymentCredits,
     eventVerificationResponses,
     eventActivityLogs,
     linkRequests,
@@ -1809,6 +2194,50 @@ export async function getEventDebts(db: SQLite.SQLiteDatabase) {
   return rows.map(mapEventDebtRow);
 }
 
+export async function getPayments(db: SQLite.SQLiteDatabase) {
+  const rows = await db.getAllAsync<PaymentRow>(`SELECT * FROM payments ORDER BY payment_date DESC, created_at DESC`);
+  return rows.map(mapPaymentRow);
+}
+
+export async function getSettlements(db: SQLite.SQLiteDatabase) {
+  const rows = await db.getAllAsync<SettlementRow>(`SELECT * FROM settlements ORDER BY created_at DESC`);
+  return rows.map(mapSettlementRow);
+}
+
+export async function getSettlementLines(db: SQLite.SQLiteDatabase) {
+  const rows = await db.getAllAsync<SettlementLineRow>(`SELECT * FROM settlement_lines ORDER BY created_at ASC`);
+  return rows.map(mapSettlementLineRow);
+}
+
+export async function getExpensePayers(db: SQLite.SQLiteDatabase) {
+  const rows = await db.getAllAsync<ExpensePayerRow>(`SELECT * FROM expense_payers ORDER BY created_at ASC`);
+  return rows.map(mapExpensePayerRow);
+}
+
+export async function getRecurringTemplates(db: SQLite.SQLiteDatabase) {
+  const rows = await db.getAllAsync<RecurringTemplateRow>(
+    `SELECT * FROM recurring_templates ORDER BY next_occurrence_date ASC, updated_at DESC`,
+  );
+  return rows.map(mapRecurringTemplateRow);
+}
+
+export async function getReminders(db: SQLite.SQLiteDatabase) {
+  const rows = await db.getAllAsync<ReminderRow>(`SELECT * FROM reminders ORDER BY remind_at ASC`);
+  return rows.map(mapReminderRow);
+}
+
+export async function getSoftReminders(db: SQLite.SQLiteDatabase) {
+  const rows = await db.getAllAsync<SoftReminderRow>(`SELECT * FROM soft_reminders ORDER BY created_at DESC`);
+  return rows.map(mapSoftReminderRow);
+}
+
+export async function getOverpaymentCredits(db: SQLite.SQLiteDatabase) {
+  const rows = await db.getAllAsync<OverpaymentCreditRow>(
+    `SELECT * FROM overpayment_credits ORDER BY created_at DESC`,
+  );
+  return rows.map(mapOverpaymentCreditRow);
+}
+
 export async function getEventVerificationResponses(db: SQLite.SQLiteDatabase) {
   const rows = await db.getAllAsync<EventVerificationResponseRow>(
     `SELECT * FROM event_verification_responses ORDER BY updated_at DESC`,
@@ -1866,6 +2295,17 @@ export async function getSettings(db: SQLite.SQLiteDatabase): Promise<AppSetting
     baseCurrency: ((values.baseCurrency as CurrencyCode | undefined) ?? DEFAULT_BASE_CURRENCY),
     showEstimatedBase: values.showEstimatedBase !== 'false',
     theme: values.theme === 'light' || values.theme === 'dark' ? values.theme : 'system',
+    convertedSettlementOptIn: values.convertedSettlementOptIn === 'true',
+    defaultReminderPreference:
+      values.defaultReminderPreference === 'due_date' ||
+      values.defaultReminderPreference === 'one_day_before' ||
+      values.defaultReminderPreference === 'one_week_before'
+        ? values.defaultReminderPreference
+        : 'none',
+    recurringGenerationPreference: values.recurringGenerationPreference === 'auto' ? 'auto' : 'prompt',
+    includePendingSettlements: values.includePendingSettlements === 'true',
+    includeRejectedDisputedSettlements: values.includeRejectedDisputedSettlements === 'true',
+    verifiedOnlySettlements: values.verifiedOnlySettlements === 'true',
   };
 }
 
@@ -1903,10 +2343,10 @@ export async function insertDebt(db: SQLite.SQLiteDatabase, debt: Debt) {
   await db.runAsync(
     `INSERT OR REPLACE INTO debts
       (id, member_id, remote_id, verification_request_id, visibility, sync_status, direction, amount,
-       currency, title, notes, shared_notes, debt_date, due_date, tags_json, event_id, status,
+       currency, title, notes, shared_notes, debt_date, due_date, recurring_template_id, tags_json, event_id, status,
        verification_status, verified_by_user_id, verified_at, rejected_by_user_id, rejected_at,
        rejection_reason, dispute_reason, resolution_note, suggested_change_json, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       debt.id,
       debt.memberId,
@@ -1922,6 +2362,7 @@ export async function insertDebt(db: SQLite.SQLiteDatabase, debt: Debt) {
       debt.sharedNotes,
       debt.debtDate,
       debt.dueDate,
+      debt.recurringTemplateId,
       toJson(debt.tags),
       debt.eventId,
       debt.status,
@@ -2112,9 +2553,10 @@ export async function insertSharedExpense(db: SQLite.SQLiteDatabase, expense: Sh
   await db.runAsync(
     `INSERT OR REPLACE INTO shared_expenses
       (id, remote_id, event_id, creator_user_id, payer_id, amount, currency, title, notes, expense_date,
-       participant_ids_json, split_method, generated_obligations_json, tags_json, status,
+       participant_ids_json, split_method, split_allocations_json, generated_obligations_json, due_date,
+       recurring_template_id, tags_json, status,
        verification_status, visibility, sync_status, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       expense.id,
       expense.remoteId,
@@ -2128,7 +2570,10 @@ export async function insertSharedExpense(db: SQLite.SQLiteDatabase, expense: Sh
       expense.expenseDate,
       toJson(expense.participantIds),
       expense.splitMethod,
+      toJson(expense.splitAllocations),
       toJson(expense.generatedObligations),
+      expense.dueDate,
+      expense.recurringTemplateId,
       toJson(expense.tags),
       expense.status,
       expense.verificationStatus,
@@ -2138,6 +2583,23 @@ export async function insertSharedExpense(db: SQLite.SQLiteDatabase, expense: Sh
       expense.updatedAt,
     ],
   );
+  await db.runAsync(`DELETE FROM expense_payers WHERE expense_id = ?`, [expense.id]);
+  const payers = expense.expensePayers.length
+    ? expense.expensePayers
+    : [
+        {
+          id: `${expense.id}_payer_${expense.payerId}`,
+          expenseId: expense.id,
+          eventMemberId: expense.payerId,
+          amountPaid: expense.amount,
+          currency: expense.currency,
+          createdAt: expense.createdAt,
+          updatedAt: expense.updatedAt,
+        },
+      ];
+  for (const payer of payers) {
+    await insertExpensePayer(db, payer);
+  }
   await upsertTagNames(db, expense.tags);
 }
 
@@ -2146,9 +2608,9 @@ export async function insertEventDebt(db: SQLite.SQLiteDatabase, debt: EventDebt
     `INSERT OR REPLACE INTO event_debts
       (id, remote_id, event_id, remote_event_id, creator_user_id, debtor_event_member_id,
        creditor_event_member_id, amount, currency, title, notes, debt_date, tags_json,
-       verification_status, settlement_status, status, created_at, updated_at, archived_at,
+       due_date, verification_status, settlement_status, status, created_at, updated_at, archived_at,
        sync_status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       debt.id,
       debt.remoteId,
@@ -2163,6 +2625,7 @@ export async function insertEventDebt(db: SQLite.SQLiteDatabase, debt: EventDebt
       debt.notes,
       debt.debtDate,
       toJson(debt.tags),
+      debt.dueDate,
       debt.verificationStatus,
       debt.settlementStatus,
       debt.status,
@@ -2312,6 +2775,210 @@ export async function insertActivityLog(db: SQLite.SQLiteDatabase, activity: Act
   );
 }
 
+export async function insertPayment(db: SQLite.SQLiteDatabase, payment: Payment) {
+  await db.runAsync(
+    `INSERT OR REPLACE INTO payments
+      (id, local_id, remote_id, created_by_user_id, payer_user_id, payee_user_id, payer_member_id,
+       payee_member_id, payer_event_member_id, payee_event_member_id, event_id, related_member_id,
+       amount, currency, payment_date, notes, status, confirmation_status, visibility, created_at,
+       updated_at, archived_at, sync_status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      payment.id,
+      payment.localId,
+      payment.remoteId,
+      payment.createdByUserId,
+      payment.payerUserId,
+      payment.payeeUserId,
+      payment.payerMemberId,
+      payment.payeeMemberId,
+      payment.payerEventMemberId,
+      payment.payeeEventMemberId,
+      payment.eventId,
+      payment.relatedMemberId,
+      payment.amount,
+      payment.currency,
+      payment.paymentDate,
+      payment.notes,
+      payment.status,
+      payment.confirmationStatus,
+      payment.visibility,
+      payment.createdAt,
+      payment.updatedAt,
+      payment.archivedAt,
+      payment.syncStatus,
+    ],
+  );
+}
+
+export async function insertSettlement(db: SQLite.SQLiteDatabase, settlement: Settlement) {
+  await db.runAsync(
+    `INSERT OR REPLACE INTO settlements
+      (id, local_id, remote_id, created_by_user_id, event_id, member_id, type, currency, total_amount,
+       status, confirmation_status, notes, original_currency, original_amount, settlement_currency,
+       settlement_amount, exchange_rate_used, exchange_rate_date, conversion_note, created_at, updated_at,
+       archived_at, sync_status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      settlement.id,
+      settlement.localId,
+      settlement.remoteId,
+      settlement.createdByUserId,
+      settlement.eventId,
+      settlement.memberId,
+      settlement.type,
+      settlement.currency,
+      settlement.totalAmount,
+      settlement.status,
+      settlement.confirmationStatus,
+      settlement.notes,
+      settlement.originalCurrency,
+      settlement.originalAmount,
+      settlement.settlementCurrency,
+      settlement.settlementAmount,
+      settlement.exchangeRateUsed,
+      settlement.exchangeRateDate,
+      settlement.conversionNote,
+      settlement.createdAt,
+      settlement.updatedAt,
+      settlement.archivedAt,
+      settlement.syncStatus,
+    ],
+  );
+}
+
+export async function insertSettlementLine(db: SQLite.SQLiteDatabase, line: SettlementLine) {
+  await db.runAsync(
+    `INSERT OR REPLACE INTO settlement_lines
+      (id, settlement_id, payment_id, source_record_type, source_record_id, applied_amount, currency, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      line.id,
+      line.settlementId,
+      line.paymentId,
+      line.sourceRecordType,
+      line.sourceRecordId,
+      line.appliedAmount,
+      line.currency,
+      line.createdAt,
+      line.updatedAt,
+    ],
+  );
+}
+
+export async function insertExpensePayer(db: SQLite.SQLiteDatabase, payer: ExpensePayer) {
+  await db.runAsync(
+    `INSERT OR REPLACE INTO expense_payers
+      (id, expense_id, event_member_id, amount_paid, currency, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [
+      payer.id,
+      payer.expenseId,
+      payer.eventMemberId,
+      payer.amountPaid,
+      payer.currency,
+      payer.createdAt,
+      payer.updatedAt,
+    ],
+  );
+}
+
+export async function insertRecurringTemplate(db: SQLite.SQLiteDatabase, template: RecurringTemplate) {
+  await db.runAsync(
+    `INSERT OR REPLACE INTO recurring_templates
+      (id, created_by_user_id, event_id, member_id, type, title, amount, currency, recurrence_rule,
+       start_date, end_date, next_occurrence_date, last_generated_date, status, auto_generate,
+       reminder_settings_json, payload_json, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      template.id,
+      template.createdByUserId,
+      template.eventId,
+      template.memberId,
+      template.type,
+      template.title,
+      template.amount,
+      template.currency,
+      template.recurrenceRule,
+      template.startDate,
+      template.endDate,
+      template.nextOccurrenceDate,
+      template.lastGeneratedDate,
+      template.status,
+      template.autoGenerate ? 1 : 0,
+      template.reminderSettings ? toJson(template.reminderSettings) : null,
+      toJson(template.payload),
+      template.createdAt,
+      template.updatedAt,
+    ],
+  );
+}
+
+export async function insertReminder(db: SQLite.SQLiteDatabase, reminder: Reminder) {
+  await db.runAsync(
+    `INSERT OR REPLACE INTO reminders
+      (id, user_id, target_type, target_id, remind_at, repeat_rule, status, message, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      reminder.id,
+      reminder.userId,
+      reminder.targetType,
+      reminder.targetId,
+      reminder.remindAt,
+      reminder.repeatRule,
+      reminder.status,
+      reminder.message,
+      reminder.createdAt,
+      reminder.updatedAt,
+    ],
+  );
+}
+
+export async function insertSoftReminder(db: SQLite.SQLiteDatabase, reminder: SoftReminder) {
+  await db.runAsync(
+    `INSERT OR REPLACE INTO soft_reminders
+      (id, sender_user_id, recipient_user_id, related_member_id, related_event_id, related_record_id,
+       message, status, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      reminder.id,
+      reminder.senderUserId,
+      reminder.recipientUserId,
+      reminder.relatedMemberId,
+      reminder.relatedEventId,
+      reminder.relatedRecordId,
+      reminder.message,
+      reminder.status,
+      reminder.createdAt,
+      reminder.updatedAt,
+    ],
+  );
+}
+
+export async function insertOverpaymentCredit(db: SQLite.SQLiteDatabase, credit: OverpaymentCredit) {
+  await db.runAsync(
+    `INSERT OR REPLACE INTO overpayment_credits
+      (id, created_by_user_id, payer_member_id, payee_member_id, payer_event_member_id, payee_event_member_id,
+       event_id, amount, currency, source_payment_id, status, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      credit.id,
+      credit.createdByUserId,
+      credit.payerMemberId,
+      credit.payeeMemberId,
+      credit.payerEventMemberId,
+      credit.payeeEventMemberId,
+      credit.eventId,
+      credit.amount,
+      credit.currency,
+      credit.sourcePaymentId,
+      credit.status,
+      credit.createdAt,
+      credit.updatedAt,
+    ],
+  );
+}
+
 export async function deleteEventMember(db: SQLite.SQLiteDatabase, eventId: string, memberId: string) {
   await db.runAsync(`DELETE FROM event_members WHERE event_id = ? AND member_id = ?`, [eventId, memberId]);
 }
@@ -2382,6 +3049,7 @@ export function mapDebtRow(row: DebtRow): Debt {
     sharedNotes: row.shared_notes ?? null,
     debtDate: row.debt_date,
     dueDate: row.due_date,
+    recurringTemplateId: row.recurring_template_id ?? null,
     tags: parseJsonArray<string>(row.tags_json),
     eventId: row.event_id,
     status: row.status,
@@ -2527,6 +3195,7 @@ export function mapSharedExpenseRow(row: SharedExpenseRow): SharedExpense {
     eventId: row.event_id,
     creatorUserId: row.creator_user_id ?? null,
     payerId: row.payer_id,
+    expensePayers: [],
     amount: row.amount,
     currency: row.currency,
     title: row.title,
@@ -2534,7 +3203,10 @@ export function mapSharedExpenseRow(row: SharedExpenseRow): SharedExpense {
     expenseDate: row.expense_date,
     participantIds: parseJsonArray(row.participant_ids_json),
     splitMethod: row.split_method,
+    splitAllocations: parseJsonObject(row.split_allocations_json, {}) as Record<ParticipantId, number>,
     generatedObligations: parseJsonArray(row.generated_obligations_json),
+    dueDate: row.due_date ?? null,
+    recurringTemplateId: row.recurring_template_id ?? null,
     tags: parseJsonArray<string>(row.tags_json),
     status: row.status,
     verificationStatus: row.verification_status,
@@ -2559,6 +3231,7 @@ export function mapEventDebtRow(row: EventDebtRow): EventDebt {
     title: row.title,
     notes: row.notes,
     debtDate: row.debt_date,
+    dueDate: row.due_date ?? null,
     tags: parseJsonArray<string>(row.tags_json),
     verificationStatus: row.verification_status,
     settlementStatus: row.settlement_status,
@@ -2567,6 +3240,160 @@ export function mapEventDebtRow(row: EventDebtRow): EventDebt {
     updatedAt: row.updated_at,
     archivedAt: row.archived_at,
     syncStatus: row.sync_status ?? 'local_only',
+  };
+}
+
+export function mapPaymentRow(row: PaymentRow): Payment {
+  return {
+    id: row.id,
+    localId: row.local_id,
+    remoteId: row.remote_id,
+    createdByUserId: row.created_by_user_id,
+    payerUserId: row.payer_user_id,
+    payeeUserId: row.payee_user_id,
+    payerMemberId: row.payer_member_id,
+    payeeMemberId: row.payee_member_id,
+    payerEventMemberId: row.payer_event_member_id,
+    payeeEventMemberId: row.payee_event_member_id,
+    eventId: row.event_id,
+    relatedMemberId: row.related_member_id,
+    amount: row.amount,
+    currency: row.currency,
+    paymentDate: row.payment_date,
+    notes: row.notes,
+    status: row.status,
+    confirmationStatus: row.confirmation_status,
+    visibility: row.visibility,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    archivedAt: row.archived_at,
+    syncStatus: row.sync_status ?? 'local_only',
+  };
+}
+
+export function mapSettlementRow(row: SettlementRow): Settlement {
+  return {
+    id: row.id,
+    localId: row.local_id,
+    remoteId: row.remote_id,
+    createdByUserId: row.created_by_user_id,
+    eventId: row.event_id,
+    memberId: row.member_id,
+    type: row.type,
+    currency: row.currency,
+    totalAmount: row.total_amount,
+    status: row.status,
+    confirmationStatus: row.confirmation_status,
+    notes: row.notes,
+    originalCurrency: row.original_currency,
+    originalAmount: row.original_amount,
+    settlementCurrency: row.settlement_currency,
+    settlementAmount: row.settlement_amount,
+    exchangeRateUsed: row.exchange_rate_used,
+    exchangeRateDate: row.exchange_rate_date,
+    conversionNote: row.conversion_note,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    archivedAt: row.archived_at,
+    syncStatus: row.sync_status ?? 'local_only',
+  };
+}
+
+export function mapSettlementLineRow(row: SettlementLineRow): SettlementLine {
+  return {
+    id: row.id,
+    settlementId: row.settlement_id,
+    paymentId: row.payment_id,
+    sourceRecordType: row.source_record_type,
+    sourceRecordId: row.source_record_id,
+    appliedAmount: row.applied_amount,
+    currency: row.currency,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function mapExpensePayerRow(row: ExpensePayerRow): ExpensePayer {
+  return {
+    id: row.id,
+    expenseId: row.expense_id,
+    eventMemberId: row.event_member_id,
+    amountPaid: row.amount_paid,
+    currency: row.currency,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function mapRecurringTemplateRow(row: RecurringTemplateRow): RecurringTemplate {
+  return {
+    id: row.id,
+    createdByUserId: row.created_by_user_id,
+    eventId: row.event_id,
+    memberId: row.member_id,
+    type: row.type,
+    title: row.title,
+    amount: row.amount,
+    currency: row.currency,
+    recurrenceRule: row.recurrence_rule,
+    startDate: row.start_date,
+    endDate: row.end_date,
+    nextOccurrenceDate: row.next_occurrence_date,
+    lastGeneratedDate: row.last_generated_date,
+    status: row.status,
+    autoGenerate: row.auto_generate === 1,
+    reminderSettings: row.reminder_settings_json ? parseJsonObject(row.reminder_settings_json, {}) : null,
+    payload: parseJsonObject(row.payload_json, {}),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function mapReminderRow(row: ReminderRow): Reminder {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    targetType: row.target_type,
+    targetId: row.target_id,
+    remindAt: row.remind_at,
+    repeatRule: row.repeat_rule,
+    status: row.status,
+    message: row.message,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function mapSoftReminderRow(row: SoftReminderRow): SoftReminder {
+  return {
+    id: row.id,
+    senderUserId: row.sender_user_id,
+    recipientUserId: row.recipient_user_id,
+    relatedMemberId: row.related_member_id,
+    relatedEventId: row.related_event_id,
+    relatedRecordId: row.related_record_id,
+    message: row.message,
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function mapOverpaymentCreditRow(row: OverpaymentCreditRow): OverpaymentCredit {
+  return {
+    id: row.id,
+    createdByUserId: row.created_by_user_id,
+    payerMemberId: row.payer_member_id,
+    payeeMemberId: row.payee_member_id,
+    payerEventMemberId: row.payer_event_member_id,
+    payeeEventMemberId: row.payee_event_member_id,
+    eventId: row.event_id,
+    amount: row.amount,
+    currency: row.currency,
+    sourcePaymentId: row.source_payment_id,
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 

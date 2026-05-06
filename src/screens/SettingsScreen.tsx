@@ -145,6 +145,66 @@ export function SettingsScreen() {
         <Button title="Save exchange rates" icon="save" onPress={saveRates} />
       </Card>
 
+      <Card>
+        <SectionTitle title="Stage 4 defaults" subtitle="Converted settlements stay off unless explicitly enabled." />
+        <View style={styles.switchRow}>
+          <View style={styles.switchText}>
+            <Text style={styles.rowTitle}>Converted settlement suggestions</Text>
+            <Text style={styles.rowBody}>Labelled as estimated and based on the local exchange-rate table.</Text>
+          </View>
+          <Switch
+            value={data.settings.convertedSettlementOptIn}
+            onValueChange={(convertedSettlementOptIn) => data.updateSettings({ convertedSettlementOptIn })}
+            trackColor={{ false: palette.lineStrong, true: palette.brandSoft }}
+            thumbColor={data.settings.convertedSettlementOptIn ? palette.brand : '#FFFFFF'}
+          />
+        </View>
+        <SelectChips
+          label="Default reminder"
+          value={data.settings.defaultReminderPreference}
+          options={[
+            { label: 'None', value: 'none' },
+            { label: 'Due date', value: 'due_date' },
+            { label: '1 day before', value: 'one_day_before' },
+            { label: '1 week before', value: 'one_week_before' },
+          ]}
+          onChange={(defaultReminderPreference) => data.updateSettings({ defaultReminderPreference })}
+        />
+        <SelectChips
+          label="Recurring generation"
+          value={data.settings.recurringGenerationPreference}
+          options={[
+            { label: 'Prompt', value: 'prompt' },
+            { label: 'Auto on app open', value: 'auto' },
+          ]}
+          onChange={(recurringGenerationPreference) => data.updateSettings({ recurringGenerationPreference })}
+        />
+        <View style={styles.switchRow}>
+          <View style={styles.switchText}>
+            <Text style={styles.rowTitle}>Include pending records</Text>
+            <Text style={styles.rowBody}>Default settlement suggestions otherwise prefer verified/local trusted records.</Text>
+          </View>
+          <Switch
+            value={data.settings.includePendingSettlements}
+            onValueChange={(includePendingSettlements) => data.updateSettings({ includePendingSettlements })}
+            trackColor={{ false: palette.lineStrong, true: palette.brandSoft }}
+            thumbColor={data.settings.includePendingSettlements ? palette.brand : '#FFFFFF'}
+          />
+        </View>
+        <View style={styles.switchRow}>
+          <View style={styles.switchText}>
+            <Text style={styles.rowTitle}>Include rejected/disputed</Text>
+            <Text style={styles.rowBody}>Off by default so disputed records do not affect settlement suggestions silently.</Text>
+          </View>
+          <Switch
+            value={data.settings.includeRejectedDisputedSettlements}
+            onValueChange={(includeRejectedDisputedSettlements) => data.updateSettings({ includeRejectedDisputedSettlements })}
+            trackColor={{ false: palette.lineStrong, true: palette.brandSoft }}
+            thumbColor={data.settings.includeRejectedDisputedSettlements ? palette.brand : '#FFFFFF'}
+          />
+        </View>
+      </Card>
+
       <Card tone="amber">
         <SectionTitle title="Development data" subtitle="Reset local SQLite data while building Stage 1." />
         <View style={styles.buttonRow}>

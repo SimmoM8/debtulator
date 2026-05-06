@@ -35,6 +35,7 @@ import { createRemoteEventInvite, createRemoteSharedEventMember } from '@/src/se
 import { useAppData } from '@/src/state/AppDataProvider';
 import { useAuth } from '@/src/state/AuthProvider';
 import type {
+  CurrencyCode,
   EventRole,
   EventSettlementSettings,
   EventStatus,
@@ -44,7 +45,7 @@ import type {
 } from '@/src/types/models';
 import { formatMoney, formatMoneyMap } from '@/src/utils/money';
 
-type EventTab = 'overview' | 'expenses' | 'balances' | 'settlements' | 'members' | 'activity';
+type EventTab = 'overview' | 'expenses' | 'balances' | 'settlements' | 'payments' | 'members' | 'activity';
 
 export function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -85,6 +86,13 @@ export function EventDetailScreen() {
   const explanation = useMemo(
     () => (event ? explainEventSettlement(event.id, data.ledgerEntries, settlementSettings) : null),
     [data.ledgerEntries, event, settlementSettings],
+  );
+  const convertedSuggestions = useMemo(
+    () =>
+      explanation && settlementSettings.convertedCurrency
+        ? buildConvertedEstimate(explanation.participantNets, data.settings.baseCurrency, data.currencyRates)
+        : [],
+    [data.currencyRates, data.settings.baseCurrency, explanation, settlementSettings.convertedCurrency],
   );
   const duplicateWarnings = useMemo(
     () => (event ? findDuplicateWarnings(event, data.eventMembers, data.members) : []),
@@ -247,6 +255,29 @@ export function EventDetailScreen() {
             disabled={!canAddRecords}
             onPress={() => router.push({ pathname: '/debt/form', params: { eventId: event.id } })}
           />
+          <Button
+            title="Record settlement"
+            icon="card"
+            variant="secondary"
+            disabled={!canAddRecords}
+            onPress={() => router.push({ pathname: '/payment/form', params: { eventId: event.id } })}
+          />
+          <Button
+            title="Remind gently"
+            icon="notifications"
+            variant="secondary"
+            disabled={!canAddRecords}
+            onPress={() =>
+              data.createSoftReminder({
+                senderUserId: currentUserId,
+                recipientUserId: null,
+                relatedMemberId: null,
+                relatedEventId: event.id,
+                relatedRecordId: null,
+                message: `${event.name} has unsettled balances.`,
+              })
+            }
+          />
         </View>
       </Card>
 
@@ -257,6 +288,7 @@ export function EventDetailScreen() {
           { label: 'Expenses', value: 'expenses' },
           { label: 'Balances', value: 'balances' },
           { label: 'Settlements', value: 'settlements' },
+          { label: 'Payments', value: 'payments' },
           { label: 'Members', value: 'members' },
           { label: 'Activity', value: 'activity' },
         ]}
@@ -390,11 +422,43 @@ export function EventDetailScreen() {
                     {participantName(suggestion.toId, data.members, sharedEventMembers)}
                   </Text>
                   <Text style={styles.money}>{formatMoney(suggestion.amount, suggestion.currency)}</Text>
+                  <Button
+                    title="Record"
+                    icon="card"
+                    variant="secondary"
+                    onPress={() =>
+                      router.push({
+                        pathname: '/payment/form',
+                        params: {
+                          eventId: event.id,
+                          payerId: suggestion.fromId,
+                          payeeId: suggestion.toId,
+                        },
+                      })
+                    }
+                  />
                 </View>
               ))
             ) : (
               <Text style={styles.body}>No settlement suggestions with the selected settings.</Text>
             )}
+            {convertedSuggestions.length > 0 ? (
+              <View style={styles.estimateBox}>
+                <Badge label="Estimated converted settlement" tone="amber" />
+                <Text style={styles.body}>
+                  Using local exchange rates from the settings table. This converts balances to {data.settings.baseCurrency} for settlement purposes and is approximate.
+                </Text>
+                {convertedSuggestions.map((suggestion, index) => (
+                  <View key={`${suggestion.fromId}-${suggestion.toId}-${index}`} style={styles.settlementRow}>
+                    <Text style={styles.settlementText}>
+                      {participantName(suggestion.fromId, data.members, sharedEventMembers)} pays{' '}
+                      {participantName(suggestion.toId, data.members, sharedEventMembers)}
+                    </Text>
+                    <Text style={styles.money}>approx. {formatMoney(suggestion.amount, data.settings.baseCurrency)}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
           </Card>
 
           <Card>
@@ -427,6 +491,27 @@ export function EventDetailScreen() {
             ))}
           </Card>
         </>
+      ) : null}
+
+      {tab === 'payments' ? (
+        <Card>
+          <SectionTitle title="Payment history" subtitle="Payments and settlement records for this event." />
+          {data.payments.filter((payment) => payment.eventId === event.id).length > 0 ? (
+            data.payments
+              .filter((payment) => payment.eventId === event.id)
+              .map((payment) => (
+                <View key={payment.id} style={styles.settlementRow}>
+                  <Text style={styles.settlementText}>
+                    {participantName(payment.payerEventMemberId ?? 'me', data.members, sharedEventMembers)} paid{' '}
+                    {participantName(payment.payeeEventMemberId ?? 'me', data.members, sharedEventMembers)}
+                  </Text>
+                  <Text style={styles.money}>{formatMoney(payment.amount, payment.currency)}</Text>
+                </View>
+              ))
+          ) : (
+            <EmptyState title="No payments yet" body="Record a settlement from a suggestion or manually." />
+          )}
+        </Card>
       ) : null}
 
       {tab === 'members' ? (
@@ -563,6 +648,9 @@ function SettingToggle({
         ['includePartiallyVerified', 'Include partially verified'],
         ['includeRejectedDisputed', 'Include rejected/disputed'],
         ['includeSettled', 'Include settled'],
+        ['directDebtOnly', 'Direct debts only'],
+        ['verifiedOnly', 'Verified records only'],
+        ['convertedCurrency', 'Estimated converted settlement'],
       ].map(([key, label]) => {
         const typedKey = key as keyof EventSettlementSettings;
         return (
@@ -792,6 +880,47 @@ function PrivateMembersPanel({
   );
 }
 
+function buildConvertedEstimate(
+  nets: Record<string, Record<string, number | undefined>>,
+  baseCurrency: CurrencyCode,
+  rates: { currency: CurrencyCode; rateToSek: number }[],
+) {
+  const rateMap = new Map(rates.map((rate) => [rate.currency, rate.rateToSek]));
+  const baseRate = rateMap.get(baseCurrency) ?? 1;
+  const convertedNets = Object.entries(nets).map(([participantId, moneyMap]) => {
+    const amount = Object.entries(moneyMap).reduce((total, [currency, value]) => {
+      const rate = rateMap.get(currency as CurrencyCode) ?? 1;
+      return total + ((value ?? 0) * rate) / baseRate;
+    }, 0);
+    return { participantId, amount };
+  });
+  const creditors = convertedNets.filter((item) => item.amount > 0.005).sort((a, b) => b.amount - a.amount);
+  const debtors = convertedNets
+    .filter((item) => item.amount < -0.005)
+    .map((item) => ({ ...item, amount: Math.abs(item.amount) }))
+    .sort((a, b) => b.amount - a.amount);
+  const suggestions: { fromId: string; toId: string; amount: number }[] = [];
+  let creditorIndex = 0;
+  let debtorIndex = 0;
+  while (creditorIndex < creditors.length && debtorIndex < debtors.length) {
+    const creditor = creditors[creditorIndex];
+    const debtor = debtors[debtorIndex];
+    const amount = Math.round(Math.min(creditor.amount, debtor.amount) * 100) / 100;
+    if (amount > 0.005) {
+      suggestions.push({ fromId: debtor.participantId, toId: creditor.participantId, amount });
+    }
+    creditor.amount -= amount;
+    debtor.amount -= amount;
+    if (creditor.amount <= 0.005) {
+      creditorIndex += 1;
+    }
+    if (debtor.amount <= 0.005) {
+      debtorIndex += 1;
+    }
+  }
+  return suggestions;
+}
+
 function targetForEntry(entry: LedgerEntry): { type: EventVerificationResponse['targetType']; id: string } | null {
   if (entry.kind === 'event_direct_debt') {
     return { type: 'debt', id: entry.sourceId };
@@ -956,6 +1085,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
+  },
+  estimateBox: {
+    gap: spacing.sm,
+    paddingTop: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: palette.line,
   },
   activityRow: {
     gap: spacing.xs,

@@ -57,9 +57,56 @@ export type EventDuplicateWarningConfidence = 'low' | 'medium' | 'high';
 
 export type EventVerificationTargetType = 'expense' | 'debt' | 'split';
 
-export type SplitMethod = 'equal';
+export type SplitMethod = 'equal' | 'custom_amount' | 'custom_percentage' | 'shares';
 
-export type LedgerEntryKind = 'simple_debt' | 'expense_obligation' | 'event_direct_debt';
+export type LedgerEntryKind = 'simple_debt' | 'expense_obligation' | 'event_direct_debt' | 'overpayment_credit';
+
+export type PaymentStatus =
+  | 'recorded'
+  | 'pending_confirmation'
+  | 'confirmed'
+  | 'rejected'
+  | 'cancelled'
+  | 'archived';
+
+export type PaymentConfirmationStatus =
+  | 'local_only'
+  | 'pending_confirmation'
+  | 'confirmed'
+  | 'rejected'
+  | 'disputed'
+  | 'resolved';
+
+export type ObligationPaymentStatus = 'unpaid' | 'partially_paid' | 'paid' | 'overpaid' | 'cancelled' | 'archived';
+
+export type SettlementStatus =
+  | 'draft'
+  | 'recorded'
+  | 'pending_confirmation'
+  | 'confirmed'
+  | 'rejected'
+  | 'cancelled'
+  | 'archived';
+
+export type SettlementType = 'manual' | 'from_suggestion';
+
+export type SettlementSourceRecordType =
+  | 'simple_debt'
+  | 'event_debt'
+  | 'shared_expense_obligation'
+  | 'overpayment_credit';
+
+export type RecurringTemplateType = 'simple_debt' | 'shared_expense' | 'event_debt';
+
+export type RecurringStatus = 'active' | 'paused' | 'ended' | 'archived';
+
+export type ReminderTargetType = 'debt' | 'expense' | 'settlement' | 'recurring_template';
+
+export type ReminderStatus = 'scheduled' | 'triggered' | 'dismissed' | 'cancelled';
+
+export type SoftReminderStatus = 'draft' | 'sent' | 'dismissed';
+
+export type OverpaymentCreditStatus = 'open' | 'applied' | 'ignored' | 'gift' | 'archived';
 
 export type EntityKind =
   | 'member'
@@ -71,7 +118,13 @@ export type EntityKind =
   | 'event_member_claim'
   | 'event_duplicate_warning'
   | 'event_debt'
-  | 'event_verification';
+  | 'event_verification'
+  | 'payment'
+  | 'settlement'
+  | 'recurring_template'
+  | 'reminder'
+  | 'soft_reminder'
+  | 'overpayment_credit';
 
 export type ActivityTargetKind =
   | EntityKind
@@ -86,7 +139,12 @@ export type SortMode =
   | 'amount_desc'
   | 'amount_asc'
   | 'name_asc'
-  | 'balance_desc';
+  | 'balance_desc'
+  | 'due_date'
+  | 'remaining_amount'
+  | 'payment_date'
+  | 'settlement_date'
+  | 'recurrence_next_date';
 
 export type Member = {
   id: string;
@@ -124,6 +182,7 @@ export type Debt = {
   sharedNotes: string | null;
   debtDate: string;
   dueDate: string | null;
+  recurringTemplateId: string | null;
   tags: string[];
   eventId: string | null;
   status: DebtStatus;
@@ -261,6 +320,18 @@ export type GeneratedObligation = {
   toParticipantId: ParticipantId;
   amount: number;
   currency: CurrencyCode;
+  splitShare?: number;
+  explanation?: string;
+};
+
+export type ExpensePayer = {
+  id: string;
+  expenseId: string;
+  eventMemberId: ParticipantId;
+  amountPaid: number;
+  currency: CurrencyCode;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type SharedExpense = {
@@ -269,6 +340,7 @@ export type SharedExpense = {
   eventId: string;
   creatorUserId: string | null;
   payerId: ParticipantId;
+  expensePayers: ExpensePayer[];
   amount: number;
   currency: CurrencyCode;
   title: string;
@@ -276,7 +348,10 @@ export type SharedExpense = {
   expenseDate: string;
   participantIds: ParticipantId[];
   splitMethod: SplitMethod;
+  splitAllocations: Record<ParticipantId, number>;
   generatedObligations: GeneratedObligation[];
+  dueDate: string | null;
+  recurringTemplateId: string | null;
   tags: string[];
   status: DebtStatus;
   verificationStatus: VerificationStatus;
@@ -299,6 +374,7 @@ export type EventDebt = {
   title: string;
   notes: string | null;
   debtDate: string;
+  dueDate: string | null;
   tags: string[];
   verificationStatus: VerificationStatus;
   settlementStatus: DebtStatus;
@@ -307,6 +383,134 @@ export type EventDebt = {
   updatedAt: string;
   archivedAt: string | null;
   syncStatus: SyncStatus;
+};
+
+export type Payment = {
+  id: string;
+  localId: string | null;
+  remoteId: string | null;
+  createdByUserId: string | null;
+  payerUserId: string | null;
+  payeeUserId: string | null;
+  payerMemberId: string | null;
+  payeeMemberId: string | null;
+  payerEventMemberId: string | null;
+  payeeEventMemberId: string | null;
+  eventId: string | null;
+  relatedMemberId: string | null;
+  amount: number;
+  currency: CurrencyCode;
+  paymentDate: string;
+  notes: string | null;
+  status: PaymentStatus;
+  confirmationStatus: PaymentConfirmationStatus;
+  visibility: DebtVisibility;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
+  syncStatus: SyncStatus;
+};
+
+export type Settlement = {
+  id: string;
+  localId: string | null;
+  remoteId: string | null;
+  createdByUserId: string | null;
+  eventId: string | null;
+  memberId: string | null;
+  type: SettlementType;
+  currency: CurrencyCode;
+  totalAmount: number;
+  status: SettlementStatus;
+  confirmationStatus: PaymentConfirmationStatus;
+  notes: string | null;
+  originalCurrency: CurrencyCode | null;
+  originalAmount: number | null;
+  settlementCurrency: CurrencyCode | null;
+  settlementAmount: number | null;
+  exchangeRateUsed: number | null;
+  exchangeRateDate: string | null;
+  conversionNote: string | null;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
+  syncStatus: SyncStatus;
+};
+
+export type SettlementLine = {
+  id: string;
+  settlementId: string;
+  paymentId: string | null;
+  sourceRecordType: SettlementSourceRecordType;
+  sourceRecordId: string;
+  appliedAmount: number;
+  currency: CurrencyCode;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type RecurringTemplate = {
+  id: string;
+  createdByUserId: string | null;
+  eventId: string | null;
+  memberId: string | null;
+  type: RecurringTemplateType;
+  title: string;
+  amount: number;
+  currency: CurrencyCode;
+  recurrenceRule: string;
+  startDate: string;
+  endDate: string | null;
+  nextOccurrenceDate: string;
+  lastGeneratedDate: string | null;
+  status: RecurringStatus;
+  autoGenerate: boolean;
+  reminderSettings: Record<string, unknown> | null;
+  payload: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Reminder = {
+  id: string;
+  userId: string | null;
+  targetType: ReminderTargetType;
+  targetId: string;
+  remindAt: string;
+  repeatRule: string | null;
+  status: ReminderStatus;
+  message: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SoftReminder = {
+  id: string;
+  senderUserId: string | null;
+  recipientUserId: string | null;
+  relatedMemberId: string | null;
+  relatedEventId: string | null;
+  relatedRecordId: string | null;
+  message: string;
+  status: SoftReminderStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type OverpaymentCredit = {
+  id: string;
+  createdByUserId: string | null;
+  payerMemberId: string | null;
+  payeeMemberId: string | null;
+  payerEventMemberId: string | null;
+  payeeEventMemberId: string | null;
+  eventId: string | null;
+  amount: number;
+  currency: CurrencyCode;
+  sourcePaymentId: string;
+  status: OverpaymentCreditStatus;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type EventVerificationResponse = {
@@ -420,6 +624,12 @@ export type AppSettings = {
   baseCurrency: CurrencyCode;
   showEstimatedBase: boolean;
   theme: 'system' | 'light' | 'dark';
+  convertedSettlementOptIn: boolean;
+  defaultReminderPreference: 'none' | 'due_date' | 'one_day_before' | 'one_week_before';
+  recurringGenerationPreference: 'auto' | 'prompt';
+  includePendingSettlements: boolean;
+  includeRejectedDisputedSettlements: boolean;
+  verifiedOnlySettlements: boolean;
 };
 
 export type LedgerEntry = {
@@ -431,10 +641,16 @@ export type LedgerEntry = {
   fromId: ParticipantId;
   toId: ParticipantId;
   amount: number;
+  originalAmount: number;
+  amountPaid: number;
+  remainingAmount: number;
+  overpaidAmount: number;
+  paymentStatus: ObligationPaymentStatus;
   currency: CurrencyCode;
   title: string;
   notes: string | null;
   date: string;
+  dueDate: string | null;
   tags: string[];
   status: DebtStatus;
   verificationStatus: VerificationStatus;
@@ -452,6 +668,9 @@ export type SettlementSuggestion = {
   amount: number;
   currency: CurrencyCode;
   includedRecordIds?: string[];
+  excludedRecordIds?: string[];
+  mode?: 'fewest_payments' | 'direct_debt_only' | 'verified_only' | 'converted_estimate';
+  approximate?: boolean;
   explanation?: Record<string, unknown>;
 };
 
@@ -461,6 +680,11 @@ export type EventSettlementSettings = {
   includeRejectedDisputed: boolean;
   includeArchived: boolean;
   includeSettled: boolean;
+  directDebtOnly: boolean;
+  verifiedOnly: boolean;
+  includeLocalPrivate: boolean;
+  convertedCurrency: boolean;
+  settlementCurrency: CurrencyCode | null;
 };
 
 export type ExcludedLedgerEntry = {
@@ -508,6 +732,11 @@ export type DebtFilters = {
   visibility: DebtVisibility | 'all';
   tag: string | null;
   kind: LedgerEntryKind | 'all';
+  paymentStatus: ObligationPaymentStatus | 'all';
+  dueMode: 'all' | 'due_soon' | 'overdue' | 'no_due_date';
+  reminderMode: 'all' | 'has_reminder';
+  recurringMode: 'all' | 'recurring' | 'not_recurring';
+  settlementRecordMode: 'all' | 'has_settlement_record';
   sort: SortMode;
 };
 
