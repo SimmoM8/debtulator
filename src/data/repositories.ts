@@ -6,10 +6,18 @@ import {
   insertDebt,
   insertDebtVerification,
   insertEvent,
+  insertEventActivityLog,
+  insertEventDebt,
+  insertEventDuplicateWarning,
   insertEventMember,
+  insertEventMemberClaim,
+  insertEventParticipant,
+  insertEventInvite,
+  insertEventVerificationResponse,
   insertLinkRequest,
   insertMember,
   insertProfile,
+  insertSharedEventMember,
   insertSharedExpense,
   loadSnapshot,
   resetDatabase,
@@ -17,6 +25,11 @@ import {
   updateSetting,
 } from '@/src/data/database';
 import { withGeneratedObligations } from '@/src/services/splits';
+import {
+  buildDuplicateWarning,
+  duplicatePairKey,
+  findSharedEventDuplicateWarningDrafts,
+} from '@/src/services/eventDuplicates';
 import type {
   AppSettings,
   ActivityTargetKind,
@@ -25,14 +38,24 @@ import type {
   DebtVerification,
   DebtStatus,
   Event,
+  EventActivityLog,
+  EventDebt,
+  EventDuplicateWarning,
+  EventInvite,
   EventMember,
+  EventMemberClaim,
+  EventParticipant,
+  EventRole,
   EventStatus,
+  EventVerificationResponse,
   LinkRequest,
   Member,
   MemberLinkStatus,
   ParticipantId,
+  SharedEventMember,
   SharedExpense,
   SuggestedDebtChange,
+  SyncStatus,
   VerificationStatus,
   UserProfile,
 } from '@/src/types/models';
@@ -72,13 +95,21 @@ type EventInput = {
   name: string;
   notes?: string | null;
   defaultCurrency: CurrencyCode;
+  allowedCurrencies?: CurrencyCode[];
   tags?: string[];
   status?: EventStatus;
+  visibility?: Event['visibility'];
+  ownerUserId?: string | null;
+  ownerDisplayName?: string | null;
+  ownerEmail?: string | null;
+  remoteId?: string | null;
+  syncStatus?: SyncStatus;
   memberIds?: string[];
 };
 
 type SharedExpenseInput = {
   eventId: string;
+  creatorUserId?: string | null;
   payerId: ParticipantId;
   amount: number;
   currency: CurrencyCode;
@@ -89,6 +120,58 @@ type SharedExpenseInput = {
   tags?: string[];
   status?: DebtStatus;
   verificationStatus?: VerificationStatus;
+  visibility?: SharedExpense['visibility'];
+  remoteId?: string | null;
+  syncStatus?: SyncStatus;
+};
+
+type EventInviteInput = {
+  eventId: string;
+  remoteEventId?: string | null;
+  inviterUserId: string;
+  invitedUserId?: string | null;
+  invitedEmail?: string | null;
+  invitedPhone?: string | null;
+  invitedDisplayName: string;
+  offeredRole: Exclude<EventRole, 'owner'>;
+  message?: string | null;
+  remoteId?: string | null;
+  syncStatus?: SyncStatus;
+};
+
+type SharedEventMemberInput = {
+  eventId: string;
+  remoteEventId?: string | null;
+  type?: SharedEventMember['type'];
+  linkedUserId?: string | null;
+  displayName: string;
+  alias?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  notes?: string | null;
+  createdByUserId?: string | null;
+  status?: SharedEventMember['status'];
+  remoteId?: string | null;
+  syncStatus?: SyncStatus;
+};
+
+type EventDebtInput = {
+  eventId: string;
+  remoteEventId?: string | null;
+  creatorUserId?: string | null;
+  debtorEventMemberId: string;
+  creditorEventMemberId: string;
+  amount: number;
+  currency: CurrencyCode;
+  title: string;
+  notes?: string | null;
+  debtDate?: string;
+  tags?: string[];
+  verificationStatus?: VerificationStatus;
+  settlementStatus?: DebtStatus;
+  status?: DebtStatus;
+  remoteId?: string | null;
+  syncStatus?: SyncStatus;
 };
 
 type LinkMemberInput = {
@@ -278,20 +361,70 @@ export class DebtulatorRepository {
 
   async createEvent(input: EventInput) {
     const timestamp = nowIso();
+    const visibility = input.visibility ?? 'private';
     const event: Event = {
       id: createId('event'),
+      localId: null,
+      remoteId: input.remoteId ?? null,
+      ownerUserId: cleanOptional(input.ownerUserId),
       name: input.name.trim(),
       notes: cleanOptional(input.notes),
       defaultCurrency: input.defaultCurrency,
+      allowedCurrencies: input.allowedCurrencies?.length ? input.allowedCurrencies : [input.defaultCurrency],
       tags: cleanTags(input.tags),
       status: input.status ?? 'active',
+      visibility,
+      syncStatus: input.syncStatus ?? (visibility === 'shared' ? (input.remoteId ? 'synced' : 'pending_upload') : 'local_only'),
       archived: false,
+      archivedAt: null,
+      finalisedAt: null,
+      lockedAt: null,
       ignoredDuplicateKeys: [],
       createdAt: timestamp,
       updatedAt: timestamp,
     };
     await insertEvent(this.db, event);
-    await this.setEventMembers(event.id, input.memberIds ?? []);
+    if (visibility === 'shared' && event.ownerUserId) {
+      const participant: EventParticipant = {
+        id: createId('event_participant'),
+        remoteId: null,
+        eventId: event.id,
+        remoteEventId: event.remoteId,
+        userId: event.ownerUserId,
+        role: 'owner',
+        status: 'active',
+        joinedAt: timestamp,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        syncStatus: event.syncStatus,
+      };
+      await insertEventParticipant(this.db, participant);
+      await insertSharedEventMember(this.db, {
+        id: createId('event_member'),
+        remoteId: null,
+        eventId: event.id,
+        remoteEventId: event.remoteId,
+        type: 'linked_user',
+        linkedUserId: event.ownerUserId,
+        displayName: cleanOptional(input.ownerDisplayName) ?? 'You',
+        alias: 'You',
+        email: cleanOptional(input.ownerEmail),
+        phone: null,
+        notes: null,
+        createdByUserId: event.ownerUserId,
+        status: 'active',
+        mergedIntoEventMemberId: null,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        syncStatus: event.syncStatus,
+      });
+      await this.logEventActivity(event.id, 'event_created', event.ownerUserId, 'event', event.id, {
+        name: event.name,
+        visibility: event.visibility,
+      });
+    } else {
+      await this.setEventMembers(event.id, input.memberIds ?? []);
+    }
     return event;
   }
 
@@ -307,15 +440,46 @@ export class DebtulatorRepository {
       name: input.name?.trim() ?? event.name,
       notes: input.notes === undefined ? event.notes : cleanOptional(input.notes),
       defaultCurrency: input.defaultCurrency ?? event.defaultCurrency,
+      allowedCurrencies: input.allowedCurrencies ?? event.allowedCurrencies,
       tags: input.tags === undefined ? event.tags : cleanTags(input.tags),
       status: input.status ?? event.status,
+      visibility: input.visibility ?? event.visibility,
+      remoteId: input.remoteId === undefined ? event.remoteId : cleanOptional(input.remoteId),
+      ownerUserId: input.ownerUserId === undefined ? event.ownerUserId : cleanOptional(input.ownerUserId),
+      syncStatus:
+        input.syncStatus ??
+        (event.syncStatus === 'synced' && hasEventUpdate(input) ? 'pending_update' : event.syncStatus),
       archived: input.archived ?? event.archived,
+      archivedAt:
+        input.archived === true && !event.archivedAt
+          ? nowIso()
+          : input.archived === false
+            ? null
+            : event.archivedAt,
+      finalisedAt:
+        input.status === 'finalising' && !event.finalisedAt
+          ? nowIso()
+          : input.status === 'active'
+            ? null
+            : event.finalisedAt,
+      lockedAt:
+        input.status === 'finalising' && !event.lockedAt
+          ? nowIso()
+          : input.status === 'active'
+            ? null
+            : event.lockedAt,
       ignoredDuplicateKeys: input.ignoredDuplicateKeys ?? event.ignoredDuplicateKeys,
       updatedAt: nowIso(),
     };
     await insertEvent(this.db, updated);
-    if (input.memberIds) {
+    if (event.visibility === 'private' && input.memberIds) {
       await this.setEventMembers(event.id, input.memberIds);
+    }
+    if (event.visibility === 'shared') {
+      await this.logEventActivity(event.id, 'event_edited', input.ownerUserId ?? null, 'event', event.id, {
+        status: updated.status,
+        archived: updated.archived,
+      });
     }
     return updated;
   }
@@ -345,8 +509,9 @@ export class DebtulatorRepository {
     const timestamp = nowIso();
     const expense = withGeneratedObligations({
       id: createId('expense'),
-      remoteId: null,
+      remoteId: input.remoteId ?? null,
       eventId: input.eventId,
+      creatorUserId: cleanOptional(input.creatorUserId),
       payerId: input.payerId,
       amount: toAmount(input.amount),
       currency: input.currency,
@@ -358,12 +523,19 @@ export class DebtulatorRepository {
       tags: cleanTags(input.tags),
       status: input.status ?? 'active',
       verificationStatus: input.verificationStatus ?? 'local_only',
-      visibility: 'private',
-      syncStatus: 'local_only',
+      visibility: input.visibility ?? 'private',
+      syncStatus: input.syncStatus ?? (input.visibility === 'shared_event' ? (input.remoteId ? 'synced' : 'pending_upload') : 'local_only'),
       createdAt: timestamp,
       updatedAt: timestamp,
     });
     await insertSharedExpense(this.db, expense);
+    if (expense.visibility === 'shared_event') {
+      await this.logEventActivity(expense.eventId, 'expense_added', expense.creatorUserId, 'shared_expense', expense.id, {
+        amount: expense.amount,
+        currency: expense.currency,
+        title: expense.title,
+      });
+    }
     return expense;
   }
 
@@ -386,7 +558,9 @@ export class DebtulatorRepository {
 
     const updated = withGeneratedObligations({
       ...expense,
+      remoteId: input.remoteId === undefined ? expense.remoteId : cleanOptional(input.remoteId),
       eventId: input.eventId ?? expense.eventId,
+      creatorUserId: input.creatorUserId === undefined ? expense.creatorUserId : cleanOptional(input.creatorUserId),
       payerId: input.payerId ?? expense.payerId,
       amount: input.amount === undefined ? expense.amount : toAmount(input.amount),
       currency: input.currency ?? expense.currency,
@@ -397,13 +571,475 @@ export class DebtulatorRepository {
       tags: input.tags === undefined ? expense.tags : cleanTags(input.tags),
       status: input.status ?? expense.status,
       verificationStatus: nextVerificationStatus,
-      visibility: expense.visibility,
+      visibility: input.visibility ?? expense.visibility,
       syncStatus:
-        financialFieldsChanged && expense.syncStatus === 'synced' ? 'pending_update' : expense.syncStatus,
+        input.syncStatus ??
+        (financialFieldsChanged && expense.syncStatus === 'synced' ? 'pending_update' : expense.syncStatus),
       updatedAt: nowIso(),
     });
     await insertSharedExpense(this.db, updated);
+    if (updated.visibility === 'shared_event') {
+      await this.logEventActivity(updated.eventId, 'expense_edited', updated.creatorUserId, 'shared_expense', updated.id, {
+        financialFieldsChanged,
+      });
+    }
     return updated;
+  }
+
+  async createEventInvite(input: EventInviteInput) {
+    const timestamp = nowIso();
+    const invite: EventInvite = {
+      id: createId('event_invite'),
+      remoteId: input.remoteId ?? null,
+      eventId: input.eventId,
+      remoteEventId: input.remoteEventId ?? null,
+      inviterUserId: input.inviterUserId,
+      invitedUserId: cleanOptional(input.invitedUserId),
+      invitedEmail: cleanOptional(input.invitedEmail),
+      invitedPhone: cleanOptional(input.invitedPhone),
+      invitedDisplayName: input.invitedDisplayName.trim(),
+      offeredRole: input.offeredRole,
+      status: 'pending',
+      message: cleanOptional(input.message),
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      respondedAt: null,
+      syncStatus: input.syncStatus ?? (input.remoteId ? 'synced' : 'pending_upload'),
+    };
+    await insertEventInvite(this.db, invite);
+    await this.logEventActivity(invite.eventId, 'invite_sent', invite.inviterUserId, 'event_invite', invite.id, {
+      invitedDisplayName: invite.invitedDisplayName,
+      invitedEmail: invite.invitedEmail,
+      offeredRole: invite.offeredRole,
+    });
+    return invite;
+  }
+
+  async respondToEventInvite(
+    invite: EventInvite,
+    status: Extract<EventInvite['status'], 'accepted' | 'rejected' | 'cancelled'>,
+    actorUserId: string,
+    actorDisplayName?: string | null,
+    actorEmail?: string | null,
+  ) {
+    const timestamp = nowIso();
+    const updatedInvite: EventInvite = {
+      ...invite,
+      status,
+      invitedUserId: status === 'accepted' ? actorUserId : invite.invitedUserId,
+      respondedAt: timestamp,
+      updatedAt: timestamp,
+      syncStatus: invite.remoteId ? 'pending_update' : invite.syncStatus,
+    };
+    await insertEventInvite(this.db, updatedInvite);
+
+    if (status === 'accepted') {
+      const snapshot = await loadSnapshot(this.db);
+      const event = snapshot.events.find((item) => item.id === invite.eventId);
+      const existingParticipant = snapshot.eventParticipants.find(
+        (participant) => participant.eventId === invite.eventId && participant.userId === actorUserId,
+      );
+      await insertEventParticipant(this.db, {
+        id: existingParticipant?.id ?? createId('event_participant'),
+        remoteId: existingParticipant?.remoteId ?? null,
+        eventId: invite.eventId,
+        remoteEventId: invite.remoteEventId,
+        userId: actorUserId,
+        role: invite.offeredRole,
+        status: 'active',
+        joinedAt: existingParticipant?.joinedAt ?? timestamp,
+        createdAt: existingParticipant?.createdAt ?? timestamp,
+        updatedAt: timestamp,
+        syncStatus: invite.remoteId ? 'pending_update' : 'pending_upload',
+      });
+
+      const existingMember = snapshot.sharedEventMembers.find(
+        (member) => member.eventId === invite.eventId && member.linkedUserId === actorUserId && member.status !== 'merged',
+      );
+      if (!existingMember) {
+        await insertSharedEventMember(this.db, {
+          id: createId('event_member'),
+          remoteId: null,
+          eventId: invite.eventId,
+          remoteEventId: event?.remoteId ?? invite.remoteEventId,
+          type: 'linked_user',
+          linkedUserId: actorUserId,
+          displayName: cleanOptional(actorDisplayName) ?? invite.invitedDisplayName,
+          alias: null,
+          email: cleanOptional(actorEmail) ?? invite.invitedEmail,
+          phone: invite.invitedPhone,
+          notes: null,
+          createdByUserId: invite.inviterUserId,
+          status: 'active',
+          mergedIntoEventMemberId: null,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+          syncStatus: 'pending_upload',
+        });
+      }
+    }
+
+    await this.logEventActivity(
+      invite.eventId,
+      status === 'accepted' ? 'invite_accepted' : status === 'rejected' ? 'invite_rejected' : 'invite_cancelled',
+      actorUserId,
+      'event_invite',
+      invite.id,
+      { invitedDisplayName: invite.invitedDisplayName },
+    );
+    return updatedInvite;
+  }
+
+  async createSharedEventMember(input: SharedEventMemberInput) {
+    const snapshot = await loadSnapshot(this.db);
+    if (input.linkedUserId) {
+      const duplicateLinked = snapshot.sharedEventMembers.find(
+        (member) =>
+          member.eventId === input.eventId &&
+          member.linkedUserId === input.linkedUserId &&
+          member.status !== 'merged' &&
+          member.status !== 'archived',
+      );
+      if (duplicateLinked) {
+        throw new Error('This linked user is already an event member.');
+      }
+    }
+
+    const timestamp = nowIso();
+    const member: SharedEventMember = {
+      id: createId('event_member'),
+      remoteId: input.remoteId ?? null,
+      eventId: input.eventId,
+      remoteEventId: input.remoteEventId ?? null,
+      type: input.type ?? (input.linkedUserId ? 'linked_user' : 'unlinked_placeholder'),
+      linkedUserId: cleanOptional(input.linkedUserId),
+      displayName: input.displayName.trim(),
+      alias: cleanOptional(input.alias),
+      email: cleanOptional(input.email),
+      phone: cleanOptional(input.phone),
+      notes: cleanOptional(input.notes),
+      createdByUserId: cleanOptional(input.createdByUserId),
+      status: input.status ?? 'active',
+      mergedIntoEventMemberId: null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      syncStatus: input.syncStatus ?? (input.remoteId ? 'synced' : 'pending_upload'),
+    };
+    await insertSharedEventMember(this.db, member);
+    await this.reconcileEventDuplicateWarnings(member.eventId);
+    await this.logEventActivity(member.eventId, 'event_member_added', member.createdByUserId, 'event_member', member.id, {
+      displayName: member.displayName,
+      type: member.type,
+    });
+    return member;
+  }
+
+  async updateSharedEventMember(member: SharedEventMember, input: Partial<SharedEventMemberInput> & { archived?: boolean }) {
+    const timestamp = nowIso();
+    const updated: SharedEventMember = {
+      ...member,
+      type: input.type ?? member.type,
+      linkedUserId: input.linkedUserId === undefined ? member.linkedUserId : cleanOptional(input.linkedUserId),
+      displayName: input.displayName?.trim() ?? member.displayName,
+      alias: input.alias === undefined ? member.alias : cleanOptional(input.alias),
+      email: input.email === undefined ? member.email : cleanOptional(input.email),
+      phone: input.phone === undefined ? member.phone : cleanOptional(input.phone),
+      notes: input.notes === undefined ? member.notes : cleanOptional(input.notes),
+      status: input.archived ? 'archived' : input.status ?? member.status,
+      syncStatus: input.syncStatus ?? (member.syncStatus === 'synced' ? 'pending_update' : member.syncStatus),
+      updatedAt: timestamp,
+    };
+    await insertSharedEventMember(this.db, updated);
+    await this.reconcileEventDuplicateWarnings(updated.eventId);
+    await this.logEventActivity(updated.eventId, 'event_member_edited', input.createdByUserId ?? null, 'event_member', updated.id, {
+      displayName: updated.displayName,
+      status: updated.status,
+    });
+    return updated;
+  }
+
+  async createEventMemberClaim(member: SharedEventMember, claimantUserId: string, message?: string | null, remoteId?: string | null) {
+    const timestamp = nowIso();
+    const claim: EventMemberClaim = {
+      id: createId('event_claim'),
+      remoteId: remoteId ?? null,
+      eventId: member.eventId,
+      remoteEventId: member.remoteEventId,
+      eventMemberId: member.id,
+      remoteEventMemberId: member.remoteId,
+      claimantUserId,
+      status: 'pending',
+      message: cleanOptional(message),
+      respondedByUserId: null,
+      respondedAt: null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      syncStatus: remoteId ? 'synced' : 'pending_upload',
+    };
+    await insertEventMemberClaim(this.db, claim);
+    await insertSharedEventMember(this.db, {
+      ...member,
+      status: 'claim_pending',
+      updatedAt: timestamp,
+      syncStatus: member.syncStatus === 'synced' ? 'pending_update' : member.syncStatus,
+    });
+    await this.logEventActivity(member.eventId, 'unlinked_member_claim_requested', claimantUserId, 'event_member_claim', claim.id, {
+      eventMemberId: member.id,
+      displayName: member.displayName,
+    });
+    return claim;
+  }
+
+  async respondToEventMemberClaim(
+    claim: EventMemberClaim,
+    member: SharedEventMember,
+    status: Extract<EventMemberClaim['status'], 'approved' | 'rejected' | 'cancelled'>,
+    actorUserId: string,
+  ) {
+    const timestamp = nowIso();
+    const snapshot = await loadSnapshot(this.db);
+    if (status === 'approved') {
+      const alreadyLinked = snapshot.sharedEventMembers.find(
+        (item) =>
+          item.eventId === claim.eventId &&
+          item.linkedUserId === claim.claimantUserId &&
+          item.id !== member.id &&
+          item.status !== 'merged',
+      );
+      if (alreadyLinked) {
+        throw new Error('This user is already linked to another member in this event.');
+      }
+    }
+
+    const updatedClaim: EventMemberClaim = {
+      ...claim,
+      status,
+      respondedByUserId: actorUserId,
+      respondedAt: timestamp,
+      updatedAt: timestamp,
+      syncStatus: claim.remoteId ? 'pending_update' : claim.syncStatus,
+    };
+    await insertEventMemberClaim(this.db, updatedClaim);
+
+    if (status === 'approved') {
+      await insertSharedEventMember(this.db, {
+        ...member,
+        type: 'linked_user',
+        linkedUserId: claim.claimantUserId,
+        status: 'active',
+        updatedAt: timestamp,
+        syncStatus: member.remoteId ? 'pending_update' : member.syncStatus,
+      });
+    } else if (member.status === 'claim_pending') {
+      await insertSharedEventMember(this.db, {
+        ...member,
+        status: 'active',
+        updatedAt: timestamp,
+        syncStatus: member.remoteId ? 'pending_update' : member.syncStatus,
+      });
+    }
+
+    await this.logEventActivity(
+      claim.eventId,
+      status === 'approved' ? 'claim_approved' : status === 'rejected' ? 'claim_rejected' : 'claim_cancelled',
+      actorUserId,
+      'event_member_claim',
+      claim.id,
+      { eventMemberId: claim.eventMemberId, claimantUserId: claim.claimantUserId },
+    );
+    return updatedClaim;
+  }
+
+  async ignoreEventDuplicateWarning(warning: EventDuplicateWarning, actorUserId: string) {
+    const timestamp = nowIso();
+    const updated: EventDuplicateWarning = {
+      ...warning,
+      status: 'ignored',
+      ignoredByUserId: actorUserId,
+      updatedAt: timestamp,
+      syncStatus: warning.remoteId ? 'pending_update' : warning.syncStatus,
+    };
+    await insertEventDuplicateWarning(this.db, updated);
+    await this.logEventActivity(warning.eventId, 'duplicate_warning_ignored', actorUserId, 'event_duplicate_warning', warning.id, {
+      eventMemberIdA: warning.eventMemberIdA,
+      eventMemberIdB: warning.eventMemberIdB,
+    });
+    return updated;
+  }
+
+  async mergeSharedEventMembers(source: SharedEventMember, target: SharedEventMember, actorUserId: string) {
+    if (source.type !== 'unlinked_placeholder' || target.type !== 'unlinked_placeholder') {
+      throw new Error('Only unlinked event members can be merged.');
+    }
+    if (source.eventId !== target.eventId) {
+      throw new Error('Members must belong to the same event.');
+    }
+
+    const timestamp = nowIso();
+    const snapshot = await loadSnapshot(this.db);
+    for (const expense of snapshot.sharedExpenses.filter((item) => item.eventId === source.eventId)) {
+      const replacedParticipants = expense.participantIds.map((id) => (id === source.id ? target.id : id));
+      const nextParticipantIds = Array.from(new Set(replacedParticipants));
+      const updatedExpense = withGeneratedObligations({
+        ...expense,
+        payerId: expense.payerId === source.id ? target.id : expense.payerId,
+        participantIds: nextParticipantIds,
+        syncStatus: expense.syncStatus === 'synced' ? 'pending_update' : expense.syncStatus,
+        updatedAt: timestamp,
+      });
+      await insertSharedExpense(this.db, updatedExpense);
+    }
+
+    for (const debt of snapshot.eventDebts.filter((item) => item.eventId === source.eventId)) {
+      await insertEventDebt(this.db, {
+        ...debt,
+        debtorEventMemberId: debt.debtorEventMemberId === source.id ? target.id : debt.debtorEventMemberId,
+        creditorEventMemberId: debt.creditorEventMemberId === source.id ? target.id : debt.creditorEventMemberId,
+        syncStatus: debt.syncStatus === 'synced' ? 'pending_update' : debt.syncStatus,
+        updatedAt: timestamp,
+      });
+    }
+
+    await insertSharedEventMember(this.db, {
+      ...source,
+      status: 'merged',
+      mergedIntoEventMemberId: target.id,
+      updatedAt: timestamp,
+      syncStatus: source.remoteId ? 'pending_update' : source.syncStatus,
+    });
+
+    for (const warning of snapshot.eventDuplicateWarnings.filter(
+      (item) =>
+        item.eventId === source.eventId &&
+        [item.eventMemberIdA, item.eventMemberIdB].includes(source.id) &&
+        [item.eventMemberIdA, item.eventMemberIdB].includes(target.id),
+    )) {
+      await insertEventDuplicateWarning(this.db, {
+        ...warning,
+        status: 'resolved',
+        updatedAt: timestamp,
+        syncStatus: warning.remoteId ? 'pending_update' : warning.syncStatus,
+      });
+    }
+
+    await this.reconcileEventDuplicateWarnings(source.eventId);
+    await this.logEventActivity(source.eventId, 'members_merged', actorUserId, 'event_member', target.id, {
+      sourceEventMemberId: source.id,
+      targetEventMemberId: target.id,
+      sourceDisplayName: source.displayName,
+      targetDisplayName: target.displayName,
+    });
+    return { sourceId: source.id, targetId: target.id };
+  }
+
+  async createEventDebt(input: EventDebtInput) {
+    const timestamp = nowIso();
+    const debt: EventDebt = {
+      id: createId('event_debt'),
+      remoteId: input.remoteId ?? null,
+      eventId: input.eventId,
+      remoteEventId: input.remoteEventId ?? null,
+      creatorUserId: cleanOptional(input.creatorUserId),
+      debtorEventMemberId: input.debtorEventMemberId,
+      creditorEventMemberId: input.creditorEventMemberId,
+      amount: toAmount(input.amount),
+      currency: input.currency,
+      title: input.title.trim(),
+      notes: cleanOptional(input.notes),
+      debtDate: input.debtDate || todayIsoDate(),
+      tags: cleanTags(input.tags),
+      verificationStatus: input.verificationStatus ?? 'pending',
+      settlementStatus: input.settlementStatus ?? 'active',
+      status: input.status ?? 'active',
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      archivedAt: null,
+      syncStatus: input.syncStatus ?? (input.remoteId ? 'synced' : 'pending_upload'),
+    };
+    await insertEventDebt(this.db, debt);
+    await this.logEventActivity(debt.eventId, 'simple_debt_added', debt.creatorUserId, 'event_debt', debt.id, {
+      amount: debt.amount,
+      currency: debt.currency,
+      title: debt.title,
+    });
+    return debt;
+  }
+
+  async updateEventDebt(debt: EventDebt, input: Partial<EventDebtInput>) {
+    const timestamp = nowIso();
+    const updated: EventDebt = {
+      ...debt,
+      remoteId: input.remoteId === undefined ? debt.remoteId : cleanOptional(input.remoteId),
+      creatorUserId: input.creatorUserId === undefined ? debt.creatorUserId : cleanOptional(input.creatorUserId),
+      debtorEventMemberId: input.debtorEventMemberId ?? debt.debtorEventMemberId,
+      creditorEventMemberId: input.creditorEventMemberId ?? debt.creditorEventMemberId,
+      amount: input.amount === undefined ? debt.amount : toAmount(input.amount),
+      currency: input.currency ?? debt.currency,
+      title: input.title?.trim() ?? debt.title,
+      notes: input.notes === undefined ? debt.notes : cleanOptional(input.notes),
+      debtDate: input.debtDate ?? debt.debtDate,
+      tags: input.tags === undefined ? debt.tags : cleanTags(input.tags),
+      verificationStatus: input.verificationStatus ?? debt.verificationStatus,
+      settlementStatus: input.settlementStatus ?? debt.settlementStatus,
+      status: input.status ?? debt.status,
+      archivedAt: input.status === 'archived' && !debt.archivedAt ? timestamp : debt.archivedAt,
+      updatedAt: timestamp,
+      syncStatus: input.syncStatus ?? (debt.syncStatus === 'synced' ? 'pending_update' : debt.syncStatus),
+    };
+    await insertEventDebt(this.db, updated);
+    await this.logEventActivity(updated.eventId, 'simple_debt_edited', updated.creatorUserId, 'event_debt', updated.id, {
+      status: updated.status,
+      verificationStatus: updated.verificationStatus,
+    });
+    return updated;
+  }
+
+  async respondToEventVerification(input: {
+    eventId: string;
+    targetType: EventVerificationResponse['targetType'];
+    targetId: string;
+    eventMemberId: string;
+    linkedUserId: string;
+    status: Extract<VerificationStatus, 'verified' | 'rejected'>;
+    rejectionReason?: string | null;
+  }) {
+    const timestamp = nowIso();
+    const snapshot = await loadSnapshot(this.db);
+    const existing = snapshot.eventVerificationResponses.find(
+      (response) =>
+        response.eventId === input.eventId &&
+        response.targetType === input.targetType &&
+        response.targetId === input.targetId &&
+        response.eventMemberId === input.eventMemberId,
+    );
+    const response: EventVerificationResponse = {
+      id: existing?.id ?? createId('event_verify'),
+      remoteId: existing?.remoteId ?? null,
+      eventId: input.eventId,
+      remoteEventId: existing?.remoteEventId ?? null,
+      targetType: input.targetType,
+      targetId: input.targetId,
+      remoteTargetId: existing?.remoteTargetId ?? null,
+      eventMemberId: input.eventMemberId,
+      linkedUserId: input.linkedUserId,
+      responseStatus: input.status,
+      rejectionReason: input.status === 'rejected' ? cleanOptional(input.rejectionReason) : null,
+      respondedAt: timestamp,
+      createdAt: existing?.createdAt ?? timestamp,
+      updatedAt: timestamp,
+      syncStatus: existing?.remoteId ? 'pending_update' : existing?.syncStatus ?? 'pending_upload',
+    };
+    await insertEventVerificationResponse(this.db, response);
+    await this.deriveEventTargetVerification(input.eventId, input.targetType, input.targetId);
+    await this.logEventActivity(
+      input.eventId,
+      input.status === 'verified' ? 'expense_verified' : 'expense_rejected',
+      input.linkedUserId,
+      input.targetType === 'debt' ? 'event_debt' : 'shared_expense',
+      input.targetId,
+      { eventMemberId: input.eventMemberId, rejectionReason: response.rejectionReason },
+    );
+    return response;
   }
 
   async updateSettings(settings: Partial<AppSettings>) {
@@ -574,6 +1210,56 @@ export class DebtulatorRepository {
     return debt;
   }
 
+  async upsertSharedExpense(expense: SharedExpense) {
+    await insertSharedExpense(this.db, expense);
+    return expense;
+  }
+
+  async upsertEvent(event: Event) {
+    await insertEvent(this.db, event);
+    return event;
+  }
+
+  async upsertEventParticipant(participant: EventParticipant) {
+    await insertEventParticipant(this.db, participant);
+    return participant;
+  }
+
+  async upsertEventInvite(invite: EventInvite) {
+    await insertEventInvite(this.db, invite);
+    return invite;
+  }
+
+  async upsertSharedEventMember(member: SharedEventMember) {
+    await insertSharedEventMember(this.db, member);
+    return member;
+  }
+
+  async upsertEventMemberClaim(claim: EventMemberClaim) {
+    await insertEventMemberClaim(this.db, claim);
+    return claim;
+  }
+
+  async upsertEventDuplicateWarning(warning: EventDuplicateWarning) {
+    await insertEventDuplicateWarning(this.db, warning);
+    return warning;
+  }
+
+  async upsertEventDebt(debt: EventDebt) {
+    await insertEventDebt(this.db, debt);
+    return debt;
+  }
+
+  async upsertEventVerificationResponse(response: EventVerificationResponse) {
+    await insertEventVerificationResponse(this.db, response);
+    return response;
+  }
+
+  async upsertEventActivityLog(activity: EventActivityLog) {
+    await insertEventActivityLog(this.db, activity);
+    return activity;
+  }
+
   async respondToDebtVerification(
     verification: DebtVerification,
     debt: Debt,
@@ -686,6 +1372,98 @@ export class DebtulatorRepository {
       createdAt: nowIso(),
     });
   }
+
+  async logEventActivity(
+    eventId: string,
+    action: string,
+    actorUserId: string | null,
+    targetType: string,
+    targetId: string | null,
+    metadata: Record<string, unknown>,
+  ) {
+    const snapshot = await loadSnapshot(this.db);
+    const event = snapshot.events.find((item) => item.id === eventId);
+    await insertEventActivityLog(this.db, {
+      id: createId('event_activity'),
+      remoteId: null,
+      eventId,
+      remoteEventId: event?.remoteId ?? null,
+      actorUserId,
+      action,
+      targetType,
+      targetId,
+      metadata,
+      createdAt: nowIso(),
+      syncStatus: event?.syncStatus === 'synced' ? 'pending_upload' : event?.syncStatus ?? 'local_only',
+    });
+  }
+
+  private async reconcileEventDuplicateWarnings(eventId: string) {
+    const snapshot = await loadSnapshot(this.db);
+    const drafts = findSharedEventDuplicateWarningDrafts(eventId, snapshot.sharedEventMembers);
+    const existingByPair = new Map(
+      snapshot.eventDuplicateWarnings.map((warning) => [
+        duplicatePairKey({
+          eventId: warning.eventId,
+          eventMemberIdA: warning.eventMemberIdA,
+          eventMemberIdB: warning.eventMemberIdB,
+          reason: warning.reason,
+        }),
+        warning,
+      ]),
+    );
+
+    for (const draft of drafts) {
+      const key = duplicatePairKey(draft);
+      const existing = existingByPair.get(key);
+      if (existing?.status === 'ignored' || existing?.status === 'resolved') {
+        continue;
+      }
+      await insertEventDuplicateWarning(this.db, buildDuplicateWarning(draft, existing));
+    }
+  }
+
+  private async deriveEventTargetVerification(
+    eventId: string,
+    targetType: EventVerificationResponse['targetType'],
+    targetId: string,
+  ) {
+    const snapshot = await loadSnapshot(this.db);
+    const responses = snapshot.eventVerificationResponses.filter(
+      (response) => response.eventId === eventId && response.targetType === targetType && response.targetId === targetId,
+    );
+    const responseStatuses = responses.map((response) => response.responseStatus);
+    const nextStatus: VerificationStatus =
+      responseStatuses.includes('rejected')
+        ? 'rejected'
+        : responseStatuses.includes('disputed')
+          ? 'disputed'
+          : responseStatuses.includes('verified')
+            ? 'partially_verified'
+            : 'pending';
+
+    if (targetType === 'expense') {
+      const expense = snapshot.sharedExpenses.find((item) => item.id === targetId);
+      if (expense) {
+        await insertSharedExpense(this.db, {
+          ...expense,
+          verificationStatus: nextStatus,
+          updatedAt: nowIso(),
+          syncStatus: expense.syncStatus === 'synced' ? 'pending_update' : expense.syncStatus,
+        });
+      }
+    } else if (targetType === 'debt') {
+      const debt = snapshot.eventDebts.find((item) => item.id === targetId);
+      if (debt) {
+        await insertEventDebt(this.db, {
+          ...debt,
+          verificationStatus: nextStatus,
+          updatedAt: nowIso(),
+          syncStatus: debt.syncStatus === 'synced' ? 'pending_update' : debt.syncStatus,
+        });
+      }
+    }
+  }
 }
 
 function cleanOptional(value: string | null | undefined) {
@@ -703,4 +1481,18 @@ function cleanParticipants(participantIds: ParticipantId[]) {
 
 function toAmount(value: number) {
   return Math.max(0, Math.round((Number(value) || 0) * 100) / 100);
+}
+
+function hasEventUpdate(input: Partial<EventInput> & { archived?: boolean; ignoredDuplicateKeys?: string[] }) {
+  return [
+    input.name,
+    input.notes,
+    input.defaultCurrency,
+    input.allowedCurrencies,
+    input.tags,
+    input.status,
+    input.visibility,
+    input.archived,
+    input.ignoredDuplicateKeys,
+  ].some((value) => value !== undefined);
 }

@@ -2,10 +2,12 @@ import type {
   DebtFilters,
   Event,
   EventFilters,
+  EventParticipant,
   LedgerEntry,
   Member,
   MemberFilters,
   MoneyMap,
+  SharedEventMember,
 } from '@/src/types/models';
 import { sumMoneyMap } from '@/src/utils/money';
 import { normalizeText } from '@/src/utils/text';
@@ -40,9 +42,11 @@ export function filterDebtEntries(
   members: Member[],
   events: Event[],
   filters: DebtFilters,
+  sharedEventMembers: SharedEventMember[] = [],
 ) {
   const query = normalizeText(filters.query);
   const memberById = new Map(members.map((member) => [member.id, member]));
+  const sharedMemberById = new Map(sharedEventMembers.map((member) => [member.id, member]));
   const eventById = new Map(events.map((event) => [event.id, event]));
   const minAmount = Number(filters.minAmount);
   const maxAmount = Number(filters.maxAmount);
@@ -50,7 +54,7 @@ export function filterDebtEntries(
   const filtered = entries.filter((entry) => {
     const memberNames = [entry.fromId, entry.toId]
       .filter((id) => id !== 'me')
-      .map((id) => memberById.get(id)?.displayName ?? '')
+      .map((id) => memberById.get(id)?.displayName ?? sharedMemberById.get(id)?.displayName ?? '')
       .join(' ');
     const eventName = entry.eventId ? eventById.get(entry.eventId)?.name ?? '' : '';
     const text = normalizeText([entry.title, entry.notes, memberNames, eventName, entry.tags.join(' ')].join(' '));
@@ -66,7 +70,13 @@ export function filterDebtEntries(
       .filter((id) => id !== 'me')
       .map((id) => memberById.get(id))
       .filter(Boolean);
-    const hasLinkedMember = involvedMembers.some((member) => member?.linkStatus === 'linked');
+    const involvedSharedMembers = [entry.fromId, entry.toId]
+      .filter((id) => id !== 'me')
+      .map((id) => sharedMemberById.get(id))
+      .filter(Boolean);
+    const hasLinkedMember =
+      involvedMembers.some((member) => member?.linkStatus === 'linked') ||
+      involvedSharedMembers.some((member) => member?.type === 'linked_user');
     const linkMatch =
       filters.linkMode === 'all' ||
       (filters.linkMode === 'linked' && hasLinkedMember) ||
@@ -119,12 +129,30 @@ export function filterEvents(
   events: Event[],
   eventBalances: Record<string, MoneyMap>,
   filters: EventFilters,
+  context?: {
+    participants?: EventParticipant[];
+    userId?: string | null;
+    pendingInviteEventIds?: Set<string>;
+    rejectedOrDisputedEventIds?: Set<string>;
+    unsettledEventIds?: Set<string>;
+  },
 ) {
   const query = normalizeText(filters.query);
 
   const filtered = events.filter((event) => {
     const textMatch = !query || normalizeText([event.name, event.notes, event.tags.join(' ')].join(' ')).includes(query);
     const statusMatch = filters.status === 'all' || event.status === filters.status;
+    const visibilityMatch = filters.visibility === 'all' || event.visibility === filters.visibility;
+    const role =
+      context?.participants?.find(
+        (participant) => participant.eventId === event.id && participant.userId === context.userId && participant.status === 'active',
+      )?.role ?? (event.ownerUserId && context?.userId === event.ownerUserId ? 'owner' : event.visibility === 'private' ? 'owner' : 'viewer');
+    const roleMatch = filters.role === 'all' || role === filters.role;
+    const attentionMatch =
+      filters.attention === 'all' ||
+      (filters.attention === 'pending_invites' && context?.pendingInviteEventIds?.has(event.id)) ||
+      (filters.attention === 'rejected_or_disputed' && context?.rejectedOrDisputedEventIds?.has(event.id)) ||
+      (filters.attention === 'unsettled' && context?.unsettledEventIds?.has(event.id));
     const tagMatch = !filters.tag || event.tags.includes(filters.tag);
     const archivedMatch =
       filters.archivedMode === 'all' ||
@@ -132,7 +160,7 @@ export function filterEvents(
       (filters.archivedMode === 'archived' && event.archived);
     const currencyMatch = filters.currency === 'all' || event.defaultCurrency === filters.currency;
 
-    return textMatch && statusMatch && tagMatch && archivedMatch && currencyMatch;
+    return textMatch && statusMatch && visibilityMatch && roleMatch && attentionMatch && tagMatch && archivedMatch && currencyMatch;
   });
 
   return filtered.sort((first, second) => {

@@ -54,7 +54,7 @@ export function ExpenseDetailScreen() {
       <PageHeader
         eyebrow="Shared expense"
         title={expense.title}
-        subtitle={`${participantName(expense.payerId, data.members)} paid in ${event.name}`}
+        subtitle={`${participantName(expense.payerId, data.members, data.sharedEventMembers)} paid in ${event.name}`}
         action={<IconButton icon="create-outline" label="Edit expense" onPress={() => router.push({ pathname: '/expense/form', params: { id: expense.id } })} />}
       />
 
@@ -70,7 +70,11 @@ export function ExpenseDetailScreen() {
           </View>
         </View>
         <Text style={styles.body}>
-          Split equally between {expense.participantIds.map((participantId) => participantName(participantId, data.members)).join(', ')}.
+          Split equally between{' '}
+          {expense.participantIds
+            .map((participantId) => participantName(participantId, data.members, data.sharedEventMembers))
+            .join(', ')}
+          .
         </Text>
         {expense.notes ? <Text style={styles.body}>{expense.notes}</Text> : null}
         <TagChips tags={expense.tags} />
@@ -96,7 +100,8 @@ export function ExpenseDetailScreen() {
         {expense.generatedObligations.map((obligation) => (
           <View key={obligation.id} style={styles.infoRow}>
             <Text style={styles.infoValue}>
-              {participantName(obligation.fromParticipantId, data.members)} pays {participantName(obligation.toParticipantId, data.members)}
+              {participantName(obligation.fromParticipantId, data.members, data.sharedEventMembers)} pays{' '}
+              {participantName(obligation.toParticipantId, data.members, data.sharedEventMembers)}
             </Text>
             <Text style={styles.money}>{formatMoney(obligation.amount, obligation.currency)}</Text>
           </View>
@@ -121,6 +126,7 @@ export function ExpenseDetailScreen() {
           options={[
             { label: 'Local only', value: 'local_only' },
             { label: 'Pending', value: 'pending' },
+            { label: 'Partially verified', value: 'partially_verified' },
             { label: 'Verified', value: 'verified' },
             { label: 'Rejected', value: 'rejected' },
             { label: 'Disputed', value: 'disputed' },

@@ -13,15 +13,25 @@ import {
 } from '@/src/components/ui/Primitives';
 import { CURRENCIES } from '@/src/constants/currencies';
 import { useAppData } from '@/src/state/AppDataProvider';
+import { useAuth } from '@/src/state/AuthProvider';
 import type { CurrencyCode, DebtDirection, DebtStatus, VerificationStatus } from '@/src/types/models';
 import { todayIsoDate } from '@/src/utils/id';
 
 export function DebtFormScreen() {
   const { id, memberId, eventId } = useLocalSearchParams<{ id?: string; memberId?: string; eventId?: string }>();
   const data = useAppData();
+  const auth = useAuth();
   const debt = data.debts.find((item) => item.id === id);
+  const selectedEvent = data.events.find((event) => event.id === (debt?.eventId ?? eventId));
+  const isSharedEventDebt = !debt && selectedEvent?.visibility === 'shared';
+  const sharedEventMembers = data.sharedEventMembers.filter(
+    (eventMember) => eventMember.eventId === selectedEvent?.id && eventMember.status !== 'archived' && eventMember.status !== 'merged',
+  );
+  const currentEventMember = sharedEventMembers.find((member) => member.linkedUserId === auth.identity.authenticatedUserId);
 
   const [selectedMemberId, setSelectedMemberId] = useState(debt?.memberId ?? memberId ?? data.members[0]?.id ?? '');
+  const [debtorEventMemberId, setDebtorEventMemberId] = useState(currentEventMember?.id ?? sharedEventMembers[0]?.id ?? '');
+  const [creditorEventMemberId, setCreditorEventMemberId] = useState(sharedEventMembers.find((member) => member.id !== debtorEventMemberId)?.id ?? '');
   const [direction, setDirection] = useState<DebtDirection>(debt?.direction ?? 'they_owe_me');
   const [amount, setAmount] = useState(debt ? String(debt.amount) : '');
   const [currency, setCurrency] = useState<CurrencyCode>(debt?.currency ?? 'SEK');
@@ -47,12 +57,36 @@ export function DebtFormScreen() {
     ],
     [data.events],
   );
+  const eventMemberOptions = useMemo(
+    () => sharedEventMembers.map((member) => ({ label: member.displayName, value: member.id })),
+    [sharedEventMembers],
+  );
 
-  if (data.loading) {
+  if (data.loading || auth.loading) {
     return <LoadingState />;
   }
 
   async function save() {
+    if (isSharedEventDebt && selectedEvent) {
+      await data.createEventDebt({
+        eventId: selectedEvent.id,
+        remoteEventId: selectedEvent.remoteId,
+        creatorUserId: auth.identity.authenticatedUserId,
+        debtorEventMemberId,
+        creditorEventMemberId,
+        amount: Number(amount),
+        currency,
+        title,
+        notes,
+        debtDate,
+        tags: splitTags(tags),
+        verificationStatus,
+        status,
+      });
+      router.back();
+      return;
+    }
+
     const input = {
       memberId: selectedMemberId,
       direction,
@@ -112,26 +146,39 @@ export function DebtFormScreen() {
           title={debt ? 'Save debt' : 'Create debt'}
           icon="checkmark"
           onPress={save}
-          disabled={!selectedMemberId || !title.trim() || Number(amount) <= 0}
+          disabled={
+            isSharedEventDebt
+              ? !debtorEventMemberId || !creditorEventMemberId || debtorEventMemberId === creditorEventMemberId || !title.trim() || Number(amount) <= 0
+              : !selectedMemberId || !title.trim() || Number(amount) <= 0
+          }
         />
       }>
       <PageHeader
-        eyebrow="Simple debt"
+        eyebrow={isSharedEventDebt ? 'Shared event debt' : 'Simple debt'}
         title={debt ? 'Edit debt' : 'Add debt'}
-        subtitle="Outside events, use clear personal direction: They owe me or I owe them."
+        subtitle={isSharedEventDebt ? 'Direct event debts use event members and participate in event settlement.' : 'Outside events, use clear personal direction: They owe me or I owe them.'}
       />
 
       <Card>
-        <SelectChips label="Member" value={selectedMemberId} options={memberOptions} onChange={setSelectedMemberId} />
-        <SelectChips
-          label="Direction"
-          value={direction}
-          options={[
-            { label: 'They owe me', value: 'they_owe_me' },
-            { label: 'I owe them', value: 'i_owe_them' },
-          ]}
-          onChange={setDirection}
-        />
+        {isSharedEventDebt ? (
+          <>
+            <SelectChips label="Debtor" value={debtorEventMemberId} options={eventMemberOptions} onChange={setDebtorEventMemberId} />
+            <SelectChips label="Creditor" value={creditorEventMemberId} options={eventMemberOptions} onChange={setCreditorEventMemberId} />
+          </>
+        ) : (
+          <>
+            <SelectChips label="Member" value={selectedMemberId} options={memberOptions} onChange={setSelectedMemberId} />
+            <SelectChips
+              label="Direction"
+              value={direction}
+              options={[
+                { label: 'They owe me', value: 'they_owe_me' },
+                { label: 'I owe them', value: 'i_owe_them' },
+              ]}
+              onChange={setDirection}
+            />
+          </>
+        )}
         <TextField label="Title" value={title} onChangeText={setTitle} placeholder="Dinner deposit" />
         <TextField label="Amount" value={amount} onChangeText={setAmount} keyboardType="numeric" />
         <SelectChips
@@ -151,7 +198,7 @@ export function DebtFormScreen() {
           multiline
         />
         <TextField label="Tags" value={tags} onChangeText={setTags} placeholder="Food, Travel" />
-        <SelectChips label="Event" value={selectedEventId} options={eventOptions} onChange={setSelectedEventId} />
+        {!isSharedEventDebt ? <SelectChips label="Event" value={selectedEventId} options={eventOptions} onChange={setSelectedEventId} /> : null}
         <SelectChips
           label="Status"
           value={status}
@@ -176,16 +223,18 @@ export function DebtFormScreen() {
           ]}
           onChange={setVerificationStatus}
         />
-        <SelectChips
-          label="Visibility"
-          value={visibility}
-          options={[
-            { label: 'Private', value: 'private' },
-            { label: 'Shared with member', value: 'shared_with_involved_member' },
-            { label: 'Event shared later', value: 'future_event_shared' },
-          ]}
-          onChange={setVisibility}
-        />
+        {!isSharedEventDebt ? (
+          <SelectChips
+            label="Visibility"
+            value={visibility}
+            options={[
+              { label: 'Private', value: 'private' },
+              { label: 'Shared with member', value: 'shared_with_involved_member' },
+              { label: 'Event shared later', value: 'future_event_shared' },
+            ]}
+            onChange={setVisibility}
+          />
+        ) : null}
       </Card>
     </Screen>
   );

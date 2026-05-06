@@ -18,11 +18,15 @@ import { CURRENCIES } from '@/src/constants/currencies';
 import { filterEvents } from '@/src/services/filters';
 import { explainEventSettlement } from '@/src/services/ledger';
 import { useAppData } from '@/src/state/AppDataProvider';
+import { useAuth } from '@/src/state/AuthProvider';
 import type { EventFilters, MoneyMap } from '@/src/types/models';
 
 const defaultFilters: EventFilters = {
   query: '',
   status: 'all',
+  visibility: 'all',
+  role: 'all',
+  attention: 'all',
   tag: null,
   archivedMode: 'active',
   currency: 'all',
@@ -31,6 +35,7 @@ const defaultFilters: EventFilters = {
 
 export function EventsScreen() {
   const data = useAppData();
+  const auth = useAuth();
   const [filters, setFilters] = useState<EventFilters>(defaultFilters);
 
   const eventBalances = useMemo(() => {
@@ -41,13 +46,36 @@ export function EventsScreen() {
     return balances;
   }, [data.events, data.ledgerEntries]);
 
-  const events = useMemo(() => filterEvents(data.events, eventBalances, filters), [data.events, eventBalances, filters]);
+  const eventAttention = useMemo(() => {
+    const pendingInviteEventIds = new Set(data.eventInvites.filter((invite) => invite.status === 'pending').map((invite) => invite.eventId));
+    const rejectedOrDisputedEventIds = new Set(
+      data.ledgerEntries
+        .filter((entry) => entry.eventId && ['rejected', 'disputed'].includes(entry.verificationStatus))
+        .map((entry) => entry.eventId as string),
+    );
+    const unsettledEventIds = new Set(
+      data.events
+        .filter((event) => explainEventSettlement(event.id, data.ledgerEntries).suggestions.length > 0)
+        .map((event) => event.id),
+    );
+    return { pendingInviteEventIds, rejectedOrDisputedEventIds, unsettledEventIds };
+  }, [data.eventInvites, data.events, data.ledgerEntries]);
+
+  const events = useMemo(
+    () =>
+      filterEvents(data.events, eventBalances, filters, {
+        participants: data.eventParticipants,
+        userId: auth.identity.authenticatedUserId,
+        ...eventAttention,
+      }),
+    [auth.identity.authenticatedUserId, data.eventParticipants, data.events, eventAttention, eventBalances, filters],
+  );
   const tagOptions = useMemo(
     () => [{ label: 'All tags', value: 'all' }, ...data.tags.map((tag) => ({ label: tag.name, value: tag.name }))],
     [data.tags],
   );
 
-  if (data.loading) {
+  if (data.loading || auth.loading) {
     return <LoadingState />;
   }
 
@@ -65,6 +93,39 @@ export function EventsScreen() {
           value={filters.query}
           onChangeText={(query) => setFilters((current) => ({ ...current, query }))}
           placeholder="Search events, notes, tags"
+        />
+        <SelectChips
+          label="Visibility"
+          value={filters.visibility}
+          options={[
+            { label: 'All', value: 'all' },
+            { label: 'Private', value: 'private' },
+            { label: 'Shared', value: 'shared' },
+          ]}
+          onChange={(visibility) => setFilters((current) => ({ ...current, visibility }))}
+        />
+        <SelectChips
+          label="Role"
+          value={filters.role}
+          options={[
+            { label: 'All', value: 'all' },
+            { label: 'Owner', value: 'owner' },
+            { label: 'Admin', value: 'admin' },
+            { label: 'Member', value: 'member' },
+            { label: 'Viewer', value: 'viewer' },
+          ]}
+          onChange={(role) => setFilters((current) => ({ ...current, role }))}
+        />
+        <SelectChips
+          label="Attention"
+          value={filters.attention}
+          options={[
+            { label: 'All', value: 'all' },
+            { label: 'Pending invites', value: 'pending_invites' },
+            { label: 'Rejected/disputed', value: 'rejected_or_disputed' },
+            { label: 'Unsettled', value: 'unsettled' },
+          ]}
+          onChange={(attention) => setFilters((current) => ({ ...current, attention }))}
         />
         <SelectChips
           label="Status"
@@ -124,7 +185,13 @@ export function EventsScreen() {
                 <EventRow
                   key={event.id}
                   event={event}
-                  memberCount={data.eventMembers.filter((eventMember) => eventMember.eventId === event.id).length}
+                  memberCount={
+                    event.visibility === 'shared'
+                      ? data.sharedEventMembers.filter(
+                          (eventMember) => eventMember.eventId === event.id && eventMember.status !== 'merged',
+                        ).length
+                      : data.eventMembers.filter((eventMember) => eventMember.eventId === event.id).length + 1
+                  }
                   balance={eventBalances[event.id] ?? {}}
                   settings={data.settings}
                   currencyRates={data.currencyRates}

@@ -10,10 +10,18 @@ import type {
   Debt,
   DebtVerification,
   Event,
+  EventActivityLog,
+  EventDebt,
+  EventDuplicateWarning,
+  EventInvite,
   EventMember,
+  EventMemberClaim,
+  EventParticipant,
   EventStatus,
+  EventVerificationResponse,
   LinkRequest,
   Member,
+  SharedEventMember,
   SharedExpense,
   SyncStatus,
   Tag,
@@ -30,7 +38,15 @@ export type DatabaseSnapshot = {
   debts: Debt[];
   events: Event[];
   eventMembers: EventMember[];
+  eventParticipants: EventParticipant[];
+  eventInvites: EventInvite[];
+  sharedEventMembers: SharedEventMember[];
+  eventMemberClaims: EventMemberClaim[];
+  eventDuplicateWarnings: EventDuplicateWarning[];
   sharedExpenses: SharedExpense[];
+  eventDebts: EventDebt[];
+  eventVerificationResponses: EventVerificationResponse[];
+  eventActivityLogs: EventActivityLog[];
   linkRequests: LinkRequest[];
   debtVerifications: DebtVerification[];
   activityLogs: ActivityLog[];
@@ -92,12 +108,21 @@ type DebtRow = {
 
 type EventRow = {
   id: string;
+  local_id: string | null;
+  remote_id: string | null;
+  owner_user_id: string | null;
   name: string;
   notes: string | null;
   default_currency: CurrencyCode;
+  allowed_currencies_json: string | null;
   tags_json: string | null;
   status: EventStatus;
+  visibility: Event['visibility'] | null;
+  sync_status: SyncStatus | null;
   archived: number;
+  archived_at: string | null;
+  finalised_at: string | null;
+  locked_at: string | null;
   ignored_duplicate_keys_json: string | null;
   created_at: string;
   updated_at: string;
@@ -109,10 +134,96 @@ type EventMemberRow = {
   created_at: string;
 };
 
+type EventParticipantRow = {
+  id: string;
+  remote_id: string | null;
+  event_id: string;
+  remote_event_id: string | null;
+  user_id: string;
+  role: EventParticipant['role'];
+  status: EventParticipant['status'];
+  joined_at: string | null;
+  created_at: string;
+  updated_at: string;
+  sync_status: SyncStatus | null;
+};
+
+type EventInviteRow = {
+  id: string;
+  remote_id: string | null;
+  event_id: string;
+  remote_event_id: string | null;
+  inviter_user_id: string;
+  invited_user_id: string | null;
+  invited_email: string | null;
+  invited_phone: string | null;
+  invited_display_name: string;
+  offered_role: EventInvite['offeredRole'];
+  status: EventInvite['status'];
+  message: string | null;
+  created_at: string;
+  updated_at: string;
+  responded_at: string | null;
+  sync_status: SyncStatus | null;
+};
+
+type SharedEventMemberRow = {
+  id: string;
+  remote_id: string | null;
+  event_id: string;
+  remote_event_id: string | null;
+  type: SharedEventMember['type'];
+  linked_user_id: string | null;
+  display_name: string;
+  alias: string | null;
+  email: string | null;
+  phone: string | null;
+  notes: string | null;
+  created_by_user_id: string | null;
+  status: SharedEventMember['status'];
+  merged_into_event_member_id: string | null;
+  created_at: string;
+  updated_at: string;
+  sync_status: SyncStatus | null;
+};
+
+type EventMemberClaimRow = {
+  id: string;
+  remote_id: string | null;
+  event_id: string;
+  remote_event_id: string | null;
+  event_member_id: string;
+  remote_event_member_id: string | null;
+  claimant_user_id: string;
+  status: EventMemberClaim['status'];
+  message: string | null;
+  responded_by_user_id: string | null;
+  responded_at: string | null;
+  created_at: string;
+  updated_at: string;
+  sync_status: SyncStatus | null;
+};
+
+type EventDuplicateWarningRow = {
+  id: string;
+  remote_id: string | null;
+  event_id: string;
+  event_member_id_a: string;
+  event_member_id_b: string;
+  reason: string;
+  confidence: EventDuplicateWarning['confidence'];
+  status: EventDuplicateWarning['status'];
+  ignored_by_user_id: string | null;
+  created_at: string;
+  updated_at: string;
+  sync_status: SyncStatus | null;
+};
+
 type SharedExpenseRow = {
   id: string;
   remote_id: string | null;
   event_id: string;
+  creator_user_id: string | null;
   payer_id: string;
   amount: number;
   currency: CurrencyCode;
@@ -129,6 +240,61 @@ type SharedExpenseRow = {
   sync_status: SyncStatus | null;
   created_at: string;
   updated_at: string;
+};
+
+type EventDebtRow = {
+  id: string;
+  remote_id: string | null;
+  event_id: string;
+  remote_event_id: string | null;
+  creator_user_id: string | null;
+  debtor_event_member_id: string;
+  creditor_event_member_id: string;
+  amount: number;
+  currency: CurrencyCode;
+  title: string;
+  notes: string | null;
+  debt_date: string;
+  tags_json: string | null;
+  verification_status: EventDebt['verificationStatus'];
+  settlement_status: EventDebt['settlementStatus'];
+  status: EventDebt['status'];
+  created_at: string;
+  updated_at: string;
+  archived_at: string | null;
+  sync_status: SyncStatus | null;
+};
+
+type EventVerificationResponseRow = {
+  id: string;
+  remote_id: string | null;
+  event_id: string;
+  remote_event_id: string | null;
+  target_type: EventVerificationResponse['targetType'];
+  target_id: string;
+  remote_target_id: string | null;
+  event_member_id: string;
+  linked_user_id: string | null;
+  response_status: EventVerificationResponse['responseStatus'];
+  rejection_reason: string | null;
+  responded_at: string | null;
+  created_at: string;
+  updated_at: string;
+  sync_status: SyncStatus | null;
+};
+
+type EventActivityLogRow = {
+  id: string;
+  remote_id: string | null;
+  event_id: string;
+  remote_event_id: string | null;
+  actor_user_id: string | null;
+  action: string;
+  target_type: string;
+  target_id: string | null;
+  metadata_json: string | null;
+  created_at: string;
+  sync_status: SyncStatus | null;
 };
 
 type TagRow = {
@@ -238,12 +404,21 @@ export async function migrate(db: SQLite.SQLiteDatabase) {
 
     CREATE TABLE IF NOT EXISTS events (
       id TEXT PRIMARY KEY NOT NULL,
+      local_id TEXT,
+      remote_id TEXT,
+      owner_user_id TEXT,
       name TEXT NOT NULL,
       notes TEXT,
       default_currency TEXT NOT NULL,
+      allowed_currencies_json TEXT NOT NULL DEFAULT '[]',
       tags_json TEXT NOT NULL DEFAULT '[]',
       status TEXT NOT NULL,
+      visibility TEXT NOT NULL DEFAULT 'private',
+      sync_status TEXT NOT NULL DEFAULT 'local_only',
       archived INTEGER NOT NULL DEFAULT 0,
+      archived_at TEXT,
+      finalised_at TEXT,
+      locked_at TEXT,
       ignored_duplicate_keys_json TEXT NOT NULL DEFAULT '[]',
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
@@ -255,6 +430,101 @@ export async function migrate(db: SQLite.SQLiteDatabase) {
       created_at TEXT NOT NULL,
       PRIMARY KEY (event_id, member_id)
     );
+
+    CREATE TABLE IF NOT EXISTS event_participants (
+      id TEXT PRIMARY KEY NOT NULL,
+      remote_id TEXT,
+      event_id TEXT NOT NULL,
+      remote_event_id TEXT,
+      user_id TEXT NOT NULL,
+      role TEXT NOT NULL,
+      status TEXT NOT NULL,
+      joined_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      sync_status TEXT NOT NULL DEFAULT 'local_only'
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS event_participants_event_user_unique
+      ON event_participants(event_id, user_id);
+
+    CREATE TABLE IF NOT EXISTS event_invites (
+      id TEXT PRIMARY KEY NOT NULL,
+      remote_id TEXT,
+      event_id TEXT NOT NULL,
+      remote_event_id TEXT,
+      inviter_user_id TEXT NOT NULL,
+      invited_user_id TEXT,
+      invited_email TEXT,
+      invited_phone TEXT,
+      invited_display_name TEXT NOT NULL,
+      offered_role TEXT NOT NULL,
+      status TEXT NOT NULL,
+      message TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      responded_at TEXT,
+      sync_status TEXT NOT NULL DEFAULT 'local_only'
+    );
+
+    CREATE TABLE IF NOT EXISTS shared_event_members (
+      id TEXT PRIMARY KEY NOT NULL,
+      remote_id TEXT,
+      event_id TEXT NOT NULL,
+      remote_event_id TEXT,
+      type TEXT NOT NULL,
+      linked_user_id TEXT,
+      display_name TEXT NOT NULL,
+      alias TEXT,
+      email TEXT,
+      phone TEXT,
+      notes TEXT,
+      created_by_user_id TEXT,
+      status TEXT NOT NULL,
+      merged_into_event_member_id TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      sync_status TEXT NOT NULL DEFAULT 'local_only'
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS shared_event_members_linked_unique
+      ON shared_event_members(event_id, linked_user_id)
+      WHERE linked_user_id IS NOT NULL AND status != 'merged';
+
+    CREATE TABLE IF NOT EXISTS event_member_claims (
+      id TEXT PRIMARY KEY NOT NULL,
+      remote_id TEXT,
+      event_id TEXT NOT NULL,
+      remote_event_id TEXT,
+      event_member_id TEXT NOT NULL,
+      remote_event_member_id TEXT,
+      claimant_user_id TEXT NOT NULL,
+      status TEXT NOT NULL,
+      message TEXT,
+      responded_by_user_id TEXT,
+      responded_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      sync_status TEXT NOT NULL DEFAULT 'local_only'
+    );
+
+    CREATE TABLE IF NOT EXISTS event_duplicate_warnings (
+      id TEXT PRIMARY KEY NOT NULL,
+      remote_id TEXT,
+      event_id TEXT NOT NULL,
+      event_member_id_a TEXT NOT NULL,
+      event_member_id_b TEXT NOT NULL,
+      reason TEXT NOT NULL,
+      confidence TEXT NOT NULL,
+      status TEXT NOT NULL,
+      ignored_by_user_id TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      sync_status TEXT NOT NULL DEFAULT 'local_only'
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS event_duplicate_warning_pair_unique
+      ON event_duplicate_warnings(event_id, event_member_id_a, event_member_id_b, reason);
 
     CREATE TABLE IF NOT EXISTS debts (
       id TEXT PRIMARY KEY NOT NULL,
@@ -291,6 +561,7 @@ export async function migrate(db: SQLite.SQLiteDatabase) {
       id TEXT PRIMARY KEY NOT NULL,
       remote_id TEXT,
       event_id TEXT NOT NULL,
+      creator_user_id TEXT,
       payer_id TEXT NOT NULL,
       amount REAL NOT NULL,
       currency TEXT NOT NULL,
@@ -307,6 +578,64 @@ export async function migrate(db: SQLite.SQLiteDatabase) {
       sync_status TEXT NOT NULL DEFAULT 'local_only',
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS event_debts (
+      id TEXT PRIMARY KEY NOT NULL,
+      remote_id TEXT,
+      event_id TEXT NOT NULL,
+      remote_event_id TEXT,
+      creator_user_id TEXT,
+      debtor_event_member_id TEXT NOT NULL,
+      creditor_event_member_id TEXT NOT NULL,
+      amount REAL NOT NULL,
+      currency TEXT NOT NULL,
+      title TEXT NOT NULL,
+      notes TEXT,
+      debt_date TEXT NOT NULL,
+      tags_json TEXT NOT NULL DEFAULT '[]',
+      verification_status TEXT NOT NULL,
+      settlement_status TEXT NOT NULL DEFAULT 'active',
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      archived_at TEXT,
+      sync_status TEXT NOT NULL DEFAULT 'local_only'
+    );
+
+    CREATE TABLE IF NOT EXISTS event_verification_responses (
+      id TEXT PRIMARY KEY NOT NULL,
+      remote_id TEXT,
+      event_id TEXT NOT NULL,
+      remote_event_id TEXT,
+      target_type TEXT NOT NULL,
+      target_id TEXT NOT NULL,
+      remote_target_id TEXT,
+      event_member_id TEXT NOT NULL,
+      linked_user_id TEXT,
+      response_status TEXT NOT NULL,
+      rejection_reason TEXT,
+      responded_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      sync_status TEXT NOT NULL DEFAULT 'local_only'
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS event_verification_response_unique
+      ON event_verification_responses(event_id, target_type, target_id, event_member_id);
+
+    CREATE TABLE IF NOT EXISTS event_activity_logs (
+      id TEXT PRIMARY KEY NOT NULL,
+      remote_id TEXT,
+      event_id TEXT NOT NULL,
+      remote_event_id TEXT,
+      actor_user_id TEXT,
+      action TEXT NOT NULL,
+      target_type TEXT NOT NULL,
+      target_id TEXT,
+      metadata_json TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL,
+      sync_status TEXT NOT NULL DEFAULT 'local_only'
     );
 
     CREATE TABLE IF NOT EXISTS user_profiles (
@@ -391,6 +720,16 @@ export async function migrate(db: SQLite.SQLiteDatabase) {
   await ensureColumn(db, 'members', 'linked_profile_phone', 'TEXT');
   await ensureColumn(db, 'members', 'sync_status', "TEXT NOT NULL DEFAULT 'local_only'");
 
+  await ensureColumn(db, 'events', 'local_id', 'TEXT');
+  await ensureColumn(db, 'events', 'remote_id', 'TEXT');
+  await ensureColumn(db, 'events', 'owner_user_id', 'TEXT');
+  await ensureColumn(db, 'events', 'allowed_currencies_json', "TEXT NOT NULL DEFAULT '[]'");
+  await ensureColumn(db, 'events', 'visibility', "TEXT NOT NULL DEFAULT 'private'");
+  await ensureColumn(db, 'events', 'sync_status', "TEXT NOT NULL DEFAULT 'local_only'");
+  await ensureColumn(db, 'events', 'archived_at', 'TEXT');
+  await ensureColumn(db, 'events', 'finalised_at', 'TEXT');
+  await ensureColumn(db, 'events', 'locked_at', 'TEXT');
+
   await ensureColumn(db, 'debts', 'remote_id', 'TEXT');
   await ensureColumn(db, 'debts', 'verification_request_id', 'TEXT');
   await ensureColumn(db, 'debts', 'visibility', "TEXT NOT NULL DEFAULT 'private'");
@@ -406,6 +745,7 @@ export async function migrate(db: SQLite.SQLiteDatabase) {
   await ensureColumn(db, 'debts', 'suggested_change_json', 'TEXT');
 
   await ensureColumn(db, 'shared_expenses', 'remote_id', 'TEXT');
+  await ensureColumn(db, 'shared_expenses', 'creator_user_id', 'TEXT');
   await ensureColumn(db, 'shared_expenses', 'visibility', "TEXT NOT NULL DEFAULT 'private'");
   await ensureColumn(db, 'shared_expenses', 'sync_status', "TEXT NOT NULL DEFAULT 'local_only'");
 
@@ -426,6 +766,14 @@ async function ensureColumn(
 
 export async function resetDatabase(db: SQLite.SQLiteDatabase, seed = true) {
   await db.execAsync(`
+    DELETE FROM event_activity_logs;
+    DELETE FROM event_verification_responses;
+    DELETE FROM event_debts;
+    DELETE FROM event_duplicate_warnings;
+    DELETE FROM event_member_claims;
+    DELETE FROM shared_event_members;
+    DELETE FROM event_invites;
+    DELETE FROM event_participants;
     DELETE FROM activity_log;
     DELETE FROM debt_verifications;
     DELETE FROM link_requests;
@@ -588,36 +936,63 @@ export async function seedDemoData(db: SQLite.SQLiteDatabase) {
   const events: Event[] = [
     {
       id: 'event_ski_sweden',
+      localId: null,
+      remoteId: 'remote_event_ski_sweden',
+      ownerUserId: 'demo_user_local',
       name: 'Ski Trip Sweden',
       notes: 'Cabin, groceries, fuel, and rentals.',
       defaultCurrency: 'SEK',
+      allowedCurrencies: ['SEK', 'EUR', 'GBP'],
       tags: ['Travel', 'Food'],
       status: 'active',
+      visibility: 'shared',
+      syncStatus: 'synced',
       archived: false,
+      archivedAt: null,
+      finalisedAt: null,
+      lockedAt: null,
       ignoredDuplicateKeys: [],
       createdAt: timestamp,
       updatedAt: timestamp,
     },
     {
       id: 'event_christmas',
+      localId: null,
+      remoteId: null,
+      ownerUserId: null,
       name: 'Christmas 2025',
       notes: 'Gifts and family dinner planning.',
       defaultCurrency: 'SEK',
+      allowedCurrencies: ['SEK'],
       tags: ['Family', 'Gift', 'Christmas 2025'],
       status: 'planning',
+      visibility: 'private',
+      syncStatus: 'local_only',
       archived: false,
+      archivedAt: null,
+      finalisedAt: null,
+      lockedAt: null,
       ignoredDuplicateKeys: [],
       createdAt: timestamp,
       updatedAt: timestamp,
     },
     {
       id: 'event_apartment',
+      localId: null,
+      remoteId: null,
+      ownerUserId: null,
       name: 'Apartment expenses',
       notes: 'Utilities and shared household supplies.',
       defaultCurrency: 'USD',
+      allowedCurrencies: ['USD'],
       tags: ['Apartment', 'Rent'],
       status: 'active',
+      visibility: 'private',
+      syncStatus: 'local_only',
       archived: false,
+      archivedAt: null,
+      finalisedAt: null,
+      lockedAt: null,
       ignoredDuplicateKeys: [],
       createdAt: timestamp,
       updatedAt: timestamp,
@@ -632,6 +1007,222 @@ export async function seedDemoData(db: SQLite.SQLiteDatabase) {
     { eventId: 'event_christmas', memberId: 'member_ben_dad', createdAt: timestamp },
     { eventId: 'event_apartment', memberId: 'member_daniel', createdAt: timestamp },
     { eventId: 'event_apartment', memberId: 'member_sarah', createdAt: timestamp },
+  ];
+
+  const eventParticipants: EventParticipant[] = [
+    {
+      id: 'participant_ski_owner',
+      remoteId: 'remote_participant_ski_owner',
+      eventId: 'event_ski_sweden',
+      remoteEventId: 'remote_event_ski_sweden',
+      userId: 'demo_user_local',
+      role: 'owner',
+      status: 'active',
+      joinedAt: timestamp,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      syncStatus: 'synced',
+    },
+    {
+      id: 'participant_ski_daniel',
+      remoteId: 'remote_participant_ski_daniel',
+      eventId: 'event_ski_sweden',
+      remoteEventId: 'remote_event_ski_sweden',
+      userId: 'demo_user_daniel',
+      role: 'admin',
+      status: 'active',
+      joinedAt: timestamp,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      syncStatus: 'synced',
+    },
+    {
+      id: 'participant_ski_emma',
+      remoteId: 'remote_participant_ski_emma',
+      eventId: 'event_ski_sweden',
+      remoteEventId: 'remote_event_ski_sweden',
+      userId: 'demo_user_emma',
+      role: 'member',
+      status: 'active',
+      joinedAt: timestamp,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      syncStatus: 'synced',
+    },
+  ];
+
+  const eventInvites: EventInvite[] = [
+    {
+      id: 'invite_ski_sarah',
+      remoteId: 'remote_invite_ski_sarah',
+      eventId: 'event_ski_sweden',
+      remoteEventId: 'remote_event_ski_sweden',
+      inviterUserId: 'demo_user_local',
+      invitedUserId: 'demo_user_sarah',
+      invitedEmail: 'sarah@example.com',
+      invitedPhone: null,
+      invitedDisplayName: 'Sarah',
+      offeredRole: 'member',
+      status: 'pending',
+      message: 'Join the Ski Trip shared ledger.',
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      respondedAt: null,
+      syncStatus: 'synced',
+    },
+  ];
+
+  const sharedEventMembers: SharedEventMember[] = [
+    {
+      id: 'event_member_ski_benjamin',
+      remoteId: 'remote_event_member_ski_benjamin',
+      eventId: 'event_ski_sweden',
+      remoteEventId: 'remote_event_ski_sweden',
+      type: 'linked_user',
+      linkedUserId: 'demo_user_local',
+      displayName: 'Benjamin',
+      alias: 'You',
+      email: 'benjamin@example.com',
+      phone: null,
+      notes: null,
+      createdByUserId: 'demo_user_local',
+      status: 'active',
+      mergedIntoEventMemberId: null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      syncStatus: 'synced',
+    },
+    {
+      id: 'event_member_ski_daniel',
+      remoteId: 'remote_event_member_ski_daniel',
+      eventId: 'event_ski_sweden',
+      remoteEventId: 'remote_event_ski_sweden',
+      type: 'linked_user',
+      linkedUserId: 'demo_user_daniel',
+      displayName: 'Daniel',
+      alias: null,
+      email: 'daniel@example.com',
+      phone: null,
+      notes: null,
+      createdByUserId: 'demo_user_local',
+      status: 'active',
+      mergedIntoEventMemberId: null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      syncStatus: 'synced',
+    },
+    {
+      id: 'event_member_ski_sarah',
+      remoteId: 'remote_event_member_ski_sarah',
+      eventId: 'event_ski_sweden',
+      remoteEventId: 'remote_event_ski_sweden',
+      type: 'unlinked_placeholder',
+      linkedUserId: null,
+      displayName: 'Sarah',
+      alias: null,
+      email: 'sarah@example.com',
+      phone: null,
+      notes: 'Shared placeholder until Sarah accepts and claims it.',
+      createdByUserId: 'demo_user_local',
+      status: 'claim_pending',
+      mergedIntoEventMemberId: null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      syncStatus: 'synced',
+    },
+    {
+      id: 'event_member_ski_emma',
+      remoteId: 'remote_event_member_ski_emma',
+      eventId: 'event_ski_sweden',
+      remoteEventId: 'remote_event_ski_sweden',
+      type: 'linked_user',
+      linkedUserId: 'demo_user_emma',
+      displayName: 'Emma',
+      alias: null,
+      email: 'emma@example.com',
+      phone: null,
+      notes: null,
+      createdByUserId: 'demo_user_local',
+      status: 'active',
+      mergedIntoEventMemberId: null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      syncStatus: 'synced',
+    },
+    {
+      id: 'event_member_ski_dad',
+      remoteId: 'remote_event_member_ski_dad',
+      eventId: 'event_ski_sweden',
+      remoteEventId: 'remote_event_ski_sweden',
+      type: 'unlinked_placeholder',
+      linkedUserId: null,
+      displayName: 'Dad',
+      alias: null,
+      email: null,
+      phone: '+46700000001',
+      notes: null,
+      createdByUserId: 'demo_user_local',
+      status: 'active',
+      mergedIntoEventMemberId: null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      syncStatus: 'synced',
+    },
+    {
+      id: 'event_member_ski_bens_dad',
+      remoteId: 'remote_event_member_ski_bens_dad',
+      eventId: 'event_ski_sweden',
+      remoteEventId: 'remote_event_ski_sweden',
+      type: 'unlinked_placeholder',
+      linkedUserId: null,
+      displayName: "Benjamin's Dad",
+      alias: null,
+      email: null,
+      phone: '+46700000001',
+      notes: 'Duplicate-warning demo placeholder.',
+      createdByUserId: 'demo_user_daniel',
+      status: 'active',
+      mergedIntoEventMemberId: null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      syncStatus: 'synced',
+    },
+  ];
+
+  const eventMemberClaims: EventMemberClaim[] = [
+    {
+      id: 'claim_ski_sarah',
+      remoteId: 'remote_claim_ski_sarah',
+      eventId: 'event_ski_sweden',
+      remoteEventId: 'remote_event_ski_sweden',
+      eventMemberId: 'event_member_ski_sarah',
+      remoteEventMemberId: 'remote_event_member_ski_sarah',
+      claimantUserId: 'demo_user_sarah',
+      status: 'pending',
+      message: 'This is me.',
+      respondedByUserId: null,
+      respondedAt: null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      syncStatus: 'synced',
+    },
+  ];
+
+  const eventDuplicateWarnings: EventDuplicateWarning[] = [
+    {
+      id: 'duplicate_ski_dad',
+      remoteId: 'remote_duplicate_ski_dad',
+      eventId: 'event_ski_sweden',
+      eventMemberIdA: 'event_member_ski_dad',
+      eventMemberIdB: 'event_member_ski_bens_dad',
+      reason: 'Same phone number; names are also very similar.',
+      confidence: 'high',
+      status: 'active',
+      ignoredByUserId: null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      syncStatus: 'synced',
+    },
   ];
 
   const debts: Debt[] = [
@@ -766,19 +1357,25 @@ export async function seedDemoData(db: SQLite.SQLiteDatabase) {
       id: 'expense_ski_groceries',
       remoteId: null,
       eventId: 'event_ski_sweden',
-      payerId: 'me',
+      creatorUserId: 'demo_user_local',
+      payerId: 'event_member_ski_benjamin',
       amount: 1200,
       currency: 'SEK',
       title: 'Cabin groceries',
       notes: 'You paid. Split between everyone in the cabin.',
       expenseDate: todayIsoDate(),
-      participantIds: ['me', 'member_daniel', 'member_sarah', 'member_emma'],
+      participantIds: [
+        'event_member_ski_benjamin',
+        'event_member_ski_daniel',
+        'event_member_ski_sarah',
+        'event_member_ski_emma',
+      ],
       splitMethod: 'equal',
       tags: ['Food', 'Travel'],
       status: 'active',
-      verificationStatus: 'local_only',
-      visibility: 'private',
-      syncStatus: 'local_only',
+      verificationStatus: 'partially_verified',
+      visibility: 'shared_event',
+      syncStatus: 'synced',
       createdAt: timestamp,
       updatedAt: timestamp,
     }),
@@ -786,19 +1383,20 @@ export async function seedDemoData(db: SQLite.SQLiteDatabase) {
       id: 'expense_ski_rentals',
       remoteId: null,
       eventId: 'event_ski_sweden',
-      payerId: 'member_daniel',
+      creatorUserId: 'demo_user_daniel',
+      payerId: 'event_member_ski_daniel',
       amount: 360,
       currency: 'EUR',
       title: 'Ski rentals',
       notes: 'Daniel paid for three rental sets.',
       expenseDate: todayIsoDate(),
-      participantIds: ['me', 'member_daniel', 'member_sarah'],
+      participantIds: ['event_member_ski_benjamin', 'event_member_ski_daniel', 'event_member_ski_sarah'],
       splitMethod: 'equal',
       tags: ['Travel'],
       status: 'active',
       verificationStatus: 'verified',
-      visibility: 'private',
-      syncStatus: 'local_only',
+      visibility: 'shared_event',
+      syncStatus: 'synced',
       createdAt: timestamp,
       updatedAt: timestamp,
     }),
@@ -806,6 +1404,7 @@ export async function seedDemoData(db: SQLite.SQLiteDatabase) {
       id: 'expense_apartment_utilities',
       remoteId: null,
       eventId: 'event_apartment',
+      creatorUserId: null,
       payerId: 'member_sarah',
       amount: 180,
       currency: 'USD',
@@ -822,6 +1421,68 @@ export async function seedDemoData(db: SQLite.SQLiteDatabase) {
       createdAt: timestamp,
       updatedAt: timestamp,
     }),
+  ];
+
+  const eventDebts: EventDebt[] = [
+    {
+      id: 'event_debt_ski_daniel_sarah',
+      remoteId: 'remote_event_debt_ski_daniel_sarah',
+      eventId: 'event_ski_sweden',
+      remoteEventId: 'remote_event_ski_sweden',
+      creatorUserId: 'demo_user_daniel',
+      debtorEventMemberId: 'event_member_ski_daniel',
+      creditorEventMemberId: 'event_member_ski_sarah',
+      amount: 200,
+      currency: 'SEK',
+      title: 'Lift-card cash',
+      notes: 'Daniel owes Sarah for the group lift-card cash collection.',
+      debtDate: todayIsoDate(),
+      tags: ['Travel'],
+      verificationStatus: 'pending',
+      settlementStatus: 'active',
+      status: 'active',
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      archivedAt: null,
+      syncStatus: 'synced',
+    },
+  ];
+
+  const eventVerificationResponses: EventVerificationResponse[] = [
+    {
+      id: 'event_verify_groceries_daniel',
+      remoteId: 'remote_event_verify_groceries_daniel',
+      eventId: 'event_ski_sweden',
+      remoteEventId: 'remote_event_ski_sweden',
+      targetType: 'expense',
+      targetId: 'expense_ski_groceries',
+      remoteTargetId: null,
+      eventMemberId: 'event_member_ski_daniel',
+      linkedUserId: 'demo_user_daniel',
+      responseStatus: 'verified',
+      rejectionReason: null,
+      respondedAt: timestamp,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      syncStatus: 'synced',
+    },
+    {
+      id: 'event_verify_groceries_emma',
+      remoteId: 'remote_event_verify_groceries_emma',
+      eventId: 'event_ski_sweden',
+      remoteEventId: 'remote_event_ski_sweden',
+      targetType: 'expense',
+      targetId: 'expense_ski_groceries',
+      remoteTargetId: null,
+      eventMemberId: 'event_member_ski_emma',
+      linkedUserId: 'demo_user_emma',
+      responseStatus: 'pending',
+      rejectionReason: null,
+      respondedAt: null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      syncStatus: 'synced',
+    },
   ];
 
   const linkRequests: LinkRequest[] = [
@@ -917,11 +1578,32 @@ export async function seedDemoData(db: SQLite.SQLiteDatabase) {
   for (const eventMember of eventMembers) {
     await insertEventMember(db, eventMember);
   }
+  for (const participant of eventParticipants) {
+    await insertEventParticipant(db, participant);
+  }
+  for (const invite of eventInvites) {
+    await insertEventInvite(db, invite);
+  }
+  for (const eventMember of sharedEventMembers) {
+    await insertSharedEventMember(db, eventMember);
+  }
+  for (const claim of eventMemberClaims) {
+    await insertEventMemberClaim(db, claim);
+  }
+  for (const warning of eventDuplicateWarnings) {
+    await insertEventDuplicateWarning(db, warning);
+  }
   for (const debt of debts) {
     await insertDebt(db, debt);
   }
   for (const expense of sharedExpenses) {
     await insertSharedExpense(db, expense);
+  }
+  for (const debt of eventDebts) {
+    await insertEventDebt(db, debt);
+  }
+  for (const verification of eventVerificationResponses) {
+    await insertEventVerificationResponse(db, verification);
   }
   for (const linkRequest of linkRequests) {
     await insertLinkRequest(db, linkRequest);
@@ -937,6 +1619,32 @@ export async function seedDemoData(db: SQLite.SQLiteDatabase) {
     action: 'debt_verified',
     metadata: { verificationId: 'verify_demo_daniel_backpack' },
     createdAt: timestamp,
+  });
+  await insertEventActivityLog(db, {
+    id: 'event_activity_ski_created',
+    remoteId: 'remote_event_activity_ski_created',
+    eventId: 'event_ski_sweden',
+    remoteEventId: 'remote_event_ski_sweden',
+    actorUserId: 'demo_user_local',
+    action: 'event_created',
+    targetType: 'event',
+    targetId: 'event_ski_sweden',
+    metadata: { name: 'Ski Trip Sweden' },
+    createdAt: timestamp,
+    syncStatus: 'synced',
+  });
+  await insertEventActivityLog(db, {
+    id: 'event_activity_ski_duplicate',
+    remoteId: 'remote_event_activity_ski_duplicate',
+    eventId: 'event_ski_sweden',
+    remoteEventId: 'remote_event_ski_sweden',
+    actorUserId: 'demo_user_local',
+    action: 'possible_duplicate_member_detected',
+    targetType: 'event_duplicate_warning',
+    targetId: 'duplicate_ski_dad',
+    metadata: { memberA: 'Dad', memberB: "Benjamin's Dad" },
+    createdAt: timestamp,
+    syncStatus: 'synced',
   });
   await insertActivityLog(db, {
     id: 'activity_demo_rejected',
@@ -968,7 +1676,15 @@ export async function loadSnapshot(db: SQLite.SQLiteDatabase): Promise<DatabaseS
     debts,
     events,
     eventMembers,
+    eventParticipants,
+    eventInvites,
+    sharedEventMembers,
+    eventMemberClaims,
+    eventDuplicateWarnings,
     sharedExpenses,
+    eventDebts,
+    eventVerificationResponses,
+    eventActivityLogs,
     linkRequests,
     debtVerifications,
     activityLogs,
@@ -982,7 +1698,15 @@ export async function loadSnapshot(db: SQLite.SQLiteDatabase): Promise<DatabaseS
       getDebts(db),
       getEvents(db),
       getEventMembers(db),
+      getEventParticipants(db),
+      getEventInvites(db),
+      getSharedEventMembers(db),
+      getEventMemberClaims(db),
+      getEventDuplicateWarnings(db),
       getSharedExpenses(db),
+      getEventDebts(db),
+      getEventVerificationResponses(db),
+      getEventActivityLogs(db),
       getLinkRequests(db),
       getDebtVerifications(db),
       getActivityLogs(db),
@@ -997,7 +1721,15 @@ export async function loadSnapshot(db: SQLite.SQLiteDatabase): Promise<DatabaseS
     debts,
     events,
     eventMembers,
+    eventParticipants,
+    eventInvites,
+    sharedEventMembers,
+    eventMemberClaims,
+    eventDuplicateWarnings,
     sharedExpenses,
+    eventDebts,
+    eventVerificationResponses,
+    eventActivityLogs,
     linkRequests,
     debtVerifications,
     activityLogs,
@@ -1036,11 +1768,59 @@ export async function getEventMembers(db: SQLite.SQLiteDatabase) {
   }));
 }
 
+export async function getEventParticipants(db: SQLite.SQLiteDatabase) {
+  const rows = await db.getAllAsync<EventParticipantRow>(`SELECT * FROM event_participants ORDER BY updated_at DESC`);
+  return rows.map(mapEventParticipantRow);
+}
+
+export async function getEventInvites(db: SQLite.SQLiteDatabase) {
+  const rows = await db.getAllAsync<EventInviteRow>(`SELECT * FROM event_invites ORDER BY updated_at DESC`);
+  return rows.map(mapEventInviteRow);
+}
+
+export async function getSharedEventMembers(db: SQLite.SQLiteDatabase) {
+  const rows = await db.getAllAsync<SharedEventMemberRow>(
+    `SELECT * FROM shared_event_members ORDER BY display_name COLLATE NOCASE`,
+  );
+  return rows.map(mapSharedEventMemberRow);
+}
+
+export async function getEventMemberClaims(db: SQLite.SQLiteDatabase) {
+  const rows = await db.getAllAsync<EventMemberClaimRow>(`SELECT * FROM event_member_claims ORDER BY updated_at DESC`);
+  return rows.map(mapEventMemberClaimRow);
+}
+
+export async function getEventDuplicateWarnings(db: SQLite.SQLiteDatabase) {
+  const rows = await db.getAllAsync<EventDuplicateWarningRow>(
+    `SELECT * FROM event_duplicate_warnings ORDER BY updated_at DESC`,
+  );
+  return rows.map(mapEventDuplicateWarningRow);
+}
+
 export async function getSharedExpenses(db: SQLite.SQLiteDatabase) {
   const rows = await db.getAllAsync<SharedExpenseRow>(
     `SELECT * FROM shared_expenses ORDER BY expense_date DESC, created_at DESC`,
   );
   return rows.map(mapSharedExpenseRow);
+}
+
+export async function getEventDebts(db: SQLite.SQLiteDatabase) {
+  const rows = await db.getAllAsync<EventDebtRow>(`SELECT * FROM event_debts ORDER BY debt_date DESC, created_at DESC`);
+  return rows.map(mapEventDebtRow);
+}
+
+export async function getEventVerificationResponses(db: SQLite.SQLiteDatabase) {
+  const rows = await db.getAllAsync<EventVerificationResponseRow>(
+    `SELECT * FROM event_verification_responses ORDER BY updated_at DESC`,
+  );
+  return rows.map(mapEventVerificationResponseRow);
+}
+
+export async function getEventActivityLogs(db: SQLite.SQLiteDatabase) {
+  const rows = await db.getAllAsync<EventActivityLogRow>(
+    `SELECT * FROM event_activity_logs ORDER BY created_at DESC LIMIT 500`,
+  );
+  return rows.map(mapEventActivityLogRow);
 }
 
 export async function getLinkRequests(db: SQLite.SQLiteDatabase) {
@@ -1164,17 +1944,27 @@ export async function insertDebt(db: SQLite.SQLiteDatabase, debt: Debt) {
 export async function insertEvent(db: SQLite.SQLiteDatabase, event: Event) {
   await db.runAsync(
     `INSERT OR REPLACE INTO events
-      (id, name, notes, default_currency, tags_json, status, archived, ignored_duplicate_keys_json,
-       created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id, local_id, remote_id, owner_user_id, name, notes, default_currency, allowed_currencies_json,
+       tags_json, status, visibility, sync_status, archived, archived_at, finalised_at, locked_at,
+       ignored_duplicate_keys_json, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       event.id,
+      event.localId,
+      event.remoteId,
+      event.ownerUserId,
       event.name,
       event.notes,
       event.defaultCurrency,
+      toJson(event.allowedCurrencies),
       toJson(event.tags),
       event.status,
+      event.visibility,
+      event.syncStatus,
       event.archived ? 1 : 0,
+      event.archivedAt,
+      event.finalisedAt,
+      event.lockedAt,
       toJson(event.ignoredDuplicateKeys),
       event.createdAt,
       event.updatedAt,
@@ -1190,17 +1980,146 @@ export async function insertEventMember(db: SQLite.SQLiteDatabase, eventMember: 
   );
 }
 
+export async function insertEventParticipant(db: SQLite.SQLiteDatabase, participant: EventParticipant) {
+  await db.runAsync(
+    `INSERT OR REPLACE INTO event_participants
+      (id, remote_id, event_id, remote_event_id, user_id, role, status, joined_at, created_at,
+       updated_at, sync_status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      participant.id,
+      participant.remoteId,
+      participant.eventId,
+      participant.remoteEventId,
+      participant.userId,
+      participant.role,
+      participant.status,
+      participant.joinedAt,
+      participant.createdAt,
+      participant.updatedAt,
+      participant.syncStatus,
+    ],
+  );
+}
+
+export async function insertEventInvite(db: SQLite.SQLiteDatabase, invite: EventInvite) {
+  await db.runAsync(
+    `INSERT OR REPLACE INTO event_invites
+      (id, remote_id, event_id, remote_event_id, inviter_user_id, invited_user_id, invited_email,
+       invited_phone, invited_display_name, offered_role, status, message, created_at, updated_at,
+       responded_at, sync_status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      invite.id,
+      invite.remoteId,
+      invite.eventId,
+      invite.remoteEventId,
+      invite.inviterUserId,
+      invite.invitedUserId,
+      invite.invitedEmail,
+      invite.invitedPhone,
+      invite.invitedDisplayName,
+      invite.offeredRole,
+      invite.status,
+      invite.message,
+      invite.createdAt,
+      invite.updatedAt,
+      invite.respondedAt,
+      invite.syncStatus,
+    ],
+  );
+}
+
+export async function insertSharedEventMember(db: SQLite.SQLiteDatabase, member: SharedEventMember) {
+  await db.runAsync(
+    `INSERT OR REPLACE INTO shared_event_members
+      (id, remote_id, event_id, remote_event_id, type, linked_user_id, display_name, alias,
+       email, phone, notes, created_by_user_id, status, merged_into_event_member_id, created_at,
+       updated_at, sync_status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      member.id,
+      member.remoteId,
+      member.eventId,
+      member.remoteEventId,
+      member.type,
+      member.linkedUserId,
+      member.displayName,
+      member.alias,
+      member.email,
+      member.phone,
+      member.notes,
+      member.createdByUserId,
+      member.status,
+      member.mergedIntoEventMemberId,
+      member.createdAt,
+      member.updatedAt,
+      member.syncStatus,
+    ],
+  );
+}
+
+export async function insertEventMemberClaim(db: SQLite.SQLiteDatabase, claim: EventMemberClaim) {
+  await db.runAsync(
+    `INSERT OR REPLACE INTO event_member_claims
+      (id, remote_id, event_id, remote_event_id, event_member_id, remote_event_member_id,
+       claimant_user_id, status, message, responded_by_user_id, responded_at, created_at,
+       updated_at, sync_status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      claim.id,
+      claim.remoteId,
+      claim.eventId,
+      claim.remoteEventId,
+      claim.eventMemberId,
+      claim.remoteEventMemberId,
+      claim.claimantUserId,
+      claim.status,
+      claim.message,
+      claim.respondedByUserId,
+      claim.respondedAt,
+      claim.createdAt,
+      claim.updatedAt,
+      claim.syncStatus,
+    ],
+  );
+}
+
+export async function insertEventDuplicateWarning(db: SQLite.SQLiteDatabase, warning: EventDuplicateWarning) {
+  await db.runAsync(
+    `INSERT OR REPLACE INTO event_duplicate_warnings
+      (id, remote_id, event_id, event_member_id_a, event_member_id_b, reason, confidence,
+       status, ignored_by_user_id, created_at, updated_at, sync_status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      warning.id,
+      warning.remoteId,
+      warning.eventId,
+      warning.eventMemberIdA,
+      warning.eventMemberIdB,
+      warning.reason,
+      warning.confidence,
+      warning.status,
+      warning.ignoredByUserId,
+      warning.createdAt,
+      warning.updatedAt,
+      warning.syncStatus,
+    ],
+  );
+}
+
 export async function insertSharedExpense(db: SQLite.SQLiteDatabase, expense: SharedExpense) {
   await db.runAsync(
     `INSERT OR REPLACE INTO shared_expenses
-      (id, remote_id, event_id, payer_id, amount, currency, title, notes, expense_date, participant_ids_json,
-       split_method, generated_obligations_json, tags_json, status, verification_status, visibility,
-       sync_status, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id, remote_id, event_id, creator_user_id, payer_id, amount, currency, title, notes, expense_date,
+       participant_ids_json, split_method, generated_obligations_json, tags_json, status,
+       verification_status, visibility, sync_status, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       expense.id,
       expense.remoteId,
       expense.eventId,
+      expense.creatorUserId,
       expense.payerId,
       expense.amount,
       expense.currency,
@@ -1220,6 +2139,92 @@ export async function insertSharedExpense(db: SQLite.SQLiteDatabase, expense: Sh
     ],
   );
   await upsertTagNames(db, expense.tags);
+}
+
+export async function insertEventDebt(db: SQLite.SQLiteDatabase, debt: EventDebt) {
+  await db.runAsync(
+    `INSERT OR REPLACE INTO event_debts
+      (id, remote_id, event_id, remote_event_id, creator_user_id, debtor_event_member_id,
+       creditor_event_member_id, amount, currency, title, notes, debt_date, tags_json,
+       verification_status, settlement_status, status, created_at, updated_at, archived_at,
+       sync_status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      debt.id,
+      debt.remoteId,
+      debt.eventId,
+      debt.remoteEventId,
+      debt.creatorUserId,
+      debt.debtorEventMemberId,
+      debt.creditorEventMemberId,
+      debt.amount,
+      debt.currency,
+      debt.title,
+      debt.notes,
+      debt.debtDate,
+      toJson(debt.tags),
+      debt.verificationStatus,
+      debt.settlementStatus,
+      debt.status,
+      debt.createdAt,
+      debt.updatedAt,
+      debt.archivedAt,
+      debt.syncStatus,
+    ],
+  );
+  await upsertTagNames(db, debt.tags);
+}
+
+export async function insertEventVerificationResponse(
+  db: SQLite.SQLiteDatabase,
+  response: EventVerificationResponse,
+) {
+  await db.runAsync(
+    `INSERT OR REPLACE INTO event_verification_responses
+      (id, remote_id, event_id, remote_event_id, target_type, target_id, remote_target_id,
+       event_member_id, linked_user_id, response_status, rejection_reason, responded_at,
+       created_at, updated_at, sync_status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      response.id,
+      response.remoteId,
+      response.eventId,
+      response.remoteEventId,
+      response.targetType,
+      response.targetId,
+      response.remoteTargetId,
+      response.eventMemberId,
+      response.linkedUserId,
+      response.responseStatus,
+      response.rejectionReason,
+      response.respondedAt,
+      response.createdAt,
+      response.updatedAt,
+      response.syncStatus,
+    ],
+  );
+}
+
+export async function insertEventActivityLog(db: SQLite.SQLiteDatabase, activity: EventActivityLog) {
+  await db.runAsync(
+    `INSERT OR REPLACE INTO event_activity_logs
+      (id, remote_id, event_id, remote_event_id, actor_user_id, action, target_type, target_id,
+       metadata_json, created_at, sync_status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      activity.id,
+      activity.remoteId,
+      activity.eventId,
+      activity.remoteEventId,
+      activity.actorUserId,
+      activity.action,
+      activity.targetType,
+      activity.targetId,
+      toJson(activity.metadata),
+      activity.createdAt,
+      activity.syncStatus,
+    ],
+  );
 }
 
 export async function insertProfile(db: SQLite.SQLiteDatabase, profile: UserProfile) {
@@ -1399,15 +2404,119 @@ export function mapDebtRow(row: DebtRow): Debt {
 export function mapEventRow(row: EventRow): Event {
   return {
     id: row.id,
+    localId: row.local_id ?? null,
+    remoteId: row.remote_id ?? null,
+    ownerUserId: row.owner_user_id ?? null,
     name: row.name,
     notes: row.notes,
     defaultCurrency: row.default_currency,
+    allowedCurrencies: parseJsonArray<CurrencyCode>(row.allowed_currencies_json),
     tags: parseJsonArray<string>(row.tags_json),
     status: row.status,
+    visibility: row.visibility ?? 'private',
+    syncStatus: row.sync_status ?? 'local_only',
     archived: row.archived === 1,
+    archivedAt: row.archived_at ?? null,
+    finalisedAt: row.finalised_at ?? null,
+    lockedAt: row.locked_at ?? null,
     ignoredDuplicateKeys: parseJsonArray<string>(row.ignored_duplicate_keys_json),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+export function mapEventParticipantRow(row: EventParticipantRow): EventParticipant {
+  return {
+    id: row.id,
+    remoteId: row.remote_id,
+    eventId: row.event_id,
+    remoteEventId: row.remote_event_id,
+    userId: row.user_id,
+    role: row.role,
+    status: row.status,
+    joinedAt: row.joined_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    syncStatus: row.sync_status ?? 'local_only',
+  };
+}
+
+export function mapEventInviteRow(row: EventInviteRow): EventInvite {
+  return {
+    id: row.id,
+    remoteId: row.remote_id,
+    eventId: row.event_id,
+    remoteEventId: row.remote_event_id,
+    inviterUserId: row.inviter_user_id,
+    invitedUserId: row.invited_user_id,
+    invitedEmail: row.invited_email,
+    invitedPhone: row.invited_phone,
+    invitedDisplayName: row.invited_display_name,
+    offeredRole: row.offered_role,
+    status: row.status,
+    message: row.message,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    respondedAt: row.responded_at,
+    syncStatus: row.sync_status ?? 'local_only',
+  };
+}
+
+export function mapSharedEventMemberRow(row: SharedEventMemberRow): SharedEventMember {
+  return {
+    id: row.id,
+    remoteId: row.remote_id,
+    eventId: row.event_id,
+    remoteEventId: row.remote_event_id,
+    type: row.type,
+    linkedUserId: row.linked_user_id,
+    displayName: row.display_name,
+    alias: row.alias,
+    email: row.email,
+    phone: row.phone,
+    notes: row.notes,
+    createdByUserId: row.created_by_user_id,
+    status: row.status,
+    mergedIntoEventMemberId: row.merged_into_event_member_id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    syncStatus: row.sync_status ?? 'local_only',
+  };
+}
+
+export function mapEventMemberClaimRow(row: EventMemberClaimRow): EventMemberClaim {
+  return {
+    id: row.id,
+    remoteId: row.remote_id,
+    eventId: row.event_id,
+    remoteEventId: row.remote_event_id,
+    eventMemberId: row.event_member_id,
+    remoteEventMemberId: row.remote_event_member_id,
+    claimantUserId: row.claimant_user_id,
+    status: row.status,
+    message: row.message,
+    respondedByUserId: row.responded_by_user_id,
+    respondedAt: row.responded_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    syncStatus: row.sync_status ?? 'local_only',
+  };
+}
+
+export function mapEventDuplicateWarningRow(row: EventDuplicateWarningRow): EventDuplicateWarning {
+  return {
+    id: row.id,
+    remoteId: row.remote_id,
+    eventId: row.event_id,
+    eventMemberIdA: row.event_member_id_a,
+    eventMemberIdB: row.event_member_id_b,
+    reason: row.reason,
+    confidence: row.confidence,
+    status: row.status,
+    ignoredByUserId: row.ignored_by_user_id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    syncStatus: row.sync_status ?? 'local_only',
   };
 }
 
@@ -1416,6 +2525,7 @@ export function mapSharedExpenseRow(row: SharedExpenseRow): SharedExpense {
     id: row.id,
     remoteId: row.remote_id ?? null,
     eventId: row.event_id,
+    creatorUserId: row.creator_user_id ?? null,
     payerId: row.payer_id,
     amount: row.amount,
     currency: row.currency,
@@ -1432,6 +2542,67 @@ export function mapSharedExpenseRow(row: SharedExpenseRow): SharedExpense {
     syncStatus: row.sync_status ?? 'local_only',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+export function mapEventDebtRow(row: EventDebtRow): EventDebt {
+  return {
+    id: row.id,
+    remoteId: row.remote_id,
+    eventId: row.event_id,
+    remoteEventId: row.remote_event_id,
+    creatorUserId: row.creator_user_id,
+    debtorEventMemberId: row.debtor_event_member_id,
+    creditorEventMemberId: row.creditor_event_member_id,
+    amount: row.amount,
+    currency: row.currency,
+    title: row.title,
+    notes: row.notes,
+    debtDate: row.debt_date,
+    tags: parseJsonArray<string>(row.tags_json),
+    verificationStatus: row.verification_status,
+    settlementStatus: row.settlement_status,
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    archivedAt: row.archived_at,
+    syncStatus: row.sync_status ?? 'local_only',
+  };
+}
+
+export function mapEventVerificationResponseRow(row: EventVerificationResponseRow): EventVerificationResponse {
+  return {
+    id: row.id,
+    remoteId: row.remote_id,
+    eventId: row.event_id,
+    remoteEventId: row.remote_event_id,
+    targetType: row.target_type,
+    targetId: row.target_id,
+    remoteTargetId: row.remote_target_id,
+    eventMemberId: row.event_member_id,
+    linkedUserId: row.linked_user_id,
+    responseStatus: row.response_status,
+    rejectionReason: row.rejection_reason,
+    respondedAt: row.responded_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    syncStatus: row.sync_status ?? 'local_only',
+  };
+}
+
+export function mapEventActivityLogRow(row: EventActivityLogRow): EventActivityLog {
+  return {
+    id: row.id,
+    remoteId: row.remote_id,
+    eventId: row.event_id,
+    remoteEventId: row.remote_event_id,
+    actorUserId: row.actor_user_id,
+    action: row.action,
+    targetType: row.target_type,
+    targetId: row.target_id,
+    metadata: parseJsonObject(row.metadata_json, {}),
+    createdAt: row.created_at,
+    syncStatus: row.sync_status ?? 'local_only',
   };
 }
 

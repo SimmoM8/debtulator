@@ -3,23 +3,36 @@ import type {
   CurrencyCode,
   CurrencyRate,
   Debt,
+  EventDebt,
+  EventSettlementSettings,
   EventSettlementExplanation,
+  ExcludedLedgerEntry,
   LedgerEntry,
   Member,
   MoneyMap,
   ParticipantId,
   SettlementSuggestion,
+  SettlementMatchStep,
+  SharedEventMember,
   SharedExpense,
   VerificationStatus,
 } from '@/src/types/models';
 import { estimateMoneyMap } from '@/src/services/currency';
 import { addMoney, roundMoney } from '@/src/utils/money';
 
+export const DEFAULT_EVENT_SETTLEMENT_SETTINGS: EventSettlementSettings = {
+  includePending: false,
+  includePartiallyVerified: false,
+  includeRejectedDisputed: false,
+  includeArchived: false,
+  includeSettled: false,
+};
+
 const DEFAULT_SETTLEMENT_VERIFICATIONS: VerificationStatus[] = ['local_only', 'verified', 'resolved'];
 const PERSONAL_BALANCE_EXCLUDED_VERIFICATIONS: VerificationStatus[] = ['rejected', 'disputed'];
 const EPSILON = 0.005;
 
-export function buildLedgerEntries(debts: Debt[], sharedExpenses: SharedExpense[]): LedgerEntry[] {
+export function buildLedgerEntries(debts: Debt[], sharedExpenses: SharedExpense[], eventDebts: EventDebt[] = []): LedgerEntry[] {
   const simpleEntries: LedgerEntry[] = debts.map((debt) => ({
     id: `ledger_${debt.id}`,
     kind: 'simple_debt',
@@ -61,7 +74,26 @@ export function buildLedgerEntries(debts: Debt[], sharedExpenses: SharedExpense[
     })),
   );
 
-  return [...simpleEntries, ...expenseEntries].sort((a, b) => b.date.localeCompare(a.date));
+  const eventDebtEntries: LedgerEntry[] = eventDebts.map((debt) => ({
+    id: `ledger_${debt.id}`,
+    kind: 'event_direct_debt',
+    sourceId: debt.id,
+    eventId: debt.eventId,
+    fromId: debt.debtorEventMemberId,
+    toId: debt.creditorEventMemberId,
+    amount: debt.amount,
+    currency: debt.currency,
+    title: debt.title,
+    notes: debt.notes,
+    date: debt.debtDate,
+    tags: debt.tags,
+    status: debt.status,
+    verificationStatus: debt.verificationStatus,
+    visibility: 'shared_event',
+    syncStatus: debt.syncStatus,
+  }));
+
+  return [...simpleEntries, ...expenseEntries, ...eventDebtEntries].sort((a, b) => b.date.localeCompare(a.date));
 }
 
 export function isActiveLedgerEntry(entry: LedgerEntry) {
@@ -76,23 +108,31 @@ export function isIncludedInSettlement(entry: LedgerEntry, includeStatuses = DEF
   return isActiveLedgerEntry(entry) && includeStatuses.includes(entry.verificationStatus);
 }
 
-export function participantName(participantId: ParticipantId, members: Member[]) {
+export function participantName(participantId: ParticipantId, members: Member[], sharedEventMembers: SharedEventMember[] = []) {
   if (participantId === 'me') {
     return 'You';
+  }
+  const eventMember = sharedEventMembers.find((member) => member.id === participantId);
+  if (eventMember) {
+    return eventMember.alias || eventMember.displayName;
   }
   return members.find((member) => member.id === participantId)?.displayName ?? 'Unknown member';
 }
 
-export function participantNameSentence(participantId: ParticipantId, members: Member[]) {
+export function participantNameSentence(participantId: ParticipantId, members: Member[], sharedEventMembers: SharedEventMember[] = []) {
   if (participantId === 'me') {
     return 'you';
+  }
+  const eventMember = sharedEventMembers.find((member) => member.id === participantId);
+  if (eventMember) {
+    return eventMember.alias || eventMember.displayName;
   }
   return members.find((member) => member.id === participantId)?.displayName ?? 'someone';
 }
 
-export function entryDirectionText(entry: LedgerEntry, members: Member[]) {
-  const from = participantName(entry.fromId, members);
-  const to = participantName(entry.toId, members);
+export function entryDirectionText(entry: LedgerEntry, members: Member[], sharedEventMembers: SharedEventMember[] = []) {
+  const from = participantName(entry.fromId, members, sharedEventMembers);
+  const to = participantName(entry.toId, members, sharedEventMembers);
 
   if (entry.fromId === 'me') {
     return `You owe ${to}`;
@@ -163,11 +203,11 @@ export function entriesForEvent(eventId: string, entries: LedgerEntry[]) {
 export function calculateEventNets(entries: LedgerEntry[], includeStatuses = DEFAULT_SETTLEMENT_VERIFICATIONS) {
   const nets: Record<ParticipantId, MoneyMap> = {};
   const includedEntries: LedgerEntry[] = [];
-  const excludedEntries: LedgerEntry[] = [];
+  const excludedEntries: ExcludedLedgerEntry[] = [];
 
   for (const entry of entries) {
     if (!isIncludedInSettlement(entry, includeStatuses)) {
-      excludedEntries.push(entry);
+      excludedEntries.push({ entry, reason: excludedReason(entry) ?? 'pending_excluded' });
       continue;
     }
 
@@ -181,13 +221,71 @@ export function calculateEventNets(entries: LedgerEntry[], includeStatuses = DEF
   return { nets, includedEntries, excludedEntries };
 }
 
+export function calculateEventNetsWithSettings(
+  entries: LedgerEntry[],
+  settings: EventSettlementSettings = DEFAULT_EVENT_SETTLEMENT_SETTINGS,
+) {
+  const nets: Record<ParticipantId, MoneyMap> = {};
+  const includedEntries: LedgerEntry[] = [];
+  const excludedEntries: ExcludedLedgerEntry[] = [];
+
+  for (const entry of entries) {
+    const reason = excludedReason(entry, settings);
+    if (reason) {
+      excludedEntries.push({ entry, reason });
+      continue;
+    }
+
+    includedEntries.push(entry);
+    nets[entry.fromId] ??= {};
+    nets[entry.toId] ??= {};
+    addMoney(nets[entry.fromId], entry.currency, -entry.amount);
+    addMoney(nets[entry.toId], entry.currency, entry.amount);
+  }
+
+  return { nets, includedEntries, excludedEntries };
+}
+
+function excludedReason(
+  entry: LedgerEntry,
+  settings: EventSettlementSettings = DEFAULT_EVENT_SETTLEMENT_SETTINGS,
+): ExcludedLedgerEntry['reason'] | null {
+  if (entry.status === 'archived' && !settings.includeArchived) {
+    return 'archived';
+  }
+  if (entry.status === 'settled' && !settings.includeSettled) {
+    return 'settled';
+  }
+  if (entry.verificationStatus === 'cancelled') {
+    return 'cancelled';
+  }
+  if (entry.verificationStatus === 'rejected' && !settings.includeRejectedDisputed) {
+    return 'rejected';
+  }
+  if (entry.verificationStatus === 'disputed' && !settings.includeRejectedDisputed) {
+    return 'disputed';
+  }
+  if (entry.verificationStatus === 'pending' && !settings.includePending) {
+    return 'pending_excluded';
+  }
+  if (entry.verificationStatus === 'partially_verified' && !settings.includePartiallyVerified) {
+    return 'pending_excluded';
+  }
+  return null;
+}
+
 export function simplifySettlements(nets: Record<ParticipantId, MoneyMap>) {
+  return simplifySettlementsDetailed(nets).suggestions;
+}
+
+export function simplifySettlementsDetailed(nets: Record<ParticipantId, MoneyMap>) {
   const currencies = new Set<CurrencyCode>();
   Object.values(nets).forEach((moneyMap) => {
     Object.keys(moneyMap).forEach((currency) => currencies.add(currency as CurrencyCode));
   });
 
   const suggestions: SettlementSuggestion[] = [];
+  const steps: SettlementMatchStep[] = [];
 
   for (const currency of currencies) {
     const creditors = Object.entries(nets)
@@ -208,13 +306,22 @@ export function simplifySettlements(nets: Record<ParticipantId, MoneyMap>) {
       const amount = roundMoney(Math.min(creditor.amount, debtor.amount));
 
       if (amount > EPSILON) {
-        suggestions.push({
-          id: `settlement_${currency}_${debtor.participantId}_${creditor.participantId}_${suggestions.length}`,
+        const step = {
+          currency,
           fromId: debtor.participantId,
           toId: creditor.participantId,
           amount,
+        };
+        suggestions.push({
+          id: `settlement_${currency}_${debtor.participantId}_${creditor.participantId}_${suggestions.length}`,
+          ...step,
           currency,
+          explanation: {
+            debtorStartingAmount: debtor.amount,
+            creditorStartingAmount: creditor.amount,
+          },
         });
+        steps.push(step);
       }
 
       creditor.amount = roundMoney(creditor.amount - amount);
@@ -229,18 +336,29 @@ export function simplifySettlements(nets: Record<ParticipantId, MoneyMap>) {
     }
   }
 
-  return suggestions;
+  return { suggestions, steps };
 }
 
-export function explainEventSettlement(eventId: string, entries: LedgerEntry[]): EventSettlementExplanation {
+export function explainEventSettlement(
+  eventId: string,
+  entries: LedgerEntry[],
+  settings: EventSettlementSettings = DEFAULT_EVENT_SETTLEMENT_SETTINGS,
+): EventSettlementExplanation {
   const eventEntries = entriesForEvent(eventId, entries);
-  const { nets, includedEntries, excludedEntries } = calculateEventNets(eventEntries);
+  const { nets, includedEntries, excludedEntries } = calculateEventNetsWithSettings(eventEntries, settings);
+  const { suggestions, steps } = simplifySettlementsDetailed(nets);
   return {
     eventId,
     includedEntries,
     excludedEntries,
     participantNets: nets,
-    suggestions: simplifySettlements(nets),
+    suggestions: suggestions.map((suggestion) => ({
+      ...suggestion,
+      eventId,
+      includedRecordIds: includedEntries.map((entry) => entry.id),
+    })),
+    settings,
+    settlementSteps: steps,
   };
 }
 

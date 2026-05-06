@@ -18,28 +18,49 @@ import { palette, spacing } from '@/src/constants/design';
 import { buildEqualSplitObligations } from '@/src/services/splits';
 import { participantName } from '@/src/services/ledger';
 import { useAppData } from '@/src/state/AppDataProvider';
-import type { CurrencyCode, DebtStatus, ParticipantId, VerificationStatus } from '@/src/types/models';
+import { useAuth } from '@/src/state/AuthProvider';
+import type { CurrencyCode, DebtStatus, DebtVisibility, ParticipantId, VerificationStatus } from '@/src/types/models';
 import { createId, todayIsoDate } from '@/src/utils/id';
 import { formatMoney } from '@/src/utils/money';
 
 export function ExpenseFormScreen() {
   const { id, eventId } = useLocalSearchParams<{ id?: string; eventId?: string }>();
   const data = useAppData();
+  const auth = useAuth();
   const expense = data.sharedExpenses.find((item) => item.id === id);
   const initialEventId = expense?.eventId ?? eventId ?? data.events.find((event) => !event.archived)?.id ?? '';
 
   const [selectedEventId, setSelectedEventId] = useState(initialEventId);
   const selectedEvent = data.events.find((event) => event.id === selectedEventId);
+  const isSharedEvent = selectedEvent?.visibility === 'shared';
   const eventMemberIds = useMemo(
     () =>
-      data.eventMembers
-        .filter((eventMember) => eventMember.eventId === selectedEventId)
-        .map((eventMember) => eventMember.memberId),
-    [data.eventMembers, selectedEventId],
+      isSharedEvent
+        ? data.sharedEventMembers
+            .filter((eventMember) => eventMember.eventId === selectedEventId && eventMember.status !== 'archived' && eventMember.status !== 'merged')
+            .map((eventMember) => eventMember.id)
+        : data.eventMembers
+            .filter((eventMember) => eventMember.eventId === selectedEventId)
+            .map((eventMember) => eventMember.memberId),
+    [data.eventMembers, data.sharedEventMembers, isSharedEvent, selectedEventId],
   );
-  const defaultParticipants = useMemo<ParticipantId[]>(() => ['me', ...eventMemberIds], [eventMemberIds]);
+  const currentEventMember = useMemo(
+    () =>
+      data.sharedEventMembers.find(
+        (member) =>
+          isSharedEvent &&
+          member.eventId === selectedEventId &&
+          member.linkedUserId === auth.identity.authenticatedUserId &&
+          member.status !== 'merged',
+      ),
+    [auth.identity.authenticatedUserId, data.sharedEventMembers, isSharedEvent, selectedEventId],
+  );
+  const defaultParticipants = useMemo<ParticipantId[]>(
+    () => (isSharedEvent ? eventMemberIds : ['me', ...eventMemberIds]),
+    [eventMemberIds, isSharedEvent],
+  );
 
-  const [payerId, setPayerId] = useState<ParticipantId>(expense?.payerId ?? 'me');
+  const [payerId, setPayerId] = useState<ParticipantId>(expense?.payerId ?? currentEventMember?.id ?? 'me');
   const [amount, setAmount] = useState(expense ? String(expense.amount) : '');
   const [currency, setCurrency] = useState<CurrencyCode>(expense?.currency ?? selectedEvent?.defaultCurrency ?? data.settings.baseCurrency);
   const [title, setTitle] = useState(expense?.title ?? '');
@@ -53,12 +74,12 @@ export function ExpenseFormScreen() {
   useEffect(() => {
     if (!expense) {
       setParticipantIds(defaultParticipants);
-      setPayerId('me');
+      setPayerId(isSharedEvent ? currentEventMember?.id ?? defaultParticipants[0] ?? 'me' : 'me');
       if (selectedEvent) {
         setCurrency(selectedEvent.defaultCurrency);
       }
     }
-  }, [defaultParticipants, expense, selectedEvent]);
+  }, [currentEventMember?.id, defaultParticipants, expense, isSharedEvent, selectedEvent]);
 
   const eventOptions = useMemo(
     () => data.events.filter((event) => !event.archived).map((event) => ({ label: event.name, value: event.id })),
@@ -66,13 +87,16 @@ export function ExpenseFormScreen() {
   );
   const participantOptions = useMemo(
     () => [
-      { label: 'You', value: 'me' },
+      ...(isSharedEvent ? [] : [{ label: 'You', value: 'me' as ParticipantId }]),
       ...eventMemberIds.map((memberId) => ({
-        label: data.members.find((member) => member.id === memberId)?.displayName ?? 'Member',
+        label:
+          data.sharedEventMembers.find((member) => member.id === memberId)?.displayName ??
+          data.members.find((member) => member.id === memberId)?.displayName ??
+          'Member',
         value: memberId,
       })),
     ],
-    [data.members, eventMemberIds],
+    [data.members, data.sharedEventMembers, eventMemberIds, isSharedEvent],
   );
 
   const obligations = buildEqualSplitObligations({
@@ -84,13 +108,15 @@ export function ExpenseFormScreen() {
     participantIds,
   });
 
-  if (data.loading) {
+  if (data.loading || auth.loading) {
     return <LoadingState />;
   }
 
   async function save() {
+    const visibility: DebtVisibility = isSharedEvent ? 'shared_event' : 'private';
     const input = {
       eventId: selectedEventId,
+      creatorUserId: isSharedEvent ? auth.identity.authenticatedUserId : null,
       payerId,
       amount: Number(amount),
       currency,
@@ -101,6 +127,7 @@ export function ExpenseFormScreen() {
       tags: splitTags(tags),
       status,
       verificationStatus,
+      visibility,
     };
 
     if (expense) {
@@ -187,7 +214,8 @@ export function ExpenseFormScreen() {
           obligations.map((obligation) => (
             <View key={obligation.id} style={styles.previewRow}>
               <Text style={styles.previewText}>
-                {participantName(obligation.fromParticipantId, data.members)} owes {participantName(obligation.toParticipantId, data.members)}
+                {participantName(obligation.fromParticipantId, data.members, data.sharedEventMembers)} owes{' '}
+                {participantName(obligation.toParticipantId, data.members, data.sharedEventMembers)}
               </Text>
               <Text style={styles.previewMoney}>{formatMoney(obligation.amount, obligation.currency)}</Text>
             </View>

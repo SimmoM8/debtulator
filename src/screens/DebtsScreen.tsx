@@ -43,8 +43,8 @@ export function DebtsScreen() {
   const [filters, setFilters] = useState<DebtFilters>(defaultFilters);
 
   const entries = useMemo(
-    () => filterDebtEntries(data.ledgerEntries, data.members, data.events, filters),
-    [data.events, data.ledgerEntries, data.members, filters],
+    () => filterDebtEntries(data.ledgerEntries, data.members, data.events, filters, data.sharedEventMembers),
+    [data.events, data.ledgerEntries, data.members, data.sharedEventMembers, filters],
   );
 
   const memberOptions = useMemo(
@@ -138,6 +138,7 @@ export function DebtsScreen() {
             { label: 'All', value: 'all' },
             { label: 'Simple debt', value: 'simple_debt' },
             { label: 'Generated split', value: 'expense_obligation' },
+            { label: 'Event debt', value: 'event_direct_debt' },
           ]}
           onChange={(kind) => setFilters((current) => ({ ...current, kind }))}
         />
@@ -159,6 +160,7 @@ export function DebtsScreen() {
             { label: 'All', value: 'all' },
             { label: 'Local', value: 'local_only' },
             { label: 'Pending', value: 'pending' },
+            { label: 'Partially verified', value: 'partially_verified' },
             { label: 'Verified', value: 'verified' },
             { label: 'Rejected', value: 'rejected' },
             { label: 'Disputed', value: 'disputed' },
@@ -184,6 +186,7 @@ export function DebtsScreen() {
             { label: 'All', value: 'all' },
             { label: 'Private', value: 'private' },
             { label: 'Shared', value: 'shared_with_involved_member' },
+            { label: 'Shared event', value: 'shared_event' },
             { label: 'Event later', value: 'future_event_shared' },
           ]}
           onChange={(visibility) => setFilters((current) => ({ ...current, visibility }))}
@@ -216,6 +219,7 @@ export function DebtsScreen() {
               key={entry.id}
               entry={entry}
               members={data.members}
+              sharedEventMembers={data.sharedEventMembers}
               event={entry.eventId ? data.events.find((event) => event.id === entry.eventId) : undefined}
             />
           ))

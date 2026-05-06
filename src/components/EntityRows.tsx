@@ -12,6 +12,7 @@ import type {
   LedgerEntry,
   Member,
   MoneyMap,
+  SharedEventMember,
 } from '@/src/types/models';
 import { formatMoney } from '@/src/utils/money';
 import { initials } from '@/src/utils/text';
@@ -50,10 +51,12 @@ export function MemberRow({
 export function DebtRow({
   entry,
   members,
+  sharedEventMembers = [],
   event,
 }: {
   entry: LedgerEntry;
   members: Member[];
+  sharedEventMembers?: SharedEventMember[];
   event?: Event;
 }) {
   const rejected = entry.verificationStatus === 'rejected' || entry.verificationStatus === 'disputed';
@@ -66,7 +69,9 @@ export function DebtRow({
       onPress={() =>
         entry.kind === 'simple_debt'
           ? router.push({ pathname: '/debt/[id]', params: { id: entry.sourceId } })
-          : router.push({ pathname: '/expense/[id]', params: { id: entry.expenseId ?? entry.sourceId } })
+          : entry.kind === 'event_direct_debt' && entry.eventId
+            ? router.push({ pathname: '/event/[id]', params: { id: entry.eventId } })
+            : router.push({ pathname: '/expense/[id]', params: { id: entry.expenseId ?? entry.sourceId } })
       }
       style={[styles.ledgerRow, rejected && styles.rejectedRow]}>
       <View style={styles.rowIcon}>
@@ -77,7 +82,7 @@ export function DebtRow({
           <Text style={styles.rowTitle}>{entry.title}</Text>
           <Text style={styles.dateText}>{entry.date}</Text>
         </View>
-        <Text style={styles.rowSubtitle}>{entryDirectionText(entry, members)}</Text>
+        <Text style={styles.rowSubtitle}>{entryDirectionText(entry, members, sharedEventMembers)}</Text>
         {event ? <Text style={styles.rowMeta}>{event.name}</Text> : null}
         <TagChips tags={entry.tags} limit={3} />
         <View style={styles.badgeLine}>
@@ -89,7 +94,7 @@ export function DebtRow({
       </View>
       <View style={styles.amountBlock}>
         <Text style={styles.amountText}>{formatMoney(entry.amount, entry.currency)}</Text>
-        <Text style={styles.kindText}>{entry.kind === 'simple_debt' ? 'Debt' : 'Split'}</Text>
+        <Text style={styles.kindText}>{entry.kind === 'simple_debt' ? 'Debt' : entry.kind === 'event_direct_debt' ? 'Event debt' : 'Split'}</Text>
       </View>
     </Pressable>
   );
@@ -120,7 +125,9 @@ export function EventRow({
           <Text style={styles.rowTitle}>{event.name}</Text>
           <StatusBadge status={event.status} />
         </View>
-        <Text style={styles.rowSubtitle}>{memberCount} members · {event.defaultCurrency}</Text>
+        <Text style={styles.rowSubtitle}>
+          {memberCount} members · {event.defaultCurrency} · {event.visibility === 'shared' ? 'Shared event' : 'Private event'}
+        </Text>
         <TagChips tags={event.tags} limit={3} />
       </View>
       <BalanceStack balances={balance} settings={settings} currencyRates={currencyRates} align="right" />

@@ -117,6 +117,8 @@ export function visibilityLabel(visibility: DebtVisibility) {
       return 'shared';
     case 'future_event_shared':
       return 'event shared later';
+    case 'shared_event':
+      return 'shared event';
   }
 }
 

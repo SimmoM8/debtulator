@@ -27,9 +27,19 @@ export function DashboardScreen() {
   const auth = useAuth();
 
   const activeEvents = data.events.filter((event) => !event.archived && event.status !== 'settled').slice(0, 3);
+  const activeSharedEvents = data.events.filter((event) => event.visibility === 'shared' && !event.archived && event.status !== 'settled').slice(0, 3);
   const recentEntries = data.ledgerEntries.slice(0, 5);
   const attentionEntries = data.ledgerEntries
     .filter((entry) => ['pending', 'rejected', 'disputed'].includes(entry.verificationStatus))
+    .slice(0, 4);
+  const pendingEventInvites = data.eventInvites.filter(
+    (invite) =>
+      invite.status === 'pending' &&
+      ((auth.identity.authenticatedUserId && invite.invitedUserId === auth.identity.authenticatedUserId) ||
+        (auth.identity.email && invite.invitedEmail?.toLowerCase() === auth.identity.email.toLowerCase())),
+  );
+  const eventVerificationItems = data.ledgerEntries
+    .filter((entry) => entry.visibility === 'shared_event' && ['pending', 'partially_verified', 'rejected', 'disputed'].includes(entry.verificationStatus))
     .slice(0, 4);
 
   const topMembers = useMemo(
@@ -88,9 +98,55 @@ export function DashboardScreen() {
         <QuickAction label="Add debt" icon="receipt" onPress={() => router.push('/debt/form')} />
         <QuickAction label="Add member" icon="person-add" onPress={() => router.push('/member/form')} />
         <QuickAction label="Add event" icon="people" onPress={() => router.push('/event/form')} />
+        <QuickAction label="Shared event" icon="globe" onPress={() => router.push({ pathname: '/event/form', params: { visibility: 'shared' } })} />
         <QuickAction label="Add expense" icon="cart" onPress={() => router.push('/expense/form')} />
         <QuickAction label="Requests" icon="notifications" onPress={() => router.push('/requests')} />
       </View>
+
+      <ResponsiveGrid>
+        <View style={styles.gridItem}>
+          <SectionTitle title="Shared events" subtitle="Active collaborative ledgers" />
+          <Card>
+            {activeSharedEvents.length > 0 ? (
+              activeSharedEvents.map((event) => {
+                const explanation = explainEventSettlement(event.id, data.ledgerEntries);
+                return (
+                  <EventRow
+                    key={event.id}
+                    event={event}
+                    memberCount={data.sharedEventMembers.filter((member) => member.eventId === event.id && member.status !== 'merged').length}
+                    balance={explanation.participantNets.me ?? {}}
+                    settings={data.settings}
+                    currencyRates={data.currencyRates}
+                    unsettled={explanation.suggestions.length > 0}
+                  />
+                );
+              })
+            ) : (
+              <EmptyState title="No active shared events" body="Create a shared event to collaborate on a group ledger." />
+            )}
+          </Card>
+        </View>
+
+        <View style={styles.gridItem}>
+          <SectionTitle title="Event requests" subtitle="Invites and shared records needing review" />
+          <Card>
+            <View style={styles.badgeLine}>
+              <Badge label={`${pendingEventInvites.length} invites`} tone={pendingEventInvites.length ? 'amber' : 'neutral'} />
+              <Badge label={`${eventVerificationItems.length} verification items`} tone={eventVerificationItems.length ? 'blue' : 'neutral'} />
+            </View>
+            {eventVerificationItems.slice(0, 3).map((entry) => (
+              <DebtRow
+                key={entry.id}
+                entry={entry}
+                members={data.members}
+                sharedEventMembers={data.sharedEventMembers}
+                event={entry.eventId ? data.events.find((event) => event.id === entry.eventId) : undefined}
+              />
+            ))}
+          </Card>
+        </View>
+      </ResponsiveGrid>
 
       <ResponsiveGrid>
         <View style={styles.gridItem}>
@@ -102,6 +158,7 @@ export function DashboardScreen() {
                   key={entry.id}
                   entry={entry}
                   members={data.members}
+                  sharedEventMembers={data.sharedEventMembers}
                   event={entry.eventId ? data.events.find((event) => event.id === entry.eventId) : undefined}
                 />
               ))
@@ -120,6 +177,7 @@ export function DashboardScreen() {
                   key={entry.id}
                   entry={entry}
                   members={data.members}
+                  sharedEventMembers={data.sharedEventMembers}
                   event={entry.eventId ? data.events.find((event) => event.id === entry.eventId) : undefined}
                 />
               ))
@@ -155,7 +213,11 @@ export function DashboardScreen() {
                 <EventRow
                   key={event.id}
                   event={event}
-                  memberCount={data.eventMembers.filter((eventMember) => eventMember.eventId === event.id).length}
+                  memberCount={
+                    event.visibility === 'shared'
+                      ? data.sharedEventMembers.filter((eventMember) => eventMember.eventId === event.id && eventMember.status !== 'merged').length
+                      : data.eventMembers.filter((eventMember) => eventMember.eventId === event.id).length + 1
+                  }
                   balance={explanation.participantNets.me ?? {}}
                   settings={data.settings}
                   currencyRates={data.currencyRates}

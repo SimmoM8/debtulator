@@ -9,6 +9,7 @@ export type DebtStatus = 'active' | 'settled' | 'archived';
 export type VerificationStatus =
   | 'local_only'
   | 'pending'
+  | 'partially_verified'
   | 'verified'
   | 'rejected'
   | 'disputed'
@@ -24,7 +25,7 @@ export type MemberLinkStatus =
 
 export type LinkRequestStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled' | 'expired';
 
-export type DebtVisibility = 'private' | 'shared_with_involved_member' | 'future_event_shared';
+export type DebtVisibility = 'private' | 'shared_with_involved_member' | 'future_event_shared' | 'shared_event';
 
 export type SyncStatus =
   | 'local_only'
@@ -36,11 +37,41 @@ export type SyncStatus =
 
 export type EventStatus = 'planning' | 'active' | 'finalising' | 'settled' | 'archived';
 
+export type EventVisibility = 'private' | 'shared';
+
+export type EventRole = 'owner' | 'admin' | 'member' | 'viewer';
+
+export type EventParticipantStatus = 'active' | 'removed' | 'left' | 'invited';
+
+export type EventInviteStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled' | 'expired';
+
+export type EventMemberType = 'linked_user' | 'unlinked_placeholder';
+
+export type EventMemberStatus = 'active' | 'archived' | 'merged' | 'claim_pending';
+
+export type EventMemberClaimStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
+
+export type EventDuplicateWarningStatus = 'active' | 'ignored' | 'resolved';
+
+export type EventDuplicateWarningConfidence = 'low' | 'medium' | 'high';
+
+export type EventVerificationTargetType = 'expense' | 'debt' | 'split';
+
 export type SplitMethod = 'equal';
 
-export type LedgerEntryKind = 'simple_debt' | 'expense_obligation';
+export type LedgerEntryKind = 'simple_debt' | 'expense_obligation' | 'event_direct_debt';
 
-export type EntityKind = 'member' | 'debt' | 'event' | 'shared_expense';
+export type EntityKind =
+  | 'member'
+  | 'debt'
+  | 'event'
+  | 'shared_expense'
+  | 'event_invite'
+  | 'event_member'
+  | 'event_member_claim'
+  | 'event_duplicate_warning'
+  | 'event_debt'
+  | 'event_verification';
 
 export type ActivityTargetKind =
   | EntityKind
@@ -117,15 +148,109 @@ export type EventMember = {
 
 export type Event = {
   id: string;
+  localId: string | null;
+  remoteId: string | null;
+  ownerUserId: string | null;
   name: string;
   notes: string | null;
   defaultCurrency: CurrencyCode;
+  allowedCurrencies: CurrencyCode[];
   tags: string[];
   status: EventStatus;
+  visibility: EventVisibility;
+  syncStatus: SyncStatus;
   archived: boolean;
+  archivedAt: string | null;
+  finalisedAt: string | null;
+  lockedAt: string | null;
   ignoredDuplicateKeys: string[];
   createdAt: string;
   updatedAt: string;
+};
+
+export type EventParticipant = {
+  id: string;
+  remoteId: string | null;
+  eventId: string;
+  remoteEventId: string | null;
+  userId: string;
+  role: EventRole;
+  status: EventParticipantStatus;
+  joinedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  syncStatus: SyncStatus;
+};
+
+export type EventInvite = {
+  id: string;
+  remoteId: string | null;
+  eventId: string;
+  remoteEventId: string | null;
+  inviterUserId: string;
+  invitedUserId: string | null;
+  invitedEmail: string | null;
+  invitedPhone: string | null;
+  invitedDisplayName: string;
+  offeredRole: Exclude<EventRole, 'owner'>;
+  status: EventInviteStatus;
+  message: string | null;
+  createdAt: string;
+  updatedAt: string;
+  respondedAt: string | null;
+  syncStatus: SyncStatus;
+};
+
+export type SharedEventMember = {
+  id: string;
+  remoteId: string | null;
+  eventId: string;
+  remoteEventId: string | null;
+  type: EventMemberType;
+  linkedUserId: string | null;
+  displayName: string;
+  alias: string | null;
+  email: string | null;
+  phone: string | null;
+  notes: string | null;
+  createdByUserId: string | null;
+  status: EventMemberStatus;
+  mergedIntoEventMemberId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  syncStatus: SyncStatus;
+};
+
+export type EventMemberClaim = {
+  id: string;
+  remoteId: string | null;
+  eventId: string;
+  remoteEventId: string | null;
+  eventMemberId: string;
+  remoteEventMemberId: string | null;
+  claimantUserId: string;
+  status: EventMemberClaimStatus;
+  message: string | null;
+  respondedByUserId: string | null;
+  respondedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  syncStatus: SyncStatus;
+};
+
+export type EventDuplicateWarning = {
+  id: string;
+  remoteId: string | null;
+  eventId: string;
+  eventMemberIdA: string;
+  eventMemberIdB: string;
+  reason: string;
+  confidence: EventDuplicateWarningConfidence;
+  status: EventDuplicateWarningStatus;
+  ignoredByUserId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  syncStatus: SyncStatus;
 };
 
 export type GeneratedObligation = {
@@ -142,6 +267,7 @@ export type SharedExpense = {
   id: string;
   remoteId: string | null;
   eventId: string;
+  creatorUserId: string | null;
   payerId: ParticipantId;
   amount: number;
   currency: CurrencyCode;
@@ -158,6 +284,61 @@ export type SharedExpense = {
   syncStatus: SyncStatus;
   createdAt: string;
   updatedAt: string;
+};
+
+export type EventDebt = {
+  id: string;
+  remoteId: string | null;
+  eventId: string;
+  remoteEventId: string | null;
+  creatorUserId: string | null;
+  debtorEventMemberId: string;
+  creditorEventMemberId: string;
+  amount: number;
+  currency: CurrencyCode;
+  title: string;
+  notes: string | null;
+  debtDate: string;
+  tags: string[];
+  verificationStatus: VerificationStatus;
+  settlementStatus: DebtStatus;
+  status: DebtStatus;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
+  syncStatus: SyncStatus;
+};
+
+export type EventVerificationResponse = {
+  id: string;
+  remoteId: string | null;
+  eventId: string;
+  remoteEventId: string | null;
+  targetType: EventVerificationTargetType;
+  targetId: string;
+  remoteTargetId: string | null;
+  eventMemberId: string;
+  linkedUserId: string | null;
+  responseStatus: VerificationStatus;
+  rejectionReason: string | null;
+  respondedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  syncStatus: SyncStatus;
+};
+
+export type EventActivityLog = {
+  id: string;
+  remoteId: string | null;
+  eventId: string;
+  remoteEventId: string | null;
+  actorUserId: string | null;
+  action: string;
+  targetType: string;
+  targetId: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  syncStatus: SyncStatus;
 };
 
 export type Tag = {
@@ -265,18 +446,43 @@ export type MoneyMap = Partial<Record<CurrencyCode, number>>;
 
 export type SettlementSuggestion = {
   id: string;
+  eventId?: string;
   fromId: ParticipantId;
   toId: ParticipantId;
   amount: number;
   currency: CurrencyCode;
+  includedRecordIds?: string[];
+  explanation?: Record<string, unknown>;
+};
+
+export type EventSettlementSettings = {
+  includePending: boolean;
+  includePartiallyVerified: boolean;
+  includeRejectedDisputed: boolean;
+  includeArchived: boolean;
+  includeSettled: boolean;
+};
+
+export type ExcludedLedgerEntry = {
+  entry: LedgerEntry;
+  reason: 'rejected' | 'disputed' | 'archived' | 'settled' | 'pending_excluded' | 'cancelled';
+};
+
+export type SettlementMatchStep = {
+  currency: CurrencyCode;
+  fromId: ParticipantId;
+  toId: ParticipantId;
+  amount: number;
 };
 
 export type EventSettlementExplanation = {
   eventId: string;
   includedEntries: LedgerEntry[];
-  excludedEntries: LedgerEntry[];
+  excludedEntries: ExcludedLedgerEntry[];
   participantNets: Record<ParticipantId, MoneyMap>;
   suggestions: SettlementSuggestion[];
+  settings: EventSettlementSettings;
+  settlementSteps: SettlementMatchStep[];
 };
 
 export type DuplicateWarning = {
@@ -316,6 +522,9 @@ export type MemberFilters = {
 export type EventFilters = {
   query: string;
   status: EventStatus | 'all';
+  visibility: EventVisibility | 'all';
+  role: EventRole | 'all';
+  attention: 'all' | 'pending_invites' | 'rejected_or_disputed' | 'unsettled';
   tag: string | null;
   archivedMode: 'active' | 'archived' | 'all';
   currency: CurrencyCode | 'all';
