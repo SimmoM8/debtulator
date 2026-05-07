@@ -10,6 +10,14 @@ import { DebtulatorRepository } from '@/src/data/repositories';
 import { buildLedgerEntries, calculateMemberBalances, calculatePersonalTotals } from '@/src/services/ledger';
 import type {
   AppSettings,
+  Attachment,
+  AttachmentKind,
+  AttachmentTargetType,
+  AttachmentVisibility,
+  Comment,
+  CommentTargetType,
+  CommentVisibility,
+  CsvImportBatch,
   CurrencyCode,
   Debt,
   DebtVerification,
@@ -24,6 +32,8 @@ import type {
   EventRole,
   EventStatus,
   EventVerificationResponse,
+  ExportLog,
+  ExportType,
   LedgerEntry,
   LinkRequest,
   Member,
@@ -37,6 +47,9 @@ import type {
   Settlement,
   SettlementLine,
   SoftReminder,
+  SmartSuggestion,
+  SmartSuggestionStatus,
+  SmartSuggestionType,
   SyncStatus,
   SuggestedDebtChange,
   VerificationStatus,
@@ -211,6 +224,65 @@ type CreateRecurringTemplateInput = {
   payload: Record<string, unknown>;
 };
 
+type CreateAttachmentInput = {
+  targetType: AttachmentTargetType;
+  targetId: string;
+  eventId?: string | null;
+  createdByUserId?: string | null;
+  localUri?: string | null;
+  remoteUrl?: string | null;
+  storagePath?: string | null;
+  fileName: string;
+  fileType?: string;
+  mimeType?: string;
+  fileSize?: number;
+  attachmentKind: AttachmentKind;
+  visibility?: AttachmentVisibility;
+  thumbnailUri?: string | null;
+  syncStatus?: SyncStatus;
+};
+
+type CreateCommentInput = {
+  targetType: CommentTargetType;
+  targetId: string;
+  eventId?: string | null;
+  authorUserId?: string | null;
+  localAuthorLabel?: string | null;
+  body: string;
+  visibility?: CommentVisibility;
+  syncStatus?: SyncStatus;
+};
+
+type CreateSmartSuggestionInput = {
+  userId?: string | null;
+  suggestionType: SmartSuggestionType;
+  targetType?: SmartSuggestion['targetType'];
+  targetId?: string | null;
+  title: string;
+  message: string;
+  metadata?: Record<string, unknown>;
+  status?: SmartSuggestionStatus;
+};
+
+type CreateExportLogInput = {
+  userId?: string | null;
+  exportType: ExportType;
+  targetType?: ExportLog['targetType'];
+  targetId?: string | null;
+  metadata?: Record<string, unknown>;
+};
+
+type CreateCsvImportBatchInput = {
+  userId?: string | null;
+  status?: CsvImportBatch['status'];
+  sourceName?: string | null;
+  rowCount: number;
+  importedMemberCount?: number;
+  importedDebtCount?: number;
+  errorCount?: number;
+  metadata?: Record<string, unknown>;
+};
+
 type AppDataContextValue = DatabaseSnapshot & {
   ready: boolean;
   loading: boolean;
@@ -335,6 +407,16 @@ type AppDataContextValue = DatabaseSnapshot & {
   createSoftReminder: (
     input: Omit<SoftReminder, 'id' | 'createdAt' | 'updatedAt' | 'status'> & { status?: SoftReminder['status'] },
   ) => Promise<SoftReminder>;
+  createAttachment: (input: CreateAttachmentInput) => Promise<Attachment>;
+  upsertAttachment: (attachment: Attachment) => Promise<Attachment>;
+  archiveAttachment: (attachmentId: string, actorUserId?: string | null) => Promise<Attachment>;
+  createComment: (input: CreateCommentInput) => Promise<Comment>;
+  updateComment: (commentId: string, input: Partial<CreateCommentInput>) => Promise<Comment>;
+  deleteComment: (commentId: string, actorUserId?: string | null) => Promise<Comment>;
+  upsertSmartSuggestion: (input: SmartSuggestion | CreateSmartSuggestionInput) => Promise<SmartSuggestion>;
+  setSmartSuggestionStatus: (suggestionId: string, status: SmartSuggestionStatus) => Promise<SmartSuggestion>;
+  createExportLog: (input: CreateExportLogInput) => Promise<ExportLog>;
+  createCsvImportBatch: (input: CreateCsvImportBatchInput) => Promise<CsvImportBatch>;
   respondToEventVerification: (input: {
     eventId: string;
     targetType: EventVerificationResponse['targetType'];
@@ -374,6 +456,11 @@ const emptySnapshot: DatabaseSnapshot = {
   linkRequests: [],
   debtVerifications: [],
   activityLogs: [],
+  attachments: [],
+  comments: [],
+  smartSuggestions: [],
+  exportLogs: [],
+  csvImportBatches: [],
   tags: [],
   currencyRates: [],
   settings: {
@@ -386,6 +473,14 @@ const emptySnapshot: DatabaseSnapshot = {
     includePendingSettlements: false,
     includeRejectedDisputedSettlements: false,
     verifiedOnlySettlements: false,
+    smartSuggestionsEnabled: true,
+    analyticsEstimatedCurrencyMode: false,
+    attachmentUploadPreference: 'ask',
+    includePrivateNotesInExports: false,
+    includeRejectedDisputedInExports: false,
+    includeArchivedInExports: false,
+    includeCommentsInExports: false,
+    includeAttachmentsInExports: false,
   },
 };
 
@@ -707,6 +802,44 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       generateDueRecurringRecords: () => runAndRefresh((repo) => repo.generateDueRecurringRecords()),
       createReminder: (input) => runAndRefresh((repo) => repo.createReminder(input)),
       createSoftReminder: (input) => runAndRefresh((repo) => repo.createSoftReminder(input)),
+      createAttachment: (input) => runAndRefresh((repo) => repo.createAttachment(input)),
+      upsertAttachment: (attachment) => runAndRefresh((repo) => repo.upsertAttachment(attachment)),
+      archiveAttachment: (attachmentId, actorUserId = null) =>
+        runAndRefresh((repo) => {
+          const attachment = snapshot.attachments.find((item) => item.id === attachmentId);
+          if (!attachment) {
+            throw new Error('Attachment not found.');
+          }
+          return repo.archiveAttachment(attachment, actorUserId);
+        }),
+      createComment: (input) => runAndRefresh((repo) => repo.createComment(input)),
+      updateComment: (commentId, input) =>
+        runAndRefresh((repo) => {
+          const comment = snapshot.comments.find((item) => item.id === commentId);
+          if (!comment) {
+            throw new Error('Comment not found.');
+          }
+          return repo.updateComment(comment, input);
+        }),
+      deleteComment: (commentId, actorUserId = null) =>
+        runAndRefresh((repo) => {
+          const comment = snapshot.comments.find((item) => item.id === commentId);
+          if (!comment) {
+            throw new Error('Comment not found.');
+          }
+          return repo.deleteComment(comment, actorUserId);
+        }),
+      upsertSmartSuggestion: (input) => runAndRefresh((repo) => repo.upsertSmartSuggestion(input)),
+      setSmartSuggestionStatus: (suggestionId, status) =>
+        runAndRefresh((repo) => {
+          const suggestion = snapshot.smartSuggestions.find((item) => item.id === suggestionId);
+          if (!suggestion) {
+            throw new Error('Smart suggestion not found.');
+          }
+          return repo.setSmartSuggestionStatus(suggestion, status);
+        }),
+      createExportLog: (input) => runAndRefresh((repo) => repo.createExportLog(input)),
+      createCsvImportBatch: (input) => runAndRefresh((repo) => repo.createCsvImportBatch(input)),
       respondToEventVerification: (input) => runAndRefresh((repo) => repo.respondToEventVerification(input)),
       updateSettings: async (settings) => {
         await runAndRefresh((repo) => repo.updateSettings(settings));

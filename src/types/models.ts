@@ -108,6 +108,31 @@ export type SoftReminderStatus = 'draft' | 'sent' | 'dismissed';
 
 export type OverpaymentCreditStatus = 'open' | 'applied' | 'ignored' | 'gift' | 'archived';
 
+export type AttachmentTargetType =
+  | 'debt'
+  | 'shared_expense'
+  | 'event_debt'
+  | 'payment'
+  | 'settlement'
+  | 'event'
+  | 'comment';
+
+export type AttachmentKind = 'receipt' | 'proof' | 'screenshot' | 'invoice' | 'other';
+
+export type AttachmentVisibility = 'private' | 'shared';
+
+export type CommentTargetType = Exclude<AttachmentTargetType, 'comment'>;
+
+export type CommentVisibility = 'private' | 'shared';
+
+export type SmartSuggestionType = 'tag' | 'event' | 'duplicate' | 'recurring';
+
+export type SmartSuggestionStatus = 'active' | 'accepted' | 'dismissed' | 'expired';
+
+export type ExportType = 'pdf' | 'csv' | 'text_summary';
+
+export type ImportBatchStatus = 'preview' | 'imported' | 'cancelled';
+
 export type EntityKind =
   | 'member'
   | 'debt'
@@ -124,7 +149,12 @@ export type EntityKind =
   | 'recurring_template'
   | 'reminder'
   | 'soft_reminder'
-  | 'overpayment_credit';
+  | 'overpayment_credit'
+  | 'attachment'
+  | 'comment'
+  | 'smart_suggestion'
+  | 'export_log'
+  | 'csv_import_batch';
 
 export type ActivityTargetKind =
   | EntityKind
@@ -513,6 +543,81 @@ export type OverpaymentCredit = {
   updatedAt: string;
 };
 
+export type Attachment = {
+  id: string;
+  targetType: AttachmentTargetType;
+  targetId: string;
+  eventId: string | null;
+  createdByUserId: string | null;
+  localUri: string | null;
+  remoteUrl: string | null;
+  storagePath: string | null;
+  fileName: string;
+  fileType: string;
+  mimeType: string;
+  fileSize: number;
+  attachmentKind: AttachmentKind;
+  visibility: AttachmentVisibility;
+  thumbnailUri: string | null;
+  syncStatus: SyncStatus;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
+};
+
+export type Comment = {
+  id: string;
+  targetType: CommentTargetType;
+  targetId: string;
+  eventId: string | null;
+  authorUserId: string | null;
+  localAuthorLabel: string | null;
+  body: string;
+  visibility: CommentVisibility;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+  syncStatus: SyncStatus;
+};
+
+export type SmartSuggestion = {
+  id: string;
+  userId: string | null;
+  suggestionType: SmartSuggestionType;
+  targetType: AttachmentTargetType | 'member' | 'recurring_template' | null;
+  targetId: string | null;
+  title: string;
+  message: string;
+  metadata: Record<string, unknown>;
+  status: SmartSuggestionStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ExportLog = {
+  id: string;
+  userId: string | null;
+  exportType: ExportType;
+  targetType: AttachmentTargetType | 'member' | 'ledger' | null;
+  targetId: string | null;
+  createdAt: string;
+  metadata: Record<string, unknown>;
+};
+
+export type CsvImportBatch = {
+  id: string;
+  userId: string | null;
+  status: ImportBatchStatus;
+  sourceName: string | null;
+  rowCount: number;
+  importedMemberCount: number;
+  importedDebtCount: number;
+  errorCount: number;
+  createdAt: string;
+  updatedAt: string;
+  metadata: Record<string, unknown>;
+};
+
 export type EventVerificationResponse = {
   id: string;
   remoteId: string | null;
@@ -630,6 +735,14 @@ export type AppSettings = {
   includePendingSettlements: boolean;
   includeRejectedDisputedSettlements: boolean;
   verifiedOnlySettlements: boolean;
+  smartSuggestionsEnabled: boolean;
+  analyticsEstimatedCurrencyMode: boolean;
+  attachmentUploadPreference: 'ask' | 'shared_only' | 'never';
+  includePrivateNotesInExports: boolean;
+  includeRejectedDisputedInExports: boolean;
+  includeArchivedInExports: boolean;
+  includeCommentsInExports: boolean;
+  includeAttachmentsInExports: boolean;
 };
 
 export type LedgerEntry = {
@@ -737,6 +850,9 @@ export type DebtFilters = {
   reminderMode: 'all' | 'has_reminder';
   recurringMode: 'all' | 'recurring' | 'not_recurring';
   settlementRecordMode: 'all' | 'has_settlement_record';
+  attachmentMode: 'all' | 'has_attachment' | 'has_receipt' | 'has_proof' | 'none';
+  commentMode: 'all' | 'has_comments' | 'none';
+  suggestionMode: 'all' | 'has_suggestion';
   sort: SortMode;
 };
 

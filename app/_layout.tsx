@@ -41,6 +41,16 @@ export default function RootLayout() {
               <Stack.Screen name="event/form" />
               <Stack.Screen name="expense/[id]" />
               <Stack.Screen name="expense/form" />
+              <Stack.Screen name="attachment/[id]" />
+              <Stack.Screen name="analytics" />
+              <Stack.Screen name="export" />
+              <Stack.Screen name="import-csv" />
+              <Stack.Screen name="suggestions" />
+              <Stack.Screen name="payment/[id]" />
+              <Stack.Screen name="payment/form" />
+              <Stack.Screen name="settlement/[id]" />
+              <Stack.Screen name="recurring/index" />
+              <Stack.Screen name="recurring/form" />
               <Stack.Screen name="auth" />
             </Stack>
             <StatusBar style="dark" />

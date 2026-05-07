@@ -2,19 +2,27 @@ import { router, useLocalSearchParams } from 'expo-router';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { AttachmentsSection } from '@/src/components/AttachmentsSection';
+import { CommentsSection } from '@/src/components/CommentsSection';
 import { Badge } from '@/src/components/ui/Badges';
 import { Card, EmptyState, LoadingState, PageHeader, Screen, SectionTitle, Button } from '@/src/components/ui/Primitives';
 import { palette, spacing } from '@/src/constants/design';
+import { attachmentBadges, activeAttachmentsForTarget } from '@/src/services/attachments';
+import { debtPdfLines, shareExport, writePdfExport } from '@/src/services/export';
 import { participantName } from '@/src/services/ledger';
 import { useAppData } from '@/src/state/AppDataProvider';
+import { useAuth } from '@/src/state/AuthProvider';
 import { formatMoney } from '@/src/utils/money';
 
 export function SettlementDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const data = useAppData();
+  const auth = useAuth();
   const settlement = data.settlements.find((item) => item.id === id);
   const lines = data.settlementLines.filter((line) => line.settlementId === id);
   const payments = data.payments.filter((payment) => lines.some((line) => line.paymentId === payment.id));
+  const attachments = settlement ? activeAttachmentsForTarget(data.attachments, 'settlement', settlement.id) : [];
+  const attachmentState = attachmentBadges(attachments);
 
   if (data.loading) {
     return <LoadingState />;
@@ -26,6 +34,38 @@ export function SettlementDetailScreen() {
         <EmptyState title="Settlement not found" body="This settlement may have been archived or removed." />
       </Screen>
     );
+  }
+  const currentSettlement = settlement;
+
+  async function exportPdf() {
+    const entries = lines
+      .map((line) => data.ledgerEntries.find((entry) => entry.sourceId === line.sourceRecordId))
+      .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
+    const uri = await writePdfExport(
+      `debtulator-settlement-${currentSettlement.id}.pdf`,
+      debtPdfLines({
+        title: `Settlement ${currentSettlement.createdAt.slice(0, 10)}`,
+        entries,
+        payments,
+        settlements: [currentSettlement],
+        snapshot: data,
+        options: {
+          includePrivateNotes: data.settings.includePrivateNotesInExports,
+          includeComments: data.settings.includeCommentsInExports,
+          includeAttachments: data.settings.includeAttachmentsInExports,
+          includeRejectedDisputed: data.settings.includeRejectedDisputedInExports,
+          includeArchived: data.settings.includeArchivedInExports,
+        },
+      }),
+    );
+    await data.createExportLog({
+      userId: auth.identity.authenticatedUserId,
+      exportType: 'pdf',
+      targetType: 'settlement',
+      targetId: currentSettlement.id,
+      metadata: { uri },
+    });
+    await shareExport(uri, 'Debtulator settlement PDF');
   }
 
   return (
@@ -45,6 +85,7 @@ export function SettlementDetailScreen() {
           <View style={styles.badgeStack}>
             <Badge label={settlement.status.replaceAll('_', ' ')} tone={settlement.status === 'rejected' ? 'negative' : 'positive'} />
             <Badge label={settlement.confirmationStatus.replaceAll('_', ' ')} tone={settlement.confirmationStatus === 'confirmed' ? 'positive' : 'amber'} />
+            {attachmentState.proofLabel ? <Badge label={attachmentState.proofLabel} tone="positive" /> : null}
           </View>
         </View>
         {settlement.notes ? <Text style={styles.body}>{settlement.notes}</Text> : null}
@@ -59,7 +100,24 @@ export function SettlementDetailScreen() {
             <Text style={styles.body}>{settlement.conversionNote ?? 'This conversion is approximate unless both people agree to it.'}</Text>
           </View>
         ) : null}
+        <Button title="Export PDF" icon="document-text" variant="secondary" onPress={exportPdf} />
       </Card>
+
+      <AttachmentsSection
+        targetType="settlement"
+        targetId={settlement.id}
+        eventId={settlement.eventId}
+        parentVisibility={settlement.eventId ? 'shared_event' : 'private'}
+        preferredKind="proof"
+        title="Proof of settlement"
+      />
+
+      <CommentsSection
+        targetType="settlement"
+        targetId={settlement.id}
+        eventId={settlement.eventId}
+        sharedAvailable={Boolean(settlement.eventId)}
+      />
 
       <Card>
         <SectionTitle title="Payments" subtitle="Actual money movement recorded for this settlement." />

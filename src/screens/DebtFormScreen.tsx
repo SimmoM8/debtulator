@@ -12,6 +12,7 @@ import {
   TextField,
 } from '@/src/components/ui/Primitives';
 import { CURRENCIES } from '@/src/constants/currencies';
+import { suggestTags } from '@/src/services/smartSuggestions';
 import { useAppData } from '@/src/state/AppDataProvider';
 import { useAuth } from '@/src/state/AuthProvider';
 import type { CurrencyCode, DebtDirection, DebtStatus, VerificationStatus } from '@/src/types/models';
@@ -60,6 +61,18 @@ export function DebtFormScreen() {
   const eventMemberOptions = useMemo(
     () => sharedEventMembers.map((member) => ({ label: member.displayName, value: member.id })),
     [sharedEventMembers],
+  );
+  const tagSuggestions = useMemo(
+    () =>
+      suggestTags({
+        title,
+        notes,
+        member: data.members.find((member) => member.id === selectedMemberId),
+        event: selectedEvent,
+        previousEntries: data.ledgerEntries,
+        existingTags: splitTags(tags),
+      }),
+    [data.ledgerEntries, data.members, notes, selectedEvent, selectedMemberId, tags, title],
   );
 
   if (data.loading || auth.loading) {
@@ -198,6 +211,18 @@ export function DebtFormScreen() {
           multiline
         />
         <TextField label="Tags" value={tags} onChangeText={setTags} placeholder="Food, Travel" />
+        {tagSuggestions.length ? (
+          <SelectChips
+            label="Suggested tags"
+            value="none"
+            options={[{ label: 'Ignore', value: 'none' }, ...tagSuggestions.map((tag) => ({ label: tag, value: tag }))]}
+            onChange={(value) => {
+              if (value !== 'none') {
+                setTags((current) => mergeTagText(current, value));
+              }
+            }}
+          />
+        ) : null}
         {!isSharedEventDebt ? <SelectChips label="Event" value={selectedEventId} options={eventOptions} onChange={setSelectedEventId} /> : null}
         <SelectChips
           label="Status"
@@ -245,4 +270,8 @@ function splitTags(value: string) {
     .split(',')
     .map((tag) => tag.trim())
     .filter(Boolean);
+}
+
+function mergeTagText(current: string, tag: string) {
+  return Array.from(new Set([...splitTags(current), tag])).join(', ');
 }

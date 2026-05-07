@@ -40,6 +40,9 @@ const defaultFilters: DebtFilters = {
   reminderMode: 'all',
   recurringMode: 'all',
   settlementRecordMode: 'all',
+  attachmentMode: 'all',
+  commentMode: 'all',
+  suggestionMode: 'all',
   sort: 'date_desc',
 };
 
@@ -48,8 +51,13 @@ export function DebtsScreen() {
   const [filters, setFilters] = useState<DebtFilters>(defaultFilters);
 
   const entries = useMemo(
-    () => filterDebtEntries(data.ledgerEntries, data.members, data.events, filters, data.sharedEventMembers),
-    [data.events, data.ledgerEntries, data.members, data.sharedEventMembers, filters],
+    () =>
+      filterDebtEntries(data.ledgerEntries, data.members, data.events, filters, data.sharedEventMembers, {
+        attachments: data.attachments,
+        comments: data.comments,
+        smartSuggestions: data.smartSuggestions,
+      }),
+    [data.attachments, data.comments, data.events, data.ledgerEntries, data.members, data.sharedEventMembers, data.smartSuggestions, filters],
   );
 
   const memberOptions = useMemo(
@@ -224,6 +232,37 @@ export function DebtsScreen() {
           value={filters.tag ?? 'all'}
           options={tagOptions}
           onChange={(value) => setFilters((current) => ({ ...current, tag: value === 'all' ? null : value }))}
+        />
+        <SelectChips
+          label="Attachments"
+          value={filters.attachmentMode}
+          options={[
+            { label: 'All', value: 'all' },
+            { label: 'Has attachment', value: 'has_attachment' },
+            { label: 'Receipt', value: 'has_receipt' },
+            { label: 'Proof', value: 'has_proof' },
+            { label: 'None', value: 'none' },
+          ]}
+          onChange={(attachmentMode) => setFilters((current) => ({ ...current, attachmentMode }))}
+        />
+        <SelectChips
+          label="Comments"
+          value={filters.commentMode}
+          options={[
+            { label: 'All', value: 'all' },
+            { label: 'Has comments', value: 'has_comments' },
+            { label: 'None', value: 'none' },
+          ]}
+          onChange={(commentMode) => setFilters((current) => ({ ...current, commentMode }))}
+        />
+        <SelectChips
+          label="Smart suggestion"
+          value={filters.suggestionMode}
+          options={[
+            { label: 'All', value: 'all' },
+            { label: 'Has suggestion', value: 'has_suggestion' },
+          ]}
+          onChange={(suggestionMode) => setFilters((current) => ({ ...current, suggestionMode }))}
         />
         <SelectChips
           label="Sort"

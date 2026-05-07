@@ -146,6 +146,60 @@ export function SettingsScreen() {
       </Card>
 
       <Card>
+        <SectionTitle title="Stage 5 defaults" subtitle="Privacy-first defaults for analytics, exports, imports, attachments, and suggestions." />
+        <View style={styles.switchRow}>
+          <View style={styles.switchText}>
+            <Text style={styles.rowTitle}>Smart suggestions</Text>
+            <Text style={styles.rowBody}>Suggestions assist with tags, events, duplicates, and recurring patterns but never auto-apply.</Text>
+          </View>
+          <Switch
+            value={data.settings.smartSuggestionsEnabled}
+            onValueChange={(smartSuggestionsEnabled) => data.updateSettings({ smartSuggestionsEnabled })}
+            trackColor={{ false: palette.lineStrong, true: palette.brandSoft }}
+            thumbColor={data.settings.smartSuggestionsEnabled ? palette.brand : '#FFFFFF'}
+          />
+        </View>
+        <View style={styles.switchRow}>
+          <View style={styles.switchText}>
+            <Text style={styles.rowTitle}>Analytics estimated currency mode</Text>
+            <Text style={styles.rowBody}>When enabled, analytics may show clearly labelled approximate base-currency views.</Text>
+          </View>
+          <Switch
+            value={data.settings.analyticsEstimatedCurrencyMode}
+            onValueChange={(analyticsEstimatedCurrencyMode) => data.updateSettings({ analyticsEstimatedCurrencyMode })}
+            trackColor={{ false: palette.lineStrong, true: palette.brandSoft }}
+            thumbColor={data.settings.analyticsEstimatedCurrencyMode ? palette.brand : '#FFFFFF'}
+          />
+        </View>
+        <SelectChips
+          label="Shared attachment upload"
+          value={data.settings.attachmentUploadPreference}
+          options={[
+            { label: 'Ask', value: 'ask' },
+            { label: 'Shared only', value: 'shared_only' },
+            { label: 'Never', value: 'never' },
+          ]}
+          onChange={(attachmentUploadPreference) => data.updateSettings({ attachmentUploadPreference })}
+        />
+        <View style={styles.switchRow}>
+          <View style={styles.switchText}>
+            <Text style={styles.rowTitle}>Export private notes by default</Text>
+            <Text style={styles.rowBody}>Off by default so private notes are not shared by accident.</Text>
+          </View>
+          <Switch
+            value={data.settings.includePrivateNotesInExports}
+            onValueChange={(includePrivateNotesInExports) => data.updateSettings({ includePrivateNotesInExports })}
+            trackColor={{ false: palette.lineStrong, true: palette.brandSoft }}
+            thumbColor={data.settings.includePrivateNotesInExports ? palette.brand : '#FFFFFF'}
+          />
+        </View>
+        <View style={styles.buttonRow}>
+          <Button title="Export data" icon="download" variant="secondary" onPress={() => router.push('/export')} />
+          <Button title="Import CSV" icon="cloud-upload" variant="secondary" onPress={() => router.push('/import-csv')} />
+        </View>
+      </Card>
+
+      <Card>
         <SectionTitle title="Stage 4 defaults" subtitle="Converted settlements stay off unless explicitly enabled." />
         <View style={styles.switchRow}>
           <View style={styles.switchText}>

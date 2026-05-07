@@ -8,6 +8,9 @@ import type {
   MemberFilters,
   MoneyMap,
   SharedEventMember,
+  Attachment,
+  Comment,
+  SmartSuggestion,
 } from '@/src/types/models';
 import { sumMoneyMap } from '@/src/utils/money';
 import { normalizeText } from '@/src/utils/text';
@@ -43,6 +46,11 @@ export function filterDebtEntries(
   events: Event[],
   filters: DebtFilters,
   sharedEventMembers: SharedEventMember[] = [],
+  stage5?: {
+    attachments?: Attachment[];
+    comments?: Comment[];
+    smartSuggestions?: SmartSuggestion[];
+  },
 ) {
   const query = normalizeText(filters.query);
   const memberById = new Map(members.map((member) => [member.id, member]));
@@ -101,6 +109,28 @@ export function filterDebtEntries(
       filters.direction === 'all' ||
       (filters.direction === 'they_owe_me' && entry.toId === 'me') ||
       (filters.direction === 'i_owe_them' && entry.fromId === 'me');
+    const targetIds = [entry.sourceId, entry.expenseId].filter(Boolean);
+    const targetAttachments = (stage5?.attachments ?? []).filter(
+      (attachment) => !attachment.archivedAt && targetIds.includes(attachment.targetId),
+    );
+    const attachmentMatch =
+      filters.attachmentMode === 'all' ||
+      (filters.attachmentMode === 'has_attachment' && targetAttachments.length > 0) ||
+      (filters.attachmentMode === 'has_receipt' && targetAttachments.some((attachment) => attachment.attachmentKind === 'receipt')) ||
+      (filters.attachmentMode === 'has_proof' && targetAttachments.some((attachment) => attachment.attachmentKind === 'proof')) ||
+      (filters.attachmentMode === 'none' && targetAttachments.length === 0);
+    const targetComments = (stage5?.comments ?? []).filter(
+      (comment) => !comment.deletedAt && targetIds.includes(comment.targetId),
+    );
+    const commentMatch =
+      filters.commentMode === 'all' ||
+      (filters.commentMode === 'has_comments' && targetComments.length > 0) ||
+      (filters.commentMode === 'none' && targetComments.length === 0);
+    const suggestionMatch =
+      filters.suggestionMode === 'all' ||
+      (stage5?.smartSuggestions ?? []).some(
+        (suggestion) => suggestion.status === 'active' && targetIds.includes(suggestion.targetId ?? ''),
+      );
 
     return (
       textMatch &&
@@ -116,7 +146,10 @@ export function filterDebtEntries(
       paymentMatch &&
       dueMatch &&
       amountMatch &&
-      directionMatch
+      directionMatch &&
+      attachmentMatch &&
+      commentMatch &&
+      suggestionMatch
     );
   });
 

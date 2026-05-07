@@ -17,6 +17,7 @@ import {
   TextField,
 } from '@/src/components/ui/Primitives';
 import { palette, spacing } from '@/src/constants/design';
+import { memberPdfLines, shareExport, writePdfExport } from '@/src/services/export';
 import { entriesForMember, explainEventSettlement } from '@/src/services/ledger';
 import { createRemoteLinkRequest } from '@/src/services/stage2Sync';
 import { useAppData } from '@/src/state/AppDataProvider';
@@ -61,6 +62,37 @@ export function MemberDetailScreen() {
         <EmptyState title="Member not found" body="This local member may have been archived or removed." />
       </Screen>
     );
+  }
+  const currentMember = member;
+
+  async function exportPdf() {
+    const memberPayments = data.payments.filter((payment) => payment.relatedMemberId === currentMember.id || payment.payerMemberId === currentMember.id || payment.payeeMemberId === currentMember.id);
+    const memberSettlements = data.settlements.filter((settlement) => settlement.memberId === currentMember.id);
+    const uri = await writePdfExport(
+      `debtulator-${currentMember.displayName}.pdf`,
+      memberPdfLines({
+        member: currentMember,
+        entries: memberEntries,
+        payments: memberPayments,
+        settlements: memberSettlements,
+        snapshot: data,
+        options: {
+          includePrivateNotes: data.settings.includePrivateNotesInExports,
+          includeComments: data.settings.includeCommentsInExports,
+          includeAttachments: data.settings.includeAttachmentsInExports,
+          includeRejectedDisputed: data.settings.includeRejectedDisputedInExports,
+          includeArchived: data.settings.includeArchivedInExports,
+        },
+      }),
+    );
+    await data.createExportLog({
+      userId: auth.identity.authenticatedUserId,
+      exportType: 'pdf',
+      targetType: 'member',
+      targetId: currentMember.id,
+      metadata: { uri },
+    });
+    await shareExport(uri, `${currentMember.displayName} PDF`);
   }
 
   return (
@@ -124,6 +156,7 @@ export function MemberDetailScreen() {
             variant="secondary"
             onPress={() => data.updateMember(member.id, { archived: !member.archived })}
           />
+          <Button title="Export PDF" icon="document-text" variant="secondary" onPress={exportPdf} />
         </View>
       </Card>
 

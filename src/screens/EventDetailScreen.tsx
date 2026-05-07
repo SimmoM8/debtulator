@@ -2,6 +2,9 @@ import { router, useLocalSearchParams } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { BarChartCard, MoneyMapListCard } from '@/src/components/AnalyticsCards';
+import { AttachmentsSection } from '@/src/components/AttachmentsSection';
+import { CommentsSection } from '@/src/components/CommentsSection';
 import { DebtRow } from '@/src/components/EntityRows';
 import { Badge, StatusBadge, SyncBadge, TagChips, VerificationBadge } from '@/src/components/ui/Badges';
 import { BalanceStack } from '@/src/components/ui/Money';
@@ -19,6 +22,8 @@ import {
   TextField,
 } from '@/src/components/ui/Primitives';
 import { palette, radii, spacing } from '@/src/constants/design';
+import { eventSpendingBreakdown } from '@/src/services/analytics';
+import { eventPdfLines, eventTextSummary, shareExport, writePdfExport, writeTextExport } from '@/src/services/export';
 import { findDuplicateWarnings } from '@/src/services/duplicates';
 import {
   canAddExpense,
@@ -45,7 +50,7 @@ import type {
 } from '@/src/types/models';
 import { formatMoney, formatMoneyMap } from '@/src/utils/money';
 
-type EventTab = 'overview' | 'expenses' | 'balances' | 'settlements' | 'payments' | 'members' | 'activity';
+type EventTab = 'overview' | 'expenses' | 'balances' | 'analytics' | 'settlements' | 'payments' | 'members' | 'activity';
 
 export function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -104,6 +109,19 @@ export function EventDetailScreen() {
   const eventActivity = data.eventActivityLogs.filter((activity) => activity.eventId === id);
   const pendingInvites = data.eventInvites.filter((invite) => invite.eventId === id && invite.status === 'pending');
   const pendingClaims = data.eventMemberClaims.filter((claim) => claim.eventId === id && claim.status === 'pending');
+  const analytics = useMemo(
+    () =>
+      event
+        ? eventSpendingBreakdown({
+            event,
+            entries: data.ledgerEntries,
+            sharedExpenses: data.sharedExpenses,
+            members: data.members,
+            sharedEventMembers: data.sharedEventMembers,
+          })
+        : null,
+    [data.ledgerEntries, data.members, data.sharedEventMembers, data.sharedExpenses, event],
+  );
 
   if (data.loading || auth.loading) {
     return <LoadingState />;
@@ -118,6 +136,7 @@ export function EventDetailScreen() {
   }
 
   const currentEvent = event;
+  const currentExplanation = explanation;
   const isShared = currentEvent.visibility === 'shared';
   const canAddRecords = canAddExpense(permissionContext);
   const canManagePeople = canMergeEventMembers(permissionContext);
@@ -204,6 +223,56 @@ export function EventDetailScreen() {
     setClaimMessage('');
   }
 
+  async function exportEventPdf() {
+    const uri = await writePdfExport(
+      `debtulator-${currentEvent.name}-summary.pdf`,
+      eventPdfLines({
+        event: currentEvent,
+        explanation: currentExplanation,
+        snapshot: data,
+        options: {
+          includePrivateNotes: data.settings.includePrivateNotesInExports,
+          includeComments: data.settings.includeCommentsInExports,
+          includeAttachments: data.settings.includeAttachmentsInExports,
+          includeRejectedDisputed: data.settings.includeRejectedDisputedInExports,
+          includeArchived: data.settings.includeArchivedInExports,
+        },
+      }),
+    );
+    await data.createExportLog({
+      userId: auth.identity.authenticatedUserId,
+      exportType: 'pdf',
+      targetType: 'event',
+      targetId: currentEvent.id,
+      metadata: { uri },
+    });
+    await shareExport(uri, `${currentEvent.name} PDF summary`);
+  }
+
+  async function shareEventSummary() {
+    const summary = eventTextSummary({
+      event: currentEvent,
+      explanation: currentExplanation,
+      snapshot: data,
+      options: {
+        includePrivateNotes: false,
+        includeComments: false,
+        includeAttachments: false,
+        includeRejectedDisputed: false,
+        includeArchived: false,
+      },
+    });
+    const uri = await writeTextExport(`debtulator-${currentEvent.name}-summary.txt`, summary);
+    await data.createExportLog({
+      userId: auth.identity.authenticatedUserId,
+      exportType: 'text_summary',
+      targetType: 'event',
+      targetId: currentEvent.id,
+      metadata: { uri, privateNotesIncluded: false },
+    });
+    await shareExport(uri, `${currentEvent.name} summary`, summary);
+  }
+
   return (
     <Screen>
       <PageHeader
@@ -278,6 +347,8 @@ export function EventDetailScreen() {
               })
             }
           />
+          <Button title="Share summary" icon="share" variant="secondary" onPress={shareEventSummary} />
+          <Button title="Export PDF" icon="document-text" variant="secondary" onPress={exportEventPdf} />
         </View>
       </Card>
 
@@ -287,6 +358,7 @@ export function EventDetailScreen() {
           { label: 'Overview', value: 'overview' },
           { label: 'Expenses', value: 'expenses' },
           { label: 'Balances', value: 'balances' },
+          { label: 'Analytics', value: 'analytics' },
           { label: 'Settlements', value: 'settlements' },
           { label: 'Payments', value: 'payments' },
           { label: 'Members', value: 'members' },
@@ -404,6 +476,49 @@ export function EventDetailScreen() {
             </View>
           ))}
         </Card>
+      ) : null}
+
+      {tab === 'analytics' && analytics ? (
+        <>
+          <MoneyMapListCard
+            title="Event spending totals"
+            subtitle="Native totals stay separated by currency."
+            rows={[{ label: 'Total spending', totals: analytics.totalByCurrency, tone: 'blue' }]}
+          />
+          <MoneyMapListCard
+            title="Spending by category"
+            subtitle="Multiple tags split the amount evenly for analytics."
+            rows={analytics.byTag.slice(0, 8).map((row) => ({ label: row.tag, totals: row.totalsByCurrency, tone: 'blue' }))}
+          />
+          <MoneyMapListCard
+            title="Spending by payer"
+            subtitle="Who paid most before settlement."
+            rows={analytics.byPayer.map((row) => ({ label: row.name, totals: row.totalsByCurrency, tone: 'neutral' }))}
+          />
+          <MoneyMapListCard
+            title="Paid vs unpaid"
+            subtitle="Open, paid, partial, and overpaid totals for this event."
+            rows={[
+              { label: 'Original', totals: analytics.paidVsUnpaid.totals.original, tone: 'blue' },
+              { label: 'Paid', totals: analytics.paidVsUnpaid.totals.paid, tone: 'positive' },
+              { label: 'Open', totals: analytics.paidVsUnpaid.totals.remaining, tone: 'amber' },
+              { label: 'Overpaid', totals: analytics.paidVsUnpaid.totals.overpaid, tone: 'negative' },
+            ]}
+          />
+          <BarChartCard
+            title="Top event balances"
+            subtitle="Ranked native balance magnitude, shown in the event default currency when available."
+            currency={event.defaultCurrency}
+            data={analytics.byMember
+              .map((row) => ({
+                label: row.name,
+                value: Math.abs(row.net[event.defaultCurrency] ?? 0),
+                currency: event.defaultCurrency,
+              }))
+              .filter((row) => row.value > 0.005)
+              .slice(0, 6)}
+          />
+        </>
       ) : null}
 
       {tab === 'settlements' ? (
@@ -580,6 +695,24 @@ export function EventDetailScreen() {
             <EmptyState title="No event activity" body="Shared event actions will appear here." />
           )}
         </Card>
+      ) : null}
+
+      {tab === 'overview' ? (
+        <>
+          <AttachmentsSection
+            targetType="event"
+            targetId={event.id}
+            eventId={event.id}
+            parentVisibility={event.visibility}
+            preferredKind="other"
+          />
+          <CommentsSection
+            targetType="event"
+            targetId={event.id}
+            eventId={event.id}
+            sharedAvailable={event.visibility === 'shared'}
+          />
+        </>
       ) : null}
     </Screen>
   );

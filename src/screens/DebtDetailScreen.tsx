@@ -2,6 +2,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import React from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 
+import { AttachmentsSection } from '@/src/components/AttachmentsSection';
+import { CommentsSection } from '@/src/components/CommentsSection';
 import { Badge, LinkStatusBadge, StatusBadge, SyncBadge, TagChips, VerificationBadge, VisibilityBadge } from '@/src/components/ui/Badges';
 import { Amount } from '@/src/components/ui/Money';
 import {
@@ -16,6 +18,8 @@ import {
   SelectChips,
 } from '@/src/components/ui/Primitives';
 import { palette, spacing } from '@/src/constants/design';
+import { attachmentBadges, activeAttachmentsForTarget } from '@/src/services/attachments';
+import { debtPdfLines, shareExport, writePdfExport } from '@/src/services/export';
 import { buildLedgerEntries, entryDirectionText } from '@/src/services/ledger';
 import { createRemoteDebtVerification } from '@/src/services/stage2Sync';
 import { useAppData } from '@/src/state/AppDataProvider';
@@ -33,6 +37,8 @@ export function DebtDetailScreen() {
   const currentEntry = data.ledgerEntries.find((item) => item.kind === 'simple_debt' && item.sourceId === id) ?? entry;
   const paymentLines = data.settlementLines.filter((line) => line.sourceRecordType === 'simple_debt' && line.sourceRecordId === id);
   const payments = data.payments.filter((payment) => paymentLines.some((line) => line.paymentId === payment.id));
+  const attachments = debt ? activeAttachmentsForTarget(data.attachments, 'debt', debt.id) : [];
+  const attachmentState = attachmentBadges(attachments);
 
   if (data.loading) {
     return <LoadingState />;
@@ -83,6 +89,37 @@ export function DebtDetailScreen() {
     });
   }
 
+  async function exportPdf() {
+    const relatedSettlements = data.settlements.filter((settlement) =>
+      data.settlementLines.some((line) => line.settlementId === settlement.id && line.sourceRecordId === currentDebt.id),
+    );
+    const uri = await writePdfExport(
+      `debtulator-${currentDebt.title}.pdf`,
+      debtPdfLines({
+        title: currentDebt.title,
+        entries: currentEntry ? [currentEntry] : [],
+        payments,
+        settlements: relatedSettlements,
+        snapshot: data,
+        options: {
+          includePrivateNotes: data.settings.includePrivateNotesInExports,
+          includeComments: data.settings.includeCommentsInExports,
+          includeAttachments: data.settings.includeAttachmentsInExports,
+          includeRejectedDisputed: data.settings.includeRejectedDisputedInExports,
+          includeArchived: data.settings.includeArchivedInExports,
+        },
+      }),
+    );
+    await data.createExportLog({
+      userId: auth.identity.authenticatedUserId,
+      exportType: 'pdf',
+      targetType: 'debt',
+      targetId: currentDebt.id,
+      metadata: { uri },
+    });
+    await shareExport(uri, `${currentDebt.title} PDF`);
+  }
+
   return (
     <Screen>
       <PageHeader
@@ -104,6 +141,8 @@ export function DebtDetailScreen() {
             <VisibilityBadge visibility={debt.visibility} />
             <SyncBadge status={debt.syncStatus} />
             <Badge label={currentEntry!.paymentStatus.replaceAll('_', ' ')} tone={currentEntry!.paymentStatus === 'overpaid' ? 'amber' : currentEntry!.paymentStatus === 'paid' ? 'positive' : 'blue'} />
+            {attachmentState.receiptLabel ? <Badge label={attachmentState.receiptLabel} tone="positive" /> : null}
+            {attachmentState.proofLabel ? <Badge label={attachmentState.proofLabel} tone="blue" /> : null}
           </View>
         </View>
         <View style={styles.paymentGrid}>
@@ -129,8 +168,24 @@ export function DebtDetailScreen() {
             icon="card"
             onPress={() => router.push({ pathname: '/payment/form', params: { debtId: debt.id } })}
           />
+          <Button title="Export PDF" icon="document-text" variant="secondary" onPress={exportPdf} />
         </View>
       </Card>
+
+      <AttachmentsSection
+        targetType="debt"
+        targetId={debt.id}
+        eventId={debt.eventId}
+        parentVisibility={debt.visibility}
+        preferredKind="receipt"
+      />
+
+      <CommentsSection
+        targetType="debt"
+        targetId={debt.id}
+        eventId={debt.eventId}
+        sharedAvailable={debt.visibility !== 'private'}
+      />
 
       <Card>
         <SectionTitle title="Payment history" subtitle="Payments are real transfers; settlement lines show how they apply." />

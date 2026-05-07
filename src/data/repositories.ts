@@ -2,11 +2,15 @@ import type * as SQLite from 'expo-sqlite';
 
 import {
   deleteEventMember,
+  insertAttachment,
   insertActivityLog,
+  insertComment,
+  insertCsvImportBatch,
   insertDebt,
   insertDebtVerification,
   insertEvent,
   insertEventActivityLog,
+  insertExportLog,
   insertEventDebt,
   insertEventDuplicateWarning,
   insertEventMember,
@@ -26,6 +30,7 @@ import {
   insertSharedEventMember,
   insertSharedExpense,
   insertSoftReminder,
+  insertSmartSuggestion,
   loadSnapshot,
   resetDatabase,
   updateCurrencyRate,
@@ -40,6 +45,14 @@ import {
 import type {
   AppSettings,
   ActivityTargetKind,
+  Attachment,
+  AttachmentKind,
+  AttachmentTargetType,
+  AttachmentVisibility,
+  Comment,
+  CommentTargetType,
+  CommentVisibility,
+  CsvImportBatch,
   CurrencyCode,
   Debt,
   DebtVerification,
@@ -55,6 +68,8 @@ import type {
   EventRole,
   EventStatus,
   EventVerificationResponse,
+  ExportLog,
+  ExportType,
   ExpensePayer,
   LinkRequest,
   Member,
@@ -69,6 +84,9 @@ import type {
   Settlement,
   SettlementLine,
   SoftReminder,
+  SmartSuggestion,
+  SmartSuggestionStatus,
+  SmartSuggestionType,
   SuggestedDebtChange,
   SyncStatus,
   VerificationStatus,
@@ -262,6 +280,65 @@ type DebtVerificationInput = {
   remoteDebtId?: string | null;
   remoteVerificationId?: string | null;
   sharedNotes?: string | null;
+};
+
+type AttachmentInput = {
+  targetType: AttachmentTargetType;
+  targetId: string;
+  eventId?: string | null;
+  createdByUserId?: string | null;
+  localUri?: string | null;
+  remoteUrl?: string | null;
+  storagePath?: string | null;
+  fileName: string;
+  fileType?: string;
+  mimeType?: string;
+  fileSize?: number;
+  attachmentKind: AttachmentKind;
+  visibility?: AttachmentVisibility;
+  thumbnailUri?: string | null;
+  syncStatus?: SyncStatus;
+};
+
+type CommentInput = {
+  targetType: CommentTargetType;
+  targetId: string;
+  eventId?: string | null;
+  authorUserId?: string | null;
+  localAuthorLabel?: string | null;
+  body: string;
+  visibility?: CommentVisibility;
+  syncStatus?: SyncStatus;
+};
+
+type SmartSuggestionInput = {
+  userId?: string | null;
+  suggestionType: SmartSuggestionType;
+  targetType?: SmartSuggestion['targetType'];
+  targetId?: string | null;
+  title: string;
+  message: string;
+  metadata?: Record<string, unknown>;
+  status?: SmartSuggestionStatus;
+};
+
+type ExportLogInput = {
+  userId?: string | null;
+  exportType: ExportType;
+  targetType?: ExportLog['targetType'];
+  targetId?: string | null;
+  metadata?: Record<string, unknown>;
+};
+
+type CsvImportBatchInput = {
+  userId?: string | null;
+  status?: CsvImportBatch['status'];
+  sourceName?: string | null;
+  rowCount: number;
+  importedMemberCount?: number;
+  importedDebtCount?: number;
+  errorCount?: number;
+  metadata?: Record<string, unknown>;
 };
 
 export class DebtulatorRepository {
@@ -1151,6 +1228,223 @@ export class DebtulatorRepository {
     await updateCurrencyRate(this.db, currency, rateToSek);
   }
 
+  async createAttachment(input: AttachmentInput) {
+    const timestamp = nowIso();
+    const attachment: Attachment = {
+      id: createId('attachment'),
+      targetType: input.targetType,
+      targetId: input.targetId,
+      eventId: cleanOptional(input.eventId),
+      createdByUserId: cleanOptional(input.createdByUserId),
+      localUri: cleanOptional(input.localUri),
+      remoteUrl: cleanOptional(input.remoteUrl),
+      storagePath: cleanOptional(input.storagePath),
+      fileName: input.fileName.trim(),
+      fileType: input.fileType?.trim() || inferFileType(input.mimeType, input.fileName),
+      mimeType: input.mimeType?.trim() || inferMimeType(input.fileName),
+      fileSize: Math.max(0, Number(input.fileSize) || 0),
+      attachmentKind: input.attachmentKind,
+      visibility: input.visibility ?? 'private',
+      thumbnailUri: cleanOptional(input.thumbnailUri) ?? cleanOptional(input.localUri),
+      syncStatus: input.syncStatus ?? (input.visibility === 'shared' ? 'pending_upload' : 'local_only'),
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      archivedAt: null,
+    };
+    await insertAttachment(this.db, attachment);
+    await this.logActivity('attachment', attachment.id, 'attachment_added', attachment.createdByUserId, {
+      targetType: attachment.targetType,
+      targetId: attachment.targetId,
+      attachmentKind: attachment.attachmentKind,
+      visibility: attachment.visibility,
+    });
+    if (attachment.eventId && attachment.visibility === 'shared') {
+      await this.logEventActivity(attachment.eventId, 'attachment_added', attachment.createdByUserId, 'attachment', attachment.id, {
+        targetType: attachment.targetType,
+        targetId: attachment.targetId,
+        attachmentKind: attachment.attachmentKind,
+      });
+    }
+    return attachment;
+  }
+
+  async upsertAttachment(attachment: Attachment) {
+    await insertAttachment(this.db, attachment);
+    return attachment;
+  }
+
+  async archiveAttachment(attachment: Attachment, actorUserId?: string | null) {
+    const updated: Attachment = {
+      ...attachment,
+      archivedAt: attachment.archivedAt ?? nowIso(),
+      syncStatus: attachment.syncStatus === 'synced' ? 'pending_update' : attachment.syncStatus,
+      updatedAt: nowIso(),
+    };
+    await insertAttachment(this.db, updated);
+    await this.logActivity('attachment', attachment.id, 'attachment_removed', actorUserId ?? attachment.createdByUserId, {
+      targetType: attachment.targetType,
+      targetId: attachment.targetId,
+    });
+    if (attachment.eventId && attachment.visibility === 'shared') {
+      await this.logEventActivity(attachment.eventId, 'attachment_removed', actorUserId ?? attachment.createdByUserId, 'attachment', attachment.id, {
+        targetType: attachment.targetType,
+        targetId: attachment.targetId,
+      });
+    }
+    return updated;
+  }
+
+  async createComment(input: CommentInput) {
+    const timestamp = nowIso();
+    const comment: Comment = {
+      id: createId('comment'),
+      targetType: input.targetType,
+      targetId: input.targetId,
+      eventId: cleanOptional(input.eventId),
+      authorUserId: cleanOptional(input.authorUserId),
+      localAuthorLabel: cleanOptional(input.localAuthorLabel),
+      body: input.body.trim(),
+      visibility: input.visibility ?? 'private',
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      deletedAt: null,
+      syncStatus: input.syncStatus ?? (input.visibility === 'shared' ? 'pending_upload' : 'local_only'),
+    };
+    await insertComment(this.db, comment);
+    await this.logActivity('comment', comment.id, 'comment_added', comment.authorUserId, {
+      targetType: comment.targetType,
+      targetId: comment.targetId,
+      visibility: comment.visibility,
+    });
+    if (comment.eventId && comment.visibility === 'shared') {
+      await this.logEventActivity(comment.eventId, 'comment_added', comment.authorUserId, 'comment', comment.id, {
+        targetType: comment.targetType,
+        targetId: comment.targetId,
+      });
+    }
+    return comment;
+  }
+
+  async updateComment(comment: Comment, input: Partial<CommentInput>) {
+    const updated: Comment = {
+      ...comment,
+      body: input.body?.trim() ?? comment.body,
+      visibility: input.visibility ?? comment.visibility,
+      syncStatus: comment.syncStatus === 'synced' ? 'pending_update' : comment.syncStatus,
+      updatedAt: nowIso(),
+    };
+    await insertComment(this.db, updated);
+    await this.logActivity('comment', comment.id, 'comment_edited', comment.authorUserId, {
+      targetType: comment.targetType,
+      targetId: comment.targetId,
+    });
+    if (comment.eventId && comment.visibility === 'shared') {
+      await this.logEventActivity(comment.eventId, 'comment_edited', comment.authorUserId, 'comment', comment.id, {
+        targetType: comment.targetType,
+        targetId: comment.targetId,
+      });
+    }
+    return updated;
+  }
+
+  async deleteComment(comment: Comment, actorUserId?: string | null) {
+    const updated: Comment = {
+      ...comment,
+      deletedAt: comment.deletedAt ?? nowIso(),
+      syncStatus: comment.syncStatus === 'synced' ? 'pending_update' : comment.syncStatus,
+      updatedAt: nowIso(),
+    };
+    await insertComment(this.db, updated);
+    await this.logActivity('comment', comment.id, 'comment_deleted', actorUserId ?? comment.authorUserId, {
+      targetType: comment.targetType,
+      targetId: comment.targetId,
+    });
+    if (comment.eventId && comment.visibility === 'shared') {
+      await this.logEventActivity(comment.eventId, 'comment_deleted', actorUserId ?? comment.authorUserId, 'comment', comment.id, {
+        targetType: comment.targetType,
+        targetId: comment.targetId,
+      });
+    }
+    return updated;
+  }
+
+  async upsertSmartSuggestion(input: SmartSuggestion | SmartSuggestionInput) {
+    const timestamp = nowIso();
+    const suggestion: SmartSuggestion =
+      'id' in input
+        ? input
+        : {
+            id: createId('suggestion'),
+            userId: cleanOptional(input.userId),
+            suggestionType: input.suggestionType,
+            targetType: input.targetType ?? null,
+            targetId: cleanOptional(input.targetId),
+            title: input.title.trim(),
+            message: input.message.trim(),
+            metadata: input.metadata ?? {},
+            status: input.status ?? 'active',
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          };
+    await insertSmartSuggestion(this.db, suggestion);
+    return suggestion;
+  }
+
+  async setSmartSuggestionStatus(suggestion: SmartSuggestion, status: SmartSuggestionStatus) {
+    const updated = { ...suggestion, status, updatedAt: nowIso() };
+    await insertSmartSuggestion(this.db, updated);
+    await this.logActivity('smart_suggestion', suggestion.id, `smart_suggestion_${status}`, suggestion.userId, {
+      suggestionType: suggestion.suggestionType,
+      targetType: suggestion.targetType,
+      targetId: suggestion.targetId,
+    });
+    return updated;
+  }
+
+  async createExportLog(input: ExportLogInput) {
+    const exportLog: ExportLog = {
+      id: createId('export'),
+      userId: cleanOptional(input.userId),
+      exportType: input.exportType,
+      targetType: input.targetType ?? null,
+      targetId: cleanOptional(input.targetId),
+      createdAt: nowIso(),
+      metadata: input.metadata ?? {},
+    };
+    await insertExportLog(this.db, exportLog);
+    await this.logActivity('export_log', exportLog.id, 'export_generated', exportLog.userId, {
+      exportType: exportLog.exportType,
+      targetType: exportLog.targetType,
+      targetId: exportLog.targetId,
+    });
+    return exportLog;
+  }
+
+  async createCsvImportBatch(input: CsvImportBatchInput) {
+    const timestamp = nowIso();
+    const batch: CsvImportBatch = {
+      id: createId('import'),
+      userId: cleanOptional(input.userId),
+      status: input.status ?? 'imported',
+      sourceName: cleanOptional(input.sourceName),
+      rowCount: Math.max(0, input.rowCount),
+      importedMemberCount: Math.max(0, input.importedMemberCount ?? 0),
+      importedDebtCount: Math.max(0, input.importedDebtCount ?? 0),
+      errorCount: Math.max(0, input.errorCount ?? 0),
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      metadata: input.metadata ?? {},
+    };
+    await insertCsvImportBatch(this.db, batch);
+    await this.logActivity('csv_import_batch', batch.id, 'import_completed', batch.userId, {
+      rowCount: batch.rowCount,
+      importedMemberCount: batch.importedMemberCount,
+      importedDebtCount: batch.importedDebtCount,
+      errorCount: batch.errorCount,
+    });
+    return batch;
+  }
+
   async upsertProfile(profile: UserProfile) {
     await insertProfile(this.db, profile);
     await this.logActivity('profile', profile.id, 'profile_updated', profile.id, {
@@ -1869,6 +2163,40 @@ function cleanParticipants(participantIds: ParticipantId[]) {
 
 function toAmount(value: number) {
   return Math.max(0, Math.round((Number(value) || 0) * 100) / 100);
+}
+
+function inferMimeType(fileName: string) {
+  const lower = fileName.toLowerCase();
+  if (lower.endsWith('.png')) {
+    return 'image/png';
+  }
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
+    return 'image/jpeg';
+  }
+  if (lower.endsWith('.webp')) {
+    return 'image/webp';
+  }
+  if (lower.endsWith('.pdf')) {
+    return 'application/pdf';
+  }
+  if (lower.endsWith('.csv')) {
+    return 'text/csv';
+  }
+  return 'application/octet-stream';
+}
+
+function inferFileType(mimeType: string | null | undefined, fileName: string) {
+  const mime = mimeType ?? inferMimeType(fileName);
+  if (mime.startsWith('image/')) {
+    return 'image';
+  }
+  if (mime.includes('pdf')) {
+    return 'pdf';
+  }
+  if (mime.includes('csv') || mime.startsWith('text/')) {
+    return 'text';
+  }
+  return 'file';
 }
 
 function buildExpensePayers(

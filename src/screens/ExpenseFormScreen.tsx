@@ -18,6 +18,7 @@ import { CURRENCIES } from '@/src/constants/currencies';
 import { palette, spacing } from '@/src/constants/design';
 import { buildSplitObligations, calculateParticipantShares, validateSplit } from '@/src/services/splits';
 import { participantName } from '@/src/services/ledger';
+import { suggestTags } from '@/src/services/smartSuggestions';
 import { useAppData } from '@/src/state/AppDataProvider';
 import { useAuth } from '@/src/state/AuthProvider';
 import type { CurrencyCode, DebtStatus, DebtVisibility, ExpensePayer, ParticipantId, SplitMethod, VerificationStatus } from '@/src/types/models';
@@ -105,6 +106,17 @@ export function ExpenseFormScreen() {
       })),
     ],
     [data.members, data.sharedEventMembers, eventMemberIds, isSharedEvent],
+  );
+  const tagSuggestions = useMemo(
+    () =>
+      suggestTags({
+        title,
+        notes,
+        event: selectedEvent,
+        previousEntries: data.ledgerEntries,
+        existingTags: splitTags(tags),
+      }),
+    [data.ledgerEntries, notes, selectedEvent, tags, title],
   );
 
   const numericSplitAllocations = Object.fromEntries(
@@ -217,6 +229,18 @@ export function ExpenseFormScreen() {
         <TextField label="Expense date" value={expenseDate} onChangeText={setExpenseDate} placeholder="YYYY-MM-DD" />
         <TextField label="Notes" value={notes} onChangeText={setNotes} multiline />
         <TextField label="Tags" value={tags} onChangeText={setTags} placeholder="Food, Travel" />
+        {tagSuggestions.length ? (
+          <SelectChips
+            label="Suggested tags"
+            value="none"
+            options={[{ label: 'Ignore', value: 'none' }, ...tagSuggestions.map((tag) => ({ label: tag, value: tag }))]}
+            onChange={(value) => {
+              if (value !== 'none') {
+                setTags((current) => mergeTagText(current, value));
+              }
+            }}
+          />
+        ) : null}
         <MultiSelectChips label="Split participants" values={participantIds} options={participantOptions} onChange={setParticipantIds} />
         <SelectChips
           label="Split method"
@@ -311,6 +335,10 @@ function splitTags(value: string) {
     .split(',')
     .map((tag) => tag.trim())
     .filter(Boolean);
+}
+
+function mergeTagText(current: string, tag: string) {
+  return Array.from(new Set([...splitTags(current), tag])).join(', ');
 }
 
 const styles = StyleSheet.create({

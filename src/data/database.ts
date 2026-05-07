@@ -5,10 +5,14 @@ import type {
   AppSettings,
   ActivityLog,
   ActivityTargetKind,
+  Attachment,
   CurrencyCode,
   CurrencyRate,
+  Comment,
+  CsvImportBatch,
   Debt,
   DebtVerification,
+  ExportLog,
   Event,
   EventActivityLog,
   EventDebt,
@@ -32,6 +36,7 @@ import type {
   Settlement,
   SettlementLine,
   SoftReminder,
+  SmartSuggestion,
   SyncStatus,
   Tag,
   UserProfile,
@@ -67,6 +72,11 @@ export type DatabaseSnapshot = {
   linkRequests: LinkRequest[];
   debtVerifications: DebtVerification[];
   activityLogs: ActivityLog[];
+  attachments: Attachment[];
+  comments: Comment[];
+  smartSuggestions: SmartSuggestion[];
+  exportLogs: ExportLog[];
+  csvImportBatches: CsvImportBatch[];
   tags: Tag[];
   currencyRates: CurrencyRate[];
   settings: AppSettings;
@@ -527,6 +537,81 @@ type ActivityLogRow = {
   action: string;
   metadata_json: string | null;
   created_at: string;
+};
+
+type AttachmentRow = {
+  id: string;
+  target_type: Attachment['targetType'];
+  target_id: string;
+  event_id: string | null;
+  created_by_user_id: string | null;
+  local_uri: string | null;
+  remote_url: string | null;
+  storage_path: string | null;
+  file_name: string;
+  file_type: string;
+  mime_type: string;
+  file_size: number;
+  attachment_kind: Attachment['attachmentKind'];
+  visibility: Attachment['visibility'];
+  thumbnail_uri: string | null;
+  sync_status: SyncStatus | null;
+  created_at: string;
+  updated_at: string;
+  archived_at: string | null;
+};
+
+type CommentRow = {
+  id: string;
+  target_type: Comment['targetType'];
+  target_id: string;
+  event_id: string | null;
+  author_user_id: string | null;
+  local_author_label: string | null;
+  body: string;
+  visibility: Comment['visibility'];
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  sync_status: SyncStatus | null;
+};
+
+type SmartSuggestionRow = {
+  id: string;
+  user_id: string | null;
+  suggestion_type: SmartSuggestion['suggestionType'];
+  target_type: SmartSuggestion['targetType'];
+  target_id: string | null;
+  title: string;
+  message: string;
+  metadata_json: string | null;
+  status: SmartSuggestion['status'];
+  created_at: string;
+  updated_at: string;
+};
+
+type ExportLogRow = {
+  id: string;
+  user_id: string | null;
+  export_type: ExportLog['exportType'];
+  target_type: ExportLog['targetType'];
+  target_id: string | null;
+  created_at: string;
+  metadata_json: string | null;
+};
+
+type CsvImportBatchRow = {
+  id: string;
+  user_id: string | null;
+  status: CsvImportBatch['status'];
+  source_name: string | null;
+  row_count: number;
+  imported_member_count: number;
+  imported_debt_count: number;
+  error_count: number;
+  created_at: string;
+  updated_at: string;
+  metadata_json: string | null;
 };
 
 const DB_NAME = 'debtulator-stage1.db';
@@ -1008,6 +1093,90 @@ export async function migrate(db: SQLite.SQLiteDatabase) {
       updated_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS attachments (
+      id TEXT PRIMARY KEY NOT NULL,
+      target_type TEXT NOT NULL,
+      target_id TEXT NOT NULL,
+      event_id TEXT,
+      created_by_user_id TEXT,
+      local_uri TEXT,
+      remote_url TEXT,
+      storage_path TEXT,
+      file_name TEXT NOT NULL,
+      file_type TEXT NOT NULL,
+      mime_type TEXT NOT NULL,
+      file_size REAL NOT NULL DEFAULT 0,
+      attachment_kind TEXT NOT NULL,
+      visibility TEXT NOT NULL DEFAULT 'private',
+      thumbnail_uri TEXT,
+      sync_status TEXT NOT NULL DEFAULT 'local_only',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      archived_at TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS attachments_target_idx
+      ON attachments(target_type, target_id, archived_at);
+
+    CREATE TABLE IF NOT EXISTS comments (
+      id TEXT PRIMARY KEY NOT NULL,
+      target_type TEXT NOT NULL,
+      target_id TEXT NOT NULL,
+      event_id TEXT,
+      author_user_id TEXT,
+      local_author_label TEXT,
+      body TEXT NOT NULL,
+      visibility TEXT NOT NULL DEFAULT 'private',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      deleted_at TEXT,
+      sync_status TEXT NOT NULL DEFAULT 'local_only'
+    );
+
+    CREATE INDEX IF NOT EXISTS comments_target_idx
+      ON comments(target_type, target_id, deleted_at);
+
+    CREATE TABLE IF NOT EXISTS smart_suggestions (
+      id TEXT PRIMARY KEY NOT NULL,
+      user_id TEXT,
+      suggestion_type TEXT NOT NULL,
+      target_type TEXT,
+      target_id TEXT,
+      title TEXT NOT NULL,
+      message TEXT NOT NULL,
+      metadata_json TEXT NOT NULL DEFAULT '{}',
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS smart_suggestions_status_idx
+      ON smart_suggestions(status, suggestion_type);
+
+    CREATE TABLE IF NOT EXISTS export_logs (
+      id TEXT PRIMARY KEY NOT NULL,
+      user_id TEXT,
+      export_type TEXT NOT NULL,
+      target_type TEXT,
+      target_id TEXT,
+      created_at TEXT NOT NULL,
+      metadata_json TEXT NOT NULL DEFAULT '{}'
+    );
+
+    CREATE TABLE IF NOT EXISTS csv_import_batches (
+      id TEXT PRIMARY KEY NOT NULL,
+      user_id TEXT,
+      status TEXT NOT NULL,
+      source_name TEXT,
+      row_count INTEGER NOT NULL DEFAULT 0,
+      imported_member_count INTEGER NOT NULL DEFAULT 0,
+      imported_debt_count INTEGER NOT NULL DEFAULT 0,
+      error_count INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      metadata_json TEXT NOT NULL DEFAULT '{}'
+    );
+
     CREATE TABLE IF NOT EXISTS app_settings (
       key TEXT PRIMARY KEY NOT NULL,
       value TEXT NOT NULL
@@ -1076,6 +1245,11 @@ async function ensureColumn(
 export async function resetDatabase(db: SQLite.SQLiteDatabase, seed = true) {
   await db.execAsync(`
     DELETE FROM event_activity_logs;
+    DELETE FROM csv_import_batches;
+    DELETE FROM export_logs;
+    DELETE FROM smart_suggestions;
+    DELETE FROM comments;
+    DELETE FROM attachments;
     DELETE FROM event_verification_responses;
     DELETE FROM overpayment_credits;
     DELETE FROM soft_reminders;
@@ -1163,6 +1337,38 @@ export async function seedDefaults(db: SQLite.SQLiteDatabase) {
   ]);
   await db.runAsync(`INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, [
     'verifiedOnlySettlements',
+    'false',
+  ]);
+  await db.runAsync(`INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, [
+    'smartSuggestionsEnabled',
+    'true',
+  ]);
+  await db.runAsync(`INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, [
+    'analyticsEstimatedCurrencyMode',
+    'false',
+  ]);
+  await db.runAsync(`INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, [
+    'attachmentUploadPreference',
+    'ask',
+  ]);
+  await db.runAsync(`INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, [
+    'includePrivateNotesInExports',
+    'false',
+  ]);
+  await db.runAsync(`INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, [
+    'includeRejectedDisputedInExports',
+    'false',
+  ]);
+  await db.runAsync(`INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, [
+    'includeArchivedInExports',
+    'false',
+  ]);
+  await db.runAsync(`INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, [
+    'includeCommentsInExports',
+    'false',
+  ]);
+  await db.runAsync(`INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, [
+    'includeAttachmentsInExports',
     'false',
   ]);
 
@@ -2013,6 +2219,76 @@ export async function seedDemoData(db: SQLite.SQLiteDatabase) {
     metadata: { verificationId: 'verify_demo_emma_rejected', reason: 'I paid my own change fee at the station.' },
     createdAt: timestamp,
   });
+  await insertAttachment(db, {
+    id: 'attachment_demo_receipt_groceries',
+    targetType: 'shared_expense',
+    targetId: 'expense_ski_groceries',
+    eventId: 'event_ski_sweden',
+    createdByUserId: 'demo_user_local',
+    localUri: null,
+    remoteUrl: null,
+    storagePath: 'events/event_ski_sweden/attachments/demo_receipt_groceries.jpg',
+    fileName: 'cabin-groceries-receipt.jpg',
+    fileType: 'image',
+    mimeType: 'image/jpeg',
+    fileSize: 184320,
+    attachmentKind: 'receipt',
+    visibility: 'shared',
+    thumbnailUri: null,
+    syncStatus: 'synced',
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    archivedAt: null,
+  });
+  await insertAttachment(db, {
+    id: 'attachment_demo_proof_backpack',
+    targetType: 'debt',
+    targetId: 'debt_daniel_backpack',
+    eventId: null,
+    createdByUserId: 'demo_user_local',
+    localUri: null,
+    remoteUrl: null,
+    storagePath: null,
+    fileName: 'bank-transfer-proof.png',
+    fileType: 'image',
+    mimeType: 'image/png',
+    fileSize: 96240,
+    attachmentKind: 'proof',
+    visibility: 'private',
+    thumbnailUri: null,
+    syncStatus: 'local_only',
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    archivedAt: null,
+  });
+  await insertComment(db, {
+    id: 'comment_demo_event',
+    targetType: 'event',
+    targetId: 'event_ski_sweden',
+    eventId: 'event_ski_sweden',
+    authorUserId: 'demo_user_local',
+    localAuthorLabel: 'Benjamin',
+    body: 'I added groceries. Check if your split looks right before we settle.',
+    visibility: 'shared',
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    deletedAt: null,
+    syncStatus: 'synced',
+  });
+  await insertComment(db, {
+    id: 'comment_demo_debt',
+    targetType: 'debt',
+    targetId: 'debt_emma_rejected',
+    eventId: 'event_ski_sweden',
+    authorUserId: null,
+    localAuthorLabel: 'Local note',
+    body: 'Keep this private until Emma and I agree on which fee was shared.',
+    visibility: 'private',
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    deletedAt: null,
+    syncStatus: 'local_only',
+  });
 
   await upsertTagNames(db, [
     'Family',
@@ -2054,6 +2330,11 @@ export async function loadSnapshot(db: SQLite.SQLiteDatabase): Promise<DatabaseS
     linkRequests,
     debtVerifications,
     activityLogs,
+    attachments,
+    comments,
+    smartSuggestions,
+    exportLogs,
+    csvImportBatches,
     tags,
     currencyRates,
     settings,
@@ -2084,6 +2365,11 @@ export async function loadSnapshot(db: SQLite.SQLiteDatabase): Promise<DatabaseS
       getLinkRequests(db),
       getDebtVerifications(db),
       getActivityLogs(db),
+      getAttachments(db),
+      getComments(db),
+      getSmartSuggestions(db),
+      getExportLogs(db),
+      getCsvImportBatches(db),
       getTags(db),
       getCurrencyRates(db),
       getSettings(db),
@@ -2118,6 +2404,11 @@ export async function loadSnapshot(db: SQLite.SQLiteDatabase): Promise<DatabaseS
     linkRequests,
     debtVerifications,
     activityLogs,
+    attachments,
+    comments,
+    smartSuggestions,
+    exportLogs,
+    csvImportBatches,
     tags,
     currencyRates,
     settings,
@@ -2269,6 +2560,41 @@ export async function getActivityLogs(db: SQLite.SQLiteDatabase) {
   return rows.map(mapActivityLogRow);
 }
 
+export async function getAttachments(db: SQLite.SQLiteDatabase) {
+  const rows = await db.getAllAsync<AttachmentRow>(
+    `SELECT * FROM attachments ORDER BY created_at DESC`,
+  );
+  return rows.map(mapAttachmentRow);
+}
+
+export async function getComments(db: SQLite.SQLiteDatabase) {
+  const rows = await db.getAllAsync<CommentRow>(
+    `SELECT * FROM comments ORDER BY created_at ASC`,
+  );
+  return rows.map(mapCommentRow);
+}
+
+export async function getSmartSuggestions(db: SQLite.SQLiteDatabase) {
+  const rows = await db.getAllAsync<SmartSuggestionRow>(
+    `SELECT * FROM smart_suggestions ORDER BY updated_at DESC`,
+  );
+  return rows.map(mapSmartSuggestionRow);
+}
+
+export async function getExportLogs(db: SQLite.SQLiteDatabase) {
+  const rows = await db.getAllAsync<ExportLogRow>(
+    `SELECT * FROM export_logs ORDER BY created_at DESC LIMIT 200`,
+  );
+  return rows.map(mapExportLogRow);
+}
+
+export async function getCsvImportBatches(db: SQLite.SQLiteDatabase) {
+  const rows = await db.getAllAsync<CsvImportBatchRow>(
+    `SELECT * FROM csv_import_batches ORDER BY updated_at DESC LIMIT 100`,
+  );
+  return rows.map(mapCsvImportBatchRow);
+}
+
 export async function getTags(db: SQLite.SQLiteDatabase) {
   const rows = await db.getAllAsync<TagRow>(`SELECT * FROM tags ORDER BY name COLLATE NOCASE`);
   return rows.map((row) => ({
@@ -2306,6 +2632,17 @@ export async function getSettings(db: SQLite.SQLiteDatabase): Promise<AppSetting
     includePendingSettlements: values.includePendingSettlements === 'true',
     includeRejectedDisputedSettlements: values.includeRejectedDisputedSettlements === 'true',
     verifiedOnlySettlements: values.verifiedOnlySettlements === 'true',
+    smartSuggestionsEnabled: values.smartSuggestionsEnabled !== 'false',
+    analyticsEstimatedCurrencyMode: values.analyticsEstimatedCurrencyMode === 'true',
+    attachmentUploadPreference:
+      values.attachmentUploadPreference === 'shared_only' || values.attachmentUploadPreference === 'never'
+        ? values.attachmentUploadPreference
+        : 'ask',
+    includePrivateNotesInExports: values.includePrivateNotesInExports === 'true',
+    includeRejectedDisputedInExports: values.includeRejectedDisputedInExports === 'true',
+    includeArchivedInExports: values.includeArchivedInExports === 'true',
+    includeCommentsInExports: values.includeCommentsInExports === 'true',
+    includeAttachmentsInExports: values.includeAttachmentsInExports === 'true',
   };
 }
 
@@ -2979,6 +3316,121 @@ export async function insertOverpaymentCredit(db: SQLite.SQLiteDatabase, credit:
   );
 }
 
+export async function insertAttachment(db: SQLite.SQLiteDatabase, attachment: Attachment) {
+  await db.runAsync(
+    `INSERT OR REPLACE INTO attachments
+      (id, target_type, target_id, event_id, created_by_user_id, local_uri, remote_url, storage_path,
+       file_name, file_type, mime_type, file_size, attachment_kind, visibility, thumbnail_uri,
+       sync_status, created_at, updated_at, archived_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      attachment.id,
+      attachment.targetType,
+      attachment.targetId,
+      attachment.eventId,
+      attachment.createdByUserId,
+      attachment.localUri,
+      attachment.remoteUrl,
+      attachment.storagePath,
+      attachment.fileName,
+      attachment.fileType,
+      attachment.mimeType,
+      attachment.fileSize,
+      attachment.attachmentKind,
+      attachment.visibility,
+      attachment.thumbnailUri,
+      attachment.syncStatus,
+      attachment.createdAt,
+      attachment.updatedAt,
+      attachment.archivedAt,
+    ],
+  );
+}
+
+export async function insertComment(db: SQLite.SQLiteDatabase, comment: Comment) {
+  await db.runAsync(
+    `INSERT OR REPLACE INTO comments
+      (id, target_type, target_id, event_id, author_user_id, local_author_label, body, visibility,
+       created_at, updated_at, deleted_at, sync_status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      comment.id,
+      comment.targetType,
+      comment.targetId,
+      comment.eventId,
+      comment.authorUserId,
+      comment.localAuthorLabel,
+      comment.body,
+      comment.visibility,
+      comment.createdAt,
+      comment.updatedAt,
+      comment.deletedAt,
+      comment.syncStatus,
+    ],
+  );
+}
+
+export async function insertSmartSuggestion(db: SQLite.SQLiteDatabase, suggestion: SmartSuggestion) {
+  await db.runAsync(
+    `INSERT OR REPLACE INTO smart_suggestions
+      (id, user_id, suggestion_type, target_type, target_id, title, message, metadata_json,
+       status, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      suggestion.id,
+      suggestion.userId,
+      suggestion.suggestionType,
+      suggestion.targetType,
+      suggestion.targetId,
+      suggestion.title,
+      suggestion.message,
+      toJson(suggestion.metadata),
+      suggestion.status,
+      suggestion.createdAt,
+      suggestion.updatedAt,
+    ],
+  );
+}
+
+export async function insertExportLog(db: SQLite.SQLiteDatabase, exportLog: ExportLog) {
+  await db.runAsync(
+    `INSERT OR REPLACE INTO export_logs
+      (id, user_id, export_type, target_type, target_id, created_at, metadata_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [
+      exportLog.id,
+      exportLog.userId,
+      exportLog.exportType,
+      exportLog.targetType,
+      exportLog.targetId,
+      exportLog.createdAt,
+      toJson(exportLog.metadata),
+    ],
+  );
+}
+
+export async function insertCsvImportBatch(db: SQLite.SQLiteDatabase, batch: CsvImportBatch) {
+  await db.runAsync(
+    `INSERT OR REPLACE INTO csv_import_batches
+      (id, user_id, status, source_name, row_count, imported_member_count, imported_debt_count,
+       error_count, created_at, updated_at, metadata_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      batch.id,
+      batch.userId,
+      batch.status,
+      batch.sourceName,
+      batch.rowCount,
+      batch.importedMemberCount,
+      batch.importedDebtCount,
+      batch.errorCount,
+      batch.createdAt,
+      batch.updatedAt,
+      toJson(batch.metadata),
+    ],
+  );
+}
+
 export async function deleteEventMember(db: SQLite.SQLiteDatabase, eventId: string, memberId: string) {
   await db.runAsync(`DELETE FROM event_members WHERE event_id = ? AND member_id = ?`, [eventId, memberId]);
 }
@@ -3494,5 +3946,90 @@ export function mapActivityLogRow(row: ActivityLogRow): ActivityLog {
     action: row.action,
     metadata: parseJsonObject(row.metadata_json, {}),
     createdAt: row.created_at,
+  };
+}
+
+export function mapAttachmentRow(row: AttachmentRow): Attachment {
+  return {
+    id: row.id,
+    targetType: row.target_type,
+    targetId: row.target_id,
+    eventId: row.event_id,
+    createdByUserId: row.created_by_user_id,
+    localUri: row.local_uri,
+    remoteUrl: row.remote_url,
+    storagePath: row.storage_path,
+    fileName: row.file_name,
+    fileType: row.file_type,
+    mimeType: row.mime_type,
+    fileSize: row.file_size,
+    attachmentKind: row.attachment_kind,
+    visibility: row.visibility,
+    thumbnailUri: row.thumbnail_uri,
+    syncStatus: row.sync_status ?? 'local_only',
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    archivedAt: row.archived_at,
+  };
+}
+
+export function mapCommentRow(row: CommentRow): Comment {
+  return {
+    id: row.id,
+    targetType: row.target_type,
+    targetId: row.target_id,
+    eventId: row.event_id,
+    authorUserId: row.author_user_id,
+    localAuthorLabel: row.local_author_label,
+    body: row.body,
+    visibility: row.visibility,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status ?? 'local_only',
+  };
+}
+
+export function mapSmartSuggestionRow(row: SmartSuggestionRow): SmartSuggestion {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    suggestionType: row.suggestion_type,
+    targetType: row.target_type,
+    targetId: row.target_id,
+    title: row.title,
+    message: row.message,
+    metadata: parseJsonObject(row.metadata_json, {}),
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function mapExportLogRow(row: ExportLogRow): ExportLog {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    exportType: row.export_type,
+    targetType: row.target_type,
+    targetId: row.target_id,
+    createdAt: row.created_at,
+    metadata: parseJsonObject(row.metadata_json, {}),
+  };
+}
+
+export function mapCsvImportBatchRow(row: CsvImportBatchRow): CsvImportBatch {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    status: row.status,
+    sourceName: row.source_name,
+    rowCount: row.row_count,
+    importedMemberCount: row.imported_member_count,
+    importedDebtCount: row.imported_debt_count,
+    errorCount: row.error_count,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    metadata: parseJsonObject(row.metadata_json, {}),
   };
 }

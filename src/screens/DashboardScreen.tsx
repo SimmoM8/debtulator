@@ -17,7 +17,9 @@ import {
   SectionTitle,
 } from '@/src/components/ui/Primitives';
 import { palette, radii, spacing } from '@/src/constants/design';
+import { paidVsUnpaidSummary, verifiedVsPendingSummary } from '@/src/services/analytics';
 import { explainEventSettlement } from '@/src/services/ledger';
+import { buildSmartSuggestionDrafts } from '@/src/services/smartSuggestions';
 import { useAppData } from '@/src/state/AppDataProvider';
 import { useAuth } from '@/src/state/AuthProvider';
 import { sumMoneyMap } from '@/src/utils/money';
@@ -51,6 +53,29 @@ export function DashboardScreen() {
   const paymentAttention = data.ledgerEntries
     .filter((entry) => entry.paymentStatus === 'partially_paid' || entry.paymentStatus === 'overpaid')
     .slice(0, 4);
+  const paidSummary = useMemo(() => paidVsUnpaidSummary(data.ledgerEntries), [data.ledgerEntries]);
+  const trustSummary = useMemo(() => verifiedVsPendingSummary(data.ledgerEntries), [data.ledgerEntries]);
+  const smartSuggestions = useMemo(
+    () =>
+      buildSmartSuggestionDrafts({
+        debts: data.debts,
+        members: data.members,
+        events: data.events,
+        entries: data.ledgerEntries,
+        sharedEventMembers: data.sharedEventMembers,
+        recurringTemplates: data.recurringTemplates,
+        persisted: data.smartSuggestions,
+      }).slice(0, 3),
+    [
+      data.debts,
+      data.events,
+      data.ledgerEntries,
+      data.members,
+      data.recurringTemplates,
+      data.sharedEventMembers,
+      data.smartSuggestions,
+    ],
+  );
 
   const topMembers = useMemo(
     () =>
@@ -112,7 +137,48 @@ export function DashboardScreen() {
         <QuickAction label="Add expense" icon="cart" onPress={() => router.push('/expense/form')} />
         <QuickAction label="Recurring" icon="repeat" onPress={() => router.push('/recurring')} />
         <QuickAction label="Requests" icon="notifications" onPress={() => router.push('/requests')} />
+        <QuickAction label="Analytics" icon="analytics" onPress={() => router.push('/analytics')} />
+        <QuickAction label="Export" icon="download" onPress={() => router.push('/export')} />
+        <QuickAction label="Import CSV" icon="cloud-upload" onPress={() => router.push('/import-csv')} />
+        <QuickAction label="Suggestions" icon="sparkles" onPress={() => router.push('/suggestions')} />
       </View>
+
+      <ResponsiveGrid>
+        <View style={styles.gridItem}>
+          <SectionTitle title="Paid vs unpaid" subtitle="Open, paid, partial, and overpaid totals" />
+          <Card>
+            <SummaryLine label="Open" value={formatMoneyMapLike(paidSummary.totals.remaining)} tone="amber" />
+            <SummaryLine label="Paid" value={formatMoneyMapLike(paidSummary.totals.paid)} tone="positive" />
+            <SummaryLine label="Overpaid" value={formatMoneyMapLike(paidSummary.totals.overpaid)} tone="negative" />
+          </Card>
+        </View>
+        <View style={styles.gridItem}>
+          <SectionTitle title="Trust summary" subtitle="Verification state across active records" />
+          <Card>
+            <SummaryLine label="Verified" value={formatMoneyMapLike(trustSummary.verified)} tone="positive" />
+            <SummaryLine label="Pending" value={formatMoneyMapLike(trustSummary.pending)} tone="amber" />
+            <SummaryLine label="Rejected/disputed" value={formatMoneyMapLike(mergeMoneyMaps(trustSummary.rejected, trustSummary.disputed))} tone="negative" />
+          </Card>
+        </View>
+      </ResponsiveGrid>
+
+      {smartSuggestions.length > 0 ? (
+        <>
+          <SectionTitle title="Smart suggestions" subtitle="Optional assists that require confirmation" />
+          <Card>
+            {smartSuggestions.map((suggestion) => (
+              <View key={suggestion.key} style={styles.activityRow}>
+                <View style={styles.badgeLine}>
+                  <Badge label={suggestion.suggestionType} tone={suggestion.suggestionType === 'duplicate' ? 'amber' : 'blue'} />
+                </View>
+                <Text style={styles.quickText}>{suggestion.title}</Text>
+                <Text style={styles.activityMeta}>{suggestion.message}</Text>
+              </View>
+            ))}
+            <Button title="Open suggestions" icon="sparkles" variant="secondary" onPress={() => router.push('/suggestions')} />
+          </Card>
+        </>
+      ) : null}
 
       <ResponsiveGrid>
         <View style={styles.gridItem}>
@@ -332,6 +398,45 @@ function QuickAction({
   );
 }
 
+function SummaryLine({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: 'positive' | 'negative' | 'amber';
+}) {
+  return (
+    <View style={styles.summaryLine}>
+      <Badge label={label} tone={tone} />
+      <Text style={styles.summaryLineValue}>{value}</Text>
+    </View>
+  );
+}
+
+function formatMoneyMapLike(map: Record<string, number | undefined>) {
+  const rows = Object.entries(map).filter(([, amount]) => Math.abs(amount ?? 0) > 0.005);
+  if (!rows.length) {
+    return 'None';
+  }
+  return rows.map(([currency, amount]) => `${currency} ${Math.abs(amount ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`).join('  ');
+}
+
+function mergeMoneyMaps(
+  first: Record<string, number | undefined>,
+  second: Record<string, number | undefined>,
+) {
+  const merged: Record<string, number> = {};
+  for (const [currency, amount] of Object.entries(first)) {
+    merged[currency] = (merged[currency] ?? 0) + (amount ?? 0);
+  }
+  for (const [currency, amount] of Object.entries(second)) {
+    merged[currency] = (merged[currency] ?? 0) + (amount ?? 0);
+  }
+  return merged;
+}
+
 const styles = StyleSheet.create({
   heroCard: {
     gap: spacing.lg,
@@ -387,6 +492,22 @@ const styles = StyleSheet.create({
   summaryEmpty: {
     color: palette.faint,
     fontWeight: '800',
+  },
+  summaryLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: palette.line,
+  },
+  summaryLineValue: {
+    flex: 1,
+    color: palette.ink,
+    fontSize: 14,
+    fontWeight: '900',
+    textAlign: 'right',
   },
   positive: {
     color: palette.positive,

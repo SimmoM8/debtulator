@@ -2,7 +2,9 @@ import { router, useLocalSearchParams } from 'expo-router';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { StatusBadge, TagChips, VerificationBadge } from '@/src/components/ui/Badges';
+import { AttachmentsSection } from '@/src/components/AttachmentsSection';
+import { CommentsSection } from '@/src/components/CommentsSection';
+import { Badge, StatusBadge, TagChips, VerificationBadge } from '@/src/components/ui/Badges';
 import { Amount } from '@/src/components/ui/Money';
 import {
   Button,
@@ -16,6 +18,8 @@ import {
   SelectChips,
 } from '@/src/components/ui/Primitives';
 import { palette, spacing } from '@/src/constants/design';
+import { attachmentBadges, activeAttachmentsForTarget } from '@/src/services/attachments';
+import { debtPdfLines, shareExport, writePdfExport } from '@/src/services/export';
 import { participantName } from '@/src/services/ledger';
 import { explainSplit } from '@/src/services/splits';
 import { useAppData } from '@/src/state/AppDataProvider';
@@ -27,6 +31,8 @@ export function ExpenseDetailScreen() {
   const data = useAppData();
   const expense = data.sharedExpenses.find((item) => item.id === id);
   const event = expense ? data.events.find((item) => item.id === expense.eventId) : undefined;
+  const attachments = expense ? activeAttachmentsForTarget(data.attachments, 'shared_expense', expense.id) : [];
+  const attachmentState = attachmentBadges(attachments);
 
   if (data.loading) {
     return <LoadingState />;
@@ -58,6 +64,29 @@ export function ExpenseDetailScreen() {
     await data.updateSharedExpense(currentExpense.id, { verificationStatus });
   }
 
+  async function exportPdf() {
+    const entries = data.ledgerEntries.filter((entry) => entry.expenseId === currentExpense.id);
+    const uri = await writePdfExport(
+      `debtulator-${currentExpense.title}.pdf`,
+      debtPdfLines({
+        title: currentExpense.title,
+        entries,
+        payments: data.payments.filter((payment) => payment.eventId === currentExpense.eventId),
+        settlements: data.settlements.filter((settlement) => settlement.eventId === currentExpense.eventId),
+        snapshot: data,
+        options: {
+          includePrivateNotes: data.settings.includePrivateNotesInExports,
+          includeComments: data.settings.includeCommentsInExports,
+          includeAttachments: data.settings.includeAttachmentsInExports,
+          includeRejectedDisputed: data.settings.includeRejectedDisputedInExports,
+          includeArchived: data.settings.includeArchivedInExports,
+        },
+      }),
+    );
+    await data.createExportLog({ exportType: 'pdf', targetType: 'shared_expense', targetId: currentExpense.id, metadata: { uri } });
+    await shareExport(uri, `${currentExpense.title} PDF`);
+  }
+
   return (
     <Screen>
       <PageHeader
@@ -76,6 +105,7 @@ export function ExpenseDetailScreen() {
           <View style={styles.badgeStack}>
             <StatusBadge status={expense.status} />
             <VerificationBadge status={expense.verificationStatus} />
+            {attachmentState.receiptLabel ? <Badge label={attachmentState.receiptLabel} tone="positive" /> : null}
           </View>
         </View>
         <Text style={styles.body}>
@@ -87,7 +117,25 @@ export function ExpenseDetailScreen() {
         </Text>
         {expense.notes ? <Text style={styles.body}>{expense.notes}</Text> : null}
         <TagChips tags={expense.tags} />
+        <View style={styles.actionRow}>
+          <Button title="Export PDF" icon="document-text" variant="secondary" onPress={exportPdf} />
+        </View>
       </Card>
+
+      <AttachmentsSection
+        targetType="shared_expense"
+        targetId={expense.id}
+        eventId={expense.eventId}
+        parentVisibility={expense.visibility}
+        preferredKind="receipt"
+      />
+
+      <CommentsSection
+        targetType="shared_expense"
+        targetId={expense.id}
+        eventId={expense.eventId}
+        sharedAvailable={expense.visibility === 'shared_event'}
+      />
 
       {expense.verificationStatus === 'rejected' || expense.verificationStatus === 'disputed' ? (
         <Card tone="coral">
