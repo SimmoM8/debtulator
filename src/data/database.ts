@@ -5,7 +5,9 @@ import type {
   AppSettings,
   ActivityLog,
   ActivityTargetKind,
+  AppNotification,
   Attachment,
+  AuditLog,
   CurrencyCode,
   CurrencyRate,
   Comment,
@@ -37,6 +39,8 @@ import type {
   SettlementLine,
   SoftReminder,
   SmartSuggestion,
+  SyncConflict,
+  SyncQueueEntry,
   SyncStatus,
   Tag,
   UserProfile,
@@ -77,6 +81,10 @@ export type DatabaseSnapshot = {
   smartSuggestions: SmartSuggestion[];
   exportLogs: ExportLog[];
   csvImportBatches: CsvImportBatch[];
+  syncQueue: SyncQueueEntry[];
+  syncConflicts: SyncConflict[];
+  notifications: AppNotification[];
+  auditLogs: AuditLog[];
   tags: Tag[];
   currencyRates: CurrencyRate[];
   settings: AppSettings;
@@ -612,6 +620,63 @@ type CsvImportBatchRow = {
   created_at: string;
   updated_at: string;
   metadata_json: string | null;
+};
+
+type SyncQueueRow = {
+  id: string;
+  entity_type: SyncQueueEntry['entityType'];
+  entity_id: string;
+  operation: SyncQueueEntry['operation'];
+  payload_json: string | null;
+  dependency_ids_json: string | null;
+  retry_count: number;
+  status: SyncQueueEntry['status'];
+  error_code: string | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+  last_attempt_at: string | null;
+};
+
+type SyncConflictRow = {
+  id: string;
+  entity_type: SyncConflict['entityType'];
+  local_entity_id: string;
+  remote_entity_id: string | null;
+  conflict_type: SyncConflict['conflictType'];
+  local_snapshot_json: string | null;
+  remote_snapshot_json: string | null;
+  base_snapshot_json: string | null;
+  detected_at: string;
+  status: SyncConflict['status'];
+  resolution: SyncConflict['resolution'];
+  resolved_at: string | null;
+  resolved_by_user_id: string | null;
+};
+
+type NotificationRow = {
+  id: string;
+  user_id: string | null;
+  type: AppNotification['type'];
+  title: string;
+  body: string;
+  target_type: AppNotification['targetType'];
+  target_id: string | null;
+  read_at: string | null;
+  created_at: string;
+  metadata_json: string | null;
+};
+
+type AuditLogRow = {
+  id: string;
+  actor_user_id: string | null;
+  action: string;
+  target_type: AuditLog['targetType'];
+  target_id: string | null;
+  event_id: string | null;
+  metadata_json: string | null;
+  device_id: string | null;
+  created_at: string;
 };
 
 const DB_NAME = 'debtulator-stage1.db';
@@ -1177,6 +1242,81 @@ export async function migrate(db: SQLite.SQLiteDatabase) {
       metadata_json TEXT NOT NULL DEFAULT '{}'
     );
 
+    CREATE TABLE IF NOT EXISTS sync_queue (
+      id TEXT PRIMARY KEY NOT NULL,
+      entity_type TEXT NOT NULL,
+      entity_id TEXT NOT NULL,
+      operation TEXT NOT NULL,
+      payload_json TEXT NOT NULL DEFAULT '{}',
+      dependency_ids_json TEXT NOT NULL DEFAULT '[]',
+      retry_count INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'pending',
+      error_code TEXT,
+      error_message TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      last_attempt_at TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS sync_queue_status_idx
+      ON sync_queue(status, created_at);
+
+    CREATE INDEX IF NOT EXISTS sync_queue_entity_idx
+      ON sync_queue(entity_type, entity_id);
+
+    CREATE TABLE IF NOT EXISTS sync_conflicts (
+      id TEXT PRIMARY KEY NOT NULL,
+      entity_type TEXT NOT NULL,
+      local_entity_id TEXT NOT NULL,
+      remote_entity_id TEXT,
+      conflict_type TEXT NOT NULL,
+      local_snapshot_json TEXT NOT NULL DEFAULT '{}',
+      remote_snapshot_json TEXT NOT NULL DEFAULT '{}',
+      base_snapshot_json TEXT,
+      detected_at TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'unresolved',
+      resolution TEXT,
+      resolved_at TEXT,
+      resolved_by_user_id TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS sync_conflicts_status_idx
+      ON sync_conflicts(status, detected_at);
+
+    CREATE TABLE IF NOT EXISTS notifications (
+      id TEXT PRIMARY KEY NOT NULL,
+      user_id TEXT,
+      type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      body TEXT NOT NULL,
+      target_type TEXT,
+      target_id TEXT,
+      read_at TEXT,
+      created_at TEXT NOT NULL,
+      metadata_json TEXT NOT NULL DEFAULT '{}'
+    );
+
+    CREATE INDEX IF NOT EXISTS notifications_user_read_idx
+      ON notifications(user_id, read_at, created_at);
+
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id TEXT PRIMARY KEY NOT NULL,
+      actor_user_id TEXT,
+      action TEXT NOT NULL,
+      target_type TEXT NOT NULL,
+      target_id TEXT,
+      event_id TEXT,
+      metadata_json TEXT NOT NULL DEFAULT '{}',
+      device_id TEXT,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS audit_logs_target_idx
+      ON audit_logs(target_type, target_id, created_at);
+
+    CREATE INDEX IF NOT EXISTS audit_logs_event_idx
+      ON audit_logs(event_id, created_at);
+
     CREATE TABLE IF NOT EXISTS app_settings (
       key TEXT PRIMARY KEY NOT NULL,
       value TEXT NOT NULL
@@ -1228,6 +1368,27 @@ export async function migrate(db: SQLite.SQLiteDatabase) {
 
   await ensureColumn(db, 'event_debts', 'due_date', 'TEXT');
   await ensureColumn(db, 'activity_log', 'actor_user_id', 'TEXT');
+
+  await db.execAsync(`
+    CREATE INDEX IF NOT EXISTS members_sync_idx ON members(sync_status, updated_at);
+    CREATE INDEX IF NOT EXISTS members_remote_idx ON members(remote_id);
+    CREATE INDEX IF NOT EXISTS debts_member_idx ON debts(member_id, debt_date);
+    CREATE INDEX IF NOT EXISTS debts_event_idx ON debts(event_id, debt_date);
+    CREATE INDEX IF NOT EXISTS debts_sync_idx ON debts(sync_status, updated_at);
+    CREATE INDEX IF NOT EXISTS debts_status_idx ON debts(status, verification_status);
+    CREATE INDEX IF NOT EXISTS events_remote_idx ON events(remote_id);
+    CREATE INDEX IF NOT EXISTS events_sync_idx ON events(sync_status, updated_at);
+    CREATE INDEX IF NOT EXISTS shared_expenses_event_idx ON shared_expenses(event_id, expense_date);
+    CREATE INDEX IF NOT EXISTS shared_expenses_sync_idx ON shared_expenses(sync_status, updated_at);
+    CREATE INDEX IF NOT EXISTS event_debts_event_idx ON event_debts(event_id, debt_date);
+    CREATE INDEX IF NOT EXISTS event_debts_sync_idx ON event_debts(sync_status, updated_at);
+    CREATE INDEX IF NOT EXISTS payments_event_idx ON payments(event_id, payment_date);
+    CREATE INDEX IF NOT EXISTS payments_sync_idx ON payments(sync_status, updated_at);
+    CREATE INDEX IF NOT EXISTS settlements_event_idx ON settlements(event_id, created_at);
+    CREATE INDEX IF NOT EXISTS settlements_sync_idx ON settlements(sync_status, updated_at);
+    CREATE INDEX IF NOT EXISTS reminders_due_idx ON reminders(status, remind_at);
+    CREATE INDEX IF NOT EXISTS tags_name_idx ON tags(name);
+  `);
 }
 
 async function ensureColumn(
@@ -1244,6 +1405,10 @@ async function ensureColumn(
 
 export async function resetDatabase(db: SQLite.SQLiteDatabase, seed = true) {
   await db.execAsync(`
+    DELETE FROM audit_logs;
+    DELETE FROM notifications;
+    DELETE FROM sync_conflicts;
+    DELETE FROM sync_queue;
     DELETE FROM event_activity_logs;
     DELETE FROM csv_import_batches;
     DELETE FROM export_logs;
@@ -1303,74 +1468,50 @@ export async function seedIfEmpty(db: SQLite.SQLiteDatabase) {
 
 export async function seedDefaults(db: SQLite.SQLiteDatabase) {
   const timestamp = nowIso();
-  await db.runAsync(`INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, [
-    'baseCurrency',
-    DEFAULT_BASE_CURRENCY,
-  ]);
-  await db.runAsync(`INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, [
-    'showEstimatedBase',
-    'true',
-  ]);
-  await db.runAsync(`INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, [
-    'theme',
-    'system',
-  ]);
-  await db.runAsync(`INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, [
-    'convertedSettlementOptIn',
-    'false',
-  ]);
-  await db.runAsync(`INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, [
-    'defaultReminderPreference',
-    'none',
-  ]);
-  await db.runAsync(`INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, [
-    'recurringGenerationPreference',
-    'prompt',
-  ]);
-  await db.runAsync(`INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, [
-    'includePendingSettlements',
-    'false',
-  ]);
-  await db.runAsync(`INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, [
-    'includeRejectedDisputedSettlements',
-    'false',
-  ]);
-  await db.runAsync(`INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, [
-    'verifiedOnlySettlements',
-    'false',
-  ]);
-  await db.runAsync(`INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, [
-    'smartSuggestionsEnabled',
-    'true',
-  ]);
-  await db.runAsync(`INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, [
-    'analyticsEstimatedCurrencyMode',
-    'false',
-  ]);
-  await db.runAsync(`INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, [
-    'attachmentUploadPreference',
-    'ask',
-  ]);
-  await db.runAsync(`INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, [
-    'includePrivateNotesInExports',
-    'false',
-  ]);
-  await db.runAsync(`INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, [
-    'includeRejectedDisputedInExports',
-    'false',
-  ]);
-  await db.runAsync(`INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, [
-    'includeArchivedInExports',
-    'false',
-  ]);
-  await db.runAsync(`INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, [
-    'includeCommentsInExports',
-    'false',
-  ]);
-  await db.runAsync(`INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, [
-    'includeAttachmentsInExports',
-    'false',
-  ]);
+  const defaults: Record<keyof AppSettings, string> = {
+    baseCurrency: DEFAULT_BASE_CURRENCY,
+    showEstimatedBase: 'true',
+    theme: 'system',
+    convertedSettlementOptIn: 'false',
+    defaultReminderPreference: 'none',
+    recurringGenerationPreference: 'prompt',
+    includePendingSettlements: 'false',
+    includeRejectedDisputedSettlements: 'false',
+    verifiedOnlySettlements: 'false',
+    smartSuggestionsEnabled: 'true',
+    analyticsEstimatedCurrencyMode: 'false',
+    attachmentUploadPreference: 'ask',
+    includePrivateNotesInExports: 'false',
+    includeRejectedDisputedInExports: 'false',
+    includeArchivedInExports: 'false',
+    includeCommentsInExports: 'false',
+    includeAttachmentsInExports: 'false',
+    defaultDebtVisibility: 'private',
+    defaultEventVisibility: 'private',
+    showSensitiveDetailsInNotifications: 'false',
+    syncPrivateLocalDataToAccountBackup: 'false',
+    uploadAttachmentsForSharedRecords: 'false',
+    analyticsIncludeRejectedDisputed: 'false',
+    smartSuggestionsPrivateOnly: 'true',
+    pushNotificationsEnabled: 'false',
+    emailNotificationsEnabled: 'false',
+    notificationVerificationEnabled: 'true',
+    notificationEventEnabled: 'true',
+    notificationPaymentSettlementEnabled: 'true',
+    notificationReminderEnabled: 'true',
+    notificationCommentEnabled: 'false',
+    quietHoursEnabled: 'false',
+    quietHoursStart: '22:00',
+    quietHoursEnd: '07:00',
+    language: 'system',
+    backupIncludeAttachments: 'false',
+    backupIncludePrivateNotes: 'false',
+    lastBackupAt: '',
+  };
+
+  for (const [key, value] of Object.entries(defaults)) {
+    await db.runAsync(`INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, [key, value]);
+  }
 
   for (const [currency, rate] of Object.entries(DEFAULT_CURRENCY_RATES_TO_SEK)) {
     await db.runAsync(
@@ -2335,6 +2476,10 @@ export async function loadSnapshot(db: SQLite.SQLiteDatabase): Promise<DatabaseS
     smartSuggestions,
     exportLogs,
     csvImportBatches,
+    syncQueue,
+    syncConflicts,
+    notifications,
+    auditLogs,
     tags,
     currencyRates,
     settings,
@@ -2370,6 +2515,10 @@ export async function loadSnapshot(db: SQLite.SQLiteDatabase): Promise<DatabaseS
       getSmartSuggestions(db),
       getExportLogs(db),
       getCsvImportBatches(db),
+      getSyncQueue(db),
+      getSyncConflicts(db),
+      getNotifications(db),
+      getAuditLogs(db),
       getTags(db),
       getCurrencyRates(db),
       getSettings(db),
@@ -2409,6 +2558,10 @@ export async function loadSnapshot(db: SQLite.SQLiteDatabase): Promise<DatabaseS
     smartSuggestions,
     exportLogs,
     csvImportBatches,
+    syncQueue,
+    syncConflicts,
+    notifications,
+    auditLogs,
     tags,
     currencyRates,
     settings,
@@ -2595,6 +2748,46 @@ export async function getCsvImportBatches(db: SQLite.SQLiteDatabase) {
   return rows.map(mapCsvImportBatchRow);
 }
 
+export async function getSyncQueue(db: SQLite.SQLiteDatabase) {
+  const rows = await db.getAllAsync<SyncQueueRow>(
+    `SELECT * FROM sync_queue ORDER BY
+      CASE status
+        WHEN 'running' THEN 0
+        WHEN 'pending' THEN 1
+        WHEN 'failed' THEN 2
+        WHEN 'conflict' THEN 3
+        ELSE 4
+      END,
+      created_at ASC
+      LIMIT 300`,
+  );
+  return rows.map(mapSyncQueueRow);
+}
+
+export async function getSyncConflicts(db: SQLite.SQLiteDatabase) {
+  const rows = await db.getAllAsync<SyncConflictRow>(
+    `SELECT * FROM sync_conflicts ORDER BY
+      CASE status WHEN 'unresolved' THEN 0 ELSE 1 END,
+      detected_at DESC
+      LIMIT 200`,
+  );
+  return rows.map(mapSyncConflictRow);
+}
+
+export async function getNotifications(db: SQLite.SQLiteDatabase) {
+  const rows = await db.getAllAsync<NotificationRow>(
+    `SELECT * FROM notifications ORDER BY created_at DESC LIMIT 300`,
+  );
+  return rows.map(mapNotificationRow);
+}
+
+export async function getAuditLogs(db: SQLite.SQLiteDatabase) {
+  const rows = await db.getAllAsync<AuditLogRow>(
+    `SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 300`,
+  );
+  return rows.map(mapAuditLogRow);
+}
+
 export async function getTags(db: SQLite.SQLiteDatabase) {
   const rows = await db.getAllAsync<TagRow>(`SELECT * FROM tags ORDER BY name COLLATE NOCASE`);
   return rows.map((row) => ({
@@ -2643,6 +2836,32 @@ export async function getSettings(db: SQLite.SQLiteDatabase): Promise<AppSetting
     includeArchivedInExports: values.includeArchivedInExports === 'true',
     includeCommentsInExports: values.includeCommentsInExports === 'true',
     includeAttachmentsInExports: values.includeAttachmentsInExports === 'true',
+    defaultDebtVisibility:
+      values.defaultDebtVisibility === 'shared_with_involved_member' ||
+      values.defaultDebtVisibility === 'future_event_shared' ||
+      values.defaultDebtVisibility === 'shared_event'
+        ? values.defaultDebtVisibility
+        : 'private',
+    defaultEventVisibility: values.defaultEventVisibility === 'shared' ? 'shared' : 'private',
+    showSensitiveDetailsInNotifications: values.showSensitiveDetailsInNotifications === 'true',
+    syncPrivateLocalDataToAccountBackup: values.syncPrivateLocalDataToAccountBackup === 'true',
+    uploadAttachmentsForSharedRecords: values.uploadAttachmentsForSharedRecords === 'true',
+    analyticsIncludeRejectedDisputed: values.analyticsIncludeRejectedDisputed === 'true',
+    smartSuggestionsPrivateOnly: values.smartSuggestionsPrivateOnly !== 'false',
+    pushNotificationsEnabled: values.pushNotificationsEnabled === 'true',
+    emailNotificationsEnabled: values.emailNotificationsEnabled === 'true',
+    notificationVerificationEnabled: values.notificationVerificationEnabled !== 'false',
+    notificationEventEnabled: values.notificationEventEnabled !== 'false',
+    notificationPaymentSettlementEnabled: values.notificationPaymentSettlementEnabled !== 'false',
+    notificationReminderEnabled: values.notificationReminderEnabled !== 'false',
+    notificationCommentEnabled: values.notificationCommentEnabled === 'true',
+    quietHoursEnabled: values.quietHoursEnabled === 'true',
+    quietHoursStart: values.quietHoursStart || '22:00',
+    quietHoursEnd: values.quietHoursEnd || '07:00',
+    language: values.language === 'en' || values.language === 'sv' ? values.language : 'system',
+    backupIncludeAttachments: values.backupIncludeAttachments === 'true',
+    backupIncludePrivateNotes: values.backupIncludePrivateNotes === 'true',
+    lastBackupAt: values.lastBackupAt && values.lastBackupAt !== 'null' ? values.lastBackupAt : null,
   };
 }
 
@@ -3431,6 +3650,94 @@ export async function insertCsvImportBatch(db: SQLite.SQLiteDatabase, batch: Csv
   );
 }
 
+export async function insertSyncQueueEntry(db: SQLite.SQLiteDatabase, entry: SyncQueueEntry) {
+  await db.runAsync(
+    `INSERT OR REPLACE INTO sync_queue
+      (id, entity_type, entity_id, operation, payload_json, dependency_ids_json, retry_count, status,
+       error_code, error_message, created_at, updated_at, last_attempt_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      entry.id,
+      entry.entityType,
+      entry.entityId,
+      entry.operation,
+      toJson(entry.payload),
+      toJson(entry.dependencyIds),
+      entry.retryCount,
+      entry.status,
+      entry.errorCode,
+      entry.errorMessage,
+      entry.createdAt,
+      entry.updatedAt,
+      entry.lastAttemptAt,
+    ],
+  );
+}
+
+export async function insertSyncConflict(db: SQLite.SQLiteDatabase, conflict: SyncConflict) {
+  await db.runAsync(
+    `INSERT OR REPLACE INTO sync_conflicts
+      (id, entity_type, local_entity_id, remote_entity_id, conflict_type, local_snapshot_json,
+       remote_snapshot_json, base_snapshot_json, detected_at, status, resolution, resolved_at,
+       resolved_by_user_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      conflict.id,
+      conflict.entityType,
+      conflict.localEntityId,
+      conflict.remoteEntityId,
+      conflict.conflictType,
+      toJson(conflict.localSnapshot),
+      toJson(conflict.remoteSnapshot),
+      conflict.baseSnapshot ? toJson(conflict.baseSnapshot) : null,
+      conflict.detectedAt,
+      conflict.status,
+      conflict.resolution,
+      conflict.resolvedAt,
+      conflict.resolvedByUserId,
+    ],
+  );
+}
+
+export async function insertNotification(db: SQLite.SQLiteDatabase, notification: AppNotification) {
+  await db.runAsync(
+    `INSERT OR REPLACE INTO notifications
+      (id, user_id, type, title, body, target_type, target_id, read_at, created_at, metadata_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      notification.id,
+      notification.userId,
+      notification.type,
+      notification.title,
+      notification.body,
+      notification.targetType,
+      notification.targetId,
+      notification.readAt,
+      notification.createdAt,
+      toJson(notification.metadata),
+    ],
+  );
+}
+
+export async function insertAuditLog(db: SQLite.SQLiteDatabase, auditLog: AuditLog) {
+  await db.runAsync(
+    `INSERT OR REPLACE INTO audit_logs
+      (id, actor_user_id, action, target_type, target_id, event_id, metadata_json, device_id, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      auditLog.id,
+      auditLog.actorUserId,
+      auditLog.action,
+      auditLog.targetType,
+      auditLog.targetId,
+      auditLog.eventId,
+      toJson(auditLog.metadata),
+      auditLog.deviceId,
+      auditLog.createdAt,
+    ],
+  );
+}
+
 export async function deleteEventMember(db: SQLite.SQLiteDatabase, eventId: string, memberId: string) {
   await db.runAsync(`DELETE FROM event_members WHERE event_id = ? AND member_id = ?`, [eventId, memberId]);
 }
@@ -4031,5 +4338,70 @@ export function mapCsvImportBatchRow(row: CsvImportBatchRow): CsvImportBatch {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     metadata: parseJsonObject(row.metadata_json, {}),
+  };
+}
+
+export function mapSyncQueueRow(row: SyncQueueRow): SyncQueueEntry {
+  return {
+    id: row.id,
+    entityType: row.entity_type,
+    entityId: row.entity_id,
+    operation: row.operation,
+    payload: parseJsonObject(row.payload_json, {}),
+    dependencyIds: parseJsonArray(row.dependency_ids_json, []),
+    retryCount: row.retry_count,
+    status: row.status,
+    errorCode: row.error_code,
+    errorMessage: row.error_message,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    lastAttemptAt: row.last_attempt_at,
+  };
+}
+
+export function mapSyncConflictRow(row: SyncConflictRow): SyncConflict {
+  return {
+    id: row.id,
+    entityType: row.entity_type,
+    localEntityId: row.local_entity_id,
+    remoteEntityId: row.remote_entity_id,
+    conflictType: row.conflict_type,
+    localSnapshot: parseJsonObject(row.local_snapshot_json, {}),
+    remoteSnapshot: parseJsonObject(row.remote_snapshot_json, {}),
+    baseSnapshot: row.base_snapshot_json ? parseJsonObject(row.base_snapshot_json, {}) : null,
+    detectedAt: row.detected_at,
+    status: row.status,
+    resolution: row.resolution,
+    resolvedAt: row.resolved_at,
+    resolvedByUserId: row.resolved_by_user_id,
+  };
+}
+
+export function mapNotificationRow(row: NotificationRow): AppNotification {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    type: row.type,
+    title: row.title,
+    body: row.body,
+    targetType: row.target_type,
+    targetId: row.target_id,
+    readAt: row.read_at,
+    createdAt: row.created_at,
+    metadata: parseJsonObject(row.metadata_json, {}),
+  };
+}
+
+export function mapAuditLogRow(row: AuditLogRow): AuditLog {
+  return {
+    id: row.id,
+    actorUserId: row.actor_user_id,
+    action: row.action,
+    targetType: row.target_type,
+    targetId: row.target_id,
+    eventId: row.event_id,
+    metadata: parseJsonObject(row.metadata_json, {}),
+    deviceId: row.device_id,
+    createdAt: row.created_at,
   };
 }

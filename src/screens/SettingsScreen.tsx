@@ -200,6 +200,45 @@ export function SettingsScreen() {
       </Card>
 
       <Card>
+        <SectionTitle title="Stage 6 production controls" subtitle="Sync, privacy, notifications, backup, export, deletion, language, and accessibility." />
+        <View style={styles.buttonRow}>
+          <Button title="Sync status" icon="sync" variant="secondary" onPress={() => router.push('/sync' as never)} />
+          <Button title="Conflicts" icon="git-compare" variant="secondary" onPress={() => router.push('/conflicts' as never)} />
+          <Button title="Notifications" icon="notifications" variant="secondary" onPress={() => router.push('/notifications' as never)} />
+          <Button title="Backup/restore" icon="archive" variant="secondary" onPress={() => router.push('/backup' as never)} />
+          <Button title="Privacy" icon="lock-closed" variant="secondary" onPress={() => router.push('/privacy' as never)} />
+          <Button title="Full export" icon="download" variant="secondary" onPress={() => router.push('/full-export' as never)} />
+          <Button title="Language" icon="language" variant="secondary" onPress={() => router.push('/language' as never)} />
+          <Button title="Accessibility" icon="accessibility" variant="secondary" onPress={() => router.push('/accessibility' as never)} />
+          <Button title="Delete account" icon="trash" variant="danger" onPress={() => router.push('/delete-account' as never)} />
+        </View>
+        <View style={styles.switchRow}>
+          <View style={styles.switchText}>
+            <Text style={styles.rowTitle}>Push notifications</Text>
+            <Text style={styles.rowBody}>External delivery is optional; in-app notifications always remain available.</Text>
+          </View>
+          <Switch
+            value={data.settings.pushNotificationsEnabled}
+            onValueChange={(pushNotificationsEnabled) => data.updateSettings({ pushNotificationsEnabled })}
+            trackColor={{ false: palette.lineStrong, true: palette.brandSoft }}
+            thumbColor={data.settings.pushNotificationsEnabled ? palette.brand : '#FFFFFF'}
+          />
+        </View>
+        <View style={styles.switchRow}>
+          <View style={styles.switchText}>
+            <Text style={styles.rowTitle}>Email notifications</Text>
+            <Text style={styles.rowBody}>Backend-ready preference for important invites, requests, reminders, and export completion.</Text>
+          </View>
+          <Switch
+            value={data.settings.emailNotificationsEnabled}
+            onValueChange={(emailNotificationsEnabled) => data.updateSettings({ emailNotificationsEnabled })}
+            trackColor={{ false: palette.lineStrong, true: palette.brandSoft }}
+            thumbColor={data.settings.emailNotificationsEnabled ? palette.brand : '#FFFFFF'}
+          />
+        </View>
+      </Card>
+
+      <Card>
         <SectionTitle title="Stage 4 defaults" subtitle="Converted settlements stay off unless explicitly enabled." />
         <View style={styles.switchRow}>
           <View style={styles.switchText}>

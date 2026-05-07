@@ -129,6 +129,15 @@ export function DashboardScreen() {
         </View>
       </Card>
 
+      <Pressable accessibilityRole="button" onPress={() => router.push('/sync' as never)} style={styles.syncIndicator}>
+        <View style={styles.badgeLine}>
+          <Badge label={data.syncSummary.statusLabel} tone={data.syncSummary.hasBlockingProblems ? 'amber' : 'positive'} />
+          <Badge label={`${data.syncSummary.pendingCount} pending`} tone={data.syncSummary.pendingCount ? 'amber' : 'neutral'} />
+          <Badge label={`${data.syncSummary.conflictCount} conflicts`} tone={data.syncSummary.conflictCount ? 'negative' : 'neutral'} />
+        </View>
+        <Text style={styles.activityMeta}>Offline-first queue and conflict review</Text>
+      </Pressable>
+
       <View style={styles.quickActions}>
         <QuickAction label="Add debt" icon="receipt" onPress={() => router.push('/debt/form')} />
         <QuickAction label="Add member" icon="person-add" onPress={() => router.push('/member/form')} />
@@ -141,6 +150,8 @@ export function DashboardScreen() {
         <QuickAction label="Export" icon="download" onPress={() => router.push('/export')} />
         <QuickAction label="Import CSV" icon="cloud-upload" onPress={() => router.push('/import-csv')} />
         <QuickAction label="Suggestions" icon="sparkles" onPress={() => router.push('/suggestions')} />
+        <QuickAction label="Sync" icon="sync" onPress={() => router.push('/sync' as never)} />
+        <QuickAction label="Notifications" icon="notifications" onPress={() => router.push('/notifications' as never)} />
       </View>
 
       <ResponsiveGrid>
@@ -474,6 +485,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.xs,
+  },
+  syncIndicator: {
+    backgroundColor: palette.surface,
+    borderColor: palette.line,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    gap: spacing.xs,
+    padding: spacing.md,
   },
   summaryTile: {
     flex: 1,

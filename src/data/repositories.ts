@@ -4,6 +4,7 @@ import {
   deleteEventMember,
   insertAttachment,
   insertActivityLog,
+  insertAuditLog,
   insertComment,
   insertCsvImportBatch,
   insertDebt,
@@ -31,6 +32,9 @@ import {
   insertSharedExpense,
   insertSoftReminder,
   insertSmartSuggestion,
+  insertSyncConflict,
+  insertSyncQueueEntry,
+  insertNotification,
   loadSnapshot,
   resetDatabase,
   updateCurrencyRate,
@@ -45,7 +49,9 @@ import {
 import type {
   AppSettings,
   ActivityTargetKind,
+  AppNotification,
   Attachment,
+  AuditLog,
   AttachmentKind,
   AttachmentTargetType,
   AttachmentVisibility,
@@ -88,6 +94,8 @@ import type {
   SmartSuggestionStatus,
   SmartSuggestionType,
   SuggestedDebtChange,
+  SyncConflict,
+  SyncQueueEntry,
   SyncStatus,
   VerificationStatus,
   UserProfile,
@@ -352,6 +360,145 @@ export class DebtulatorRepository {
     await resetDatabase(this.db, seed);
   }
 
+  async upsertSyncQueueEntry(entry: SyncQueueEntry) {
+    await insertSyncQueueEntry(this.db, entry);
+    return entry;
+  }
+
+  async upsertSyncConflict(conflict: SyncConflict) {
+    await insertSyncConflict(this.db, conflict);
+    return conflict;
+  }
+
+  async upsertNotification(notification: AppNotification) {
+    await insertNotification(this.db, notification);
+    return notification;
+  }
+
+  async upsertAuditLog(auditLog: AuditLog) {
+    await insertAuditLog(this.db, auditLog);
+    return auditLog;
+  }
+
+  async queueSyncOperation(input: {
+    entityType: SyncQueueEntry['entityType'];
+    entityId: string;
+    operation: SyncQueueEntry['operation'];
+    payload?: Record<string, unknown>;
+    dependencyIds?: string[];
+  }) {
+    const timestamp = nowIso();
+    const entry: SyncQueueEntry = {
+      id: createId('sync_queue'),
+      entityType: input.entityType,
+      entityId: input.entityId,
+      operation: input.operation,
+      payload: input.payload ?? {},
+      dependencyIds: input.dependencyIds ?? [],
+      retryCount: 0,
+      status: 'pending',
+      errorCode: null,
+      errorMessage: null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      lastAttemptAt: null,
+    };
+    await insertSyncQueueEntry(this.db, entry);
+    return entry;
+  }
+
+  async markSyncQueueEntry(entry: SyncQueueEntry, patch: Partial<SyncQueueEntry>) {
+    const updated: SyncQueueEntry = {
+      ...entry,
+      ...patch,
+      updatedAt: nowIso(),
+    };
+    await insertSyncQueueEntry(this.db, updated);
+    return updated;
+  }
+
+  async createSyncConflict(input: Omit<SyncConflict, 'id' | 'detectedAt' | 'status' | 'resolution' | 'resolvedAt' | 'resolvedByUserId'>) {
+    const conflict: SyncConflict = {
+      ...input,
+      id: createId('conflict'),
+      detectedAt: nowIso(),
+      status: 'unresolved',
+      resolution: null,
+      resolvedAt: null,
+      resolvedByUserId: null,
+    };
+    await insertSyncConflict(this.db, conflict);
+    await this.queueSyncOperation({
+      entityType: input.entityType,
+      entityId: input.localEntityId,
+      operation: 'update',
+      payload: { conflictId: conflict.id, blocked: true },
+    });
+    await this.createNotification({
+      userId: null,
+      type: 'sync_problem',
+      title: 'Sync conflict needs review',
+      body: `${input.entityType.replaceAll('_', ' ')} has competing local and remote changes.`,
+      targetType: 'sync_conflict',
+      targetId: conflict.id,
+      metadata: { conflictType: conflict.conflictType },
+    });
+    return conflict;
+  }
+
+  async resolveSyncConflict(conflict: SyncConflict, resolution: SyncConflict['resolution'], actorUserId?: string | null) {
+    const resolved: SyncConflict = {
+      ...conflict,
+      status: 'resolved',
+      resolution,
+      resolvedAt: nowIso(),
+      resolvedByUserId: actorUserId ?? null,
+    };
+    await insertSyncConflict(this.db, resolved);
+    await this.createAuditLog({
+      actorUserId: actorUserId ?? null,
+      action: 'conflict_resolved',
+      targetType: 'sync_conflict',
+      targetId: conflict.id,
+      eventId: null,
+      metadata: {
+        entityType: conflict.entityType,
+        localEntityId: conflict.localEntityId,
+        remoteEntityId: conflict.remoteEntityId,
+        resolution,
+      },
+    });
+    return resolved;
+  }
+
+  async createNotification(input: Omit<AppNotification, 'id' | 'createdAt' | 'readAt'> & { readAt?: string | null }) {
+    const notification: AppNotification = {
+      ...input,
+      id: createId('notification'),
+      readAt: input.readAt ?? null,
+      createdAt: nowIso(),
+    };
+    await insertNotification(this.db, notification);
+    return notification;
+  }
+
+  async markNotificationRead(notification: AppNotification, readAt = nowIso()) {
+    const updated = { ...notification, readAt };
+    await insertNotification(this.db, updated);
+    return updated;
+  }
+
+  async createAuditLog(input: Omit<AuditLog, 'id' | 'createdAt' | 'deviceId'> & { deviceId?: string | null }) {
+    const auditLog: AuditLog = {
+      ...input,
+      id: createId('audit'),
+      deviceId: input.deviceId ?? null,
+      createdAt: nowIso(),
+    };
+    await insertAuditLog(this.db, auditLog);
+    return auditLog;
+  }
+
   async createMember(input: MemberInput) {
     const timestamp = nowIso();
     const member: Member = {
@@ -437,6 +584,9 @@ export class DebtulatorRepository {
       updatedAt: timestamp,
     };
     await insertDebt(this.db, debt);
+    if (debt.syncStatus === 'pending_upload' || debt.syncStatus === 'pending_create') {
+      await this.queueSyncOperation({ entityType: 'debt', entityId: debt.id, operation: 'create', payload: debt });
+    }
     return debt;
   }
 
@@ -492,6 +642,9 @@ export class DebtulatorRepository {
       updatedAt: nowIso(),
     };
     await insertDebt(this.db, updated);
+    if (updated.syncStatus === 'pending_update') {
+      await this.queueSyncOperation({ entityType: 'debt', entityId: updated.id, operation: 'update', payload: updated });
+    }
     if (financialFieldsChanged && debt.verificationStatus === 'verified') {
       await this.logActivity('debt', debt.id, 'verification_reset_financial_edit', null, {
         previousStatus: debt.verificationStatus,
@@ -575,6 +728,9 @@ export class DebtulatorRepository {
     } else {
       await this.setEventMembers(event.id, input.memberIds ?? []);
     }
+    if (event.syncStatus === 'pending_upload' || event.syncStatus === 'pending_create') {
+      await this.queueSyncOperation({ entityType: 'event', entityId: event.id, operation: 'create', payload: event });
+    }
     return event;
   }
 
@@ -630,6 +786,9 @@ export class DebtulatorRepository {
         status: updated.status,
         archived: updated.archived,
       });
+    }
+    if (updated.syncStatus === 'pending_update') {
+      await this.queueSyncOperation({ entityType: 'event', entityId: updated.id, operation: 'update', payload: updated });
     }
     return updated;
   }
@@ -696,6 +855,9 @@ export class DebtulatorRepository {
         title: expense.title,
       });
     }
+    if (expense.syncStatus === 'pending_upload' || expense.syncStatus === 'pending_create') {
+      await this.queueSyncOperation({ entityType: 'shared_expense', entityId: expense.id, operation: 'create', payload: expense });
+    }
     return expense;
   }
 
@@ -756,6 +918,9 @@ export class DebtulatorRepository {
       await this.logEventActivity(updated.eventId, 'expense_edited', updated.creatorUserId, 'shared_expense', updated.id, {
         financialFieldsChanged,
       });
+    }
+    if (updated.syncStatus === 'pending_update') {
+      await this.queueSyncOperation({ entityType: 'shared_expense', entityId: updated.id, operation: 'update', payload: updated });
     }
     return updated;
   }
@@ -1775,6 +1940,16 @@ export class DebtulatorRepository {
         paymentId: payment.id,
         lineCount: lines.length,
         overpaymentAmount,
+      });
+    }
+    if (payment.syncStatus === 'pending_upload' || payment.syncStatus === 'pending_create') {
+      await this.queueSyncOperation({ entityType: 'payment', entityId: payment.id, operation: 'create', payload: payment });
+      await this.queueSyncOperation({
+        entityType: 'settlement',
+        entityId: settlement.id,
+        operation: 'create',
+        payload: settlement,
+        dependencyIds: [payment.id],
       });
     }
     return { payment, settlement, lines, overpaymentCredit };

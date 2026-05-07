@@ -7,13 +7,16 @@ import {
   openDebtulatorDatabase,
 } from '@/src/data/database';
 import { DebtulatorRepository } from '@/src/data/repositories';
+import { buildSyncSummary } from '@/src/services/stage6Sync';
 import { buildLedgerEntries, calculateMemberBalances, calculatePersonalTotals } from '@/src/services/ledger';
 import type {
   AppSettings,
+  AppNotification,
   Attachment,
   AttachmentKind,
   AttachmentTargetType,
   AttachmentVisibility,
+  AuditLog,
   Comment,
   CommentTargetType,
   CommentVisibility,
@@ -50,6 +53,8 @@ import type {
   SmartSuggestion,
   SmartSuggestionStatus,
   SmartSuggestionType,
+  SyncConflict,
+  SyncQueueEntry,
   SyncStatus,
   SuggestedDebtChange,
   VerificationStatus,
@@ -290,6 +295,7 @@ type AppDataContextValue = DatabaseSnapshot & {
   ledgerEntries: LedgerEntry[];
   memberBalances: Record<string, MoneyMap>;
   personalTotals: ReturnType<typeof calculatePersonalTotals>;
+  syncSummary: ReturnType<typeof buildSyncSummary>;
   refresh: () => Promise<void>;
   resetLocalData: (seed?: boolean) => Promise<void>;
   upsertProfile: (profile: UserProfile) => Promise<UserProfile>;
@@ -417,6 +423,25 @@ type AppDataContextValue = DatabaseSnapshot & {
   setSmartSuggestionStatus: (suggestionId: string, status: SmartSuggestionStatus) => Promise<SmartSuggestion>;
   createExportLog: (input: CreateExportLogInput) => Promise<ExportLog>;
   createCsvImportBatch: (input: CreateCsvImportBatchInput) => Promise<CsvImportBatch>;
+  upsertSyncQueueEntry: (entry: SyncQueueEntry) => Promise<SyncQueueEntry>;
+  queueSyncOperation: (input: {
+    entityType: SyncQueueEntry['entityType'];
+    entityId: string;
+    operation: SyncQueueEntry['operation'];
+    payload?: Record<string, unknown>;
+    dependencyIds?: string[];
+  }) => Promise<SyncQueueEntry>;
+  updateSyncQueueEntry: (entryId: string, patch: Partial<SyncQueueEntry>) => Promise<SyncQueueEntry>;
+  upsertSyncConflict: (conflict: SyncConflict) => Promise<SyncConflict>;
+  resolveSyncConflict: (
+    conflictId: string,
+    resolution: SyncConflict['resolution'],
+    actorUserId?: string | null,
+  ) => Promise<SyncConflict>;
+  createNotification: (input: Omit<AppNotification, 'id' | 'createdAt' | 'readAt'> & { readAt?: string | null }) => Promise<AppNotification>;
+  markNotificationRead: (notificationId: string) => Promise<AppNotification>;
+  markAllNotificationsRead: () => Promise<void>;
+  createAuditLog: (input: Omit<AuditLog, 'id' | 'createdAt' | 'deviceId'> & { deviceId?: string | null }) => Promise<AuditLog>;
   respondToEventVerification: (input: {
     eventId: string;
     targetType: EventVerificationResponse['targetType'];
@@ -461,6 +486,10 @@ const emptySnapshot: DatabaseSnapshot = {
   smartSuggestions: [],
   exportLogs: [],
   csvImportBatches: [],
+  syncQueue: [],
+  syncConflicts: [],
+  notifications: [],
+  auditLogs: [],
   tags: [],
   currencyRates: [],
   settings: {
@@ -481,6 +510,27 @@ const emptySnapshot: DatabaseSnapshot = {
     includeArchivedInExports: false,
     includeCommentsInExports: false,
     includeAttachmentsInExports: false,
+    defaultDebtVisibility: 'private',
+    defaultEventVisibility: 'private',
+    showSensitiveDetailsInNotifications: false,
+    syncPrivateLocalDataToAccountBackup: false,
+    uploadAttachmentsForSharedRecords: false,
+    analyticsIncludeRejectedDisputed: false,
+    smartSuggestionsPrivateOnly: true,
+    pushNotificationsEnabled: false,
+    emailNotificationsEnabled: false,
+    notificationVerificationEnabled: true,
+    notificationEventEnabled: true,
+    notificationPaymentSettlementEnabled: true,
+    notificationReminderEnabled: true,
+    notificationCommentEnabled: false,
+    quietHoursEnabled: false,
+    quietHoursStart: '22:00',
+    quietHoursEnd: '07:00',
+    language: 'system',
+    backupIncludeAttachments: false,
+    backupIncludePrivateNotes: false,
+    lastBackupAt: null,
   },
 };
 
@@ -579,6 +629,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   );
   const memberBalances = useMemo(() => calculateMemberBalances(ledgerEntries), [ledgerEntries]);
   const personalTotals = useMemo(() => calculatePersonalTotals(ledgerEntries), [ledgerEntries]);
+  const syncSummary = useMemo(() => buildSyncSummary(snapshot), [snapshot]);
 
   const value = useMemo<AppDataContextValue>(
     () => ({
@@ -589,6 +640,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       ledgerEntries,
       memberBalances,
       personalTotals,
+      syncSummary,
       refresh,
       resetLocalData: async (seed = true) => {
         await runAndRefresh((repo) => repo.reset(seed));
@@ -840,6 +892,42 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         }),
       createExportLog: (input) => runAndRefresh((repo) => repo.createExportLog(input)),
       createCsvImportBatch: (input) => runAndRefresh((repo) => repo.createCsvImportBatch(input)),
+      upsertSyncQueueEntry: (entry) => runAndRefresh((repo) => repo.upsertSyncQueueEntry(entry)),
+      queueSyncOperation: (input) => runAndRefresh((repo) => repo.queueSyncOperation(input)),
+      updateSyncQueueEntry: (entryId, patch) =>
+        runAndRefresh((repo) => {
+          const entry = snapshot.syncQueue.find((item) => item.id === entryId);
+          if (!entry) {
+            throw new Error('Sync queue item not found.');
+          }
+          return repo.markSyncQueueEntry(entry, patch);
+        }),
+      upsertSyncConflict: (conflict) => runAndRefresh((repo) => repo.upsertSyncConflict(conflict)),
+      resolveSyncConflict: (conflictId, resolution, actorUserId = null) =>
+        runAndRefresh((repo) => {
+          const conflict = snapshot.syncConflicts.find((item) => item.id === conflictId);
+          if (!conflict) {
+            throw new Error('Sync conflict not found.');
+          }
+          return repo.resolveSyncConflict(conflict, resolution, actorUserId);
+        }),
+      createNotification: (input) => runAndRefresh((repo) => repo.createNotification(input)),
+      markNotificationRead: (notificationId) =>
+        runAndRefresh((repo) => {
+          const notification = snapshot.notifications.find((item) => item.id === notificationId);
+          if (!notification) {
+            throw new Error('Notification not found.');
+          }
+          return repo.markNotificationRead(notification);
+        }),
+      markAllNotificationsRead: async () => {
+        await runAndRefresh(async (repo) => {
+          for (const notification of snapshot.notifications.filter((item) => !item.readAt)) {
+            await repo.markNotificationRead(notification);
+          }
+        });
+      },
+      createAuditLog: (input) => runAndRefresh((repo) => repo.createAuditLog(input)),
       respondToEventVerification: (input) => runAndRefresh((repo) => repo.respondToEventVerification(input)),
       updateSettings: async (settings) => {
         await runAndRefresh((repo) => repo.updateSettings(settings));
@@ -858,6 +946,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       repository,
       runAndRefresh,
       snapshot,
+      syncSummary,
     ],
   );
 

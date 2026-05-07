@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "debtulator",
+    "name": "Debtulator",
     "slug": "debtulator",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -9,9 +9,21 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.debtulator.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSUserNotificationsUsageDescription": "Debtulator can send optional reminders and shared ledger updates.",
+        "NSPhotoLibraryUsageDescription": "Debtulator can attach receipt or proof images when you choose a file.",
+        "NSFaceIDUsageDescription": "Debtulator may use device authentication before sensitive export or deletion actions."
+      }
     },
     "android": {
+      "package": "com.debtulator.app",
+      "versionCode": 1,
+      "permissions": [
+        "POST_NOTIFICATIONS"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -27,6 +39,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-secure-store",
       [
         "expo-splash-screen",
         {

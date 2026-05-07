@@ -30,10 +30,55 @@ export type DebtVisibility = 'private' | 'shared_with_involved_member' | 'future
 export type SyncStatus =
   | 'local_only'
   | 'pending_upload'
+  | 'pending_create'
   | 'synced'
   | 'pending_update'
+  | 'pending_delete'
+  | 'conflict'
   | 'sync_error'
-  | 'remote_deleted';
+  | 'remote_deleted'
+  | 'permission_error';
+
+export type SyncOperation =
+  | 'create'
+  | 'update'
+  | 'delete'
+  | 'archive'
+  | 'restore'
+  | 'merge'
+  | 'verify'
+  | 'reject'
+  | 'comment'
+  | 'attach'
+  | 'void'
+  | 'export'
+  | 'restore_backup';
+
+export type SyncQueueStatus = 'pending' | 'running' | 'succeeded' | 'failed' | 'conflict' | 'cancelled';
+
+export type ConflictStatus = 'unresolved' | 'resolved' | 'ignored';
+
+export type ConflictResolution =
+  | 'keep_mine'
+  | 'keep_theirs'
+  | 'merge'
+  | 'duplicate'
+  | 'cancel_local_change'
+  | 'archive_local_copy'
+  | 'manual_edit';
+
+export type ConflictType =
+  | 'update_update'
+  | 'update_delete'
+  | 'delete_update'
+  | 'permission_changed'
+  | 'event_locked'
+  | 'verification_changed'
+  | 'duplicate_create'
+  | 'merge_conflict'
+  | 'attachment_conflict'
+  | 'payment_conflict'
+  | 'settlement_conflict';
 
 export type EventStatus = 'planning' | 'active' | 'finalising' | 'settled' | 'archived';
 
@@ -133,6 +178,24 @@ export type ExportType = 'pdf' | 'csv' | 'text_summary';
 
 export type ImportBatchStatus = 'preview' | 'imported' | 'cancelled';
 
+export type NotificationType =
+  | 'verification_request'
+  | 'verification_result'
+  | 'event_invite'
+  | 'event_update'
+  | 'payment'
+  | 'settlement'
+  | 'reminder'
+  | 'comment'
+  | 'claim_request'
+  | 'duplicate_warning'
+  | 'sync_problem'
+  | 'export_ready';
+
+export type DataExportFormat = 'json' | 'csv_package' | 'pdf_summary';
+
+export type BackupMode = 'merge' | 'replace_local' | 'duplicate_private';
+
 export type EntityKind =
   | 'member'
   | 'debt'
@@ -154,7 +217,12 @@ export type EntityKind =
   | 'comment'
   | 'smart_suggestion'
   | 'export_log'
-  | 'csv_import_batch';
+  | 'csv_import_batch'
+  | 'sync_queue'
+  | 'sync_conflict'
+  | 'notification'
+  | 'audit_log'
+  | 'backup';
 
 export type ActivityTargetKind =
   | EntityKind
@@ -667,6 +735,63 @@ export type ActivityLog = {
   createdAt: string;
 };
 
+export type SyncQueueEntry = {
+  id: string;
+  entityType: EntityKind;
+  entityId: string;
+  operation: SyncOperation;
+  payload: Record<string, unknown>;
+  dependencyIds: string[];
+  retryCount: number;
+  status: SyncQueueStatus;
+  errorCode: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
+  lastAttemptAt: string | null;
+};
+
+export type SyncConflict = {
+  id: string;
+  entityType: EntityKind;
+  localEntityId: string;
+  remoteEntityId: string | null;
+  conflictType: ConflictType;
+  localSnapshot: Record<string, unknown>;
+  remoteSnapshot: Record<string, unknown>;
+  baseSnapshot: Record<string, unknown> | null;
+  detectedAt: string;
+  status: ConflictStatus;
+  resolution: ConflictResolution | null;
+  resolvedAt: string | null;
+  resolvedByUserId: string | null;
+};
+
+export type AppNotification = {
+  id: string;
+  userId: string | null;
+  type: NotificationType;
+  title: string;
+  body: string;
+  targetType: EntityKind | null;
+  targetId: string | null;
+  readAt: string | null;
+  createdAt: string;
+  metadata: Record<string, unknown>;
+};
+
+export type AuditLog = {
+  id: string;
+  actorUserId: string | null;
+  action: string;
+  targetType: EntityKind | 'account' | 'security';
+  targetId: string | null;
+  eventId: string | null;
+  metadata: Record<string, unknown>;
+  deviceId: string | null;
+  createdAt: string;
+};
+
 export type UserProfile = {
   id: string;
   displayName: string;
@@ -743,6 +868,27 @@ export type AppSettings = {
   includeArchivedInExports: boolean;
   includeCommentsInExports: boolean;
   includeAttachmentsInExports: boolean;
+  defaultDebtVisibility: DebtVisibility;
+  defaultEventVisibility: EventVisibility;
+  showSensitiveDetailsInNotifications: boolean;
+  syncPrivateLocalDataToAccountBackup: boolean;
+  uploadAttachmentsForSharedRecords: boolean;
+  analyticsIncludeRejectedDisputed: boolean;
+  smartSuggestionsPrivateOnly: boolean;
+  pushNotificationsEnabled: boolean;
+  emailNotificationsEnabled: boolean;
+  notificationVerificationEnabled: boolean;
+  notificationEventEnabled: boolean;
+  notificationPaymentSettlementEnabled: boolean;
+  notificationReminderEnabled: boolean;
+  notificationCommentEnabled: boolean;
+  quietHoursEnabled: boolean;
+  quietHoursStart: string;
+  quietHoursEnd: string;
+  language: 'system' | 'en' | 'sv';
+  backupIncludeAttachments: boolean;
+  backupIncludePrivateNotes: boolean;
+  lastBackupAt: string | null;
 };
 
 export type LedgerEntry = {

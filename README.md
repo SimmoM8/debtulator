@@ -1,50 +1,110 @@
-# Welcome to your Expo app 👋
+# Debtulator
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Debtulator is a local-first debt, shared expense, event ledger, payment, settlement, and export app for iOS and Android. It is built with React Native, Expo Router, TypeScript, SQLite on-device persistence, and optional Supabase auth/sync/storage.
 
-## Get started
+## Tech Stack
 
-1. Install dependencies
+- Expo SDK 54, React Native 0.81, React 19
+- Expo Router file-based navigation
+- TypeScript
+- SQLite via `expo-sqlite`
+- Supabase auth/database/storage for linked members, shared events, verification, and backend-ready Stage 6 sync/notification records
+- Expo Secure Store for sensitive session storage support
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Setup
 
 ```bash
-npm run reset-project
+npm install
+npm run start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Optional Supabase environment variables:
 
-## Learn more
+```bash
+EXPO_PUBLIC_SUPABASE_URL=...
+EXPO_PUBLIC_SUPABASE_ANON_KEY=...
+APP_ENV=development
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+Do not commit service-role keys or production secrets. The mobile client must only use the Supabase anon key with RLS enabled.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Local Database
 
-## Join the community
+The app opens `debtulator-stage1.db` and runs additive SQLite migrations in [`src/data/database.ts`](/Users/benjaminsimmons/Documents/CODING/debtulator/src/data/database.ts). Migrations add Stage 1-6 tables without wiping user data. Reset controls exist only in settings for development.
 
-Join our community of developers creating universal apps.
+Stage 6 local tables include:
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- `sync_queue`
+- `sync_conflicts`
+- `notifications`
+- `audit_logs`
+
+## Supabase
+
+Apply migrations in order from the [`supabase`](/Users/benjaminsimmons/Documents/CODING/debtulator/supabase) directory:
+
+1. `stage2_schema.sql`
+2. `stage3_schema.sql`
+3. `stage4_schema.sql`
+4. `stage5_schema.sql`
+5. `stage6_schema.sql`
+
+RLS must remain enabled. Storage policies must restrict receipt/proof attachments to owners or shared event participants.
+
+## Run
+
+```bash
+npm run ios
+npm run android
+npm run web
+npm run lint
+```
+
+## Release Builds
+
+The app is configured with bundle/package identifiers, icons, splash screen, deep link scheme, notification permission metadata, and EAS profiles.
+
+```bash
+npx eas build --profile staging --platform ios
+npx eas build --profile staging --platform android
+npx eas build --profile production --platform all
+```
+
+Use separate Supabase projects or environment variables for dev/staging/prod. Never commit production secrets.
+
+## Stage 6 Model
+
+Stage 6 hardens Debtulator for production:
+
+- Offline-first queue and cached synced data
+- Cross-device sync primitives for authenticated users
+- Transparent conflict detection and conflict review screens
+- Financial history protection through warnings, soft-delete/archive/void patterns, and audit logs
+- In-app notification center plus push/email preferences
+- Backup/restore with private-by-default restore semantics
+- Full data export and deliberate account deletion flow
+- Advanced permission helpers and backend/RLS migration
+- SQLite indexes for large ledgers/events
+- English/Swedish localization support
+- Accessibility checklist and production error types
+
+Detailed docs:
+
+- [`docs/sync-model.md`](/Users/benjaminsimmons/Documents/CODING/debtulator/docs/sync-model.md)
+- [`docs/privacy-model.md`](/Users/benjaminsimmons/Documents/CODING/debtulator/docs/privacy-model.md)
+- [`docs/permission-model.md`](/Users/benjaminsimmons/Documents/CODING/debtulator/docs/permission-model.md)
+- [`docs/backup-restore.md`](/Users/benjaminsimmons/Documents/CODING/debtulator/docs/backup-restore.md)
+- [`docs/release-checklist.md`](/Users/benjaminsimmons/Documents/CODING/debtulator/docs/release-checklist.md)
+
+## QA Checklist
+
+- Signed-out local member/debt/event/payment usage works offline.
+- Signing in does not upload private local-only records.
+- Shared event cached data remains viewable offline.
+- Safe shared edits create queue entries; unsafe shared financial actions are blocked or reviewed.
+- Conflicts can be reviewed and resolved without silently overwriting financial history.
+- Backup export works and restore preview defaults records to private/local copies.
+- Full data export labels shared/private and estimated values.
+- Delete account flow records a deliberate audit event.
+- Notification center works even when push/email are disabled.
+- `npm run lint` passes before release.
