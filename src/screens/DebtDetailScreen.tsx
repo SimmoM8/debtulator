@@ -233,6 +233,12 @@ export function DebtDetailScreen() {
             ) : null}
           </View>
         </View>
+        <View style={styles.contextGrid}>
+          <InfoTile label="Member" value={member?.displayName ?? "Unknown"} />
+          <InfoTile label="Due" value={debt.dueDate ?? "No due date"} />
+          <InfoTile label="Event" value={event?.name ?? "Standalone"} />
+          <InfoTile label="Files" value={String(attachments.length)} />
+        </View>
         <View style={styles.paymentGrid}>
           <InfoTile
             label="Original"
@@ -666,6 +672,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.md,
+  },
+  contextGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
   },
   paymentGrid: {
     flexDirection: "row",

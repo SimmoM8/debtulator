@@ -16,39 +16,39 @@ export default function TabLayout() {
         tabBarBackground: () => (
           <BlurView
             tint="light"
-            intensity={40}
+            intensity={28}
             experimentalBlurMethod="dimezisBlurView"
             style={StyleSheet.absoluteFill}
           />
         ),
         tabBarStyle: {
           position: "absolute",
-          left: 12,
-          right: 12,
-          bottom: 10,
-          minHeight: 74,
-          paddingTop: 8,
-          paddingBottom: 8,
+          left: 18,
+          right: 18,
+          bottom: 14,
+          minHeight: 76,
+          paddingTop: 10,
+          paddingBottom: 10,
           backgroundColor: "transparent",
           borderTopColor: "transparent",
           borderTopWidth: 0,
           borderWidth: StyleSheet.hairlineWidth,
-          borderColor: palette.borderGlass,
-          borderRadius: 26,
+          borderColor: palette.border,
+          borderRadius: 30,
           overflow: "hidden",
           shadowColor: palette.shadow,
-          shadowOffset: { width: 0, height: 12 },
-          shadowOpacity: 0.14,
-          shadowRadius: 24,
-          elevation: 10,
+          shadowOffset: { width: 0, height: 10 },
+          shadowOpacity: 0.1,
+          shadowRadius: 22,
+          elevation: 8,
         },
         tabBarLabelStyle: {
           fontSize: 11,
           fontFamily: typefaces.bodyStrong,
         },
         tabBarItemStyle: {
-          paddingTop: 4,
-          borderRadius: 18,
+          paddingTop: 2,
+          borderRadius: 20,
         },
         headerShown: false,
         tabBarButton: HapticTab,

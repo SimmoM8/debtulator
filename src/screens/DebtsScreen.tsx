@@ -3,6 +3,7 @@ import React, { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { DebtRow } from "@/src/components/EntityRows";
+import { DebtulatorOrbitIllustration } from "@/src/components/illustrations/DebtulatorOrbitIllustration";
 import {
     Button,
     Card,
@@ -153,6 +154,14 @@ export function DebtsScreen() {
           : filters.dueMode === "due_soon"
             ? "due"
             : "all";
+  const openEntries = entries.filter(
+    (entry) => entry.remainingAmount > 0.005 && entry.status !== "archived",
+  );
+  const youOweEntries = openEntries.filter((entry) => entry.fromId === "me");
+  const owedToYouEntries = openEntries.filter((entry) => entry.toId === "me");
+  const settledEntries = entries.filter(
+    (entry) => entry.remainingAmount <= 0.005 || entry.status === "settled",
+  );
 
   return (
     <Screen
@@ -169,6 +178,26 @@ export function DebtsScreen() {
         title="Debts"
         subtitle="Find what is open, settled, shared, overdue, or waiting for review."
       />
+
+      <Card tone="lavender" style={styles.heroCard}>
+        <View style={styles.heroGlow} />
+        <View style={styles.heroTop}>
+          <View style={styles.heroCopy}>
+            <Text style={styles.heroLabel}>Clear ledger</Text>
+            <Text style={styles.heroTitle}>
+              See what you owe, what is owed to you, and what is already
+              settled.
+            </Text>
+            <Text style={styles.heroBody}>
+              The ledger groups the most important states first, so you spend
+              less time scanning and more time deciding.
+            </Text>
+          </View>
+          <View style={styles.heroArtWrap}>
+            <DebtulatorOrbitIllustration width={138} height={106} compact />
+          </View>
+        </View>
+      </Card>
 
       <View style={styles.searchBlock}>
         <View style={styles.searchLine}>
@@ -234,7 +263,7 @@ export function DebtsScreen() {
       </Card>
 
       <SectionTitle
-        title="Ledger records"
+        title="You owe"
         subtitle={`${entries.length} shown${activeFilterCount ? ` · ${activeFilterCount} filters` : ""}`}
         action={
           activeFilterCount ? (
@@ -249,8 +278,8 @@ export function DebtsScreen() {
         }
       />
       <Card>
-        {entries.length > 0 ? (
-          entries.map((entry) => (
+        {youOweEntries.length > 0 ? (
+          youOweEntries.map((entry) => (
             <DebtRow
               key={entry.id}
               entry={entry}
@@ -265,8 +294,8 @@ export function DebtsScreen() {
           ))
         ) : (
           <EmptyState
-            title="No debts here"
-            body="Try another quick filter or add a new debt."
+            title="Nothing in this section"
+            body="Debts where you owe someone will appear here."
             action={
               <Button
                 title="Add debt"
@@ -274,6 +303,62 @@ export function DebtsScreen() {
                 onPress={() => router.push("/debt/form")}
               />
             }
+          />
+        )}
+      </Card>
+
+      <SectionTitle
+        title="Owed to you"
+        subtitle="Balances others still owe you."
+      />
+      <Card>
+        {owedToYouEntries.length > 0 ? (
+          owedToYouEntries.map((entry) => (
+            <DebtRow
+              key={entry.id}
+              entry={entry}
+              members={data.members}
+              sharedEventMembers={data.sharedEventMembers}
+              event={
+                entry.eventId
+                  ? data.events.find((event) => event.id === entry.eventId)
+                  : undefined
+              }
+            />
+          ))
+        ) : (
+          <EmptyState
+            title="Nothing owed to you"
+            body="Open balances in your favour will appear here."
+          />
+        )}
+      </Card>
+
+      <SectionTitle
+        title="Settled"
+        subtitle="Records that are fully paid or otherwise settled."
+      />
+      <Card>
+        {settledEntries.length > 0 ? (
+          settledEntries
+            .slice(0, 8)
+            .map((entry) => (
+              <DebtRow
+                key={entry.id}
+                entry={entry}
+                members={data.members}
+                sharedEventMembers={data.sharedEventMembers}
+                event={
+                  entry.eventId
+                    ? data.events.find((event) => event.id === entry.eventId)
+                    : undefined
+                }
+              />
+            ))
+        ) : (
+          <EmptyState
+            title="No settled records yet"
+            body="Completed or fully paid balances will collect here."
           />
         )}
       </Card>
@@ -561,6 +646,59 @@ function countActiveDebtFilters(filters: DebtFilters) {
 }
 
 const styles = StyleSheet.create({
+  heroCard: {
+    overflow: "hidden",
+  },
+  heroGlow: {
+    position: "absolute",
+    top: -24,
+    right: -10,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: "rgba(221,214,254,0.24)",
+  },
+  heroTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: spacing.lg,
+    flexWrap: "wrap",
+  },
+  heroCopy: {
+    flex: 1,
+    minWidth: 220,
+    gap: spacing.sm,
+  },
+  heroLabel: {
+    color: palette.muted,
+    fontSize: 12,
+    fontFamily: typefaces.bodyStrong,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  heroTitle: {
+    color: palette.ink,
+    fontSize: 24,
+    lineHeight: 32,
+    fontFamily: typefaces.displayMedium,
+  },
+  heroBody: {
+    color: palette.muted,
+    fontSize: 14,
+    lineHeight: 21,
+    fontFamily: typefaces.body,
+    maxWidth: 360,
+  },
+  heroArtWrap: {
+    width: 150,
+    height: 114,
+    borderRadius: 24,
+    backgroundColor: "rgba(255,255,255,0.4)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderGlass,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   searchBlock: {
     gap: spacing.md,
   },

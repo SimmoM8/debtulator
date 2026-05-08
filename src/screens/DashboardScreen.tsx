@@ -159,9 +159,27 @@ export function DashboardScreen() {
 
       <Card tone="lavender" style={styles.heroCard}>
         <View style={styles.heroGlow} />
+        <View style={styles.heroMetaRow}>
+          <View style={styles.heroIdentity}>
+            <View style={styles.heroAvatar}>
+              <Text style={styles.heroAvatarText}>{firstName.slice(0, 1)}</Text>
+            </View>
+            <View style={styles.heroIdentityCopy}>
+              <Text style={styles.heroKicker}>Good morning</Text>
+              <Text style={styles.heroName}>{firstName}</Text>
+            </View>
+          </View>
+          <View style={styles.heroAlertBubble}>
+            <Ionicons
+              name="notifications-outline"
+              size={18}
+              color={palette.brand}
+            />
+          </View>
+        </View>
         <View style={styles.heroTop}>
           <View style={styles.heroTitleBlock}>
-            <Text style={styles.heroLabel}>Net balance</Text>
+            <Text style={styles.heroLabel}>Your snapshot</Text>
             <BalanceStack
               balances={data.personalTotals.net}
               settings={data.settings}
@@ -197,59 +215,55 @@ export function DashboardScreen() {
             balances={data.personalTotals.iOwe}
             tone="blue"
           />
+          <SummaryTile
+            title="Net position"
+            balances={data.personalTotals.net}
+            tone="blue"
+          />
         </View>
       </Card>
 
-      <Pressable
-        accessibilityRole="button"
-        onPress={() => router.push("/sync" as never)}
-        style={styles.syncIndicator}
-      >
-        <View style={styles.badgeLine}>
-          <Badge
-            label={data.syncSummary.statusLabel}
-            tone={data.syncSummary.hasBlockingProblems ? "amber" : "positive"}
+      <Card style={styles.snapshotFlowCard}>
+        <View style={styles.snapshotHeaderRow}>
+          <View>
+            <Text style={styles.snapshotTitle}>Quick actions</Text>
+            <Text style={styles.activityMeta}>
+              The things you need first stay visible and compact.
+            </Text>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push("/sync" as never)}
+            style={styles.syncPill}
+          >
+            <Text style={styles.syncPillText}>
+              {data.syncSummary.statusLabel}
+            </Text>
+          </Pressable>
+        </View>
+        <View style={styles.quickActions}>
+          <QuickAction
+            label="Add debt"
+            icon="receipt"
+            onPress={() => router.push("/debt/form")}
           />
-          <Badge
-            label={`${data.syncSummary.pendingCount} pending`}
-            tone={data.syncSummary.pendingCount ? "amber" : "neutral"}
+          <QuickAction
+            label="Add expense"
+            icon="cart"
+            onPress={() => router.push("/expense/form")}
           />
-          <Badge
-            label={`${data.syncSummary.conflictCount} conflicts`}
-            tone={data.syncSummary.conflictCount ? "negative" : "neutral"}
+          <QuickAction
+            label="Record payment"
+            icon="card"
+            onPress={() => router.push("/payment/form")}
+          />
+          <QuickAction
+            label="Invite member"
+            icon="person-add"
+            onPress={() => router.push("/member/form")}
           />
         </View>
-        <Text style={styles.activityMeta}>
-          Offline-first queue and conflict review
-        </Text>
-      </Pressable>
-
-      <SectionTitle
-        title="Next actions"
-        subtitle="The things people usually need first."
-      />
-      <View style={styles.quickActions}>
-        <QuickAction
-          label="Add debt"
-          icon="receipt"
-          onPress={() => router.push("/debt/form")}
-        />
-        <QuickAction
-          label="Add expense"
-          icon="cart"
-          onPress={() => router.push("/expense/form")}
-        />
-        <QuickAction
-          label="Record payment"
-          icon="card"
-          onPress={() => router.push("/payment/form")}
-        />
-        <QuickAction
-          label="Add person"
-          icon="person-add"
-          onPress={() => router.push("/member/form")}
-        />
-      </View>
+      </Card>
 
       <Card style={styles.toolsCard}>
         <SectionTitle
@@ -805,6 +819,55 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     overflow: "hidden",
   },
+  heroMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.md,
+  },
+  heroIdentity: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  heroAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(253,186,155,0.22)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(253,186,155,0.24)",
+  },
+  heroAvatarText: {
+    color: palette.brandDark,
+    fontSize: 15,
+    fontFamily: typefaces.bodyHeavy,
+  },
+  heroIdentityCopy: {
+    gap: 1,
+  },
+  heroKicker: {
+    color: palette.muted,
+    fontSize: 12,
+    fontFamily: typefaces.bodyStrong,
+  },
+  heroName: {
+    color: palette.ink,
+    fontSize: 16,
+    fontFamily: typefaces.bodyHeavy,
+  },
+  heroAlertBubble: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.72)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderIndigoSoft,
+  },
   heroGlow: {
     position: "absolute",
     top: -24,
@@ -858,17 +921,38 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: spacing.xs,
   },
-  syncIndicator: {
-    backgroundColor: palette.surfaceGlassElevated,
-    borderColor: palette.borderIndigoSoft,
-    borderRadius: 18,
+  snapshotFlowCard: {
+    gap: spacing.md,
+  },
+  snapshotHeaderRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: spacing.md,
+  },
+  snapshotTitle: {
+    color: palette.ink,
+    fontSize: 18,
+    fontFamily: typefaces.displayMedium,
+  },
+  syncPill: {
+    minHeight: 34,
+    borderRadius: 17,
+    paddingHorizontal: spacing.md,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(55,48,163,0.08)",
     borderWidth: StyleSheet.hairlineWidth,
-    gap: spacing.xs,
-    padding: spacing.lg,
+    borderColor: palette.borderIndigoSoft,
+  },
+  syncPillText: {
+    color: palette.brand,
+    fontSize: 12,
+    fontFamily: typefaces.bodyStrong,
   },
   summaryTile: {
     flex: 1,
-    minWidth: 150,
+    minWidth: 132,
     backgroundColor: "rgba(255,255,255,0.58)",
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "rgba(55,48,163,0.10)",
@@ -909,14 +993,14 @@ const styles = StyleSheet.create({
   quickActions: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   quickAction: {
-    minHeight: 68,
+    minHeight: 92,
     flexGrow: 1,
     flexBasis: "47%",
-    borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.74)",
+    borderRadius: 24,
+    backgroundColor: "rgba(255,255,255,0.88)",
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "rgba(55,48,163,0.12)",
     padding: spacing.md,
@@ -925,9 +1009,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   quickIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 12,
+    width: 38,
+    height: 38,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(232,227,255,0.70)",

@@ -112,7 +112,6 @@ export function PageHeader({
 
   return (
     <View style={styles.pageHeader}>
-      <SurfaceBlur intensity={28} />
       {showBackButton && canGoBack ? (
         <IconButton
           icon="chevron-back"
@@ -141,7 +140,7 @@ export function Card({
 }) {
   return (
     <View style={[styles.card, toneStyles[tone], style]}>
-      <SurfaceBlur intensity={24} />
+      <SurfaceBlur intensity={14} />
       {children}
     </View>
   );
@@ -550,28 +549,28 @@ function SurfaceBlur({ intensity }: { intensity: number }) {
 const toneStyles = StyleSheet.create({
   default: {},
   mint: {
-    backgroundColor: "rgba(47,191,143,0.12)",
-    borderColor: "rgba(47,191,143,0.22)",
+    backgroundColor: "rgba(255,255,255,0.92)",
+    borderColor: "rgba(47,191,143,0.18)",
   },
   coral: {
-    backgroundColor: "rgba(255,107,107,0.12)",
-    borderColor: "rgba(255,107,107,0.22)",
+    backgroundColor: "rgba(255,251,250,0.96)",
+    borderColor: "rgba(255,107,107,0.18)",
   },
   amber: {
-    backgroundColor: "rgba(245,158,11,0.12)",
-    borderColor: "rgba(245,158,11,0.24)",
+    backgroundColor: "rgba(255,252,246,0.96)",
+    borderColor: "rgba(245,158,11,0.2)",
   },
   blue: {
-    backgroundColor: "rgba(55,48,163,0.08)",
-    borderColor: "rgba(55,48,163,0.18)",
+    backgroundColor: "rgba(252,251,255,0.96)",
+    borderColor: "rgba(55,48,163,0.14)",
   },
   peach: {
-    backgroundColor: "rgba(253,186,155,0.16)",
-    borderColor: "rgba(253,186,155,0.24)",
+    backgroundColor: "rgba(255,252,249,0.96)",
+    borderColor: "rgba(253,186,155,0.18)",
   },
   lavender: {
-    backgroundColor: palette.surfaceGlassElevated,
-    borderColor: "rgba(221,214,254,0.82)",
+    backgroundColor: palette.surfaceGlassStrong,
+    borderColor: "rgba(221,214,254,0.44)",
   },
 });
 
@@ -639,36 +638,36 @@ const styles = StyleSheet.create({
   backdropLavender: {
     position: "absolute",
     pointerEvents: "none",
-    top: -110,
-    right: -150,
-    width: 320,
-    height: 320,
-    borderRadius: 160,
+    top: -120,
+    right: -120,
+    width: 280,
+    height: 280,
+    borderRadius: 140,
     backgroundColor: palette.backdropLavender,
   },
   backdropIndigo: {
     position: "absolute",
     pointerEvents: "none",
-    top: 70,
-    right: 18,
-    width: 180,
-    height: 180,
-    borderRadius: 90,
+    top: 34,
+    right: 28,
+    width: 132,
+    height: 132,
+    borderRadius: 66,
     backgroundColor: palette.backdropIndigo,
   },
   backdropPeach: {
     position: "absolute",
     pointerEvents: "none",
-    top: 240,
-    left: -160,
-    width: 260,
-    height: 260,
-    borderRadius: 130,
+    top: 210,
+    left: -120,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
     backgroundColor: palette.backdropPeach,
   },
   scrollContent: {
     alignItems: "center",
-    paddingBottom: 128,
+    paddingBottom: 148,
   },
   content: {
     width: "100%",
@@ -678,13 +677,14 @@ const styles = StyleSheet.create({
   },
   footer: {
     position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    padding: spacing.lg,
+    left: spacing.md,
+    right: spacing.md,
+    bottom: spacing.md,
+    padding: spacing.md,
     backgroundColor: palette.surfaceGlassStrong,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: palette.borderIndigoSoft,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderIndigoSoft,
+    borderRadius: radii.xl,
     overflow: "hidden",
     ...shadows.soft,
   },
@@ -707,19 +707,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     gap: spacing.md,
-    padding: spacing.lg,
-    borderRadius: radii.xl,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderIndigoSoft,
-    backgroundColor: palette.surfaceGlassElevated,
-    overflow: "hidden",
-    ...shadows.soft,
+    paddingHorizontal: 2,
+    paddingVertical: spacing.xs,
   },
   flexOne: {
     flex: 1,
   },
   pageHeaderAction: {
-    alignSelf: "center",
+    alignSelf: "flex-start",
   },
   eyebrow: {
     color: palette.brandDark,
@@ -731,33 +726,34 @@ const styles = StyleSheet.create({
   },
   pageTitle: {
     color: palette.ink,
-    fontSize: typography.title,
-    lineHeight: 38,
+    fontSize: 32,
+    lineHeight: 36,
     fontFamily: typefaces.display,
     letterSpacing: 0,
   },
   pageSubtitle: {
     color: palette.muted,
     fontSize: 14,
-    lineHeight: 21,
-    marginTop: spacing.sm,
+    lineHeight: 20,
+    marginTop: 6,
     fontFamily: typefaces.body,
+    maxWidth: 560,
   },
   card: {
-    backgroundColor: palette.surfaceGlass,
-    borderColor: palette.borderGlass,
+    backgroundColor: palette.surfaceGlassStrong,
+    borderColor: palette.border,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radii.xl,
     padding: spacing.lg,
     overflow: "hidden",
-    ...shadows.card,
+    ...shadows.soft,
     gap: spacing.md,
   },
   sectionTitle: {
     flexDirection: "row",
-    alignItems: "flex-end",
+    alignItems: "center",
     gap: spacing.md,
-    marginTop: spacing.md,
+    marginTop: 2,
   },
   sectionHeading: {
     color: palette.ink,
@@ -779,8 +775,8 @@ const styles = StyleSheet.create({
     fontFamily: typefaces.body,
   },
   button: {
-    minHeight: 48,
-    borderRadius: radii.lg,
+    minHeight: 50,
+    borderRadius: radii.pill,
     borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: spacing.xl,
     alignItems: "center",
@@ -797,12 +793,12 @@ const styles = StyleSheet.create({
     color: palette.surface,
   },
   fab: {
-    width: 58,
-    height: 58,
+    width: 62,
+    height: 62,
     borderRadius: radii.pill,
     backgroundColor: palette.brand,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderGlass,
+    borderColor: "rgba(255,255,255,0.82)",
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
@@ -817,12 +813,13 @@ const styles = StyleSheet.create({
   iconButton: {
     width: 48,
     height: 48,
-    borderRadius: radii.lg,
+    borderRadius: radii.pill,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderIndigoSoft,
-    backgroundColor: palette.surfaceGlassElevated,
+    backgroundColor: palette.surfaceGlassStrong,
     alignItems: "center",
     justifyContent: "center",
+    ...shadows.soft,
   },
   iconButtonDanger: {
     backgroundColor: palette.negativeSoft,
@@ -839,10 +836,10 @@ const styles = StyleSheet.create({
   },
   input: {
     minHeight: 52,
-    borderRadius: radii.lg,
+    borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderIndigoSoft,
-    backgroundColor: palette.surfaceGlassElevated,
+    backgroundColor: palette.surfaceWarm,
     paddingHorizontal: spacing.md,
     color: palette.ink,
     fontSize: 16,
@@ -858,11 +855,12 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderIndigoSoft,
-    backgroundColor: palette.surfaceGlassElevated,
+    backgroundColor: palette.surfaceGlassStrong,
     paddingHorizontal: spacing.xl,
     alignItems: "center",
     flexDirection: "row",
     gap: spacing.sm,
+    ...shadows.soft,
   },
   searchInput: {
     flex: 1,
@@ -872,22 +870,22 @@ const styles = StyleSheet.create({
   },
   segmented: {
     flexDirection: "row",
-    borderRadius: radii.lg,
+    borderRadius: radii.pill,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderIndigoSoft,
-    backgroundColor: palette.surfaceAlt,
-    padding: 4,
+    backgroundColor: palette.surfaceMuted,
+    padding: 5,
   },
   segment: {
     flex: 1,
-    minHeight: 38,
+    minHeight: 40,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: radii.md,
+    borderRadius: radii.pill,
     paddingHorizontal: spacing.sm,
   },
   segmentActive: {
-    backgroundColor: palette.surfaceGlassStrong,
+    backgroundColor: palette.surface,
     ...shadows.soft,
   },
   segmentText: {
@@ -904,12 +902,12 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   selectChip: {
-    minHeight: 38,
+    minHeight: 40,
     paddingHorizontal: spacing.md,
-    borderRadius: radii.md,
+    borderRadius: radii.pill,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderIndigoSoft,
-    backgroundColor: palette.surfaceGlass,
+    backgroundColor: palette.surfaceWarm,
     justifyContent: "center",
   },
   selectChipActive: {
@@ -989,6 +987,7 @@ const styles = StyleSheet.create({
   gridWide: {
     flexDirection: "row",
     flexWrap: "wrap",
+    alignItems: "flex-start",
   },
   surfaceBlur: {
     ...StyleSheet.absoluteFillObject,

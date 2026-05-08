@@ -3,6 +3,7 @@ import React, { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { MemberRow } from "@/src/components/EntityRows";
+import { DebtulatorOrbitIllustration } from "@/src/components/illustrations/DebtulatorOrbitIllustration";
 import {
     Button,
     Card,
@@ -60,6 +61,9 @@ export function MembersScreen() {
         ),
       ) > 0.005,
   ).length;
+  const linkedCount = data.members.filter(
+    (member) => member.linkStatus === "linked",
+  ).length;
   const activeFilterCount = countActiveMemberFilters(filters);
 
   function applyQuickFilter(mode: "active" | "balance" | "archived") {
@@ -85,6 +89,25 @@ export function MembersScreen() {
         title="People"
         subtitle="See who you have balances with, what needs attention, and who is safely linked."
       />
+
+      <Card tone="lavender" style={styles.heroCard}>
+        <View style={styles.heroGlow} />
+        <View style={styles.heroTop}>
+          <View style={styles.heroCopy}>
+            <Text style={styles.heroLabel}>Shared with you</Text>
+            <Text style={styles.heroTitle}>
+              Keep everyone you split money with in one calm, readable list.
+            </Text>
+            <Text style={styles.heroBody}>
+              Balances stay visible at a glance, with linking status and
+              relationship context kept lightweight instead of noisy.
+            </Text>
+          </View>
+          <View style={styles.heroArtWrap}>
+            <DebtulatorOrbitIllustration width={136} height={104} compact />
+          </View>
+        </View>
+      </Card>
 
       <View style={styles.searchBlock}>
         <View style={styles.searchLine}>
@@ -132,6 +155,10 @@ export function MembersScreen() {
         <View>
           <Text style={styles.summaryValue}>{balanceCount}</Text>
           <Text style={styles.summaryLabel}>With balances</Text>
+        </View>
+        <View>
+          <Text style={styles.summaryValue}>{linkedCount}</Text>
+          <Text style={styles.summaryLabel}>Linked</Text>
         </View>
       </Card>
 
@@ -277,6 +304,59 @@ function countActiveMemberFilters(filters: MemberFilters) {
 }
 
 const styles = StyleSheet.create({
+  heroCard: {
+    overflow: "hidden",
+  },
+  heroGlow: {
+    position: "absolute",
+    top: -24,
+    right: -10,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: "rgba(221,214,254,0.24)",
+  },
+  heroTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: spacing.lg,
+    flexWrap: "wrap",
+  },
+  heroCopy: {
+    flex: 1,
+    minWidth: 220,
+    gap: spacing.sm,
+  },
+  heroLabel: {
+    color: palette.muted,
+    fontSize: 12,
+    fontFamily: typefaces.bodyStrong,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  heroTitle: {
+    color: palette.ink,
+    fontSize: 24,
+    lineHeight: 32,
+    fontFamily: typefaces.displayMedium,
+  },
+  heroBody: {
+    color: palette.muted,
+    fontSize: 14,
+    lineHeight: 21,
+    fontFamily: typefaces.body,
+    maxWidth: 360,
+  },
+  heroArtWrap: {
+    width: 148,
+    height: 112,
+    borderRadius: 24,
+    backgroundColor: "rgba(255,255,255,0.4)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderGlass,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   searchBlock: {
     gap: spacing.md,
   },

@@ -12,7 +12,13 @@ import {
     VisibilityBadge,
 } from "@/src/components/ui/Badges";
 import { BalanceStack } from "@/src/components/ui/Money";
-import { palette, radii, spacing, typefaces } from "@/src/constants/design";
+import {
+    palette,
+    radii,
+    shadows,
+    spacing,
+    typefaces,
+} from "@/src/constants/design";
 import { entryDirectionText } from "@/src/services/ledger";
 import type {
     AppSettings,
@@ -250,21 +256,25 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
-    padding: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderIndigoSoft,
-    borderRadius: radii.lg,
-    backgroundColor: palette.surfaceGlassElevated,
+    borderRadius: 24,
+    backgroundColor: palette.surfaceWarm,
+    ...shadows.soft,
   },
   ledgerRow: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: spacing.md,
-    padding: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderIndigoSoft,
-    borderRadius: radii.lg,
-    backgroundColor: palette.surfaceGlassElevated,
+    borderRadius: 24,
+    backgroundColor: palette.surfaceWarm,
+    ...shadows.soft,
   },
   rowPressed: {
     opacity: 0.82,
@@ -277,12 +287,12 @@ const styles = StyleSheet.create({
     paddingTop: 2,
   },
   avatar: {
-    width: 48,
-    height: 48,
+    width: 52,
+    height: 52,
     borderRadius: radii.pill,
-    backgroundColor: "rgba(253,186,155,0.22)",
+    backgroundColor: "rgba(253,186,155,0.16)",
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(253,186,155,0.28)",
+    borderColor: "rgba(253,186,155,0.18)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -292,10 +302,10 @@ const styles = StyleSheet.create({
     fontFamily: typefaces.bodyHeavy,
   },
   eventMark: {
-    width: 48,
-    height: 48,
-    borderRadius: radii.md,
-    backgroundColor: "rgba(221,214,254,0.22)",
+    width: 52,
+    height: 52,
+    borderRadius: 18,
+    backgroundColor: "rgba(221,214,254,0.16)",
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderIndigoSoft,
     alignItems: "center",
@@ -306,10 +316,10 @@ const styles = StyleSheet.create({
     borderColor: "rgba(245,158,11,0.28)",
   },
   rowIcon: {
-    width: 48,
-    height: 48,
+    width: 52,
+    height: 52,
     borderRadius: radii.pill,
-    backgroundColor: "rgba(55,48,163,0.12)",
+    backgroundColor: "rgba(55,48,163,0.08)",
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderIndigoSoft,
     alignItems: "center",
@@ -317,7 +327,7 @@ const styles = StyleSheet.create({
   },
   rowMain: {
     flex: 1,
-    gap: spacing.sm,
+    gap: spacing.xs,
     minWidth: 0,
   },
   rowHeader: {
@@ -333,12 +343,12 @@ const styles = StyleSheet.create({
   },
   rowTitle: {
     color: palette.ink,
-    fontSize: 16,
+    fontSize: 17,
     fontFamily: typefaces.bodyHeavy,
   },
   rowSubtitle: {
     color: palette.muted,
-    fontSize: 13,
+    fontSize: 12,
     lineHeight: 18,
     fontFamily: typefaces.body,
   },
@@ -354,15 +364,17 @@ const styles = StyleSheet.create({
   },
   amountBlock: {
     alignItems: "flex-end",
-    gap: spacing.xs,
-    maxWidth: 126,
+    gap: 3,
+    minWidth: 86,
+    maxWidth: 118,
     paddingTop: 2,
   },
   amountText: {
     color: palette.ink,
-    fontSize: 16,
+    fontSize: 18,
     fontFamily: typefaces.bodyHeavy,
     fontVariant: ["tabular-nums"],
+    textAlign: "right",
   },
   kindText: {
     color: palette.muted,
@@ -375,6 +387,6 @@ const styles = StyleSheet.create({
     color: palette.faint,
     fontSize: 12,
     fontFamily: typefaces.bodyStrong,
-    paddingTop: 2,
+    paddingTop: 3,
   },
 });

@@ -77,6 +77,7 @@ export function AnalyticsScreen() {
     () => verifiedVsPendingSummary(data.ledgerEntries, filters),
     [data.ledgerEntries, filters],
   );
+  const topCategory = tagRows[0];
 
   if (data.loading) {
     return <LoadingState />;
@@ -85,8 +86,8 @@ export function AnalyticsScreen() {
   return (
     <Screen>
       <PageHeader
-        eyebrow="Analytics"
-        title="Analytics"
+        eyebrow="Insights"
+        title="Insights"
         subtitle="Useful summaries that keep currencies separate unless estimated mode is explicitly labelled."
         action={
           <Button
@@ -104,12 +105,33 @@ export function AnalyticsScreen() {
           <View style={styles.heroCopy}>
             <Text style={styles.heroLabel}>Readable trends</Text>
             <Text style={styles.heroTitle}>
-              Inspect balances, trust state, and payment progress without
-              flattening currencies into misleading totals.
+              Follow progress, categories, and trust state without flattening
+              currencies into misleading totals.
+            </Text>
+            <Text style={styles.heroBody}>
+              {topCategory
+                ? `Top category right now is ${topCategory.tag}, with trends and trust state kept separate and explainable.`
+                : "Insights appear as soon as the ledger has enough activity to analyse."}
             </Text>
           </View>
           <View style={styles.heroArtWrap}>
             <DebtulatorOrbitIllustration width={132} height={104} compact />
+          </View>
+        </View>
+        <View style={styles.heroStats}>
+          <View style={styles.heroStatCard}>
+            <Text style={styles.heroStatLabel}>Categories</Text>
+            <Text style={styles.heroStatValue}>{tagRows.length}</Text>
+          </View>
+          <View style={styles.heroStatCard}>
+            <Text style={styles.heroStatLabel}>Members</Text>
+            <Text style={styles.heroStatValue}>{memberRows.length}</Text>
+          </View>
+          <View style={styles.heroStatCard}>
+            <Text style={styles.heroStatLabel}>Pending</Text>
+            <Text style={styles.heroStatValue}>
+              {Object.keys(trustSummary.pending).length}
+            </Text>
           </View>
         </View>
       </Card>
@@ -305,6 +327,13 @@ const styles = StyleSheet.create({
     lineHeight: 32,
     fontFamily: typefaces.displayMedium,
   },
+  heroBody: {
+    color: palette.muted,
+    fontSize: 14,
+    lineHeight: 21,
+    fontFamily: typefaces.body,
+    maxWidth: 360,
+  },
   heroArtWrap: {
     width: 142,
     height: 112,
@@ -314,6 +343,31 @@ const styles = StyleSheet.create({
     borderColor: palette.borderGlass,
     alignItems: "center",
     justifyContent: "center",
+  },
+  heroStats: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  heroStatCard: {
+    flex: 1,
+    minWidth: 110,
+    borderRadius: 18,
+    padding: spacing.md,
+    backgroundColor: "rgba(255,255,255,0.6)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderIndigoSoft,
+    gap: 2,
+  },
+  heroStatLabel: {
+    color: palette.muted,
+    fontSize: 12,
+    fontFamily: typefaces.bodyStrong,
+  },
+  heroStatValue: {
+    color: palette.ink,
+    fontSize: 22,
+    fontFamily: typefaces.bodyHeavy,
   },
   twoColumn: {
     flexDirection: "row",

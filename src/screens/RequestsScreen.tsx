@@ -152,6 +152,7 @@ export function RequestsScreen() {
     outgoingLinks.length +
     outgoingVerifications.length +
     outgoingEventInvites.length;
+  const flaggedCount = rejectedDebts.length + rejectedEventEntries.length;
 
   return (
     <Screen>
@@ -195,10 +196,33 @@ export function RequestsScreen() {
             <Text style={styles.metricLabel}>Sent</Text>
           </View>
           <View>
-            <Text style={styles.metricValue}>
-              {rejectedDebts.length + rejectedEventEntries.length}
-            </Text>
+            <Text style={styles.metricValue}>{flaggedCount}</Text>
             <Text style={styles.metricLabel}>Flagged</Text>
+          </View>
+        </View>
+      </Card>
+
+      <Card style={styles.priorityCard}>
+        <SectionTitle
+          title="Priority inbox"
+          subtitle="The most important shared trust actions, grouped before the long list."
+        />
+        <View style={styles.priorityGrid}>
+          <View style={styles.priorityTile}>
+            <Text style={styles.priorityValue}>{incomingLinks.length}</Text>
+            <Text style={styles.priorityLabel}>Links to review</Text>
+          </View>
+          <View style={styles.priorityTile}>
+            <Text style={styles.priorityValue}>
+              {incomingVerifications.length + eventVerificationEntries.length}
+            </Text>
+            <Text style={styles.priorityLabel}>Verifications</Text>
+          </View>
+          <View style={styles.priorityTile}>
+            <Text style={styles.priorityValue}>
+              {incomingEventInvites.length + eventClaimsForApproval.length}
+            </Text>
+            <Text style={styles.priorityLabel}>Invites and claims</Text>
           </View>
         </View>
       </Card>
@@ -223,7 +247,7 @@ export function RequestsScreen() {
 
       <SectionTitle
         title="Incoming member links"
-        subtitle="Accepting links identity only, not historical debts."
+        subtitle={`${incomingLinks.length} waiting · accepting links identity only, not historical debts.`}
       />
       <Card>
         {incomingLinks.length > 0 ? (
@@ -260,7 +284,7 @@ export function RequestsScreen() {
 
       <SectionTitle
         title="Incoming debt verification"
-        subtitle="Verify or reject debts shared with you."
+        subtitle={`${incomingVerifications.length} waiting · verify or reject debts shared with you.`}
       />
       <Card>
         {incomingVerifications.length > 0 ? (
@@ -334,7 +358,7 @@ export function RequestsScreen() {
 
       <SectionTitle
         title="Event invites"
-        subtitle="Incoming and outgoing shared event invitations."
+        subtitle={`${incomingEventInvites.length} incoming · ${outgoingEventInvites.length} sent.`}
       />
       <Card>
         {incomingEventInvites.map((invite) => {
@@ -439,7 +463,7 @@ export function RequestsScreen() {
 
       <SectionTitle
         title="Event claims"
-        subtitle="Placeholder claims awaiting owner/admin review."
+        subtitle={`${eventClaimsForApproval.length} awaiting review.`}
       />
       <Card>
         {eventClaimsForApproval.map((claim) => {
@@ -495,7 +519,7 @@ export function RequestsScreen() {
 
       <SectionTitle
         title="Event verification"
-        subtitle="Shared event expenses and debts involving you."
+        subtitle={`${eventVerificationEntries.length} shared-event records involving you.`}
       />
       <Card>
         {eventVerificationEntries.length > 0 ? (
@@ -584,7 +608,7 @@ export function RequestsScreen() {
 
       <SectionTitle
         title="Outgoing requests"
-        subtitle="Pending links and verification requests you sent."
+        subtitle={`${sentCount} pending links and verification requests you sent.`}
       />
       <Card>
         {outgoingLinks.map((request) => (
@@ -636,7 +660,7 @@ export function RequestsScreen() {
 
       <SectionTitle
         title="Rejected and disputed"
-        subtitle="Excluded from shared verified balances by default."
+        subtitle={`${flaggedCount} records excluded from shared verified balances by default.`}
       />
       <Card>
         {rejectedDebts.length > 0 || rejectedEventEntries.length > 0 ? (
@@ -836,6 +860,35 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: spacing.lg,
     justifyContent: "space-between",
+  },
+  priorityCard: {
+    gap: spacing.md,
+  },
+  priorityGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  priorityTile: {
+    flex: 1,
+    minWidth: 110,
+    borderRadius: 18,
+    padding: spacing.md,
+    backgroundColor: "rgba(255,255,255,0.62)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderIndigoSoft,
+    gap: 2,
+  },
+  priorityValue: {
+    color: palette.ink,
+    fontSize: 22,
+    fontFamily: typefaces.bodyHeavy,
+  },
+  priorityLabel: {
+    color: palette.muted,
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: typefaces.bodyStrong,
   },
   metricValue: {
     color: palette.ink,

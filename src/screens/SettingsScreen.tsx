@@ -94,6 +94,57 @@ export function SettingsScreen() {
             <DebtulatorShieldIllustration width={132} height={104} />
           </View>
         </View>
+        <View style={styles.heroMetrics}>
+          <View>
+            <Text style={styles.metricValue}>
+              {auth.user ? "Cloud" : "Local"}
+            </Text>
+            <Text style={styles.metricLabel}>Account mode</Text>
+          </View>
+          <View>
+            <Text style={styles.metricValue}>{data.settings.baseCurrency}</Text>
+            <Text style={styles.metricLabel}>Base currency</Text>
+          </View>
+          <View>
+            <Text style={styles.metricValue}>
+              {data.settings.pushNotificationsEnabled ? "On" : "Off"}
+            </Text>
+            <Text style={styles.metricLabel}>Alerts</Text>
+          </View>
+        </View>
+      </Card>
+
+      <Card style={styles.hubCard}>
+        <SectionTitle
+          title="Quick access"
+          subtitle="The system controls people reach for most should not be buried in a long settings scroll."
+        />
+        <View style={styles.hubGrid}>
+          <Button
+            title="Sync"
+            icon="sync"
+            variant="secondary"
+            onPress={() => router.push("/sync" as never)}
+          />
+          <Button
+            title="Privacy"
+            icon="lock-closed"
+            variant="secondary"
+            onPress={() => router.push("/privacy" as never)}
+          />
+          <Button
+            title="Backup"
+            icon="archive"
+            variant="secondary"
+            onPress={() => router.push("/backup" as never)}
+          />
+          <Button
+            title="Language"
+            icon="language"
+            variant="secondary"
+            onPress={() => router.push("/language" as never)}
+          />
+        </View>
       </Card>
 
       <Card tone="lavender">
@@ -619,6 +670,31 @@ const styles = StyleSheet.create({
     borderColor: palette.borderGlass,
     alignItems: "center",
     justifyContent: "center",
+  },
+  heroMetrics: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: spacing.lg,
+  },
+  metricValue: {
+    color: palette.ink,
+    fontSize: 20,
+    fontFamily: typefaces.bodyHeavy,
+  },
+  metricLabel: {
+    color: palette.muted,
+    fontSize: 12,
+    fontFamily: typefaces.bodyStrong,
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+  },
+  hubCard: {
+    gap: spacing.md,
+  },
+  hubGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.md,
   },
   switchRow: {
     flexDirection: "row",
