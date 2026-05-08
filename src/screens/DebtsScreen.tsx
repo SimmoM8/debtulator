@@ -4,22 +4,22 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { DebtRow } from "@/src/components/EntityRows";
 import {
-  Button,
-  Card,
-  EmptyState,
-  FilterSheet,
-  FloatingActionButton,
-  IconButton,
-  LoadingState,
-  PageHeader,
-  Screen,
-  SearchField,
-  SectionTitle,
-  SelectChips,
-  TextField,
+    Button,
+    Card,
+    EmptyState,
+    FilterSheet,
+    FloatingActionButton,
+    IconButton,
+    LoadingState,
+    PageHeader,
+    Screen,
+    SearchField,
+    SectionTitle,
+    SelectChips,
+    TextField,
 } from "@/src/components/ui/Primitives";
 import { CURRENCIES } from "@/src/constants/currencies";
-import { palette, spacing } from "@/src/constants/design";
+import { palette, spacing, typefaces } from "@/src/constants/design";
 import { filterDebtEntries } from "@/src/services/filters";
 import { useAppData } from "@/src/state/AppDataProvider";
 import type { DebtFilters } from "@/src/types/models";
@@ -597,7 +597,7 @@ const styles = StyleSheet.create({
   quickFilterText: {
     color: palette.muted,
     fontSize: 13,
-    fontWeight: "700",
+    fontFamily: typefaces.bodyStrong,
   },
   quickFilterTextActive: {
     color: palette.surface,
@@ -616,12 +616,12 @@ const styles = StyleSheet.create({
   summaryValue: {
     color: palette.ink,
     fontSize: 22,
-    fontWeight: "800",
+    fontFamily: typefaces.bodyHeavy,
   },
   summaryLabel: {
     color: palette.muted,
     fontSize: 12,
-    fontWeight: "700",
+    fontFamily: typefaces.bodyStrong,
   },
   summaryDivider: {
     width: StyleSheet.hairlineWidth,

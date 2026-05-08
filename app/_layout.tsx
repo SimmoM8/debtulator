@@ -1,6 +1,19 @@
+import {
+    Manrope_500Medium,
+    Manrope_700Bold,
+    Manrope_800ExtraBold,
+    useFonts as useManropeFonts,
+} from "@expo-google-fonts/manrope";
+import {
+    Sora_600SemiBold,
+    Sora_700Bold,
+    useFonts as useSoraFonts,
+} from "@expo-google-fonts/sora";
 import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
+import React, { useEffect } from "react";
 import "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -12,6 +25,8 @@ import { AuthProvider } from "@/src/state/AuthProvider";
 export const unstable_settings = {
   anchor: "(tabs)",
 };
+
+void SplashScreen.preventAutoHideAsync();
 
 const DebtulatorTheme = {
   ...DefaultTheme,
@@ -27,6 +42,28 @@ const DebtulatorTheme = {
 };
 
 export default function RootLayout() {
+  const [manropeLoaded] = useManropeFonts({
+    Manrope_500Medium,
+    Manrope_700Bold,
+    Manrope_800ExtraBold,
+  });
+  const [soraLoaded] = useSoraFonts({
+    Sora_600SemiBold,
+    Sora_700Bold,
+  });
+
+  const fontsLoaded = manropeLoaded && soraLoaded;
+
+  useEffect(() => {
+    if (fontsLoaded) {
+      void SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) {
+    return null;
+  }
+
   return (
     <SafeAreaProvider>
       <AppDataProvider>

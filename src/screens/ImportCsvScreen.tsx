@@ -1,25 +1,41 @@
-import * as FileSystem from 'expo-file-system/legacy';
-import React, { useMemo, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import * as FileSystem from "expo-file-system/legacy";
+import React, { useMemo, useState } from "react";
+import { Alert, StyleSheet, Text, View } from "react-native";
 
-import { Badge } from '@/src/components/ui/Badges';
-import { Button, Card, EmptyState, LoadingState, PageHeader, Screen, SectionTitle, TextField } from '@/src/components/ui/Primitives';
-import { palette, spacing } from '@/src/constants/design';
-import { previewCsvImport, type ImportPreviewRow } from '@/src/services/csv';
-import { useAppData } from '@/src/state/AppDataProvider';
-import { useAuth } from '@/src/state/AuthProvider';
-import { todayIsoDate } from '@/src/utils/id';
+import { DebtulatorOrbitIllustration } from "@/src/components/illustrations/DebtulatorOrbitIllustration";
+import { Badge } from "@/src/components/ui/Badges";
+import {
+    Button,
+    Card,
+    EmptyState,
+    LoadingState,
+    PageHeader,
+    Screen,
+    SectionTitle,
+    TextField,
+} from "@/src/components/ui/Primitives";
+import { palette, spacing, typefaces } from "@/src/constants/design";
+import { previewCsvImport, type ImportPreviewRow } from "@/src/services/csv";
+import { useAppData } from "@/src/state/AppDataProvider";
+import { useAuth } from "@/src/state/AuthProvider";
+import { todayIsoDate } from "@/src/utils/id";
 
 export function ImportCsvScreen() {
   const data = useAppData();
   const auth = useAuth();
-  const [sourceName, setSourceName] = useState('');
-  const [fileUri, setFileUri] = useState('');
-  const [csvText, setCsvText] = useState('');
+  const [sourceName, setSourceName] = useState("");
+  const [fileUri, setFileUri] = useState("");
+  const [csvText, setCsvText] = useState("");
   const [importing, setImporting] = useState(false);
-  const previewRows = useMemo(() => previewCsvImport(csvText, data.members), [csvText, data.members]);
+  const previewRows = useMemo(
+    () => previewCsvImport(csvText, data.members),
+    [csvText, data.members],
+  );
   const validRows = previewRows.filter((row) => row.valid);
-  const errorCount = previewRows.reduce((total, row) => total + row.errors.length, 0);
+  const errorCount = previewRows.reduce(
+    (total, row) => total + row.errors.length,
+    0,
+  );
 
   if (data.loading) {
     return <LoadingState />;
@@ -30,11 +46,16 @@ export function ImportCsvScreen() {
       return;
     }
     try {
-      const text = await FileSystem.readAsStringAsync(fileUri.trim(), { encoding: FileSystem.EncodingType.UTF8 });
+      const text = await FileSystem.readAsStringAsync(fileUri.trim(), {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
       setCsvText(text);
-      setSourceName(fileUri.split('/').pop() ?? 'CSV file');
+      setSourceName(fileUri.split("/").pop() ?? "CSV file");
     } catch {
-      Alert.alert('Could not read CSV', 'Check the file URI or paste CSV text directly.');
+      Alert.alert(
+        "Could not read CSV",
+        "Check the file URI or paste CSV text directly.",
+      );
     }
   }
 
@@ -44,12 +65,17 @@ export function ImportCsvScreen() {
     }
     setImporting(true);
     try {
-      const memberByName = new Map(data.members.map((member) => [member.displayName.trim().toLowerCase(), member]));
+      const memberByName = new Map(
+        data.members.map((member) => [
+          member.displayName.trim().toLowerCase(),
+          member,
+        ]),
+      );
       let importedMembers = 0;
       let importedDebts = 0;
 
       for (const row of validRows) {
-        if (row.kind === 'member') {
+        if (row.kind === "member") {
           const displayName = row.normalized.displayName;
           if (!displayName || memberByName.has(displayName.toLowerCase())) {
             continue;
@@ -67,12 +93,18 @@ export function ImportCsvScreen() {
       }
 
       for (const row of validRows) {
-        if (row.kind !== 'debt') {
+        if (row.kind !== "debt") {
           continue;
         }
         const normalized = row.normalized;
         const memberName = normalized.memberName;
-        if (!memberName || !normalized.title || !normalized.amount || !normalized.currency || !normalized.direction) {
+        if (
+          !memberName ||
+          !normalized.title ||
+          !normalized.amount ||
+          !normalized.currency ||
+          !normalized.direction
+        ) {
           continue;
         }
         let member = memberByName.get(memberName.toLowerCase());
@@ -92,8 +124,8 @@ export function ImportCsvScreen() {
           dueDate: normalized.dueDate,
           tags: normalized.tags,
           status: normalized.status,
-          verificationStatus: 'local_only',
-          visibility: 'private',
+          verificationStatus: "local_only",
+          visibility: "private",
         });
         importedDebts += 1;
       }
@@ -109,7 +141,10 @@ export function ImportCsvScreen() {
           warnings: previewRows.flatMap((row) => row.warnings),
         },
       });
-      Alert.alert('Import complete', `${importedMembers} members and ${importedDebts} debts imported as private local records.`);
+      Alert.alert(
+        "Import complete",
+        `${importedMembers} members and ${importedDebts} debts imported as private local records.`,
+      );
     } finally {
       setImporting(false);
     }
@@ -123,11 +158,50 @@ export function ImportCsvScreen() {
         subtitle="Preview, validate, and confirm before saving members or simple debts."
       />
 
+      <Card tone="lavender" style={styles.heroCard}>
+        <View style={styles.heroGlow} />
+        <View style={styles.heroTop}>
+          <View style={styles.heroCopy}>
+            <Text style={styles.heroLabel}>Import safely</Text>
+            <Text style={styles.heroTitle}>
+              Preview rows, count errors, and only persist the records that pass
+              validation.
+            </Text>
+            <Text style={styles.body}>
+              CSV imports create private local members and debts first, so
+              nothing becomes shared or verified without later review.
+            </Text>
+          </View>
+          <View style={styles.heroArtWrap}>
+            <DebtulatorOrbitIllustration width={132} height={104} compact />
+          </View>
+        </View>
+      </Card>
+
       <Card tone="lavender">
-        <SectionTitle title="Choose CSV" subtitle="Use a file URI when available, or paste CSV content directly." />
-        <TextField label="Source name" value={sourceName} onChangeText={setSourceName} placeholder="debts.csv" />
-        <TextField label="File URI" value={fileUri} onChangeText={setFileUri} placeholder="file:///.../debts.csv" />
-        <Button title="Load from URI" icon="cloud-upload" variant="secondary" onPress={loadFromUri} disabled={!fileUri.trim()} />
+        <SectionTitle
+          title="Choose CSV"
+          subtitle="Use a file URI when available, or paste CSV content directly."
+        />
+        <TextField
+          label="Source name"
+          value={sourceName}
+          onChangeText={setSourceName}
+          placeholder="debts.csv"
+        />
+        <TextField
+          label="File URI"
+          value={fileUri}
+          onChangeText={setFileUri}
+          placeholder="file:///.../debts.csv"
+        />
+        <Button
+          title="Load from URI"
+          icon="cloud-upload"
+          variant="secondary"
+          onPress={loadFromUri}
+          disabled={!fileUri.trim()}
+        />
         <TextField
           label="CSV text"
           value={csvText}
@@ -137,20 +211,31 @@ export function ImportCsvScreen() {
         />
       </Card>
 
-      <Card tone={errorCount ? 'amber' : 'peach'}>
-        <SectionTitle title="Preview" subtitle="Invalid rows can be fixed in the CSV text or skipped by importing valid rows only." />
+      <Card tone={errorCount ? "amber" : "peach"}>
+        <SectionTitle
+          title="Preview"
+          subtitle="Invalid rows can be fixed in the CSV text or skipped by importing valid rows only."
+        />
         <View style={styles.badgeLine}>
           <Badge label={`${previewRows.length} rows`} tone="blue" />
           <Badge label={`${validRows.length} valid`} tone="positive" />
-          <Badge label={`${errorCount} errors`} tone={errorCount ? 'negative' : 'neutral'} />
+          <Badge
+            label={`${errorCount} errors`}
+            tone={errorCount ? "negative" : "neutral"}
+          />
         </View>
         {previewRows.length ? (
-          previewRows.slice(0, 30).map((row) => <PreviewRow key={row.index} row={row} />)
+          previewRows
+            .slice(0, 30)
+            .map((row) => <PreviewRow key={row.index} row={row} />)
         ) : (
-          <EmptyState title="No rows parsed" body="Paste CSV text or load a file URI to preview the import." />
+          <EmptyState
+            title="No rows parsed"
+            body="Paste CSV text or load a file URI to preview the import."
+          />
         )}
         <Button
-          title={importing ? 'Importing...' : 'Confirm import'}
+          title={importing ? "Importing..." : "Confirm import"}
           icon="checkmark"
           onPress={confirmImport}
           disabled={!validRows.length || importing}
@@ -164,28 +249,87 @@ function PreviewRow({ row }: { row: ImportPreviewRow }) {
   return (
     <View style={styles.previewRow}>
       <View style={styles.badgeLine}>
-        <Badge label={`Row ${row.index + 2}`} tone={row.valid ? 'positive' : 'negative'} />
+        <Badge
+          label={`Row ${row.index + 2}`}
+          tone={row.valid ? "positive" : "negative"}
+        />
         <Badge label={row.kind} tone="blue" />
       </View>
       <Text style={styles.rowTitle}>
-        {row.kind === 'member'
-          ? row.normalized.displayName || 'Missing member name'
-          : `${row.normalized.title || 'Missing title'} · ${row.normalized.memberName || 'Missing member'}`}
+        {row.kind === "member"
+          ? row.normalized.displayName || "Missing member name"
+          : `${row.normalized.title || "Missing title"} · ${row.normalized.memberName || "Missing member"}`}
       </Text>
       {row.warnings.map((warning) => (
-        <Text key={warning} style={styles.warningText}>{warning}</Text>
+        <Text key={warning} style={styles.warningText}>
+          {warning}
+        </Text>
       ))}
       {row.errors.map((error) => (
-        <Text key={error} style={styles.errorText}>{error}</Text>
+        <Text key={error} style={styles.errorText}>
+          {error}
+        </Text>
       ))}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  heroCard: {
+    overflow: "hidden",
+  },
+  heroGlow: {
+    position: "absolute",
+    top: -24,
+    right: -10,
+    width: 170,
+    height: 170,
+    borderRadius: 85,
+    backgroundColor: "rgba(221,214,254,0.24)",
+  },
+  heroTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: spacing.lg,
+    flexWrap: "wrap",
+  },
+  heroCopy: {
+    flex: 1,
+    minWidth: 220,
+    gap: spacing.sm,
+  },
+  heroLabel: {
+    color: palette.muted,
+    fontSize: 12,
+    fontFamily: typefaces.bodyStrong,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  heroTitle: {
+    color: palette.ink,
+    fontSize: 24,
+    lineHeight: 32,
+    fontFamily: typefaces.displayMedium,
+  },
+  heroArtWrap: {
+    width: 142,
+    height: 112,
+    borderRadius: 24,
+    backgroundColor: "rgba(255,255,255,0.38)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderGlass,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  body: {
+    color: palette.muted,
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: typefaces.body,
+  },
   badgeLine: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.xs,
   },
   previewRow: {
@@ -197,16 +341,16 @@ const styles = StyleSheet.create({
   rowTitle: {
     color: palette.ink,
     fontSize: 14,
-    fontWeight: '900',
+    fontFamily: typefaces.bodyHeavy,
   },
   warningText: {
     color: palette.amber,
     fontSize: 13,
-    fontWeight: '800',
+    fontFamily: typefaces.bodyStrong,
   },
   errorText: {
     color: palette.negative,
     fontSize: 13,
-    fontWeight: '800',
+    fontFamily: typefaces.bodyStrong,
   },
 });

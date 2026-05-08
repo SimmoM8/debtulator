@@ -1,13 +1,26 @@
-import { useLocalSearchParams } from 'expo-router';
-import React from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { useLocalSearchParams } from "expo-router";
+import React from "react";
+import { Image, StyleSheet, Text, View } from "react-native";
 
-import { Badge } from '@/src/components/ui/Badges';
-import { Button, Card, EmptyState, LoadingState, PageHeader, Screen, SectionTitle } from '@/src/components/ui/Primitives';
-import { palette, spacing } from '@/src/constants/design';
-import { ATTACHMENT_KIND_LABELS, ATTACHMENT_TARGET_LABELS, formatFileSize } from '@/src/services/attachments';
-import { useAppData } from '@/src/state/AppDataProvider';
-import { useAuth } from '@/src/state/AuthProvider';
+import { DebtulatorShieldIllustration } from "@/src/components/illustrations/DebtulatorShieldIllustration";
+import { Badge } from "@/src/components/ui/Badges";
+import {
+    Button,
+    Card,
+    EmptyState,
+    LoadingState,
+    PageHeader,
+    Screen,
+    SectionTitle,
+} from "@/src/components/ui/Primitives";
+import { palette, spacing, typefaces } from "@/src/constants/design";
+import {
+    ATTACHMENT_KIND_LABELS,
+    ATTACHMENT_TARGET_LABELS,
+    formatFileSize,
+} from "@/src/services/attachments";
+import { useAppData } from "@/src/state/AppDataProvider";
+import { useAuth } from "@/src/state/AuthProvider";
 
 export function AttachmentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -22,13 +35,17 @@ export function AttachmentDetailScreen() {
   if (!attachment) {
     return (
       <Screen>
-        <EmptyState title="Attachment not found" body="This attachment may have been archived or removed." />
+        <EmptyState
+          title="Attachment not found"
+          body="This attachment may have been archived or removed."
+        />
       </Screen>
     );
   }
 
-  const uri = attachment.localUri ?? attachment.remoteUrl ?? attachment.thumbnailUri;
-  const isImage = Boolean(uri && attachment.mimeType.startsWith('image/'));
+  const uri =
+    attachment.localUri ?? attachment.remoteUrl ?? attachment.thumbnailUri;
+  const isImage = Boolean(uri && attachment.mimeType.startsWith("image/"));
 
   return (
     <Screen>
@@ -38,37 +55,112 @@ export function AttachmentDetailScreen() {
         subtitle="Lightweight attachment metadata and preview."
       />
 
-      <Card tone={attachment.attachmentKind === 'receipt' || attachment.attachmentKind === 'proof' ? 'peach' : 'lavender'}>
+      <Card tone="lavender" style={styles.heroCard}>
+        <View style={styles.heroGlow} />
+        <View style={styles.heroTop}>
+          <View style={styles.heroCopy}>
+            <Text style={styles.heroLabel}>Attachment record</Text>
+            <Text style={styles.heroTitle}>
+              Preview the file while keeping storage metadata and visibility
+              explicit.
+            </Text>
+            <Text style={styles.body}>
+              Attachments stay referenceable in exports and audit history even
+              when the underlying file remains private or archived.
+            </Text>
+          </View>
+          <View style={styles.heroArtWrap}>
+            <DebtulatorShieldIllustration width={128} height={100} />
+          </View>
+        </View>
+      </Card>
+
+      <Card
+        tone={
+          attachment.attachmentKind === "receipt" ||
+          attachment.attachmentKind === "proof"
+            ? "peach"
+            : "lavender"
+        }
+      >
         <View style={styles.badgeLine}>
-          <Badge label={ATTACHMENT_KIND_LABELS[attachment.attachmentKind]} tone="positive" />
-          <Badge label={attachment.visibility} tone={attachment.visibility === 'shared' ? 'amber' : 'neutral'} />
-          <Badge label={attachment.syncStatus.replaceAll('_', ' ')} tone={attachment.syncStatus === 'synced' ? 'positive' : 'blue'} />
+          <Badge
+            label={ATTACHMENT_KIND_LABELS[attachment.attachmentKind]}
+            tone="positive"
+          />
+          <Badge
+            label={attachment.visibility}
+            tone={attachment.visibility === "shared" ? "amber" : "neutral"}
+          />
+          <Badge
+            label={attachment.syncStatus.replaceAll("_", " ")}
+            tone={attachment.syncStatus === "synced" ? "positive" : "blue"}
+          />
         </View>
         {isImage ? (
-          <Image source={{ uri: uri! }} style={styles.preview} resizeMode="contain" />
+          <Image
+            source={{ uri: uri! }}
+            style={styles.preview}
+            resizeMode="contain"
+          />
         ) : (
           <View style={styles.filePreview}>
             <Text style={styles.filePreviewText}>{attachment.mimeType}</Text>
-            <Text style={styles.body}>{uri ?? 'No local or remote file URI is available.'}</Text>
+            <Text style={styles.body}>
+              {uri ?? "No local or remote file URI is available."}
+            </Text>
           </View>
         )}
       </Card>
 
       <Card>
-        <SectionTitle title="Metadata" subtitle="Exports include references only unless attachments are explicitly selected." />
-        <InfoRow label="Target" value={`${attachment.targetType.replaceAll('_', ' ')} · ${attachment.targetId}`} />
-        <InfoRow label="Event" value={attachment.eventId ?? 'None'} />
+        <SectionTitle
+          title="Metadata"
+          subtitle="Exports include references only unless attachments are explicitly selected."
+        />
+        <InfoRow
+          label="Target"
+          value={`${attachment.targetType.replaceAll("_", " ")} · ${attachment.targetId}`}
+        />
+        <InfoRow label="Event" value={attachment.eventId ?? "None"} />
         <InfoRow label="File type" value={attachment.fileType} />
         <InfoRow label="MIME" value={attachment.mimeType} />
         <InfoRow label="Size" value={formatFileSize(attachment.fileSize)} />
-        <InfoRow label="Local URI" value={attachment.localUri ?? 'None'} />
-        <InfoRow label="Storage path" value={attachment.storagePath ?? 'None'} />
-        <InfoRow label="Remote URL" value={attachment.remoteUrl ? 'Signed/private URL cached' : 'None'} />
-        <InfoRow label="Created" value={new Date(attachment.createdAt).toLocaleString()} />
-        <InfoRow label="Updated" value={new Date(attachment.updatedAt).toLocaleString()} />
-        {attachment.archivedAt ? <InfoRow label="Archived" value={new Date(attachment.archivedAt).toLocaleString()} /> : null}
+        <InfoRow label="Local URI" value={attachment.localUri ?? "None"} />
+        <InfoRow
+          label="Storage path"
+          value={attachment.storagePath ?? "None"}
+        />
+        <InfoRow
+          label="Remote URL"
+          value={attachment.remoteUrl ? "Signed/private URL cached" : "None"}
+        />
+        <InfoRow
+          label="Created"
+          value={new Date(attachment.createdAt).toLocaleString()}
+        />
+        <InfoRow
+          label="Updated"
+          value={new Date(attachment.updatedAt).toLocaleString()}
+        />
+        {attachment.archivedAt ? (
+          <InfoRow
+            label="Archived"
+            value={new Date(attachment.archivedAt).toLocaleString()}
+          />
+        ) : null}
         {!attachment.archivedAt ? (
-          <Button title="Remove attachment" icon="trash" variant="danger" onPress={() => data.archiveAttachment(attachment.id, auth.identity.authenticatedUserId)} />
+          <Button
+            title="Remove attachment"
+            icon="trash"
+            variant="danger"
+            onPress={() =>
+              data.archiveAttachment(
+                attachment.id,
+                auth.identity.authenticatedUserId,
+              )
+            }
+          />
         ) : null}
       </Card>
     </Screen>
@@ -85,42 +177,89 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
+  heroCard: {
+    overflow: "hidden",
+  },
+  heroGlow: {
+    position: "absolute",
+    top: -24,
+    right: -10,
+    width: 170,
+    height: 170,
+    borderRadius: 85,
+    backgroundColor: "rgba(221,214,254,0.24)",
+  },
+  heroTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: spacing.lg,
+    flexWrap: "wrap",
+  },
+  heroCopy: {
+    flex: 1,
+    minWidth: 220,
+    gap: spacing.sm,
+  },
+  heroLabel: {
+    color: palette.muted,
+    fontSize: 12,
+    fontFamily: typefaces.bodyStrong,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  heroTitle: {
+    color: palette.ink,
+    fontSize: 24,
+    lineHeight: 32,
+    fontFamily: typefaces.displayMedium,
+  },
+  heroArtWrap: {
+    width: 140,
+    height: 110,
+    borderRadius: 24,
+    backgroundColor: "rgba(255,255,255,0.38)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderGlass,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   badgeLine: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.xs,
   },
   preview: {
-    width: '100%',
+    width: "100%",
     minHeight: 320,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.86)',
+    backgroundColor: "rgba(255,255,255,0.86)",
   },
   filePreview: {
     minHeight: 220,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     gap: spacing.md,
     borderWidth: 1,
     borderColor: palette.line,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.86)',
+    backgroundColor: "rgba(255,255,255,0.86)",
     padding: spacing.lg,
   },
   filePreviewText: {
     color: palette.ink,
     fontSize: 20,
-    fontWeight: '900',
+    fontFamily: typefaces.bodyHeavy,
   },
   body: {
     color: palette.muted,
     fontSize: 13,
     lineHeight: 18,
-    textAlign: 'center',
+    fontFamily: typefaces.body,
+    textAlign: "center",
   },
   infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     gap: spacing.md,
     paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -129,13 +268,13 @@ const styles = StyleSheet.create({
   infoLabel: {
     color: palette.muted,
     fontSize: 13,
-    fontWeight: '800',
+    fontFamily: typefaces.bodyStrong,
   },
   infoValue: {
     flex: 1,
-    textAlign: 'right',
+    textAlign: "right",
     color: palette.ink,
     fontSize: 13,
-    fontWeight: '800',
+    fontFamily: typefaces.bodyStrong,
   },
 });

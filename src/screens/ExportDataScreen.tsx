@@ -1,41 +1,67 @@
-import { router } from 'expo-router';
-import React, { useState } from 'react';
-import { Alert, StyleSheet, Switch, Text, View } from 'react-native';
+import { router } from "expo-router";
+import React, { useState } from "react";
+import { Alert, StyleSheet, Switch, Text, View } from "react-native";
 
-import { Button, Card, LoadingState, PageHeader, Screen, SectionTitle, SelectChips } from '@/src/components/ui/Primitives';
-import { palette, spacing } from '@/src/constants/design';
+import { DebtulatorOrbitIllustration } from "@/src/components/illustrations/DebtulatorOrbitIllustration";
 import {
-  debtsToCsv,
-  eventsToCsv,
-  membersToCsv,
-  paymentsToCsv,
-  recurringTemplatesToCsv,
-  settlementsToCsv,
-  tagsToCsv,
-} from '@/src/services/csv';
+    Button,
+    Card,
+    LoadingState,
+    PageHeader,
+    Screen,
+    SectionTitle,
+    SelectChips,
+} from "@/src/components/ui/Primitives";
+import { palette, spacing, typefaces } from "@/src/constants/design";
 import {
-  eventPdfLines,
-  eventTextSummary,
-  shareExport,
-  writePdfExport,
-  writeTextExport,
-  type PrivacyExportOptions,
-} from '@/src/services/export';
-import { explainEventSettlement } from '@/src/services/ledger';
-import { useAppData } from '@/src/state/AppDataProvider';
-import { useAuth } from '@/src/state/AuthProvider';
+    debtsToCsv,
+    eventsToCsv,
+    membersToCsv,
+    paymentsToCsv,
+    recurringTemplatesToCsv,
+    settlementsToCsv,
+    tagsToCsv,
+} from "@/src/services/csv";
+import {
+    eventPdfLines,
+    eventTextSummary,
+    shareExport,
+    writePdfExport,
+    writeTextExport,
+    type PrivacyExportOptions,
+} from "@/src/services/export";
+import { explainEventSettlement } from "@/src/services/ledger";
+import { useAppData } from "@/src/state/AppDataProvider";
+import { useAuth } from "@/src/state/AuthProvider";
 
-type Scope = 'debts' | 'members' | 'events' | 'payments' | 'settlements' | 'recurring' | 'tags';
+type Scope =
+  | "debts"
+  | "members"
+  | "events"
+  | "payments"
+  | "settlements"
+  | "recurring"
+  | "tags";
 
 export function ExportDataScreen() {
   const data = useAppData();
   const auth = useAuth();
-  const [scope, setScope] = useState<Scope>('debts');
-  const [includeNotes, setIncludeNotes] = useState(data.settings.includePrivateNotesInExports);
-  const [includeComments, setIncludeComments] = useState(data.settings.includeCommentsInExports);
-  const [includeAttachments, setIncludeAttachments] = useState(data.settings.includeAttachmentsInExports);
-  const [includeRejected, setIncludeRejected] = useState(data.settings.includeRejectedDisputedInExports);
-  const [includeArchived, setIncludeArchived] = useState(data.settings.includeArchivedInExports);
+  const [scope, setScope] = useState<Scope>("debts");
+  const [includeNotes, setIncludeNotes] = useState(
+    data.settings.includePrivateNotesInExports,
+  );
+  const [includeComments, setIncludeComments] = useState(
+    data.settings.includeCommentsInExports,
+  );
+  const [includeAttachments, setIncludeAttachments] = useState(
+    data.settings.includeAttachmentsInExports,
+  );
+  const [includeRejected, setIncludeRejected] = useState(
+    data.settings.includeRejectedDisputedInExports,
+  );
+  const [includeArchived, setIncludeArchived] = useState(
+    data.settings.includeArchivedInExports,
+  );
 
   if (data.loading) {
     return <LoadingState />;
@@ -51,12 +77,28 @@ export function ExportDataScreen() {
 
   async function exportCsv() {
     const csv = csvForScope(scope);
-    const uri = await writeTextExport(`debtulator-${scope}-${Date.now()}.csv`, csv);
+    const uri = await writeTextExport(
+      `debtulator-${scope}-${Date.now()}.csv`,
+      csv,
+    );
     await data.createExportLog({
       userId: auth.identity.authenticatedUserId,
-      exportType: 'csv',
-      targetType: scope === 'members' ? 'member' : scope === 'events' ? 'event' : 'ledger',
-      metadata: { scope, includeNotes, includeComments, includeAttachments, includeRejected, includeArchived, uri },
+      exportType: "csv",
+      targetType:
+        scope === "members"
+          ? "member"
+          : scope === "events"
+            ? "event"
+            : "ledger",
+      metadata: {
+        scope,
+        includeNotes,
+        includeComments,
+        includeAttachments,
+        includeRejected,
+        includeArchived,
+        uri,
+      },
     });
     await shareExport(uri, `Debtulator ${scope} CSV`);
   }
@@ -64,7 +106,10 @@ export function ExportDataScreen() {
   async function exportFirstEventPdf() {
     const event = data.events.find((item) => !item.archived) ?? data.events[0];
     if (!event) {
-      Alert.alert('No event to export', 'Create an event before exporting an event PDF.');
+      Alert.alert(
+        "No event to export",
+        "Create an event before exporting an event PDF.",
+      );
       return;
     }
     const explanation = explainEventSettlement(event.id, data.ledgerEntries);
@@ -79,10 +124,17 @@ export function ExportDataScreen() {
     );
     await data.createExportLog({
       userId: auth.identity.authenticatedUserId,
-      exportType: 'pdf',
-      targetType: 'event',
+      exportType: "pdf",
+      targetType: "event",
       targetId: event.id,
-      metadata: { includeNotes, includeComments, includeAttachments, includeRejected, includeArchived, uri },
+      metadata: {
+        includeNotes,
+        includeComments,
+        includeAttachments,
+        includeRejected,
+        includeArchived,
+        uri,
+      },
     });
     await shareExport(uri, `${event.name} PDF summary`);
   }
@@ -90,7 +142,10 @@ export function ExportDataScreen() {
   async function shareFirstEventText() {
     const event = data.events.find((item) => !item.archived) ?? data.events[0];
     if (!event) {
-      Alert.alert('No event to share', 'Create an event before sharing a summary.');
+      Alert.alert(
+        "No event to share",
+        "Create an event before sharing a summary.",
+      );
       return;
     }
     const text = eventTextSummary({
@@ -99,33 +154,47 @@ export function ExportDataScreen() {
       snapshot: data,
       options: privacyOptions,
     });
-    const uri = await writeTextExport(`debtulator-${event.name}-summary.txt`, text);
+    const uri = await writeTextExport(
+      `debtulator-${event.name}-summary.txt`,
+      text,
+    );
     await data.createExportLog({
       userId: auth.identity.authenticatedUserId,
-      exportType: 'text_summary',
-      targetType: 'event',
+      exportType: "text_summary",
+      targetType: "event",
       targetId: event.id,
-      metadata: { includeNotes, includeComments, includeAttachments, includeRejected, includeArchived, uri },
+      metadata: {
+        includeNotes,
+        includeComments,
+        includeAttachments,
+        includeRejected,
+        includeArchived,
+        uri,
+      },
     });
     await shareExport(uri, `${event.name} text summary`, text);
   }
 
   function csvForScope(selectedScope: Scope) {
-    const options = { includeNotes, includeArchived, includeRejectedDisputed: includeRejected };
+    const options = {
+      includeNotes,
+      includeArchived,
+      includeRejectedDisputed: includeRejected,
+    };
     switch (selectedScope) {
-      case 'members':
+      case "members":
         return membersToCsv(data.members, options);
-      case 'events':
+      case "events":
         return eventsToCsv(data.events, options);
-      case 'payments':
+      case "payments":
         return paymentsToCsv(data.payments, options);
-      case 'settlements':
+      case "settlements":
         return settlementsToCsv(data.settlements, options);
-      case 'recurring':
+      case "recurring":
         return recurringTemplatesToCsv(data.recurringTemplates);
-      case 'tags':
+      case "tags":
         return tagsToCsv(data.tags);
-      case 'debts':
+      case "debts":
       default:
         return debtsToCsv(data.ledgerEntries, options);
     }
@@ -137,32 +206,87 @@ export function ExportDataScreen() {
         eyebrow="Data portability"
         title="Export and share"
         subtitle="Review exactly what will be included before creating files or sharing event summaries."
-        action={<Button title="Import CSV" icon="cloud-upload" variant="secondary" onPress={() => router.push('/import-csv')} />}
+        action={
+          <Button
+            title="Import CSV"
+            icon="cloud-upload"
+            variant="secondary"
+            onPress={() => router.push("/import-csv")}
+          />
+        }
       />
 
+      <Card tone="lavender" style={styles.heroCard}>
+        <View style={styles.heroGlow} />
+        <View style={styles.heroTop}>
+          <View style={styles.heroCopy}>
+            <Text style={styles.heroLabel}>Portable exports</Text>
+            <Text style={styles.heroTitle}>
+              Decide exactly what leaves the ledger before you create a file.
+            </Text>
+            <Text style={styles.body}>
+              CSV, PDF, and text exports all respect the privacy switches here,
+              so private notes and disputed records never slip out by accident.
+            </Text>
+          </View>
+          <View style={styles.heroArtWrap}>
+            <DebtulatorOrbitIllustration width={132} height={104} compact />
+          </View>
+        </View>
+      </Card>
+
       <Card tone="amber">
-        <SectionTitle title="Privacy controls" subtitle="Private data stays out unless you turn it on here." />
-        <PrivacySwitch label="Include private notes" value={includeNotes} onValueChange={setIncludeNotes} />
-        <PrivacySwitch label="Include comments" value={includeComments} onValueChange={setIncludeComments} />
-        <PrivacySwitch label="Include attachment references" value={includeAttachments} onValueChange={setIncludeAttachments} />
-        <PrivacySwitch label="Include rejected/disputed" value={includeRejected} onValueChange={setIncludeRejected} />
-        <PrivacySwitch label="Include archived records" value={includeArchived} onValueChange={setIncludeArchived} />
-        <Text style={styles.body}>Attachment images are referenced by metadata; large images are not embedded automatically.</Text>
+        <SectionTitle
+          title="Privacy controls"
+          subtitle="Private data stays out unless you turn it on here."
+        />
+        <PrivacySwitch
+          label="Include private notes"
+          value={includeNotes}
+          onValueChange={setIncludeNotes}
+        />
+        <PrivacySwitch
+          label="Include comments"
+          value={includeComments}
+          onValueChange={setIncludeComments}
+        />
+        <PrivacySwitch
+          label="Include attachment references"
+          value={includeAttachments}
+          onValueChange={setIncludeAttachments}
+        />
+        <PrivacySwitch
+          label="Include rejected/disputed"
+          value={includeRejected}
+          onValueChange={setIncludeRejected}
+        />
+        <PrivacySwitch
+          label="Include archived records"
+          value={includeArchived}
+          onValueChange={setIncludeArchived}
+        />
+        <Text style={styles.body}>
+          Attachment images are referenced by metadata; large images are not
+          embedded automatically.
+        </Text>
       </Card>
 
       <Card>
-        <SectionTitle title="CSV export" subtitle="Machine-readable files preserve native currency, status, verification, payment, and timestamps." />
+        <SectionTitle
+          title="CSV export"
+          subtitle="Machine-readable files preserve native currency, status, verification, payment, and timestamps."
+        />
         <SelectChips
           label="Scope"
           value={scope}
           options={[
-            { label: 'Debts', value: 'debts' },
-            { label: 'Members', value: 'members' },
-            { label: 'Events', value: 'events' },
-            { label: 'Payments', value: 'payments' },
-            { label: 'Settlements', value: 'settlements' },
-            { label: 'Recurring', value: 'recurring' },
-            { label: 'Tags', value: 'tags' },
+            { label: "Debts", value: "debts" },
+            { label: "Members", value: "members" },
+            { label: "Events", value: "events" },
+            { label: "Payments", value: "payments" },
+            { label: "Settlements", value: "settlements" },
+            { label: "Recurring", value: "recurring" },
+            { label: "Tags", value: "tags" },
           ]}
           onChange={setScope}
         />
@@ -170,10 +294,22 @@ export function ExportDataScreen() {
       </Card>
 
       <Card>
-        <SectionTitle title="Event summaries" subtitle="PDF includes balances, suggestions, included/excluded records, and calculation settings." />
+        <SectionTitle
+          title="Event summaries"
+          subtitle="PDF includes balances, suggestions, included/excluded records, and calculation settings."
+        />
         <View style={styles.buttonRow}>
-          <Button title="Export event PDF" icon="document-text" onPress={exportFirstEventPdf} />
-          <Button title="Share event text" icon="share" variant="secondary" onPress={shareFirstEventText} />
+          <Button
+            title="Export event PDF"
+            icon="document-text"
+            onPress={exportFirstEventPdf}
+          />
+          <Button
+            title="Share event text"
+            icon="share"
+            variant="secondary"
+            onPress={shareFirstEventText}
+          />
         </View>
       </Card>
     </Screen>
@@ -196,32 +332,79 @@ function PrivacySwitch({
         value={value}
         onValueChange={onValueChange}
         trackColor={{ false: palette.lineStrong, true: palette.brandSoft }}
-        thumbColor={value ? palette.brand : '#FFFFFF'}
+        thumbColor={value ? palette.brand : "#FFFFFF"}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  heroCard: {
+    overflow: "hidden",
+  },
+  heroGlow: {
+    position: "absolute",
+    top: -24,
+    right: -10,
+    width: 170,
+    height: 170,
+    borderRadius: 85,
+    backgroundColor: "rgba(221,214,254,0.24)",
+  },
+  heroTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: spacing.lg,
+    flexWrap: "wrap",
+  },
+  heroCopy: {
+    flex: 1,
+    minWidth: 220,
+    gap: spacing.sm,
+  },
+  heroLabel: {
+    color: palette.muted,
+    fontSize: 12,
+    fontFamily: typefaces.bodyStrong,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  heroTitle: {
+    color: palette.ink,
+    fontSize: 24,
+    lineHeight: 32,
+    fontFamily: typefaces.displayMedium,
+  },
+  heroArtWrap: {
+    width: 142,
+    height: 112,
+    borderRadius: 24,
+    backgroundColor: "rgba(255,255,255,0.38)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderGlass,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   body: {
     color: palette.muted,
     fontSize: 13,
     lineHeight: 18,
+    fontFamily: typefaces.body,
   },
   switchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: spacing.lg,
   },
   switchLabel: {
     color: palette.ink,
     fontSize: 15,
-    fontWeight: '800',
+    fontFamily: typefaces.bodyHeavy,
   },
   buttonRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.md,
   },
 });

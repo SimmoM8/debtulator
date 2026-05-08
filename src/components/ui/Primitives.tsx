@@ -3,27 +3,28 @@ import { useNavigation } from "@react-navigation/native";
 import { BlurView } from "expo-blur";
 import React from "react";
 import {
-  ActivityIndicator,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleProp,
-  StyleSheet,
-  Text,
-  TextInput,
-  TextStyle,
-  View,
-  ViewStyle,
-  useWindowDimensions,
+    ActivityIndicator,
+    Modal,
+    Pressable,
+    ScrollView,
+    StyleProp,
+    StyleSheet,
+    Text,
+    TextInput,
+    TextStyle,
+    View,
+    ViewStyle,
+    useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import {
-  palette,
-  radii,
-  shadows,
-  spacing,
-  typography,
+    palette,
+    radii,
+    shadows,
+    spacing,
+    typefaces,
+    typography,
 } from "@/src/constants/design";
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -575,25 +576,40 @@ const toneStyles = StyleSheet.create({
 });
 
 const textVariants = StyleSheet.create({
-  body: { color: palette.ink, fontSize: typography.body, lineHeight: 22 },
-  muted: { color: palette.muted, fontSize: 14, lineHeight: 20 },
-  small: { color: palette.muted, fontSize: typography.micro, lineHeight: 17 },
+  body: {
+    color: palette.ink,
+    fontSize: typography.body,
+    lineHeight: 22,
+    fontFamily: typefaces.body,
+  },
+  muted: {
+    color: palette.muted,
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: typefaces.body,
+  },
+  small: {
+    color: palette.muted,
+    fontSize: typography.micro,
+    lineHeight: 17,
+    fontFamily: typefaces.body,
+  },
   label: {
     color: palette.muted,
     fontSize: typography.micro,
-    fontWeight: "700",
+    fontFamily: typefaces.bodyStrong,
     letterSpacing: 0,
   },
   title: {
     color: palette.ink,
     fontSize: typography.subtitle,
-    fontWeight: "800",
+    fontFamily: typefaces.display,
     lineHeight: 30,
   },
   subtitle: {
     color: palette.ink,
     fontSize: 17,
-    fontWeight: "800",
+    fontFamily: typefaces.displayMedium,
     lineHeight: 23,
   },
 });
@@ -708,7 +724,7 @@ const styles = StyleSheet.create({
   eyebrow: {
     color: palette.brandDark,
     fontSize: 11,
-    fontWeight: "800",
+    fontFamily: typefaces.bodyStrong,
     letterSpacing: 0.6,
     textTransform: "uppercase",
     marginBottom: spacing.xs,
@@ -717,7 +733,7 @@ const styles = StyleSheet.create({
     color: palette.ink,
     fontSize: typography.title,
     lineHeight: 38,
-    fontWeight: "900",
+    fontFamily: typefaces.display,
     letterSpacing: 0,
   },
   pageSubtitle: {
@@ -725,6 +741,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 21,
     marginTop: spacing.sm,
+    fontFamily: typefaces.body,
   },
   card: {
     backgroundColor: palette.surfaceGlass,
@@ -746,18 +763,20 @@ const styles = StyleSheet.create({
     color: palette.ink,
     fontSize: 18,
     lineHeight: 24,
-    fontWeight: "800",
+    fontFamily: typefaces.displayMedium,
   },
   muted: {
     color: palette.muted,
     fontSize: 14,
     lineHeight: 20,
+    fontFamily: typefaces.body,
   },
   mutedCenter: {
     color: palette.muted,
     fontSize: 14,
     lineHeight: 20,
     textAlign: "center",
+    fontFamily: typefaces.body,
   },
   button: {
     minHeight: 48,
@@ -772,7 +791,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: palette.brandDark,
     fontSize: 14,
-    fontWeight: "800",
+    fontFamily: typefaces.bodyStrong,
   },
   buttonTextLight: {
     color: palette.surface,
@@ -815,7 +834,7 @@ const styles = StyleSheet.create({
   label: {
     color: palette.muted,
     fontSize: typography.micro,
-    fontWeight: "700",
+    fontFamily: typefaces.bodyStrong,
     letterSpacing: 0.2,
   },
   input: {
@@ -827,6 +846,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     color: palette.ink,
     fontSize: 16,
+    fontFamily: typefaces.body,
   },
   inputMultiline: {
     minHeight: 96,
@@ -848,6 +868,7 @@ const styles = StyleSheet.create({
     flex: 1,
     color: palette.ink,
     fontSize: 15,
+    fontFamily: typefaces.body,
   },
   segmented: {
     flexDirection: "row",
@@ -872,7 +893,7 @@ const styles = StyleSheet.create({
   segmentText: {
     color: palette.muted,
     fontSize: 13,
-    fontWeight: "800",
+    fontFamily: typefaces.bodyStrong,
   },
   segmentTextActive: {
     color: palette.brand,
@@ -897,7 +918,7 @@ const styles = StyleSheet.create({
   },
   selectChipText: {
     color: palette.muted,
-    fontWeight: "700",
+    fontFamily: typefaces.bodyStrong,
     fontSize: 13,
   },
   selectChipTextActive: {
@@ -949,13 +970,14 @@ const styles = StyleSheet.create({
   sheetTitle: {
     color: palette.ink,
     fontSize: 20,
-    fontWeight: "800",
+    fontFamily: typefaces.displayMedium,
   },
   sheetSubtitle: {
     color: palette.muted,
     fontSize: 13,
     lineHeight: 18,
     marginTop: 2,
+    fontFamily: typefaces.body,
   },
   sheetContent: {
     gap: spacing.lg,

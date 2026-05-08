@@ -81,6 +81,14 @@ export const typography = {
   micro: 12,
 };
 
+export const typefaces = {
+  display: "Sora_700Bold",
+  displayMedium: "Sora_600SemiBold",
+  body: "Manrope_500Medium",
+  bodyStrong: "Manrope_700Bold",
+  bodyHeavy: "Manrope_800ExtraBold",
+};
+
 export const shadows = {
   card: {
     shadowColor: palette.shadow,

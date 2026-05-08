@@ -1,19 +1,35 @@
-import { useLocalSearchParams } from 'expo-router';
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { useLocalSearchParams } from "expo-router";
+import React from "react";
+import { StyleSheet, Text, View } from "react-native";
 
-import { AttachmentsSection } from '@/src/components/AttachmentsSection';
-import { CommentsSection } from '@/src/components/CommentsSection';
-import { Badge } from '@/src/components/ui/Badges';
-import { Amount } from '@/src/components/ui/Money';
-import { Button, Card, EmptyState, LoadingState, PageHeader, Screen, SectionTitle } from '@/src/components/ui/Primitives';
-import { palette, spacing } from '@/src/constants/design';
-import { attachmentBadges, activeAttachmentsForTarget } from '@/src/services/attachments';
-import { debtPdfLines, shareExport, writePdfExport } from '@/src/services/export';
-import { participantName } from '@/src/services/ledger';
-import { useAppData } from '@/src/state/AppDataProvider';
-import { useAuth } from '@/src/state/AuthProvider';
-import { formatMoney } from '@/src/utils/money';
+import { AttachmentsSection } from "@/src/components/AttachmentsSection";
+import { CommentsSection } from "@/src/components/CommentsSection";
+import { DebtulatorOrbitIllustration } from "@/src/components/illustrations/DebtulatorOrbitIllustration";
+import { Badge } from "@/src/components/ui/Badges";
+import { Amount } from "@/src/components/ui/Money";
+import {
+    Button,
+    Card,
+    EmptyState,
+    LoadingState,
+    PageHeader,
+    Screen,
+    SectionTitle,
+} from "@/src/components/ui/Primitives";
+import { palette, spacing, typefaces } from "@/src/constants/design";
+import {
+    activeAttachmentsForTarget,
+    attachmentBadges,
+} from "@/src/services/attachments";
+import {
+    debtPdfLines,
+    shareExport,
+    writePdfExport,
+} from "@/src/services/export";
+import { participantName } from "@/src/services/ledger";
+import { useAppData } from "@/src/state/AppDataProvider";
+import { useAuth } from "@/src/state/AuthProvider";
+import { formatMoney } from "@/src/utils/money";
 
 export function PaymentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -21,10 +37,14 @@ export function PaymentDetailScreen() {
   const auth = useAuth();
   const payment = data.payments.find((item) => item.id === id);
   const lines = data.settlementLines.filter((line) => line.paymentId === id);
-  const settlement = data.settlements.find((item) => lines.some((line) => line.settlementId === item.id));
-  const payerId = payment?.payerEventMemberId ?? payment?.payerMemberId ?? 'me';
-  const payeeId = payment?.payeeEventMemberId ?? payment?.payeeMemberId ?? 'me';
-  const attachments = payment ? activeAttachmentsForTarget(data.attachments, 'payment', payment.id) : [];
+  const settlement = data.settlements.find((item) =>
+    lines.some((line) => line.settlementId === item.id),
+  );
+  const payerId = payment?.payerEventMemberId ?? payment?.payerMemberId ?? "me";
+  const payeeId = payment?.payeeEventMemberId ?? payment?.payeeMemberId ?? "me";
+  const attachments = payment
+    ? activeAttachmentsForTarget(data.attachments, "payment", payment.id)
+    : [];
   const attachmentState = attachmentBadges(attachments);
 
   if (data.loading) {
@@ -34,7 +54,10 @@ export function PaymentDetailScreen() {
   if (!payment) {
     return (
       <Screen>
-        <EmptyState title="Payment not found" body="This payment may have been archived or removed." />
+        <EmptyState
+          title="Payment not found"
+          body="This payment may have been archived or removed."
+        />
       </Screen>
     );
   }
@@ -42,7 +65,11 @@ export function PaymentDetailScreen() {
 
   async function exportPdf() {
     const entries = lines
-      .map((line) => data.ledgerEntries.find((entry) => entry.sourceId === line.sourceRecordId))
+      .map((line) =>
+        data.ledgerEntries.find(
+          (entry) => entry.sourceId === line.sourceRecordId,
+        ),
+      )
       .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
     const uri = await writePdfExport(
       `debtulator-payment-${currentPayment.id}.pdf`,
@@ -56,19 +83,20 @@ export function PaymentDetailScreen() {
           includePrivateNotes: data.settings.includePrivateNotesInExports,
           includeComments: data.settings.includeCommentsInExports,
           includeAttachments: data.settings.includeAttachmentsInExports,
-          includeRejectedDisputed: data.settings.includeRejectedDisputedInExports,
+          includeRejectedDisputed:
+            data.settings.includeRejectedDisputedInExports,
           includeArchived: data.settings.includeArchivedInExports,
         },
       }),
     );
     await data.createExportLog({
       userId: auth.identity.authenticatedUserId,
-      exportType: 'pdf',
-      targetType: 'payment',
+      exportType: "pdf",
+      targetType: "payment",
       targetId: currentPayment.id,
       metadata: { uri },
     });
-    await shareExport(uri, 'Debtulator payment PDF');
+    await shareExport(uri, "Debtulator payment PDF");
   }
 
   return (
@@ -79,23 +107,69 @@ export function PaymentDetailScreen() {
         subtitle="A payment records real-world money movement."
       />
 
+      <Card tone="lavender" style={styles.heroCard}>
+        <View style={styles.heroGlow} />
+        <View style={styles.heroTop}>
+          <View style={styles.heroCopy}>
+            <Text style={styles.heroLabel}>Recorded transfer</Text>
+            <Text style={styles.heroTitle}>
+              Track confirmed money movement separately from the obligations it
+              settles.
+            </Text>
+            <Text style={styles.body}>
+              Payments document when cash actually moved, while settlement lines
+              explain how that transfer reduced open balances.
+            </Text>
+          </View>
+          <View style={styles.heroArtWrap}>
+            <DebtulatorOrbitIllustration width={132} height={104} compact />
+          </View>
+        </View>
+      </Card>
+
       <Card tone="lavender">
         <View style={styles.topRow}>
           <View>
             <Text style={styles.label}>Amount paid</Text>
-            <Amount amount={payment.amount} currency={payment.currency} size="lg" />
+            <Amount
+              amount={payment.amount}
+              currency={payment.currency}
+              size="lg"
+            />
           </View>
           <View style={styles.badgeStack}>
-            <Badge label={payment.status.replaceAll('_', ' ')} tone={payment.status === 'rejected' ? 'negative' : 'positive'} />
-            <Badge label={payment.confirmationStatus.replaceAll('_', ' ')} tone={payment.confirmationStatus === 'confirmed' ? 'positive' : 'amber'} />
-            {attachmentState.proofLabel ? <Badge label={attachmentState.proofLabel} tone="positive" /> : null}
+            <Badge
+              label={payment.status.replaceAll("_", " ")}
+              tone={payment.status === "rejected" ? "negative" : "positive"}
+            />
+            <Badge
+              label={payment.confirmationStatus.replaceAll("_", " ")}
+              tone={
+                payment.confirmationStatus === "confirmed"
+                  ? "positive"
+                  : "amber"
+              }
+            />
+            {attachmentState.proofLabel ? (
+              <Badge label={attachmentState.proofLabel} tone="positive" />
+            ) : null}
           </View>
         </View>
         <InfoRow label="Payment date" value={payment.paymentDate} />
-        <InfoRow label="Visibility" value={payment.visibility.replaceAll('_', ' ')} />
-        <InfoRow label="Sync" value={payment.syncStatus.replaceAll('_', ' ')} />
-        {payment.notes ? <Text style={styles.body}>{payment.notes}</Text> : null}
-        <Button title="Export PDF" icon="document-text" variant="secondary" onPress={exportPdf} />
+        <InfoRow
+          label="Visibility"
+          value={payment.visibility.replaceAll("_", " ")}
+        />
+        <InfoRow label="Sync" value={payment.syncStatus.replaceAll("_", " ")} />
+        {payment.notes ? (
+          <Text style={styles.body}>{payment.notes}</Text>
+        ) : null}
+        <Button
+          title="Export PDF"
+          icon="document-text"
+          variant="secondary"
+          onPress={exportPdf}
+        />
       </Card>
 
       <AttachmentsSection
@@ -111,35 +185,60 @@ export function PaymentDetailScreen() {
         targetType="payment"
         targetId={payment.id}
         eventId={payment.eventId}
-        sharedAvailable={payment.visibility === 'shared_event' || payment.visibility === 'shared_with_involved_member'}
+        sharedAvailable={
+          payment.visibility === "shared_event" ||
+          payment.visibility === "shared_with_involved_member"
+        }
       />
 
       <Card>
-        <SectionTitle title="What this settled" subtitle="Settlement lines connect payments to obligations." />
+        <SectionTitle
+          title="What this settled"
+          subtitle="Settlement lines connect payments to obligations."
+        />
         {lines.length > 0 ? (
           lines.map((line) => {
-            const entry = data.ledgerEntries.find((item) => item.sourceId === line.sourceRecordId);
+            const entry = data.ledgerEntries.find(
+              (item) => item.sourceId === line.sourceRecordId,
+            );
             return (
               <View key={line.id} style={styles.row}>
                 <View style={styles.flexOne}>
-                  <Text style={styles.rowTitle}>{entry?.title ?? line.sourceRecordType.replaceAll('_', ' ')}</Text>
-                  <Text style={styles.body}>{line.sourceRecordType.replaceAll('_', ' ')}</Text>
+                  <Text style={styles.rowTitle}>
+                    {entry?.title ?? line.sourceRecordType.replaceAll("_", " ")}
+                  </Text>
+                  <Text style={styles.body}>
+                    {line.sourceRecordType.replaceAll("_", " ")}
+                  </Text>
                 </View>
-                <Text style={styles.money}>{formatMoney(line.appliedAmount, line.currency)}</Text>
+                <Text style={styles.money}>
+                  {formatMoney(line.appliedAmount, line.currency)}
+                </Text>
               </View>
             );
           })
         ) : (
-          <Text style={styles.body}>No obligations were linked. This payment is recorded as unallocated.</Text>
+          <Text style={styles.body}>
+            No obligations were linked. This payment is recorded as unallocated.
+          </Text>
         )}
       </Card>
 
       {settlement ? (
         <Card tone="blue">
-          <SectionTitle title="Settlement record" subtitle="This payment is grouped in a settlement record." />
+          <SectionTitle
+            title="Settlement record"
+            subtitle="This payment is grouped in a settlement record."
+          />
           <InfoRow label="Settlement" value={settlement.id} />
-          <InfoRow label="Total amount" value={formatMoney(settlement.totalAmount, settlement.currency)} />
-          <InfoRow label="Status" value={settlement.status.replaceAll('_', ' ')} />
+          <InfoRow
+            label="Total amount"
+            value={formatMoney(settlement.totalAmount, settlement.currency)}
+          />
+          <InfoRow
+            label="Status"
+            value={settlement.status.replaceAll("_", " ")}
+          />
         </Card>
       ) : null}
     </Screen>
@@ -156,24 +255,71 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
+  heroCard: {
+    overflow: "hidden",
+  },
+  heroGlow: {
+    position: "absolute",
+    top: -24,
+    right: -10,
+    width: 170,
+    height: 170,
+    borderRadius: 85,
+    backgroundColor: "rgba(221,214,254,0.24)",
+  },
+  heroTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: spacing.lg,
+    flexWrap: "wrap",
+  },
+  heroCopy: {
+    flex: 1,
+    minWidth: 220,
+    gap: spacing.sm,
+  },
+  heroLabel: {
+    color: palette.muted,
+    fontSize: 12,
+    fontFamily: typefaces.bodyStrong,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  heroTitle: {
+    color: palette.ink,
+    fontSize: 24,
+    lineHeight: 32,
+    fontFamily: typefaces.displayMedium,
+  },
+  heroArtWrap: {
+    width: 142,
+    height: 112,
+    borderRadius: 24,
+    backgroundColor: "rgba(255,255,255,0.38)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderGlass,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   topRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     gap: spacing.lg,
   },
   badgeStack: {
-    alignItems: 'flex-end',
+    alignItems: "flex-end",
     gap: spacing.xs,
   },
   label: {
     color: palette.brandDark,
     fontSize: 12,
-    fontWeight: '900',
-    textTransform: 'uppercase',
+    fontFamily: typefaces.bodyHeavy,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
   },
   row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     gap: spacing.md,
     paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -185,33 +331,34 @@ const styles = StyleSheet.create({
   rowTitle: {
     color: palette.ink,
     fontSize: 15,
-    fontWeight: '800',
+    fontFamily: typefaces.bodyHeavy,
   },
   body: {
     color: palette.muted,
     fontSize: 13,
     lineHeight: 18,
+    fontFamily: typefaces.body,
   },
   money: {
     color: palette.ink,
     fontSize: 14,
-    fontWeight: '900',
+    fontFamily: typefaces.bodyHeavy,
   },
   infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     gap: spacing.md,
     paddingVertical: spacing.xs,
   },
   infoLabel: {
     color: palette.muted,
     fontSize: 13,
-    fontWeight: '800',
+    fontFamily: typefaces.bodyStrong,
   },
   infoValue: {
     color: palette.ink,
     fontSize: 13,
-    fontWeight: '800',
-    textAlign: 'right',
+    fontFamily: typefaces.bodyStrong,
+    textAlign: "right",
   },
 });

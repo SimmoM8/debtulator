@@ -1,60 +1,104 @@
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import React, { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import React, { useMemo } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { EventRow, DebtRow, MemberRow } from '@/src/components/EntityRows';
-import { Badge } from '@/src/components/ui/Badges';
-import { BalanceStack } from '@/src/components/ui/Money';
+import { DebtRow, EventRow, MemberRow } from "@/src/components/EntityRows";
+import { DebtulatorOrbitIllustration } from "@/src/components/illustrations/DebtulatorOrbitIllustration";
+import { Badge } from "@/src/components/ui/Badges";
+import { BalanceStack } from "@/src/components/ui/Money";
 import {
-  Button,
-  Card,
-  EmptyState,
-  LoadingState,
-  PageHeader,
-  ResponsiveGrid,
-  Screen,
-  SectionTitle,
-} from '@/src/components/ui/Primitives';
-import { palette, spacing } from '@/src/constants/design';
-import { paidVsUnpaidSummary, verifiedVsPendingSummary } from '@/src/services/analytics';
-import { explainEventSettlement } from '@/src/services/ledger';
-import { buildSmartSuggestionDrafts } from '@/src/services/smartSuggestions';
-import { useAppData } from '@/src/state/AppDataProvider';
-import { useAuth } from '@/src/state/AuthProvider';
-import { sumMoneyMap } from '@/src/utils/money';
+    Button,
+    Card,
+    EmptyState,
+    LoadingState,
+    PageHeader,
+    ResponsiveGrid,
+    Screen,
+    SectionTitle,
+} from "@/src/components/ui/Primitives";
+import { palette, spacing, typefaces } from "@/src/constants/design";
+import {
+    paidVsUnpaidSummary,
+    verifiedVsPendingSummary,
+} from "@/src/services/analytics";
+import { explainEventSettlement } from "@/src/services/ledger";
+import { buildSmartSuggestionDrafts } from "@/src/services/smartSuggestions";
+import { useAppData } from "@/src/state/AppDataProvider";
+import { useAuth } from "@/src/state/AuthProvider";
+import { sumMoneyMap } from "@/src/utils/money";
 
 export function DashboardScreen() {
   const data = useAppData();
   const auth = useAuth();
+  const displayName = auth.identity.displayName?.trim() || "there";
+  const firstName = displayName.split(" ")[0] || displayName;
 
-  const activeEvents = data.events.filter((event) => !event.archived && event.status !== 'settled').slice(0, 3);
-  const activeSharedEvents = data.events.filter((event) => event.visibility === 'shared' && !event.archived && event.status !== 'settled').slice(0, 3);
+  const activeEvents = data.events
+    .filter((event) => !event.archived && event.status !== "settled")
+    .slice(0, 3);
+  const activeSharedEvents = data.events
+    .filter(
+      (event) =>
+        event.visibility === "shared" &&
+        !event.archived &&
+        event.status !== "settled",
+    )
+    .slice(0, 3);
   const recentEntries = data.ledgerEntries.slice(0, 5);
   const attentionEntries = data.ledgerEntries
-    .filter((entry) => ['pending', 'rejected', 'disputed'].includes(entry.verificationStatus))
+    .filter((entry) =>
+      ["pending", "rejected", "disputed"].includes(entry.verificationStatus),
+    )
     .slice(0, 4);
   const pendingEventInvites = data.eventInvites.filter(
     (invite) =>
-      invite.status === 'pending' &&
-      ((auth.identity.authenticatedUserId && invite.invitedUserId === auth.identity.authenticatedUserId) ||
-        (auth.identity.email && invite.invitedEmail?.toLowerCase() === auth.identity.email.toLowerCase())),
+      invite.status === "pending" &&
+      ((auth.identity.authenticatedUserId &&
+        invite.invitedUserId === auth.identity.authenticatedUserId) ||
+        (auth.identity.email &&
+          invite.invitedEmail?.toLowerCase() ===
+            auth.identity.email.toLowerCase())),
   );
   const eventVerificationItems = data.ledgerEntries
-    .filter((entry) => entry.visibility === 'shared_event' && ['pending', 'partially_verified', 'rejected', 'disputed'].includes(entry.verificationStatus))
+    .filter(
+      (entry) =>
+        entry.visibility === "shared_event" &&
+        ["pending", "partially_verified", "rejected", "disputed"].includes(
+          entry.verificationStatus,
+        ),
+    )
     .slice(0, 4);
   const today = new Date().toISOString().slice(0, 10);
   const dueSoon = data.ledgerEntries
-    .filter((entry) => entry.dueDate && entry.dueDate >= today && entry.remainingAmount > 0.005)
+    .filter(
+      (entry) =>
+        entry.dueDate &&
+        entry.dueDate >= today &&
+        entry.remainingAmount > 0.005,
+    )
     .slice(0, 4);
   const overdue = data.ledgerEntries
-    .filter((entry) => entry.dueDate && entry.dueDate < today && entry.remainingAmount > 0.005)
+    .filter(
+      (entry) =>
+        entry.dueDate && entry.dueDate < today && entry.remainingAmount > 0.005,
+    )
     .slice(0, 4);
   const paymentAttention = data.ledgerEntries
-    .filter((entry) => entry.paymentStatus === 'partially_paid' || entry.paymentStatus === 'overpaid')
+    .filter(
+      (entry) =>
+        entry.paymentStatus === "partially_paid" ||
+        entry.paymentStatus === "overpaid",
+    )
     .slice(0, 4);
-  const paidSummary = useMemo(() => paidVsUnpaidSummary(data.ledgerEntries), [data.ledgerEntries]);
-  const trustSummary = useMemo(() => verifiedVsPendingSummary(data.ledgerEntries), [data.ledgerEntries]);
+  const paidSummary = useMemo(
+    () => paidVsUnpaidSummary(data.ledgerEntries),
+    [data.ledgerEntries],
+  );
+  const trustSummary = useMemo(
+    () => verifiedVsPendingSummary(data.ledgerEntries),
+    [data.ledgerEntries],
+  );
   const smartSuggestions = useMemo(
     () =>
       buildSmartSuggestionDrafts({
@@ -81,7 +125,11 @@ export function DashboardScreen() {
     () =>
       data.members
         .filter((member) => !member.archived)
-        .sort((first, second) => sumMoneyMap(data.memberBalances[second.id] ?? {}) - sumMoneyMap(data.memberBalances[first.id] ?? {}))
+        .sort(
+          (first, second) =>
+            sumMoneyMap(data.memberBalances[second.id] ?? {}) -
+            sumMoneyMap(data.memberBalances[first.id] ?? {}),
+        )
         .slice(0, 4),
     [data.memberBalances, data.members],
   );
@@ -93,139 +141,319 @@ export function DashboardScreen() {
   return (
     <Screen>
       <PageHeader
-        eyebrow="Today"
-        title="Debtulator"
+        eyebrow="Overview"
+        title={`Good morning, ${firstName}`}
         subtitle={
           auth.user
-            ? `Signed in as ${auth.identity.displayName}. Your ledger stays private until you choose to share.`
-            : 'Make debt feel lighter, clearer, and easier to settle. Sign in only when you want linking and verification.'
+            ? "Your ledger stays private by default, with shared workflows only when you opt in."
+            : "A calm place to track what you owe, what is due, and what needs a decision."
         }
-        action={<Button title={auth.user ? 'Requests' : 'Sign in'} icon={auth.user ? 'notifications' : 'person-circle'} onPress={() => router.push(auth.user ? '/requests' : '/auth')} />}
+        action={
+          <Button
+            title={auth.user ? "Requests" : "Sign in"}
+            icon={auth.user ? "notifications" : "person-circle"}
+            onPress={() => router.push(auth.user ? "/requests" : "/auth")}
+          />
+        }
       />
 
       <Card tone="lavender" style={styles.heroCard}>
+        <View style={styles.heroGlow} />
         <View style={styles.heroTop}>
           <View style={styles.heroTitleBlock}>
-            <Text style={styles.heroLabel}>Current picture</Text>
+            <Text style={styles.heroLabel}>Net balance</Text>
             <BalanceStack
               balances={data.personalTotals.net}
               settings={data.settings}
               currencyRates={data.currencyRates}
               empty="You're all settled"
             />
+            <Text style={styles.heroBody}>
+              {auth.user
+                ? "Keep up with open debts, shared event activity, and approvals from one focused dashboard."
+                : "Start locally now and add syncing, verification, and requests only when you need them."}
+            </Text>
           </View>
-          <View style={styles.heroIcon}>
-            <Ionicons name="wallet" size={26} color={palette.brandDark} />
+          <View style={styles.heroArtWrap}>
+            <DebtulatorOrbitIllustration width={150} height={116} />
           </View>
         </View>
         <View style={styles.badgeLine}>
-          <Badge label={auth.user ? 'signed in' : 'local-only'} tone={auth.user ? 'positive' : 'neutral'} />
+          <Badge
+            label={auth.user ? "signed in" : "local-only"}
+            tone={auth.user ? "positive" : "neutral"}
+          />
           <Badge label="private by default" tone="blue" />
         </View>
 
         <View style={styles.summaryGrid}>
-          <SummaryTile title="Owed to you" balances={data.personalTotals.owedToMe} tone="positive" />
-          <SummaryTile title="You owe" balances={data.personalTotals.iOwe} tone="blue" />
+          <SummaryTile
+            title="Owed to you"
+            balances={data.personalTotals.owedToMe}
+            tone="positive"
+          />
+          <SummaryTile
+            title="You owe"
+            balances={data.personalTotals.iOwe}
+            tone="blue"
+          />
         </View>
       </Card>
 
-      <Pressable accessibilityRole="button" onPress={() => router.push('/sync' as never)} style={styles.syncIndicator}>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => router.push("/sync" as never)}
+        style={styles.syncIndicator}
+      >
         <View style={styles.badgeLine}>
-          <Badge label={data.syncSummary.statusLabel} tone={data.syncSummary.hasBlockingProblems ? 'amber' : 'positive'} />
-          <Badge label={`${data.syncSummary.pendingCount} pending`} tone={data.syncSummary.pendingCount ? 'amber' : 'neutral'} />
-          <Badge label={`${data.syncSummary.conflictCount} conflicts`} tone={data.syncSummary.conflictCount ? 'negative' : 'neutral'} />
+          <Badge
+            label={data.syncSummary.statusLabel}
+            tone={data.syncSummary.hasBlockingProblems ? "amber" : "positive"}
+          />
+          <Badge
+            label={`${data.syncSummary.pendingCount} pending`}
+            tone={data.syncSummary.pendingCount ? "amber" : "neutral"}
+          />
+          <Badge
+            label={`${data.syncSummary.conflictCount} conflicts`}
+            tone={data.syncSummary.conflictCount ? "negative" : "neutral"}
+          />
         </View>
-        <Text style={styles.activityMeta}>Offline-first queue and conflict review</Text>
+        <Text style={styles.activityMeta}>
+          Offline-first queue and conflict review
+        </Text>
       </Pressable>
 
-      <SectionTitle title="Next actions" subtitle="The things people usually need first." />
+      <SectionTitle
+        title="Next actions"
+        subtitle="The things people usually need first."
+      />
       <View style={styles.quickActions}>
-        <QuickAction label="Add debt" icon="receipt" onPress={() => router.push('/debt/form')} />
-        <QuickAction label="Add expense" icon="cart" onPress={() => router.push('/expense/form')} />
-        <QuickAction label="Record payment" icon="card" onPress={() => router.push('/payment/form')} />
-        <QuickAction label="Add person" icon="person-add" onPress={() => router.push('/member/form')} />
+        <QuickAction
+          label="Add debt"
+          icon="receipt"
+          onPress={() => router.push("/debt/form")}
+        />
+        <QuickAction
+          label="Add expense"
+          icon="cart"
+          onPress={() => router.push("/expense/form")}
+        />
+        <QuickAction
+          label="Record payment"
+          icon="card"
+          onPress={() => router.push("/payment/form")}
+        />
+        <QuickAction
+          label="Add person"
+          icon="person-add"
+          onPress={() => router.push("/member/form")}
+        />
       </View>
 
       <Card style={styles.toolsCard}>
-        <SectionTitle title="More tools" subtitle="Everything else stays close, without competing for attention." />
+        <SectionTitle
+          title="More tools"
+          subtitle="Everything else stays close, without competing for attention."
+        />
         <View style={styles.toolGrid}>
-          <ToolLink label="Shared event" icon="globe" onPress={() => router.push({ pathname: '/event/form', params: { visibility: 'shared' } })} />
-          <ToolLink label="Events" icon="people" onPress={() => router.push('/event/form')} />
-          <ToolLink label="Recurring" icon="repeat" onPress={() => router.push('/recurring')} />
-          <ToolLink label="Requests" icon="notifications" onPress={() => router.push('/requests')} />
-          <ToolLink label="Analytics" icon="analytics" onPress={() => router.push('/analytics')} />
-          <ToolLink label="Suggestions" icon="sparkles" onPress={() => router.push('/suggestions')} />
-          <ToolLink label="Export" icon="download" onPress={() => router.push('/export')} />
-          <ToolLink label="Import CSV" icon="cloud-upload" onPress={() => router.push('/import-csv')} />
-          <ToolLink label="Sync" icon="sync" onPress={() => router.push('/sync' as never)} />
-          <ToolLink label="Notifications" icon="notifications" onPress={() => router.push('/notifications' as never)} />
+          <ToolLink
+            label="Shared event"
+            icon="globe"
+            onPress={() =>
+              router.push({
+                pathname: "/event/form",
+                params: { visibility: "shared" },
+              })
+            }
+          />
+          <ToolLink
+            label="Events"
+            icon="people"
+            onPress={() => router.push("/event/form")}
+          />
+          <ToolLink
+            label="Recurring"
+            icon="repeat"
+            onPress={() => router.push("/recurring")}
+          />
+          <ToolLink
+            label="Requests"
+            icon="notifications"
+            onPress={() => router.push("/requests")}
+          />
+          <ToolLink
+            label="Analytics"
+            icon="analytics"
+            onPress={() => router.push("/analytics")}
+          />
+          <ToolLink
+            label="Suggestions"
+            icon="sparkles"
+            onPress={() => router.push("/suggestions")}
+          />
+          <ToolLink
+            label="Export"
+            icon="download"
+            onPress={() => router.push("/export")}
+          />
+          <ToolLink
+            label="Import CSV"
+            icon="cloud-upload"
+            onPress={() => router.push("/import-csv")}
+          />
+          <ToolLink
+            label="Sync"
+            icon="sync"
+            onPress={() => router.push("/sync" as never)}
+          />
+          <ToolLink
+            label="Notifications"
+            icon="notifications"
+            onPress={() => router.push("/notifications" as never)}
+          />
         </View>
       </Card>
 
       <ResponsiveGrid>
         <View style={styles.gridItem}>
-          <SectionTitle title="What is open" subtitle="Open, paid, partial, and overpaid totals" />
+          <SectionTitle
+            title="What is open"
+            subtitle="Open, paid, partial, and overpaid totals"
+          />
           <Card>
-            <SummaryLine label="Open" value={formatMoneyMapLike(paidSummary.totals.remaining)} tone="amber" />
-            <SummaryLine label="Paid" value={formatMoneyMapLike(paidSummary.totals.paid)} tone="positive" />
-            <SummaryLine label="Overpaid" value={formatMoneyMapLike(paidSummary.totals.overpaid)} tone="amber" />
+            <SummaryLine
+              label="Open"
+              value={formatMoneyMapLike(paidSummary.totals.remaining)}
+              tone="amber"
+            />
+            <SummaryLine
+              label="Paid"
+              value={formatMoneyMapLike(paidSummary.totals.paid)}
+              tone="positive"
+            />
+            <SummaryLine
+              label="Overpaid"
+              value={formatMoneyMapLike(paidSummary.totals.overpaid)}
+              tone="amber"
+            />
           </Card>
         </View>
         <View style={styles.gridItem}>
-          <SectionTitle title="Needs review" subtitle="Verification state across active records" />
+          <SectionTitle
+            title="Needs review"
+            subtitle="Verification state across active records"
+          />
           <Card>
-            <SummaryLine label="Verified" value={formatMoneyMapLike(trustSummary.verified)} tone="positive" />
-            <SummaryLine label="Pending" value={formatMoneyMapLike(trustSummary.pending)} tone="amber" />
-            <SummaryLine label="Rejected/disputed" value={formatMoneyMapLike(mergeMoneyMaps(trustSummary.rejected, trustSummary.disputed))} tone="negative" />
+            <SummaryLine
+              label="Verified"
+              value={formatMoneyMapLike(trustSummary.verified)}
+              tone="positive"
+            />
+            <SummaryLine
+              label="Pending"
+              value={formatMoneyMapLike(trustSummary.pending)}
+              tone="amber"
+            />
+            <SummaryLine
+              label="Rejected/disputed"
+              value={formatMoneyMapLike(
+                mergeMoneyMaps(trustSummary.rejected, trustSummary.disputed),
+              )}
+              tone="negative"
+            />
           </Card>
         </View>
       </ResponsiveGrid>
 
       {smartSuggestions.length > 0 ? (
         <>
-          <SectionTitle title="Smart suggestions" subtitle="Optional assists that require confirmation" />
+          <SectionTitle
+            title="Smart suggestions"
+            subtitle="Optional assists that require confirmation"
+          />
           <Card>
             {smartSuggestions.map((suggestion) => (
               <View key={suggestion.key} style={styles.activityRow}>
                 <View style={styles.badgeLine}>
-                  <Badge label={suggestion.suggestionType} tone={suggestion.suggestionType === 'duplicate' ? 'amber' : 'blue'} />
+                  <Badge
+                    label={suggestion.suggestionType}
+                    tone={
+                      suggestion.suggestionType === "duplicate"
+                        ? "amber"
+                        : "blue"
+                    }
+                  />
                 </View>
                 <Text style={styles.quickText}>{suggestion.title}</Text>
                 <Text style={styles.activityMeta}>{suggestion.message}</Text>
               </View>
             ))}
-            <Button title="Open suggestions" icon="sparkles" variant="secondary" onPress={() => router.push('/suggestions')} />
+            <Button
+              title="Open suggestions"
+              icon="sparkles"
+              variant="secondary"
+              onPress={() => router.push("/suggestions")}
+            />
           </Card>
         </>
       ) : null}
 
       <ResponsiveGrid>
         <View style={styles.gridItem}>
-          <SectionTitle title="Due and overdue" subtitle="Due dates do not change amounts; they help reminders." />
+          <SectionTitle
+            title="Due and overdue"
+            subtitle="Due dates do not change amounts; they help reminders."
+          />
           <Card>
             <View style={styles.badgeLine}>
-              <Badge label={`${dueSoon.length} due soon`} tone={dueSoon.length ? 'amber' : 'neutral'} />
-              <Badge label={`${overdue.length} overdue`} tone={overdue.length ? 'negative' : 'neutral'} />
+              <Badge
+                label={`${dueSoon.length} due soon`}
+                tone={dueSoon.length ? "amber" : "neutral"}
+              />
+              <Badge
+                label={`${overdue.length} overdue`}
+                tone={overdue.length ? "negative" : "neutral"}
+              />
             </View>
             {[...overdue, ...dueSoon].slice(0, 4).map((entry) => (
-              <DebtRow key={entry.id} entry={entry} members={data.members} sharedEventMembers={data.sharedEventMembers} />
+              <DebtRow
+                key={entry.id}
+                entry={entry}
+                members={data.members}
+                sharedEventMembers={data.sharedEventMembers}
+              />
             ))}
           </Card>
         </View>
         <View style={styles.gridItem}>
-          <SectionTitle title="Payments" subtitle="Recent payments and partial/overpaid records." />
+          <SectionTitle
+            title="Payments"
+            subtitle="Recent payments and partial/overpaid records."
+          />
           <Card>
             {data.payments.slice(0, 3).map((payment) => (
               <View key={payment.id} style={styles.activityRow}>
-                <Text style={styles.quickText}>{payment.amount} {payment.currency} · {payment.status.replaceAll('_', ' ')}</Text>
+                <Text style={styles.quickText}>
+                  {payment.amount} {payment.currency} ·{" "}
+                  {payment.status.replaceAll("_", " ")}
+                </Text>
                 <Text style={styles.activityMeta}>{payment.paymentDate}</Text>
               </View>
             ))}
             {paymentAttention.map((entry) => (
-              <DebtRow key={entry.id} entry={entry} members={data.members} sharedEventMembers={data.sharedEventMembers} />
+              <DebtRow
+                key={entry.id}
+                entry={entry}
+                members={data.members}
+                sharedEventMembers={data.sharedEventMembers}
+              />
             ))}
             {data.payments.length === 0 && paymentAttention.length === 0 ? (
-              <EmptyState title="No payment activity" body="Partial payments and recent settlements will appear here." />
+              <EmptyState
+                title="No payment activity"
+                body="Partial payments and recent settlements will appear here."
+              />
             ) : null}
           </Card>
         </View>
@@ -233,16 +461,28 @@ export function DashboardScreen() {
 
       <ResponsiveGrid>
         <View style={styles.gridItem}>
-          <SectionTitle title="Shared events" subtitle="Active collaborative ledgers" />
+          <SectionTitle
+            title="Shared events"
+            subtitle="Active collaborative ledgers"
+          />
           <Card>
             {activeSharedEvents.length > 0 ? (
               activeSharedEvents.map((event) => {
-                const explanation = explainEventSettlement(event.id, data.ledgerEntries);
+                const explanation = explainEventSettlement(
+                  event.id,
+                  data.ledgerEntries,
+                );
                 return (
                   <EventRow
                     key={event.id}
                     event={event}
-                    memberCount={data.sharedEventMembers.filter((member) => member.eventId === event.id && member.status !== 'merged').length}
+                    memberCount={
+                      data.sharedEventMembers.filter(
+                        (member) =>
+                          member.eventId === event.id &&
+                          member.status !== "merged",
+                      ).length
+                    }
                     balance={explanation.participantNets.me ?? {}}
                     settings={data.settings}
                     currencyRates={data.currencyRates}
@@ -251,17 +491,29 @@ export function DashboardScreen() {
                 );
               })
             ) : (
-              <EmptyState title="No active shared events" body="Create a shared event to collaborate on a group ledger." />
+              <EmptyState
+                title="No active shared events"
+                body="Create a shared event to collaborate on a group ledger."
+              />
             )}
           </Card>
         </View>
 
         <View style={styles.gridItem}>
-          <SectionTitle title="Event requests" subtitle="Invites and shared records needing review" />
+          <SectionTitle
+            title="Event requests"
+            subtitle="Invites and shared records needing review"
+          />
           <Card>
             <View style={styles.badgeLine}>
-              <Badge label={`${pendingEventInvites.length} invites`} tone={pendingEventInvites.length ? 'amber' : 'neutral'} />
-              <Badge label={`${eventVerificationItems.length} verification items`} tone={eventVerificationItems.length ? 'blue' : 'neutral'} />
+              <Badge
+                label={`${pendingEventInvites.length} invites`}
+                tone={pendingEventInvites.length ? "amber" : "neutral"}
+              />
+              <Badge
+                label={`${eventVerificationItems.length} verification items`}
+                tone={eventVerificationItems.length ? "blue" : "neutral"}
+              />
             </View>
             {eventVerificationItems.slice(0, 3).map((entry) => (
               <DebtRow
@@ -269,7 +521,11 @@ export function DashboardScreen() {
                 entry={entry}
                 members={data.members}
                 sharedEventMembers={data.sharedEventMembers}
-                event={entry.eventId ? data.events.find((event) => event.id === entry.eventId) : undefined}
+                event={
+                  entry.eventId
+                    ? data.events.find((event) => event.id === entry.eventId)
+                    : undefined
+                }
               />
             ))}
           </Card>
@@ -278,7 +534,10 @@ export function DashboardScreen() {
 
       <ResponsiveGrid>
         <View style={styles.gridItem}>
-          <SectionTitle title="Recent ledger" subtitle="Simple debts and generated split obligations" />
+          <SectionTitle
+            title="Recent ledger"
+            subtitle="Simple debts and generated split obligations"
+          />
           <Card>
             {recentEntries.length > 0 ? (
               recentEntries.map((entry) => (
@@ -287,17 +546,27 @@ export function DashboardScreen() {
                   entry={entry}
                   members={data.members}
                   sharedEventMembers={data.sharedEventMembers}
-                  event={entry.eventId ? data.events.find((event) => event.id === entry.eventId) : undefined}
+                  event={
+                    entry.eventId
+                      ? data.events.find((event) => event.id === entry.eventId)
+                      : undefined
+                  }
                 />
               ))
             ) : (
-              <EmptyState title="No records yet" body="Add a debt or event expense to start your ledger." />
+              <EmptyState
+                title="No records yet"
+                body="Add a debt or event expense to start your ledger."
+              />
             )}
           </Card>
         </View>
 
         <View style={styles.gridItem}>
-          <SectionTitle title="Needs attention" subtitle="Pending, rejected, and disputed local records" />
+          <SectionTitle
+            title="Needs attention"
+            subtitle="Pending, rejected, and disputed local records"
+          />
           <Card>
             {attentionEntries.length > 0 ? (
               attentionEntries.map((entry) => (
@@ -306,11 +575,18 @@ export function DashboardScreen() {
                   entry={entry}
                   members={data.members}
                   sharedEventMembers={data.sharedEventMembers}
-                  event={entry.eventId ? data.events.find((event) => event.id === entry.eventId) : undefined}
+                  event={
+                    entry.eventId
+                      ? data.events.find((event) => event.id === entry.eventId)
+                      : undefined
+                  }
                 />
               ))
             ) : (
-              <EmptyState title="Nothing flagged" body="Rejected and disputed records stay visible here." />
+              <EmptyState
+                title="Nothing flagged"
+                body="Rejected and disputed records stay visible here."
+              />
             )}
           </Card>
         </View>
@@ -318,7 +594,10 @@ export function DashboardScreen() {
 
       <ResponsiveGrid>
         <View style={styles.gridItem}>
-          <SectionTitle title="Top members" subtitle="Largest active balances" />
+          <SectionTitle
+            title="Top members"
+            subtitle="Largest active balances"
+          />
           <Card>
             {topMembers.map((member) => (
               <MemberRow
@@ -333,18 +612,30 @@ export function DashboardScreen() {
         </View>
 
         <View style={styles.gridItem}>
-          <SectionTitle title="Active events" subtitle="Event-level balances and settlement hints" />
+          <SectionTitle
+            title="Active events"
+            subtitle="Event-level balances and settlement hints"
+          />
           <Card>
             {activeEvents.map((event) => {
-              const explanation = explainEventSettlement(event.id, data.ledgerEntries);
+              const explanation = explainEventSettlement(
+                event.id,
+                data.ledgerEntries,
+              );
               return (
                 <EventRow
                   key={event.id}
                   event={event}
                   memberCount={
-                    event.visibility === 'shared'
-                      ? data.sharedEventMembers.filter((eventMember) => eventMember.eventId === event.id && eventMember.status !== 'merged').length
-                      : data.eventMembers.filter((eventMember) => eventMember.eventId === event.id).length + 1
+                    event.visibility === "shared"
+                      ? data.sharedEventMembers.filter(
+                          (eventMember) =>
+                            eventMember.eventId === event.id &&
+                            eventMember.status !== "merged",
+                        ).length
+                      : data.eventMembers.filter(
+                          (eventMember) => eventMember.eventId === event.id,
+                        ).length + 1
                   }
                   balance={explanation.participantNets.me ?? {}}
                   settings={data.settings}
@@ -357,17 +648,27 @@ export function DashboardScreen() {
         </View>
       </ResponsiveGrid>
 
-      <SectionTitle title="Recent activity" subtitle="Verification and linking changes" />
+      <SectionTitle
+        title="Recent activity"
+        subtitle="Verification and linking changes"
+      />
       <Card>
         {data.activityLogs.length > 0 ? (
           data.activityLogs.slice(0, 6).map((activity) => (
             <View key={activity.id} style={styles.activityRow}>
-              <Text style={styles.quickText}>{activity.action.replaceAll('_', ' ')}</Text>
-              <Text style={styles.activityMeta}>{new Date(activity.createdAt).toLocaleString()}</Text>
+              <Text style={styles.quickText}>
+                {activity.action.replaceAll("_", " ")}
+              </Text>
+              <Text style={styles.activityMeta}>
+                {new Date(activity.createdAt).toLocaleString()}
+              </Text>
             </View>
           ))
         ) : (
-          <EmptyState title="No activity yet" body="Linking and verification events will appear here." />
+          <EmptyState
+            title="No activity yet"
+            body="Linking and verification events will appear here."
+          />
         )}
       </Card>
     </Screen>
@@ -381,9 +682,11 @@ function SummaryTile({
 }: {
   title: string;
   balances: Record<string, number | undefined>;
-  tone: 'positive' | 'blue';
+  tone: "positive" | "blue";
 }) {
-  const lines = Object.entries(balances).filter(([, amount]) => Math.abs(amount ?? 0) > 0.005);
+  const lines = Object.entries(balances).filter(
+    ([, amount]) => Math.abs(amount ?? 0) > 0.005,
+  );
   return (
     <View style={styles.summaryTile}>
       <Badge label={title} tone={tone} />
@@ -391,8 +694,17 @@ function SummaryTile({
         <Text style={styles.summaryEmpty}>None</Text>
       ) : (
         lines.map(([currency, amount]) => (
-          <Text key={currency} style={[styles.summaryAmount, tone === 'positive' ? styles.positive : styles.negative]}>
-            {currency} {Math.abs(amount ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+          <Text
+            key={currency}
+            style={[
+              styles.summaryAmount,
+              tone === "positive" ? styles.positive : styles.negative,
+            ]}
+          >
+            {currency}{" "}
+            {Math.abs(amount ?? 0).toLocaleString(undefined, {
+              maximumFractionDigits: 2,
+            })}
           </Text>
         ))
       )}
@@ -410,7 +722,10 @@ function QuickAction({
   onPress: () => void;
 }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.quickAction, pressed && styles.pressed]}>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.quickAction, pressed && styles.pressed]}
+    >
       <View style={styles.quickIcon}>
         <Ionicons name={icon} size={19} color={palette.brand} />
       </View>
@@ -429,7 +744,10 @@ function ToolLink({
   onPress: () => void;
 }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.toolLink, pressed && styles.pressed]}>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.toolLink, pressed && styles.pressed]}
+    >
       <Ionicons name={icon} size={16} color={palette.muted} />
       <Text style={styles.toolText}>{label}</Text>
     </Pressable>
@@ -443,7 +761,7 @@ function SummaryLine({
 }: {
   label: string;
   value: string;
-  tone: 'positive' | 'negative' | 'amber';
+  tone: "positive" | "negative" | "amber";
 }) {
   return (
     <View style={styles.summaryLine}>
@@ -454,11 +772,18 @@ function SummaryLine({
 }
 
 function formatMoneyMapLike(map: Record<string, number | undefined>) {
-  const rows = Object.entries(map).filter(([, amount]) => Math.abs(amount ?? 0) > 0.005);
+  const rows = Object.entries(map).filter(
+    ([, amount]) => Math.abs(amount ?? 0) > 0.005,
+  );
   if (!rows.length) {
-    return 'None';
+    return "None";
   }
-  return rows.map(([currency, amount]) => `${currency} ${Math.abs(amount ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`).join('  ');
+  return rows
+    .map(
+      ([currency, amount]) =>
+        `${currency} ${Math.abs(amount ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`,
+    )
+    .join("  ");
 }
 
 function mergeMoneyMaps(
@@ -478,46 +803,64 @@ function mergeMoneyMaps(
 const styles = StyleSheet.create({
   heroCard: {
     gap: spacing.md,
-    overflow: 'hidden',
+    overflow: "hidden",
+  },
+  heroGlow: {
+    position: "absolute",
+    top: -24,
+    right: -10,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: "rgba(221,214,254,0.28)",
   },
   heroTop: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
     gap: spacing.lg,
   },
   heroTitleBlock: {
     flex: 1,
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
   heroLabel: {
     color: palette.muted,
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: typefaces.bodyStrong,
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
   },
-  heroIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.68)',
+  heroBody: {
+    color: palette.muted,
+    fontSize: 14,
+    lineHeight: 21,
+    fontFamily: typefaces.body,
+    maxWidth: 360,
+  },
+  heroArtWrap: {
+    width: 156,
+    height: 124,
+    borderRadius: 24,
+    backgroundColor: "rgba(255,255,255,0.4)",
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(253,186,155,0.36)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: palette.borderGlass,
+    alignItems: "center",
+    justifyContent: "center",
   },
   summaryGrid: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: spacing.md,
-    flexWrap: 'wrap',
+    flexWrap: "wrap",
   },
   badgeLine: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.xs,
   },
   syncIndicator: {
-    backgroundColor: 'rgba(255,255,255,0.64)',
-    borderColor: 'rgba(55,48,163,0.10)',
+    backgroundColor: palette.surfaceGlassElevated,
+    borderColor: palette.borderIndigoSoft,
     borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
     gap: spacing.xs,
@@ -526,25 +869,25 @@ const styles = StyleSheet.create({
   summaryTile: {
     flex: 1,
     minWidth: 150,
-    backgroundColor: 'rgba(255,255,255,0.58)',
+    backgroundColor: "rgba(255,255,255,0.58)",
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(55,48,163,0.10)',
+    borderColor: "rgba(55,48,163,0.10)",
     borderRadius: 16,
     padding: spacing.md,
     gap: spacing.sm,
   },
   summaryAmount: {
     fontSize: 16,
-    fontWeight: '900',
+    fontFamily: typefaces.bodyHeavy,
   },
   summaryEmpty: {
     color: palette.faint,
-    fontWeight: '800',
+    fontFamily: typefaces.bodyStrong,
   },
   summaryLine: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: spacing.md,
     paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -554,8 +897,8 @@ const styles = StyleSheet.create({
     flex: 1,
     color: palette.ink,
     fontSize: 14,
-    fontWeight: '900',
-    textAlign: 'right',
+    fontFamily: typefaces.bodyHeavy,
+    textAlign: "right",
   },
   positive: {
     color: palette.positive,
@@ -564,50 +907,50 @@ const styles = StyleSheet.create({
     color: palette.primaryDeep,
   },
   quickActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.sm,
   },
   quickAction: {
     minHeight: 68,
     flexGrow: 1,
-    flexBasis: '47%',
+    flexBasis: "47%",
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.74)',
+    backgroundColor: "rgba(255,255,255,0.74)",
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(55,48,163,0.12)',
+    borderColor: "rgba(55,48,163,0.12)",
     padding: spacing.md,
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
+    alignItems: "flex-start",
+    justifyContent: "space-between",
     gap: spacing.sm,
   },
   quickIcon: {
     width: 32,
     height: 32,
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(232,227,255,0.70)',
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(232,227,255,0.70)",
   },
   quickText: {
     color: palette.ink,
     fontSize: 14,
-    fontWeight: '800',
+    fontFamily: typefaces.bodyStrong,
   },
   toolsCard: {
     gap: spacing.md,
   },
   toolGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.sm,
   },
   toolLink: {
     minHeight: 36,
-    flexBasis: '47%',
+    flexBasis: "47%",
     flexGrow: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.sm,
     borderRadius: 12,
     paddingHorizontal: spacing.sm,
@@ -615,7 +958,7 @@ const styles = StyleSheet.create({
   toolText: {
     color: palette.ink,
     fontSize: 13,
-    fontWeight: '700',
+    fontFamily: typefaces.bodyStrong,
   },
   pressed: {
     opacity: 0.72,
@@ -634,6 +977,6 @@ const styles = StyleSheet.create({
   activityMeta: {
     color: palette.muted,
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: typefaces.bodyStrong,
   },
 });

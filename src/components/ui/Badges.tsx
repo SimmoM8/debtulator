@@ -1,7 +1,7 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-import { palette, radii, spacing } from "@/src/constants/design";
+import { palette, radii, spacing, typefaces } from "@/src/constants/design";
 import type {
     DebtStatus,
     DebtVisibility,
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
   tagText: {
     color: palette.primaryDeep,
     fontSize: 12,
-    fontWeight: "800",
+    fontFamily: typefaces.bodyStrong,
   },
   badge: {
     borderWidth: StyleSheet.hairlineWidth,
@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     fontSize: 12,
-    fontWeight: "800",
+    fontFamily: typefaces.bodyStrong,
     textTransform: "capitalize",
     letterSpacing: 0.2,
   },

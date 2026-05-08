@@ -4,20 +4,20 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { MemberRow } from "@/src/components/EntityRows";
 import {
-  Button,
-  Card,
-  EmptyState,
-  FilterSheet,
-  FloatingActionButton,
-  IconButton,
-  LoadingState,
-  PageHeader,
-  Screen,
-  SearchField,
-  SectionTitle,
-  SelectChips,
+    Button,
+    Card,
+    EmptyState,
+    FilterSheet,
+    FloatingActionButton,
+    IconButton,
+    LoadingState,
+    PageHeader,
+    Screen,
+    SearchField,
+    SectionTitle,
+    SelectChips,
 } from "@/src/components/ui/Primitives";
-import { palette, spacing } from "@/src/constants/design";
+import { palette, spacing, typefaces } from "@/src/constants/design";
 import { filterMembers } from "@/src/services/filters";
 import { useAppData } from "@/src/state/AppDataProvider";
 import type { MemberFilters } from "@/src/types/models";
@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
   quickFilterText: {
     color: palette.muted,
     fontSize: 13,
-    fontWeight: "700",
+    fontFamily: typefaces.bodyStrong,
   },
   quickFilterTextActive: {
     color: palette.surface,
@@ -325,13 +325,13 @@ const styles = StyleSheet.create({
   summaryValue: {
     color: palette.ink,
     fontSize: 22,
-    fontWeight: "800",
+    fontFamily: typefaces.bodyHeavy,
     textAlign: "center",
   },
   summaryLabel: {
     color: palette.muted,
     fontSize: 12,
-    fontWeight: "700",
+    fontFamily: typefaces.bodyStrong,
     textAlign: "center",
   },
   filterGrid: {

@@ -12,7 +12,7 @@ import {
     VisibilityBadge,
 } from "@/src/components/ui/Badges";
 import { BalanceStack } from "@/src/components/ui/Money";
-import { palette, radii, spacing } from "@/src/constants/design";
+import { palette, radii, spacing, typefaces } from "@/src/constants/design";
 import { entryDirectionText } from "@/src/services/ledger";
 import type {
     AppSettings,
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
   avatarText: {
     color: palette.brandDark,
     fontSize: 15,
-    fontWeight: "900",
+    fontFamily: typefaces.bodyHeavy,
   },
   eventMark: {
     width: 48,
@@ -334,17 +334,18 @@ const styles = StyleSheet.create({
   rowTitle: {
     color: palette.ink,
     fontSize: 16,
-    fontWeight: "900",
+    fontFamily: typefaces.bodyHeavy,
   },
   rowSubtitle: {
     color: palette.muted,
     fontSize: 13,
     lineHeight: 18,
+    fontFamily: typefaces.body,
   },
   rowMeta: {
     color: palette.brandDark,
     fontSize: 12,
-    fontWeight: "700",
+    fontFamily: typefaces.bodyStrong,
   },
   badgeLine: {
     flexDirection: "row",
@@ -360,20 +361,20 @@ const styles = StyleSheet.create({
   amountText: {
     color: palette.ink,
     fontSize: 16,
-    fontWeight: "900",
+    fontFamily: typefaces.bodyHeavy,
     fontVariant: ["tabular-nums"],
   },
   kindText: {
     color: palette.muted,
     fontSize: 11,
-    fontWeight: "700",
+    fontFamily: typefaces.bodyStrong,
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
   dateText: {
     color: palette.faint,
     fontSize: 12,
-    fontWeight: "700",
+    fontFamily: typefaces.bodyStrong,
     paddingTop: 2,
   },
 });

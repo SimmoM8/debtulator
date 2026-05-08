@@ -1,23 +1,47 @@
-import React, { useMemo, useState } from 'react';
-import { Alert, StyleSheet, Switch, Text, View } from 'react-native';
+import React, { useMemo, useState } from "react";
+import { Alert, StyleSheet, Switch, Text, View } from "react-native";
 
-import { Badge } from '@/src/components/ui/Badges';
-import { Button, Card, PageHeader, Screen, SectionTitle, SelectChips, TextField } from '@/src/components/ui/Primitives';
-import { palette, spacing } from '@/src/constants/design';
-import { buildBackup, previewRestore, restoreModeDescription, shareBackupFile } from '@/src/services/backupRestore';
-import { useAppData } from '@/src/state/AppDataProvider';
-import type { BackupMode } from '@/src/types/models';
+import { DebtulatorShieldIllustration } from "@/src/components/illustrations/DebtulatorShieldIllustration";
+import { Badge } from "@/src/components/ui/Badges";
+import {
+    Button,
+    Card,
+    PageHeader,
+    Screen,
+    SectionTitle,
+    SelectChips,
+    TextField,
+} from "@/src/components/ui/Primitives";
+import { palette, spacing, typefaces } from "@/src/constants/design";
+import {
+    buildBackup,
+    previewRestore,
+    restoreModeDescription,
+    shareBackupFile,
+} from "@/src/services/backupRestore";
+import { useAppData } from "@/src/state/AppDataProvider";
+import type { BackupMode } from "@/src/types/models";
 
 export function BackupRestoreScreen() {
   const data = useAppData();
-  const [includeAttachments, setIncludeAttachments] = useState(data.settings.backupIncludeAttachments);
-  const [includePrivateNotes, setIncludePrivateNotes] = useState(data.settings.backupIncludePrivateNotes);
-  const [restoreJson, setRestoreJson] = useState('');
-  const [restoreMode, setRestoreMode] = useState<BackupMode>('merge');
-  const preview = useMemo(() => (restoreJson.trim() ? previewRestore(restoreJson) : null), [restoreJson]);
+  const [includeAttachments, setIncludeAttachments] = useState(
+    data.settings.backupIncludeAttachments,
+  );
+  const [includePrivateNotes, setIncludePrivateNotes] = useState(
+    data.settings.backupIncludePrivateNotes,
+  );
+  const [restoreJson, setRestoreJson] = useState("");
+  const [restoreMode, setRestoreMode] = useState<BackupMode>("merge");
+  const preview = useMemo(
+    () => (restoreJson.trim() ? previewRestore(restoreJson) : null),
+    [restoreJson],
+  );
 
   async function createBackup() {
-    const backup = buildBackup(data, { includeAttachments, includePrivateNotes });
+    const backup = buildBackup(data, {
+      includeAttachments,
+      includePrivateNotes,
+    });
     const uri = await shareBackupFile(backup);
     await data.updateSettings({
       backupIncludeAttachments: includeAttachments,
@@ -26,8 +50,8 @@ export function BackupRestoreScreen() {
     });
     await data.createAuditLog({
       actorUserId: null,
-      action: 'backup_exported',
-      targetType: 'backup',
+      action: "backup_exported",
+      targetType: "backup",
       targetId: uri,
       eventId: null,
       metadata: { includeAttachments, includePrivateNotes },
@@ -36,21 +60,24 @@ export function BackupRestoreScreen() {
 
   function confirmRestore() {
     if (!preview?.valid) {
-      Alert.alert('Invalid backup', 'Paste a valid Debtulator backup JSON before restoring.');
+      Alert.alert(
+        "Invalid backup",
+        "Paste a valid Debtulator backup JSON before restoring.",
+      );
       return;
     }
     Alert.alert(
-      'Restore backup?',
+      "Restore backup?",
       `${restoreModeDescription(restoreMode)} Restored synced records default to private/local unless explicitly re-shared.`,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: "Cancel", style: "cancel" },
         {
-          text: 'Record restore',
+          text: "Record restore",
           onPress: () =>
             data.createAuditLog({
               actorUserId: null,
-              action: 'restore_performed',
-              targetType: 'backup',
+              action: "restore_performed",
+              targetType: "backup",
               targetId: null,
               eventId: null,
               metadata: { restoreMode, preview },
@@ -62,50 +89,130 @@ export function BackupRestoreScreen() {
 
   return (
     <Screen>
-      <PageHeader eyebrow="Data safety" title="Backup and restore" subtitle="Backups default restored records to private/local copies." />
+      <PageHeader
+        eyebrow="Data safety"
+        title="Backup and restore"
+        subtitle="Backups default restored records to private/local copies."
+      />
+
+      <Card tone="lavender" style={styles.heroCard}>
+        <View style={styles.heroGlow} />
+        <View style={styles.heroTop}>
+          <View style={styles.switchText}>
+            <Text style={styles.heroLabel}>Resilient copies</Text>
+            <Text style={styles.heroTitle}>
+              Protect the ledger without sacrificing privacy defaults.
+            </Text>
+            <Text style={styles.body}>
+              Create manual JSON snapshots, preview restore impact, and keep
+              restored data private unless you explicitly re-share it.
+            </Text>
+          </View>
+          <View style={styles.heroArtWrap}>
+            <DebtulatorShieldIllustration width={132} height={104} />
+          </View>
+        </View>
+      </Card>
 
       <Card>
-        <SectionTitle title="Create backup" subtitle="Manual JSON backup for this device ledger." />
-        <ToggleRow title="Include attachment metadata" body="Attachment files are included only when practical; remote paths are not reused." value={includeAttachments} onValueChange={setIncludeAttachments} />
-        <ToggleRow title="Include private notes/comments" body="Off by default to avoid exporting private context accidentally." value={includePrivateNotes} onValueChange={setIncludePrivateNotes} />
+        <SectionTitle
+          title="Create backup"
+          subtitle="Manual JSON backup for this device ledger."
+        />
+        <ToggleRow
+          title="Include attachment metadata"
+          body="Attachment files are included only when practical; remote paths are not reused."
+          value={includeAttachments}
+          onValueChange={setIncludeAttachments}
+        />
+        <ToggleRow
+          title="Include private notes/comments"
+          body="Off by default to avoid exporting private context accidentally."
+          value={includePrivateNotes}
+          onValueChange={setIncludePrivateNotes}
+        />
         <View style={styles.badgeLine}>
-          <Badge label={data.settings.syncPrivateLocalDataToAccountBackup ? 'account backup opt-in' : 'local export only'} tone="blue" />
-          <Badge label={data.settings.lastBackupAt ? `last ${data.settings.lastBackupAt.slice(0, 10)}` : 'no backup yet'} tone="neutral" />
+          <Badge
+            label={
+              data.settings.syncPrivateLocalDataToAccountBackup
+                ? "account backup opt-in"
+                : "local export only"
+            }
+            tone="blue"
+          />
+          <Badge
+            label={
+              data.settings.lastBackupAt
+                ? `last ${data.settings.lastBackupAt.slice(0, 10)}`
+                : "no backup yet"
+            }
+            tone="neutral"
+          />
         </View>
         <Button title="Create backup" icon="download" onPress={createBackup} />
       </Card>
 
       <Card>
-        <SectionTitle title="Restore preview" subtitle="Paste backup JSON to validate before choosing a restore mode." />
-        <TextField label="Backup JSON" value={restoreJson} onChangeText={setRestoreJson} multiline />
+        <SectionTitle
+          title="Restore preview"
+          subtitle="Paste backup JSON to validate before choosing a restore mode."
+        />
+        <TextField
+          label="Backup JSON"
+          value={restoreJson}
+          onChangeText={setRestoreJson}
+          multiline
+        />
         <SelectChips
           label="Restore mode"
           value={restoreMode}
           onChange={setRestoreMode}
           options={[
-            { label: 'Merge', value: 'merge' },
-            { label: 'Replace local', value: 'replace_local' },
-            { label: 'Duplicate/private', value: 'duplicate_private' },
+            { label: "Merge", value: "merge" },
+            { label: "Replace local", value: "replace_local" },
+            { label: "Duplicate/private", value: "duplicate_private" },
           ]}
         />
         {preview ? (
           <View style={styles.preview}>
-            <Badge label={preview.valid ? 'valid backup' : 'invalid'} tone={preview.valid ? 'positive' : 'negative'} />
+            <Badge
+              label={preview.valid ? "valid backup" : "invalid"}
+              tone={preview.valid ? "positive" : "negative"}
+            />
             <Text style={styles.body}>
-              {preview.memberCount} members · {preview.debtCount} debts · {preview.eventCount} events · {preview.paymentCount} payments · {preview.settlementCount} settlements
+              {preview.memberCount} members · {preview.debtCount} debts ·{" "}
+              {preview.eventCount} events · {preview.paymentCount} payments ·{" "}
+              {preview.settlementCount} settlements
             </Text>
             {preview.warnings.map((warning) => (
-              <Text key={warning} style={styles.warning}>{warning}</Text>
+              <Text key={warning} style={styles.warning}>
+                {warning}
+              </Text>
             ))}
           </View>
         ) : null}
-        <Button title="Record restore decision" icon="refresh" variant="secondary" onPress={confirmRestore} />
+        <Button
+          title="Record restore decision"
+          icon="refresh"
+          variant="secondary"
+          onPress={confirmRestore}
+        />
       </Card>
     </Screen>
   );
 }
 
-function ToggleRow({ title, body, value, onValueChange }: { title: string; body: string; value: boolean; onValueChange: (value: boolean) => void }) {
+function ToggleRow({
+  title,
+  body,
+  value,
+  onValueChange,
+}: {
+  title: string;
+  body: string;
+  value: boolean;
+  onValueChange: (value: boolean) => void;
+}) {
   return (
     <View style={styles.switchRow}>
       <View style={styles.switchText}>
@@ -116,18 +223,59 @@ function ToggleRow({ title, body, value, onValueChange }: { title: string; body:
         value={value}
         onValueChange={onValueChange}
         trackColor={{ false: palette.lineStrong, true: palette.brandSoft }}
-        thumbColor={value ? palette.brand : '#FFFFFF'}
+        thumbColor={value ? palette.brand : "#FFFFFF"}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  switchRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
+  heroCard: {
+    overflow: "hidden",
+  },
+  heroGlow: {
+    position: "absolute",
+    top: -28,
+    right: -10,
+    width: 170,
+    height: 170,
+    borderRadius: 85,
+    backgroundColor: "rgba(221,214,254,0.24)",
+  },
+  heroTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     gap: spacing.lg,
-    justifyContent: 'space-between',
+    flexWrap: "wrap",
+  },
+  heroLabel: {
+    color: palette.muted,
+    fontSize: 12,
+    fontFamily: typefaces.bodyStrong,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  heroTitle: {
+    color: palette.ink,
+    fontSize: 24,
+    lineHeight: 32,
+    fontFamily: typefaces.displayMedium,
+  },
+  heroArtWrap: {
+    width: 142,
+    height: 112,
+    borderRadius: 24,
+    backgroundColor: "rgba(255,255,255,0.38)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderGlass,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  switchRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: spacing.lg,
+    justifyContent: "space-between",
   },
   switchText: {
     flex: 1,
@@ -136,20 +284,22 @@ const styles = StyleSheet.create({
   title: {
     color: palette.ink,
     fontSize: 15,
-    fontWeight: '800',
+    fontFamily: typefaces.bodyHeavy,
   },
   body: {
     color: palette.muted,
     fontSize: 13,
     lineHeight: 18,
+    fontFamily: typefaces.body,
   },
   warning: {
     color: palette.negative,
     fontSize: 12,
+    fontFamily: typefaces.bodyStrong,
   },
   badgeLine: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.sm,
   },
   preview: {

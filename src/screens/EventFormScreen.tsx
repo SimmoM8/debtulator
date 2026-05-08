@@ -1,25 +1,36 @@
-import { router, useLocalSearchParams } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useMemo, useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
 
+import { DebtulatorOrbitIllustration } from "@/src/components/illustrations/DebtulatorOrbitIllustration";
 import {
-  Button,
-  Card,
-  EmptyState,
-  LoadingState,
-  MultiSelectChips,
-  PageHeader,
-  Screen,
-  SelectChips,
-  TextField,
-} from '@/src/components/ui/Primitives';
-import { CURRENCIES } from '@/src/constants/currencies';
-import { createRemoteSharedEvent } from '@/src/services/stage3Sync';
-import { useAppData } from '@/src/state/AppDataProvider';
-import { useAuth } from '@/src/state/AuthProvider';
-import type { CurrencyCode, EventStatus, EventVisibility, SyncStatus } from '@/src/types/models';
+    Button,
+    Card,
+    EmptyState,
+    LoadingState,
+    MultiSelectChips,
+    PageHeader,
+    Screen,
+    SelectChips,
+    TextField,
+} from "@/src/components/ui/Primitives";
+import { CURRENCIES } from "@/src/constants/currencies";
+import { palette, spacing, typefaces } from "@/src/constants/design";
+import { createRemoteSharedEvent } from "@/src/services/stage3Sync";
+import { useAppData } from "@/src/state/AppDataProvider";
+import { useAuth } from "@/src/state/AuthProvider";
+import type {
+    CurrencyCode,
+    EventStatus,
+    EventVisibility,
+    SyncStatus,
+} from "@/src/types/models";
 
 export function EventFormScreen() {
-  const { id, visibility: visibilityParam } = useLocalSearchParams<{ id?: string; visibility?: EventVisibility }>();
+  const { id, visibility: visibilityParam } = useLocalSearchParams<{
+    id?: string;
+    visibility?: EventVisibility;
+  }>();
   const data = useAppData();
   const auth = useAuth();
   const event = data.events.find((item) => item.id === id);
@@ -27,17 +38,24 @@ export function EventFormScreen() {
     .filter((eventMember) => eventMember.eventId === event?.id)
     .map((eventMember) => eventMember.memberId);
 
-  const [name, setName] = useState(event?.name ?? '');
-  const [notes, setNotes] = useState(event?.notes ?? '');
-  const [defaultCurrency, setDefaultCurrency] = useState<CurrencyCode>(event?.defaultCurrency ?? data.settings.baseCurrency);
-  const [tags, setTags] = useState(event?.tags.join(', ') ?? '');
-  const [status, setStatus] = useState<EventStatus>(event?.status ?? 'active');
-  const [visibility, setVisibility] = useState<EventVisibility>(event?.visibility ?? visibilityParam ?? 'private');
+  const [name, setName] = useState(event?.name ?? "");
+  const [notes, setNotes] = useState(event?.notes ?? "");
+  const [defaultCurrency, setDefaultCurrency] = useState<CurrencyCode>(
+    event?.defaultCurrency ?? data.settings.baseCurrency,
+  );
+  const [tags, setTags] = useState(event?.tags.join(", ") ?? "");
+  const [status, setStatus] = useState<EventStatus>(event?.status ?? "active");
+  const [visibility, setVisibility] = useState<EventVisibility>(
+    event?.visibility ?? visibilityParam ?? "private",
+  );
   const [memberIds, setMemberIds] = useState<string[]>(currentMemberIds);
   const [error, setError] = useState<string | null>(null);
 
   const memberOptions = useMemo(
-    () => data.members.filter((member) => !member.archived).map((member) => ({ label: member.displayName, value: member.id })),
+    () =>
+      data.members
+        .filter((member) => !member.archived)
+        .map((member) => ({ label: member.displayName, value: member.id })),
     [data.members],
   );
 
@@ -47,13 +65,17 @@ export function EventFormScreen() {
 
   async function save() {
     setError(null);
-    if (visibility === 'shared' && !auth.identity.authenticatedUserId) {
-      setError('Sign in before creating a shared event.');
+    if (visibility === "shared" && !auth.identity.authenticatedUserId) {
+      setError("Sign in before creating a shared event.");
       return;
     }
 
     let remote: Awaited<ReturnType<typeof createRemoteSharedEvent>> = null;
-    if (!event && visibility === 'shared' && auth.identity.authenticatedUserId) {
+    if (
+      !event &&
+      visibility === "shared" &&
+      auth.identity.authenticatedUserId
+    ) {
       try {
         remote = await createRemoteSharedEvent({
           ownerUserId: auth.identity.authenticatedUserId,
@@ -67,11 +89,20 @@ export function EventFormScreen() {
         });
       } catch (remoteError) {
         remote = null;
-        setError(remoteError instanceof Error ? remoteError.message : 'Shared event will be queued for sync.');
+        setError(
+          remoteError instanceof Error
+            ? remoteError.message
+            : "Shared event will be queued for sync.",
+        );
       }
     }
 
-    const syncStatus: SyncStatus = visibility === 'shared' ? (remote ? 'synced' : 'pending_upload') : 'local_only';
+    const syncStatus: SyncStatus =
+      visibility === "shared"
+        ? remote
+          ? "synced"
+          : "pending_upload"
+        : "local_only";
     const input = {
       name,
       notes,
@@ -80,13 +111,14 @@ export function EventFormScreen() {
       tags: splitTags(tags),
       status,
       visibility,
-      ownerUserId: visibility === 'shared' ? auth.identity.authenticatedUserId : null,
+      ownerUserId:
+        visibility === "shared" ? auth.identity.authenticatedUserId : null,
       ownerDisplayName: auth.identity.displayName,
       ownerEmail: auth.identity.email,
       remoteId: remote?.remoteEventId ?? event?.remoteId ?? null,
       ownerRemoteEventMemberId: remote?.remoteOwnerEventMemberId ?? null,
       syncStatus,
-      memberIds: visibility === 'private' ? memberIds : [],
+      memberIds: visibility === "private" ? memberIds : [],
     };
 
     if (event) {
@@ -102,15 +134,19 @@ export function EventFormScreen() {
     <Screen
       footer={
         <Button
-          title={event ? 'Save event' : 'Create event'}
+          title={event ? "Save event" : "Create event"}
           icon="checkmark"
           onPress={save}
-          disabled={!name.trim() || (visibility === 'shared' && !auth.identity.authenticatedUserId)}
+          disabled={
+            !name.trim() ||
+            (visibility === "shared" && !auth.identity.authenticatedUserId)
+          }
         />
-      }>
+      }
+    >
       <PageHeader
         eyebrow="Event"
-        title={event ? 'Edit event' : 'Add event'}
+        title={event ? "Edit event" : "Add event"}
         subtitle="Create a calm place for shared expenses, people, notes, and settlement history."
       />
 
@@ -120,46 +156,89 @@ export function EventFormScreen() {
         </Card>
       ) : null}
 
+      <Card tone="lavender" style={styles.heroCard}>
+        <View style={styles.heroGlow} />
+        <View style={styles.heroTop}>
+          <View style={styles.heroCopy}>
+            <Text style={styles.heroLabel}>Event setup</Text>
+            <Text style={styles.heroTitle}>
+              Create the container first, then layer expenses, members, roles,
+              and settlement history onto it.
+            </Text>
+            <Text style={styles.body}>
+              Private events can start locally, while shared events only expand
+              after sync and invitations are explicitly configured.
+            </Text>
+          </View>
+          <View style={styles.heroArtWrap}>
+            <DebtulatorOrbitIllustration width={132} height={104} compact />
+          </View>
+        </View>
+      </Card>
+
       <Card tone="peach">
-        <TextField label="Event name" value={name} onChangeText={setName} placeholder="Ski Trip Sweden" />
-        <TextField label="Notes" value={notes} onChangeText={setNotes} multiline />
+        <TextField
+          label="Event name"
+          value={name}
+          onChangeText={setName}
+          placeholder="Ski Trip Sweden"
+        />
+        <TextField
+          label="Notes"
+          value={notes}
+          onChangeText={setNotes}
+          multiline
+        />
         <SelectChips
           label="Visibility"
           value={visibility}
           options={[
-            { label: 'Private event', value: 'private' },
-            { label: 'Shared event', value: 'shared' },
+            { label: "Private event", value: "private" },
+            { label: "Shared event", value: "shared" },
           ]}
           onChange={setVisibility}
         />
         <SelectChips
           label="Default currency"
           value={defaultCurrency}
-          options={CURRENCIES.map((currency) => ({ label: currency, value: currency }))}
+          options={CURRENCIES.map((currency) => ({
+            label: currency,
+            value: currency,
+          }))}
           onChange={setDefaultCurrency}
         />
-        <TextField label="Tags" value={tags} onChangeText={setTags} placeholder="Travel, Food" />
+        <TextField
+          label="Tags"
+          value={tags}
+          onChangeText={setTags}
+          placeholder="Travel, Food"
+        />
         <SelectChips
           label="Status"
           value={status}
           options={[
-            { label: 'Planning', value: 'planning' },
-            { label: 'Active', value: 'active' },
-            { label: 'Finalising', value: 'finalising' },
-            { label: 'Settled', value: 'settled' },
-            { label: 'Archived', value: 'archived' },
+            { label: "Planning", value: "planning" },
+            { label: "Active", value: "active" },
+            { label: "Finalising", value: "finalising" },
+            { label: "Settled", value: "settled" },
+            { label: "Archived", value: "archived" },
           ]}
           onChange={setStatus}
         />
-        {visibility === 'private' ? (
-          <MultiSelectChips label="Members" values={memberIds} options={memberOptions} onChange={setMemberIds} />
+        {visibility === "private" ? (
+          <MultiSelectChips
+            label="Members"
+            values={memberIds}
+            options={memberOptions}
+            onChange={setMemberIds}
+          />
         ) : (
           <EmptyState
-            title={auth.user ? 'Owner will be added' : 'Sign in required'}
+            title={auth.user ? "Owner will be added" : "Sign in required"}
             body={
               auth.user
-                ? 'Shared event members, invites, placeholders, and roles are managed after creation.'
-                : 'Shared events require an account so participants can sync the same event ledger.'
+                ? "Shared event members, invites, placeholders, and roles are managed after creation."
+                : "Shared events require an account so participants can sync the same event ledger."
             }
           />
         )}
@@ -170,7 +249,62 @@ export function EventFormScreen() {
 
 function splitTags(value: string) {
   return value
-    .split(',')
+    .split(",")
     .map((tag) => tag.trim())
     .filter(Boolean);
 }
+
+const styles = StyleSheet.create({
+  heroCard: {
+    overflow: "hidden",
+  },
+  heroGlow: {
+    position: "absolute",
+    top: -24,
+    right: -10,
+    width: 170,
+    height: 170,
+    borderRadius: 85,
+    backgroundColor: "rgba(221,214,254,0.24)",
+  },
+  heroTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: spacing.lg,
+    flexWrap: "wrap",
+  },
+  heroCopy: {
+    flex: 1,
+    minWidth: 220,
+    gap: spacing.sm,
+  },
+  heroLabel: {
+    color: palette.muted,
+    fontSize: 12,
+    fontFamily: typefaces.bodyStrong,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  heroTitle: {
+    color: palette.ink,
+    fontSize: 24,
+    lineHeight: 32,
+    fontFamily: typefaces.displayMedium,
+  },
+  body: {
+    color: palette.muted,
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: typefaces.body,
+  },
+  heroArtWrap: {
+    width: 142,
+    height: 112,
+    borderRadius: 24,
+    backgroundColor: "rgba(255,255,255,0.38)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderGlass,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});

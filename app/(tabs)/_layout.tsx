@@ -5,7 +5,7 @@ import React from "react";
 import { StyleSheet } from "react-native";
 
 import { HapticTab } from "@/components/haptic-tab";
-import { palette } from "@/src/constants/design";
+import { palette, typefaces } from "@/src/constants/design";
 
 export default function TabLayout() {
   return (
@@ -44,7 +44,7 @@ export default function TabLayout() {
         },
         tabBarLabelStyle: {
           fontSize: 11,
-          fontWeight: "700",
+          fontFamily: typefaces.bodyStrong,
         },
         tabBarItemStyle: {
           paddingTop: 4,

@@ -1,50 +1,82 @@
-import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useEffect, useMemo, useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
 
+import { DebtulatorOrbitIllustration } from "@/src/components/illustrations/DebtulatorOrbitIllustration";
 import {
-  Button,
-  Card,
-  EmptyState,
-  LoadingState,
-  MultiSelectChips,
-  PageHeader,
-  Screen,
-  SectionTitle,
-  SelectChips,
-  TextField,
-} from '@/src/components/ui/Primitives';
-import { CURRENCIES } from '@/src/constants/currencies';
-import { palette, spacing } from '@/src/constants/design';
-import { buildSplitObligations, calculateParticipantShares, validateSplit } from '@/src/services/splits';
-import { participantName } from '@/src/services/ledger';
-import { suggestTags } from '@/src/services/smartSuggestions';
-import { useAppData } from '@/src/state/AppDataProvider';
-import { useAuth } from '@/src/state/AuthProvider';
-import type { CurrencyCode, DebtStatus, DebtVisibility, ExpensePayer, ParticipantId, SplitMethod, VerificationStatus } from '@/src/types/models';
-import { createId, todayIsoDate } from '@/src/utils/id';
-import { formatMoney } from '@/src/utils/money';
+    Button,
+    Card,
+    EmptyState,
+    LoadingState,
+    MultiSelectChips,
+    PageHeader,
+    Screen,
+    SectionTitle,
+    SelectChips,
+    TextField,
+} from "@/src/components/ui/Primitives";
+import { CURRENCIES } from "@/src/constants/currencies";
+import { palette, spacing, typefaces } from "@/src/constants/design";
+import { participantName } from "@/src/services/ledger";
+import { suggestTags } from "@/src/services/smartSuggestions";
+import {
+    buildSplitObligations,
+    calculateParticipantShares,
+    validateSplit,
+} from "@/src/services/splits";
+import { useAppData } from "@/src/state/AppDataProvider";
+import { useAuth } from "@/src/state/AuthProvider";
+import type {
+    CurrencyCode,
+    DebtStatus,
+    DebtVisibility,
+    ExpensePayer,
+    ParticipantId,
+    SplitMethod,
+    VerificationStatus,
+} from "@/src/types/models";
+import { createId, todayIsoDate } from "@/src/utils/id";
+import { formatMoney } from "@/src/utils/money";
 
 export function ExpenseFormScreen() {
-  const { id, eventId } = useLocalSearchParams<{ id?: string; eventId?: string }>();
+  const { id, eventId } = useLocalSearchParams<{
+    id?: string;
+    eventId?: string;
+  }>();
   const data = useAppData();
   const auth = useAuth();
   const expense = data.sharedExpenses.find((item) => item.id === id);
-  const initialEventId = expense?.eventId ?? eventId ?? data.events.find((event) => !event.archived)?.id ?? '';
+  const initialEventId =
+    expense?.eventId ??
+    eventId ??
+    data.events.find((event) => !event.archived)?.id ??
+    "";
 
   const [selectedEventId, setSelectedEventId] = useState(initialEventId);
-  const selectedEvent = data.events.find((event) => event.id === selectedEventId);
-  const isSharedEvent = selectedEvent?.visibility === 'shared';
+  const selectedEvent = data.events.find(
+    (event) => event.id === selectedEventId,
+  );
+  const isSharedEvent = selectedEvent?.visibility === "shared";
   const eventMemberIds = useMemo(
     () =>
       isSharedEvent
         ? data.sharedEventMembers
-            .filter((eventMember) => eventMember.eventId === selectedEventId && eventMember.status !== 'archived' && eventMember.status !== 'merged')
+            .filter(
+              (eventMember) =>
+                eventMember.eventId === selectedEventId &&
+                eventMember.status !== "archived" &&
+                eventMember.status !== "merged",
+            )
             .map((eventMember) => eventMember.id)
         : data.eventMembers
             .filter((eventMember) => eventMember.eventId === selectedEventId)
             .map((eventMember) => eventMember.memberId),
-    [data.eventMembers, data.sharedEventMembers, isSharedEvent, selectedEventId],
+    [
+      data.eventMembers,
+      data.sharedEventMembers,
+      isSharedEvent,
+      selectedEventId,
+    ],
   );
   const currentEventMember = useMemo(
     () =>
@@ -53,55 +85,102 @@ export function ExpenseFormScreen() {
           isSharedEvent &&
           member.eventId === selectedEventId &&
           member.linkedUserId === auth.identity.authenticatedUserId &&
-          member.status !== 'merged',
+          member.status !== "merged",
       ),
-    [auth.identity.authenticatedUserId, data.sharedEventMembers, isSharedEvent, selectedEventId],
+    [
+      auth.identity.authenticatedUserId,
+      data.sharedEventMembers,
+      isSharedEvent,
+      selectedEventId,
+    ],
   );
   const defaultParticipants = useMemo<ParticipantId[]>(
-    () => (isSharedEvent ? eventMemberIds : ['me', ...eventMemberIds]),
+    () => (isSharedEvent ? eventMemberIds : ["me", ...eventMemberIds]),
     [eventMemberIds, isSharedEvent],
   );
 
-  const [payerId, setPayerId] = useState<ParticipantId>(expense?.payerId ?? currentEventMember?.id ?? 'me');
-  const [amount, setAmount] = useState(expense ? String(expense.amount) : '');
-  const [currency, setCurrency] = useState<CurrencyCode>(expense?.currency ?? selectedEvent?.defaultCurrency ?? data.settings.baseCurrency);
-  const [title, setTitle] = useState(expense?.title ?? '');
-  const [notes, setNotes] = useState(expense?.notes ?? '');
-  const [expenseDate, setExpenseDate] = useState(expense?.expenseDate ?? todayIsoDate());
-  const [participantIds, setParticipantIds] = useState<ParticipantId[]>(expense?.participantIds ?? defaultParticipants);
-  const [splitMethod, setSplitMethod] = useState<SplitMethod>(expense?.splitMethod ?? 'equal');
-  const [splitAllocations, setSplitAllocations] = useState<Record<ParticipantId, string>>(
-    Object.fromEntries(Object.entries(expense?.splitAllocations ?? {}).map(([participantId, value]) => [participantId, String(value)])),
+  const [payerId, setPayerId] = useState<ParticipantId>(
+    expense?.payerId ?? currentEventMember?.id ?? "me",
   );
-  const [payerAmounts, setPayerAmounts] = useState<Record<ParticipantId, string>>(
-    Object.fromEntries((expense?.expensePayers ?? []).map((payer) => [payer.eventMemberId, String(payer.amountPaid)])),
+  const [amount, setAmount] = useState(expense ? String(expense.amount) : "");
+  const [currency, setCurrency] = useState<CurrencyCode>(
+    expense?.currency ??
+      selectedEvent?.defaultCurrency ??
+      data.settings.baseCurrency,
   );
-  const [tags, setTags] = useState(expense?.tags.join(', ') ?? '');
-  const [status, setStatus] = useState<DebtStatus>(expense?.status ?? 'active');
-  const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>(expense?.verificationStatus ?? 'local_only');
+  const [title, setTitle] = useState(expense?.title ?? "");
+  const [notes, setNotes] = useState(expense?.notes ?? "");
+  const [expenseDate, setExpenseDate] = useState(
+    expense?.expenseDate ?? todayIsoDate(),
+  );
+  const [participantIds, setParticipantIds] = useState<ParticipantId[]>(
+    expense?.participantIds ?? defaultParticipants,
+  );
+  const [splitMethod, setSplitMethod] = useState<SplitMethod>(
+    expense?.splitMethod ?? "equal",
+  );
+  const [splitAllocations, setSplitAllocations] = useState<
+    Record<ParticipantId, string>
+  >(
+    Object.fromEntries(
+      Object.entries(expense?.splitAllocations ?? {}).map(
+        ([participantId, value]) => [participantId, String(value)],
+      ),
+    ),
+  );
+  const [payerAmounts, setPayerAmounts] = useState<
+    Record<ParticipantId, string>
+  >(
+    Object.fromEntries(
+      (expense?.expensePayers ?? []).map((payer) => [
+        payer.eventMemberId,
+        String(payer.amountPaid),
+      ]),
+    ),
+  );
+  const [tags, setTags] = useState(expense?.tags.join(", ") ?? "");
+  const [status, setStatus] = useState<DebtStatus>(expense?.status ?? "active");
+  const [verificationStatus, setVerificationStatus] =
+    useState<VerificationStatus>(expense?.verificationStatus ?? "local_only");
 
   useEffect(() => {
     if (!expense) {
       setParticipantIds(defaultParticipants);
-      setPayerId(isSharedEvent ? currentEventMember?.id ?? defaultParticipants[0] ?? 'me' : 'me');
+      setPayerId(
+        isSharedEvent
+          ? (currentEventMember?.id ?? defaultParticipants[0] ?? "me")
+          : "me",
+      );
       if (selectedEvent) {
         setCurrency(selectedEvent.defaultCurrency);
       }
     }
-  }, [currentEventMember?.id, defaultParticipants, expense, isSharedEvent, selectedEvent]);
+  }, [
+    currentEventMember?.id,
+    defaultParticipants,
+    expense,
+    isSharedEvent,
+    selectedEvent,
+  ]);
 
   const eventOptions = useMemo(
-    () => data.events.filter((event) => !event.archived).map((event) => ({ label: event.name, value: event.id })),
+    () =>
+      data.events
+        .filter((event) => !event.archived)
+        .map((event) => ({ label: event.name, value: event.id })),
     [data.events],
   );
   const participantOptions = useMemo(
     () => [
-      ...(isSharedEvent ? [] : [{ label: 'You', value: 'me' as ParticipantId }]),
+      ...(isSharedEvent
+        ? []
+        : [{ label: "You", value: "me" as ParticipantId }]),
       ...eventMemberIds.map((memberId) => ({
         label:
-          data.sharedEventMembers.find((member) => member.id === memberId)?.displayName ??
+          data.sharedEventMembers.find((member) => member.id === memberId)
+            ?.displayName ??
           data.members.find((member) => member.id === memberId)?.displayName ??
-          'Member',
+          "Member",
         value: memberId,
       })),
     ],
@@ -120,9 +199,18 @@ export function ExpenseFormScreen() {
   );
 
   const numericSplitAllocations = Object.fromEntries(
-    participantIds.map((participantId) => [participantId, Number(splitAllocations[participantId]) || 0]),
+    participantIds.map((participantId) => [
+      participantId,
+      Number(splitAllocations[participantId]) || 0,
+    ]),
   ) as Record<ParticipantId, number>;
-  const expensePayers = buildPayersForSave(expense?.id ?? createId('expense_preview'), payerId, amount, currency, payerAmounts);
+  const expensePayers = buildPayersForSave(
+    expense?.id ?? createId("expense_preview"),
+    payerId,
+    amount,
+    currency,
+    payerAmounts,
+  );
   const splitErrors = validateSplit({
     amount: Number(amount) || 0,
     participantIds,
@@ -138,7 +226,7 @@ export function ExpenseFormScreen() {
     splitAllocations: numericSplitAllocations,
   });
   const obligations = buildSplitObligations({
-    expenseId: expense?.id ?? createId('expense_preview'),
+    expenseId: expense?.id ?? createId("expense_preview"),
     eventId: selectedEventId,
     payerId,
     expensePayers,
@@ -154,7 +242,9 @@ export function ExpenseFormScreen() {
   }
 
   async function save() {
-    const visibility: DebtVisibility = isSharedEvent ? 'shared_event' : 'private';
+    const visibility: DebtVisibility = isSharedEvent
+      ? "shared_event"
+      : "private";
     const input = {
       eventId: selectedEventId,
       creatorUserId: isSharedEvent ? auth.identity.authenticatedUserId : null,
@@ -167,7 +257,13 @@ export function ExpenseFormScreen() {
       participantIds,
       splitMethod,
       splitAllocations: numericSplitAllocations,
-      expensePayers: buildPayersForSave(expense?.id ?? createId('expense_preview'), payerId, amount, currency, payerAmounts).map((payer) => ({
+      expensePayers: buildPayersForSave(
+        expense?.id ?? createId("expense_preview"),
+        payerId,
+        amount,
+        currency,
+        payerAmounts,
+      ).map((payer) => ({
         eventMemberId: payer.eventMemberId,
         amountPaid: payer.amountPaid,
       })),
@@ -189,11 +285,21 @@ export function ExpenseFormScreen() {
   if (data.events.filter((event) => !event.archived).length === 0) {
     return (
       <Screen>
-        <PageHeader eyebrow="Shared expense" title="Add expense" subtitle="Shared expenses live inside events." />
+        <PageHeader
+          eyebrow="Shared expense"
+          title="Add expense"
+          subtitle="Shared expenses live inside events."
+        />
         <EmptyState
           title="Create an event first"
           body="Inside events, Debtulator defaults to shared expenses and equal splits."
-          action={<Button title="Add event" icon="people" onPress={() => router.push('/event/form')} />}
+          action={
+            <Button
+              title="Add event"
+              icon="people"
+              onPress={() => router.push("/event/form")}
+            />
+          }
         />
       </Screen>
     );
@@ -203,76 +309,172 @@ export function ExpenseFormScreen() {
     <Screen
       footer={
         <Button
-          title={expense ? 'Save expense' : 'Create expense'}
+          title={expense ? "Save expense" : "Create expense"}
           icon="checkmark"
           onPress={save}
-          disabled={!selectedEventId || !title.trim() || Number(amount) <= 0 || participantIds.length === 0 || splitErrors.length > 0}
+          disabled={
+            !selectedEventId ||
+            !title.trim() ||
+            Number(amount) <= 0 ||
+            participantIds.length === 0 ||
+            splitErrors.length > 0
+          }
         />
-      }>
+      }
+    >
       <PageHeader
         eyebrow="Shared expense"
-        title={expense ? 'Edit expense' : 'Add expense'}
+        title={expense ? "Edit expense" : "Add expense"}
         subtitle="Choose who paid, who shared it, and review the split before saving."
       />
 
+      <Card tone="lavender" style={styles.heroCard}>
+        <View style={styles.heroGlow} />
+        <View style={styles.heroTop}>
+          <View style={styles.heroCopy}>
+            <Text style={styles.heroLabel}>Split planning</Text>
+            <Text style={styles.heroTitle}>
+              Model the payer mix and participant shares before any obligations
+              are written.
+            </Text>
+            <Text style={styles.heroBody}>
+              The split preview keeps the event math readable so shared expenses
+              feel deliberate rather than opaque.
+            </Text>
+          </View>
+          <View style={styles.heroArtWrap}>
+            <DebtulatorOrbitIllustration width={132} height={104} compact />
+          </View>
+        </View>
+      </Card>
+
       <Card tone="peach">
-        <SelectChips label="Event" value={selectedEventId} options={eventOptions} onChange={setSelectedEventId} />
-        <SelectChips label="Primary payer" value={payerId} options={participantOptions} onChange={setPayerId} />
-        <TextField label="Title" value={title} onChangeText={setTitle} placeholder="Groceries" />
-        <TextField label="Amount" value={amount} onChangeText={setAmount} keyboardType="numeric" />
+        <SelectChips
+          label="Event"
+          value={selectedEventId}
+          options={eventOptions}
+          onChange={setSelectedEventId}
+        />
+        <SelectChips
+          label="Primary payer"
+          value={payerId}
+          options={participantOptions}
+          onChange={setPayerId}
+        />
+        <TextField
+          label="Title"
+          value={title}
+          onChangeText={setTitle}
+          placeholder="Groceries"
+        />
+        <TextField
+          label="Amount"
+          value={amount}
+          onChangeText={setAmount}
+          keyboardType="numeric"
+        />
         <SelectChips
           label="Currency"
           value={currency}
-          options={CURRENCIES.map((currencyCode) => ({ label: currencyCode, value: currencyCode }))}
+          options={CURRENCIES.map((currencyCode) => ({
+            label: currencyCode,
+            value: currencyCode,
+          }))}
           onChange={setCurrency}
         />
-        <TextField label="Expense date" value={expenseDate} onChangeText={setExpenseDate} placeholder="YYYY-MM-DD" />
-        <TextField label="Notes" value={notes} onChangeText={setNotes} multiline />
-        <TextField label="Tags" value={tags} onChangeText={setTags} placeholder="Food, Travel" />
+        <TextField
+          label="Expense date"
+          value={expenseDate}
+          onChangeText={setExpenseDate}
+          placeholder="YYYY-MM-DD"
+        />
+        <TextField
+          label="Notes"
+          value={notes}
+          onChangeText={setNotes}
+          multiline
+        />
+        <TextField
+          label="Tags"
+          value={tags}
+          onChangeText={setTags}
+          placeholder="Food, Travel"
+        />
         {tagSuggestions.length ? (
           <SelectChips
             label="Suggested tags"
             value="none"
-            options={[{ label: 'Ignore', value: 'none' }, ...tagSuggestions.map((tag) => ({ label: tag, value: tag }))]}
+            options={[
+              { label: "Ignore", value: "none" },
+              ...tagSuggestions.map((tag) => ({ label: tag, value: tag })),
+            ]}
             onChange={(value) => {
-              if (value !== 'none') {
+              if (value !== "none") {
                 setTags((current) => mergeTagText(current, value));
               }
             }}
           />
         ) : null}
-        <MultiSelectChips label="Split participants" values={participantIds} options={participantOptions} onChange={setParticipantIds} />
+        <MultiSelectChips
+          label="Split participants"
+          values={participantIds}
+          options={participantOptions}
+          onChange={setParticipantIds}
+        />
         <SelectChips
           label="Split method"
           value={splitMethod}
           options={[
-            { label: 'Equal', value: 'equal' },
-            { label: 'Custom amounts', value: 'custom_amount' },
-            { label: 'Percentages', value: 'custom_percentage' },
-            { label: 'Shares', value: 'shares' },
+            { label: "Equal", value: "equal" },
+            { label: "Custom amounts", value: "custom_amount" },
+            { label: "Percentages", value: "custom_percentage" },
+            { label: "Shares", value: "shares" },
           ]}
           onChange={setSplitMethod}
         />
-        {splitMethod !== 'equal'
+        {splitMethod !== "equal"
           ? participantIds.map((participantId) => (
               <TextField
                 key={participantId}
                 label={`${participantName(participantId, data.members, data.sharedEventMembers)} ${
-                  splitMethod === 'custom_amount' ? 'amount' : splitMethod === 'custom_percentage' ? 'percent' : 'weight'
+                  splitMethod === "custom_amount"
+                    ? "amount"
+                    : splitMethod === "custom_percentage"
+                      ? "percent"
+                      : "weight"
                 }`}
-                value={splitAllocations[participantId] ?? ''}
-                onChangeText={(value) => setSplitAllocations((current) => ({ ...current, [participantId]: value }))}
+                value={splitAllocations[participantId] ?? ""}
+                onChangeText={(value) =>
+                  setSplitAllocations((current) => ({
+                    ...current,
+                    [participantId]: value,
+                  }))
+                }
                 keyboardType="numeric"
               />
             ))
           : null}
-        <SectionTitle title="Paid by" subtitle="Multiple payer contributions must total the expense amount." />
+        <SectionTitle
+          title="Paid by"
+          subtitle="Multiple payer contributions must total the expense amount."
+        />
         {participantOptions.map((option) => (
           <TextField
             key={option.value}
             label={`${option.label} paid`}
-            value={payerAmounts[option.value] ?? (option.value === payerId && Object.keys(payerAmounts).length === 0 ? amount : '')}
-            onChangeText={(value) => setPayerAmounts((current) => ({ ...current, [option.value]: value }))}
+            value={
+              payerAmounts[option.value] ??
+              (option.value === payerId &&
+              Object.keys(payerAmounts).length === 0
+                ? amount
+                : "")
+            }
+            onChangeText={(value) =>
+              setPayerAmounts((current) => ({
+                ...current,
+                [option.value]: value,
+              }))
+            }
             keyboardType="numeric"
           />
         ))}
@@ -280,9 +482,9 @@ export function ExpenseFormScreen() {
           label="Status"
           value={status}
           options={[
-            { label: 'Active', value: 'active' },
-            { label: 'Settled', value: 'settled' },
-            { label: 'Archived', value: 'archived' },
+            { label: "Active", value: "active" },
+            { label: "Settled", value: "settled" },
+            { label: "Archived", value: "archived" },
           ]}
           onChange={setStatus}
         />
@@ -290,12 +492,12 @@ export function ExpenseFormScreen() {
           label="Review state"
           value={verificationStatus}
           options={[
-            { label: 'Local only', value: 'local_only' },
-            { label: 'Pending', value: 'pending' },
-            { label: 'Verified', value: 'verified' },
-            { label: 'Rejected', value: 'rejected' },
-            { label: 'Disputed', value: 'disputed' },
-            { label: 'Resolved', value: 'resolved' },
+            { label: "Local only", value: "local_only" },
+            { label: "Pending", value: "pending" },
+            { label: "Verified", value: "verified" },
+            { label: "Rejected", value: "rejected" },
+            { label: "Disputed", value: "disputed" },
+            { label: "Resolved", value: "resolved" },
           ]}
           onChange={setVerificationStatus}
         />
@@ -304,26 +506,50 @@ export function ExpenseFormScreen() {
       <Card tone="lavender">
         <Text style={styles.label}>Split preview</Text>
         {splitErrors.map((error) => (
-          <Text key={error} style={styles.errorText}>{error}</Text>
+          <Text key={error} style={styles.errorText}>
+            {error}
+          </Text>
         ))}
         {participantIds.map((participantId) => (
           <View key={`share_${participantId}`} style={styles.previewRow}>
-            <Text style={styles.previewText}>{participantName(participantId, data.members, data.sharedEventMembers)} share</Text>
-            <Text style={styles.previewMoney}>{formatMoney(shares[participantId] ?? 0, currency)}</Text>
+            <Text style={styles.previewText}>
+              {participantName(
+                participantId,
+                data.members,
+                data.sharedEventMembers,
+              )}{" "}
+              share
+            </Text>
+            <Text style={styles.previewMoney}>
+              {formatMoney(shares[participantId] ?? 0, currency)}
+            </Text>
           </View>
         ))}
         {obligations.length > 0 ? (
           obligations.map((obligation) => (
             <View key={obligation.id} style={styles.previewRow}>
               <Text style={styles.previewText}>
-                {participantName(obligation.fromParticipantId, data.members, data.sharedEventMembers)} owes{' '}
-                {participantName(obligation.toParticipantId, data.members, data.sharedEventMembers)}
+                {participantName(
+                  obligation.fromParticipantId,
+                  data.members,
+                  data.sharedEventMembers,
+                )}{" "}
+                owes{" "}
+                {participantName(
+                  obligation.toParticipantId,
+                  data.members,
+                  data.sharedEventMembers,
+                )}
               </Text>
-              <Text style={styles.previewMoney}>{formatMoney(obligation.amount, obligation.currency)}</Text>
+              <Text style={styles.previewMoney}>
+                {formatMoney(obligation.amount, obligation.currency)}
+              </Text>
             </View>
           ))
         ) : (
-          <Text style={styles.previewText}>No generated obligations when only the payer is selected.</Text>
+          <Text style={styles.previewText}>
+            No generated obligations when only the payer is selected.
+          </Text>
         )}
       </Card>
     </Screen>
@@ -332,25 +558,78 @@ export function ExpenseFormScreen() {
 
 function splitTags(value: string) {
   return value
-    .split(',')
+    .split(",")
     .map((tag) => tag.trim())
     .filter(Boolean);
 }
 
 function mergeTagText(current: string, tag: string) {
-  return Array.from(new Set([...splitTags(current), tag])).join(', ');
+  return Array.from(new Set([...splitTags(current), tag])).join(", ");
 }
 
 const styles = StyleSheet.create({
+  heroCard: {
+    overflow: "hidden",
+  },
+  heroGlow: {
+    position: "absolute",
+    top: -24,
+    right: -10,
+    width: 170,
+    height: 170,
+    borderRadius: 85,
+    backgroundColor: "rgba(221,214,254,0.24)",
+  },
+  heroTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: spacing.lg,
+    flexWrap: "wrap",
+  },
+  heroCopy: {
+    flex: 1,
+    minWidth: 220,
+    gap: spacing.sm,
+  },
+  heroLabel: {
+    color: palette.muted,
+    fontSize: 12,
+    fontFamily: typefaces.bodyStrong,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  heroTitle: {
+    color: palette.ink,
+    fontSize: 24,
+    lineHeight: 32,
+    fontFamily: typefaces.displayMedium,
+  },
+  heroBody: {
+    color: palette.muted,
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: typefaces.body,
+  },
+  heroArtWrap: {
+    width: 142,
+    height: 112,
+    borderRadius: 24,
+    backgroundColor: "rgba(255,255,255,0.38)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderGlass,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   label: {
     color: palette.brandDark,
     fontSize: 12,
-    fontWeight: '900',
-    textTransform: 'uppercase',
+    fontFamily: typefaces.bodyHeavy,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
   },
   previewRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     gap: spacing.md,
     paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -360,17 +639,17 @@ const styles = StyleSheet.create({
     flex: 1,
     color: palette.ink,
     fontSize: 14,
-    fontWeight: '700',
+    fontFamily: typefaces.bodyStrong,
   },
   previewMoney: {
     color: palette.blue,
     fontSize: 14,
-    fontWeight: '900',
+    fontFamily: typefaces.bodyHeavy,
   },
   errorText: {
     color: palette.negative,
     fontSize: 13,
-    fontWeight: '800',
+    fontFamily: typefaces.bodyStrong,
   },
 });
 
@@ -382,16 +661,21 @@ function buildPayersForSave(
   payerAmounts: Record<ParticipantId, string>,
 ): ExpensePayer[] {
   const entries = Object.entries(payerAmounts)
-    .map(([eventMemberId, paid]) => ({ eventMemberId, amountPaid: Number(paid) || 0 }))
+    .map(([eventMemberId, paid]) => ({
+      eventMemberId,
+      amountPaid: Number(paid) || 0,
+    }))
     .filter((payer) => payer.amountPaid > 0);
-  const payers = entries.length ? entries : [{ eventMemberId: payerId, amountPaid: Number(amount) || 0 }];
+  const payers = entries.length
+    ? entries
+    : [{ eventMemberId: payerId, amountPaid: Number(amount) || 0 }];
   return payers.map((payer, index) => ({
     id: `${expenseId}_payer_${payer.eventMemberId}_${index}`,
     expenseId,
     eventMemberId: payer.eventMemberId,
     amountPaid: payer.amountPaid,
     currency,
-    createdAt: '',
-    updatedAt: '',
+    createdAt: "",
+    updatedAt: "",
   }));
 }

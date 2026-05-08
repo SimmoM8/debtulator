@@ -1,7 +1,7 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-import { palette, spacing } from "@/src/constants/design";
+import { palette, spacing, typefaces } from "@/src/constants/design";
 import { estimateMoneyMap } from "@/src/services/currency";
 import type {
     AppSettings,
@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
   },
   amount: {
-    fontWeight: "900",
+    fontFamily: typefaces.bodyHeavy,
     letterSpacing: 0,
     fontVariant: ["tabular-nums"],
   },
@@ -101,18 +101,18 @@ const styles = StyleSheet.create({
   estimate: {
     color: palette.muted,
     fontSize: 12,
-    fontWeight: "700",
+    fontFamily: typefaces.bodyStrong,
     letterSpacing: 0.2,
   },
   empty: {
     color: palette.faint,
     fontSize: 13,
-    fontWeight: "700",
+    fontFamily: typefaces.bodyStrong,
   },
   moneyLine: {
     color: palette.ink,
     fontSize: 14,
-    fontWeight: "800",
+    fontFamily: typefaces.bodyStrong,
     letterSpacing: 0.1,
   },
 });

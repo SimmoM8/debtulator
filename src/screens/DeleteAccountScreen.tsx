@@ -1,37 +1,48 @@
-import React, { useState } from 'react';
-import { Alert, StyleSheet, Switch, Text, View } from 'react-native';
+import React, { useState } from "react";
+import { Alert, StyleSheet, Switch, Text, View } from "react-native";
 
-import { Button, Card, PageHeader, Screen, SectionTitle, TextField } from '@/src/components/ui/Primitives';
-import { palette, spacing } from '@/src/constants/design';
-import { useAppData } from '@/src/state/AppDataProvider';
-import { useAuth } from '@/src/state/AuthProvider';
+import { DebtulatorShieldIllustration } from "@/src/components/illustrations/DebtulatorShieldIllustration";
+import {
+    Button,
+    Card,
+    PageHeader,
+    Screen,
+    SectionTitle,
+    TextField,
+} from "@/src/components/ui/Primitives";
+import { palette, spacing, typefaces } from "@/src/constants/design";
+import { useAppData } from "@/src/state/AppDataProvider";
+import { useAuth } from "@/src/state/AuthProvider";
 
 export function DeleteAccountScreen() {
   const data = useAppData();
   const auth = useAuth();
-  const [confirmation, setConfirmation] = useState('');
+  const [confirmation, setConfirmation] = useState("");
   const [deleteLocalData, setDeleteLocalData] = useState(false);
   const [keepLocalArchive, setKeepLocalArchive] = useState(true);
-  const canRequest = confirmation.trim().toUpperCase() === 'DELETE';
+  const canRequest = confirmation.trim().toUpperCase() === "DELETE";
 
   function requestDeletion() {
     if (!canRequest) {
-      Alert.alert('Confirmation required', 'Type DELETE to request account deletion.');
+      Alert.alert(
+        "Confirmation required",
+        "Type DELETE to request account deletion.",
+      );
       return;
     }
     Alert.alert(
-      'Request account deletion?',
-      'Remote personal data, push tokens, and future notifications should be revoked. Shared financial history may be anonymized instead of destroyed.',
+      "Request account deletion?",
+      "Remote personal data, push tokens, and future notifications should be revoked. Shared financial history may be anonymized instead of destroyed.",
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: "Cancel", style: "cancel" },
         {
-          text: 'Record request',
-          style: 'destructive',
+          text: "Record request",
+          style: "destructive",
           onPress: async () => {
             await data.createAuditLog({
               actorUserId: auth.identity.authenticatedUserId,
-              action: 'account_deletion_requested',
-              targetType: 'account',
+              action: "account_deletion_requested",
+              targetType: "account",
               targetId: auth.identity.authenticatedUserId,
               eventId: null,
               metadata: { deleteLocalData, keepLocalArchive },
@@ -47,48 +58,158 @@ export function DeleteAccountScreen() {
 
   return (
     <Screen>
-      <PageHeader eyebrow="Destructive action" title="Delete account" subtitle="Deletion is deliberate and preserves shared ledger integrity where required." />
+      <PageHeader
+        eyebrow="Destructive action"
+        title="Delete account"
+        subtitle="Deletion is deliberate and preserves shared ledger integrity where required."
+      />
+
+      <Card tone="lavender" style={styles.heroCard}>
+        <View style={styles.heroGlow} />
+        <View style={styles.heroTop}>
+          <View style={styles.heroCopy}>
+            <Text style={styles.heroLabel}>Final step</Text>
+            <Text style={styles.heroTitle}>
+              Make destructive actions explicit, reviewable, and hard to trigger
+              by accident.
+            </Text>
+            <Text style={styles.body}>
+              Debtulator protects shared ledger integrity even when personal
+              profile data, device state, and notifications are being removed.
+            </Text>
+          </View>
+          <View style={styles.heroArtWrap}>
+            <DebtulatorShieldIllustration width={132} height={104} />
+          </View>
+        </View>
+      </Card>
 
       <Card tone="amber">
-        <SectionTitle title="Before deletion" subtitle="Export your data first if you need a copy." />
-        <Text style={styles.body}>Personal profile data, push tokens, notification schedules, and account backup records should be removed or anonymized. Shared event financial records used by other participants are preserved in a privacy-conscious form so ledgers do not break.</Text>
+        <SectionTitle
+          title="Before deletion"
+          subtitle="Export your data first if you need a copy."
+        />
+        <Text style={styles.body}>
+          Personal profile data, push tokens, notification schedules, and
+          account backup records should be removed or anonymized. Shared event
+          financial records used by other participants are preserved in a
+          privacy-conscious form so ledgers do not break.
+        </Text>
       </Card>
 
       <Card>
         <SectionTitle title="Local data choice" />
-        <ToggleRow title="Keep local-only archive on this device" value={keepLocalArchive} onValueChange={setKeepLocalArchive} />
-        <ToggleRow title="Delete local data too" value={deleteLocalData} onValueChange={setDeleteLocalData} />
-        <TextField label="Type DELETE to continue" value={confirmation} onChangeText={setConfirmation} />
-        <Button title="Request account deletion" icon="trash" variant="danger" disabled={!canRequest} onPress={requestDeletion} />
+        <ToggleRow
+          title="Keep local-only archive on this device"
+          value={keepLocalArchive}
+          onValueChange={setKeepLocalArchive}
+        />
+        <ToggleRow
+          title="Delete local data too"
+          value={deleteLocalData}
+          onValueChange={setDeleteLocalData}
+        />
+        <TextField
+          label="Type DELETE to continue"
+          value={confirmation}
+          onChangeText={setConfirmation}
+        />
+        <Button
+          title="Request account deletion"
+          icon="trash"
+          variant="danger"
+          disabled={!canRequest}
+          onPress={requestDeletion}
+        />
       </Card>
     </Screen>
   );
 }
 
-function ToggleRow({ title, value, onValueChange }: { title: string; value: boolean; onValueChange: (value: boolean) => void }) {
+function ToggleRow({
+  title,
+  value,
+  onValueChange,
+}: {
+  title: string;
+  value: boolean;
+  onValueChange: (value: boolean) => void;
+}) {
   return (
     <View style={styles.switchRow}>
       <Text style={styles.title}>{title}</Text>
-      <Switch value={value} onValueChange={onValueChange} trackColor={{ false: palette.lineStrong, true: palette.brandSoft }} thumbColor={value ? palette.brand : '#FFFFFF'} />
+      <Switch
+        value={value}
+        onValueChange={onValueChange}
+        trackColor={{ false: palette.lineStrong, true: palette.brandSoft }}
+        thumbColor={value ? palette.brand : "#FFFFFF"}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  heroCard: {
+    overflow: "hidden",
+  },
+  heroGlow: {
+    position: "absolute",
+    top: -28,
+    right: -10,
+    width: 170,
+    height: 170,
+    borderRadius: 85,
+    backgroundColor: "rgba(221,214,254,0.24)",
+  },
+  heroTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: spacing.lg,
+    flexWrap: "wrap",
+  },
+  heroCopy: {
+    flex: 1,
+    minWidth: 220,
+    gap: spacing.sm,
+  },
+  heroLabel: {
+    color: palette.muted,
+    fontSize: 12,
+    fontFamily: typefaces.bodyStrong,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  heroTitle: {
+    color: palette.ink,
+    fontSize: 24,
+    lineHeight: 32,
+    fontFamily: typefaces.displayMedium,
+  },
+  heroArtWrap: {
+    width: 142,
+    height: 112,
+    borderRadius: 24,
+    backgroundColor: "rgba(255,255,255,0.38)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderGlass,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   body: {
     color: palette.muted,
     fontSize: 13,
     lineHeight: 19,
+    fontFamily: typefaces.body,
   },
   switchRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
+    alignItems: "center",
+    flexDirection: "row",
     gap: spacing.lg,
-    justifyContent: 'space-between',
+    justifyContent: "space-between",
   },
   title: {
     color: palette.ink,
     fontSize: 15,
-    fontWeight: '800',
+    fontFamily: typefaces.bodyHeavy,
   },
 });
