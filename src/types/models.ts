@@ -537,6 +537,7 @@ export type Settlement = {
 
 export type SettlementLine = {
   id: string;
+  remoteId?: string | null;
   settlementId: string;
   paymentId: string | null;
   sourceRecordType: SettlementSourceRecordType;
@@ -545,6 +546,7 @@ export type SettlementLine = {
   currency: CurrencyCode;
   createdAt: string;
   updatedAt: string;
+  syncStatus?: SyncStatus;
 };
 
 export type RecurringTemplate = {
@@ -613,6 +615,7 @@ export type OverpaymentCredit = {
 
 export type Attachment = {
   id: string;
+  remoteId?: string | null;
   targetType: AttachmentTargetType;
   targetId: string;
   eventId: string | null;
@@ -635,6 +638,7 @@ export type Attachment = {
 
 export type Comment = {
   id: string;
+  remoteId?: string | null;
   targetType: CommentTargetType;
   targetId: string;
   eventId: string | null;

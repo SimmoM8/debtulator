@@ -104,6 +104,7 @@ type CreateEventInput = {
   ownerDisplayName?: string | null;
   ownerEmail?: string | null;
   remoteId?: string | null;
+  ownerRemoteEventMemberId?: string | null;
   syncStatus?: SyncStatus;
   memberIds?: string[];
 };
@@ -416,6 +417,7 @@ type AppDataContextValue = DatabaseSnapshot & {
   createAttachment: (input: CreateAttachmentInput) => Promise<Attachment>;
   upsertAttachment: (attachment: Attachment) => Promise<Attachment>;
   archiveAttachment: (attachmentId: string, actorUserId?: string | null) => Promise<Attachment>;
+  upsertComment: (comment: Comment) => Promise<Comment>;
   createComment: (input: CreateCommentInput) => Promise<Comment>;
   updateComment: (commentId: string, input: Partial<CreateCommentInput>) => Promise<Comment>;
   deleteComment: (commentId: string, actorUserId?: string | null) => Promise<Comment>;
@@ -864,6 +866,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           }
           return repo.archiveAttachment(attachment, actorUserId);
         }),
+      upsertComment: (comment) => runAndRefresh((repo) => repo.upsertComment(comment)),
       createComment: (input) => runAndRefresh((repo) => repo.createComment(input)),
       updateComment: (commentId, input) =>
         runAndRefresh((repo) => {

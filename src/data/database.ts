@@ -359,6 +359,7 @@ type SettlementRow = {
 
 type SettlementLineRow = {
   id: string;
+  remote_id?: string | null;
   settlement_id: string;
   payment_id: string | null;
   source_record_type: SettlementLine['sourceRecordType'];
@@ -367,6 +368,7 @@ type SettlementLineRow = {
   currency: CurrencyCode;
   created_at: string;
   updated_at: string;
+  sync_status?: SyncStatus | null;
 };
 
 type ExpensePayerRow = {
@@ -549,6 +551,7 @@ type ActivityLogRow = {
 
 type AttachmentRow = {
   id: string;
+  remote_id?: string | null;
   target_type: Attachment['targetType'];
   target_id: string;
   event_id: string | null;
@@ -571,6 +574,7 @@ type AttachmentRow = {
 
 type CommentRow = {
   id: string;
+  remote_id?: string | null;
   target_type: Comment['targetType'];
   target_id: string;
   event_id: string | null;
@@ -972,6 +976,7 @@ export async function migrate(db: SQLite.SQLiteDatabase) {
 
     CREATE TABLE IF NOT EXISTS settlement_lines (
       id TEXT PRIMARY KEY NOT NULL,
+      remote_id TEXT,
       settlement_id TEXT NOT NULL,
       payment_id TEXT,
       source_record_type TEXT NOT NULL,
@@ -979,7 +984,8 @@ export async function migrate(db: SQLite.SQLiteDatabase) {
       applied_amount REAL NOT NULL,
       currency TEXT NOT NULL,
       created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
+      updated_at TEXT NOT NULL,
+      sync_status TEXT NOT NULL DEFAULT 'local_only'
     );
 
     CREATE TABLE IF NOT EXISTS expense_payers (
@@ -1160,6 +1166,7 @@ export async function migrate(db: SQLite.SQLiteDatabase) {
 
     CREATE TABLE IF NOT EXISTS attachments (
       id TEXT PRIMARY KEY NOT NULL,
+      remote_id TEXT,
       target_type TEXT NOT NULL,
       target_id TEXT NOT NULL,
       event_id TEXT,
@@ -1185,6 +1192,7 @@ export async function migrate(db: SQLite.SQLiteDatabase) {
 
     CREATE TABLE IF NOT EXISTS comments (
       id TEXT PRIMARY KEY NOT NULL,
+      remote_id TEXT,
       target_type TEXT NOT NULL,
       target_id TEXT NOT NULL,
       event_id TEXT,
@@ -1368,6 +1376,31 @@ export async function migrate(db: SQLite.SQLiteDatabase) {
 
   await ensureColumn(db, 'event_debts', 'due_date', 'TEXT');
   await ensureColumn(db, 'activity_log', 'actor_user_id', 'TEXT');
+  await ensureColumn(db, 'settlement_lines', 'remote_id', 'TEXT');
+  await ensureColumn(db, 'settlement_lines', 'sync_status', "TEXT NOT NULL DEFAULT 'local_only'");
+  await ensureColumn(db, 'attachments', 'remote_id', 'TEXT');
+  await ensureColumn(db, 'comments', 'remote_id', 'TEXT');
+
+  for (const tableName of [
+    'members',
+    'debts',
+    'events',
+    'event_participants',
+    'event_invites',
+    'shared_event_members',
+    'event_member_claims',
+    'event_duplicate_warnings',
+    'shared_expenses',
+    'event_debts',
+    'payments',
+    'settlements',
+    'settlement_lines',
+    'attachments',
+    'comments',
+  ]) {
+    await ensureColumn(db, tableName, 'last_synced_at', 'TEXT');
+    await ensureColumn(db, tableName, 'remote_updated_at', 'TEXT');
+  }
 
   await db.execAsync(`
     CREATE INDEX IF NOT EXISTS members_sync_idx ON members(sync_status, updated_at);
@@ -1384,8 +1417,23 @@ export async function migrate(db: SQLite.SQLiteDatabase) {
     CREATE INDEX IF NOT EXISTS event_debts_sync_idx ON event_debts(sync_status, updated_at);
     CREATE INDEX IF NOT EXISTS payments_event_idx ON payments(event_id, payment_date);
     CREATE INDEX IF NOT EXISTS payments_sync_idx ON payments(sync_status, updated_at);
+    CREATE INDEX IF NOT EXISTS payments_remote_idx ON payments(remote_id);
     CREATE INDEX IF NOT EXISTS settlements_event_idx ON settlements(event_id, created_at);
     CREATE INDEX IF NOT EXISTS settlements_sync_idx ON settlements(sync_status, updated_at);
+    CREATE INDEX IF NOT EXISTS settlements_remote_idx ON settlements(remote_id);
+    CREATE INDEX IF NOT EXISTS settlement_lines_remote_idx ON settlement_lines(remote_id);
+    CREATE INDEX IF NOT EXISTS settlement_lines_sync_idx ON settlement_lines(sync_status, updated_at);
+    CREATE INDEX IF NOT EXISTS event_participants_remote_idx ON event_participants(remote_id);
+    CREATE INDEX IF NOT EXISTS event_invites_remote_idx ON event_invites(remote_id);
+    CREATE INDEX IF NOT EXISTS shared_event_members_remote_idx ON shared_event_members(remote_id);
+    CREATE INDEX IF NOT EXISTS event_member_claims_remote_idx ON event_member_claims(remote_id);
+    CREATE INDEX IF NOT EXISTS shared_expenses_remote_idx ON shared_expenses(remote_id);
+    CREATE INDEX IF NOT EXISTS event_debts_remote_idx ON event_debts(remote_id);
+    CREATE INDEX IF NOT EXISTS event_verification_responses_remote_idx ON event_verification_responses(remote_id);
+    CREATE INDEX IF NOT EXISTS comments_remote_idx ON comments(remote_id);
+    CREATE INDEX IF NOT EXISTS comments_sync_idx ON comments(sync_status, updated_at);
+    CREATE INDEX IF NOT EXISTS attachments_remote_idx ON attachments(remote_id);
+    CREATE INDEX IF NOT EXISTS attachments_sync_idx ON attachments(sync_status, updated_at);
     CREATE INDEX IF NOT EXISTS reminders_due_idx ON reminders(status, remind_at);
     CREATE INDEX IF NOT EXISTS tags_name_idx ON tags(name);
   `);
@@ -3406,10 +3454,12 @@ export async function insertSettlement(db: SQLite.SQLiteDatabase, settlement: Se
 export async function insertSettlementLine(db: SQLite.SQLiteDatabase, line: SettlementLine) {
   await db.runAsync(
     `INSERT OR REPLACE INTO settlement_lines
-      (id, settlement_id, payment_id, source_record_type, source_record_id, applied_amount, currency, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id, remote_id, settlement_id, payment_id, source_record_type, source_record_id, applied_amount,
+       currency, created_at, updated_at, sync_status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       line.id,
+      line.remoteId ?? null,
       line.settlementId,
       line.paymentId,
       line.sourceRecordType,
@@ -3418,6 +3468,7 @@ export async function insertSettlementLine(db: SQLite.SQLiteDatabase, line: Sett
       line.currency,
       line.createdAt,
       line.updatedAt,
+      line.syncStatus ?? 'local_only',
     ],
   );
 }
@@ -3538,12 +3589,13 @@ export async function insertOverpaymentCredit(db: SQLite.SQLiteDatabase, credit:
 export async function insertAttachment(db: SQLite.SQLiteDatabase, attachment: Attachment) {
   await db.runAsync(
     `INSERT OR REPLACE INTO attachments
-      (id, target_type, target_id, event_id, created_by_user_id, local_uri, remote_url, storage_path,
+      (id, remote_id, target_type, target_id, event_id, created_by_user_id, local_uri, remote_url, storage_path,
        file_name, file_type, mime_type, file_size, attachment_kind, visibility, thumbnail_uri,
        sync_status, created_at, updated_at, archived_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       attachment.id,
+      attachment.remoteId ?? null,
       attachment.targetType,
       attachment.targetId,
       attachment.eventId,
@@ -3569,11 +3621,12 @@ export async function insertAttachment(db: SQLite.SQLiteDatabase, attachment: At
 export async function insertComment(db: SQLite.SQLiteDatabase, comment: Comment) {
   await db.runAsync(
     `INSERT OR REPLACE INTO comments
-      (id, target_type, target_id, event_id, author_user_id, local_author_label, body, visibility,
+      (id, remote_id, target_type, target_id, event_id, author_user_id, local_author_label, body, visibility,
        created_at, updated_at, deleted_at, sync_status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       comment.id,
+      comment.remoteId ?? null,
       comment.targetType,
       comment.targetId,
       comment.eventId,
@@ -4061,6 +4114,7 @@ export function mapSettlementRow(row: SettlementRow): Settlement {
 export function mapSettlementLineRow(row: SettlementLineRow): SettlementLine {
   return {
     id: row.id,
+    remoteId: row.remote_id ?? null,
     settlementId: row.settlement_id,
     paymentId: row.payment_id,
     sourceRecordType: row.source_record_type,
@@ -4069,6 +4123,7 @@ export function mapSettlementLineRow(row: SettlementLineRow): SettlementLine {
     currency: row.currency,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    syncStatus: row.sync_status ?? 'local_only',
   };
 }
 
@@ -4259,6 +4314,7 @@ export function mapActivityLogRow(row: ActivityLogRow): ActivityLog {
 export function mapAttachmentRow(row: AttachmentRow): Attachment {
   return {
     id: row.id,
+    remoteId: row.remote_id ?? null,
     targetType: row.target_type,
     targetId: row.target_id,
     eventId: row.event_id,
@@ -4283,6 +4339,7 @@ export function mapAttachmentRow(row: AttachmentRow): Attachment {
 export function mapCommentRow(row: CommentRow): Comment {
   return {
     id: row.id,
+    remoteId: row.remote_id ?? null,
     targetType: row.target_type,
     targetId: row.target_id,
     eventId: row.event_id,

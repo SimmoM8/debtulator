@@ -127,7 +127,7 @@ export function canRetrySyncEntry(entry: SyncQueueEntry, currentTime = nowIso())
   if (entry.status !== 'failed') {
     return entry.status === 'pending';
   }
-  if (entry.errorCode === 'permission_denied' || entry.errorCode === 'event_locked') {
+  if (entry.errorCode === 'permission_denied' || entry.errorCode === 'event_locked' || entry.errorCode === 'mapping_error') {
     return false;
   }
   return nextRetryAt(entry) <= currentTime;

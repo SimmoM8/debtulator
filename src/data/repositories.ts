@@ -145,6 +145,7 @@ type EventInput = {
   ownerDisplayName?: string | null;
   ownerEmail?: string | null;
   remoteId?: string | null;
+  ownerRemoteEventMemberId?: string | null;
   syncStatus?: SyncStatus;
   memberIds?: string[];
 };
@@ -704,7 +705,7 @@ export class DebtulatorRepository {
       await insertEventParticipant(this.db, participant);
       await insertSharedEventMember(this.db, {
         id: createId('event_member'),
-        remoteId: null,
+        remoteId: input.ownerRemoteEventMemberId ?? null,
         eventId: event.id,
         remoteEventId: event.remoteId,
         type: 'linked_user',
@@ -856,7 +857,13 @@ export class DebtulatorRepository {
       });
     }
     if (expense.syncStatus === 'pending_upload' || expense.syncStatus === 'pending_create') {
-      await this.queueSyncOperation({ entityType: 'shared_expense', entityId: expense.id, operation: 'create', payload: expense });
+      await this.queueSyncOperation({
+        entityType: 'shared_expense',
+        entityId: expense.id,
+        operation: 'create',
+        payload: expense,
+        dependencyIds: [expense.eventId, expense.payerId, ...expense.participantIds, ...expense.expensePayers.map((payer) => payer.eventMemberId)].map(String),
+      });
     }
     return expense;
   }
@@ -920,7 +927,13 @@ export class DebtulatorRepository {
       });
     }
     if (updated.syncStatus === 'pending_update') {
-      await this.queueSyncOperation({ entityType: 'shared_expense', entityId: updated.id, operation: 'update', payload: updated });
+      await this.queueSyncOperation({
+        entityType: 'shared_expense',
+        entityId: updated.id,
+        operation: updated.status === 'archived' ? 'archive' : 'update',
+        payload: updated,
+        dependencyIds: [updated.eventId, updated.payerId, ...updated.participantIds, ...updated.expensePayers.map((payer) => payer.eventMemberId)].map(String),
+      });
     }
     return updated;
   }
@@ -951,6 +964,9 @@ export class DebtulatorRepository {
       invitedEmail: invite.invitedEmail,
       offeredRole: invite.offeredRole,
     });
+    if (invite.syncStatus === 'pending_upload' || invite.syncStatus === 'pending_create') {
+      await this.queueSyncOperation({ entityType: 'event_invite', entityId: invite.id, operation: 'create', payload: invite, dependencyIds: [invite.eventId] });
+    }
     return invite;
   }
 
@@ -1026,6 +1042,9 @@ export class DebtulatorRepository {
       invite.id,
       { invitedDisplayName: invite.invitedDisplayName },
     );
+    if (updatedInvite.syncStatus === 'pending_update') {
+      await this.queueSyncOperation({ entityType: 'event_invite', entityId: updatedInvite.id, operation: 'update', payload: updatedInvite, dependencyIds: [updatedInvite.eventId] });
+    }
     return updatedInvite;
   }
 
@@ -1070,6 +1089,9 @@ export class DebtulatorRepository {
       displayName: member.displayName,
       type: member.type,
     });
+    if (member.syncStatus === 'pending_upload' || member.syncStatus === 'pending_create') {
+      await this.queueSyncOperation({ entityType: 'event_member', entityId: member.id, operation: 'create', payload: member, dependencyIds: [member.eventId] });
+    }
     return member;
   }
 
@@ -1094,6 +1116,9 @@ export class DebtulatorRepository {
       displayName: updated.displayName,
       status: updated.status,
     });
+    if (updated.syncStatus === 'pending_update') {
+      await this.queueSyncOperation({ entityType: 'event_member', entityId: updated.id, operation: input.archived ? 'archive' : 'update', payload: updated, dependencyIds: [updated.eventId] });
+    }
     return updated;
   }
 
@@ -1126,6 +1151,9 @@ export class DebtulatorRepository {
       eventMemberId: member.id,
       displayName: member.displayName,
     });
+    if (claim.syncStatus === 'pending_upload' || claim.syncStatus === 'pending_create') {
+      await this.queueSyncOperation({ entityType: 'event_member_claim', entityId: claim.id, operation: 'create', payload: claim, dependencyIds: [member.id] });
+    }
     return claim;
   }
 
@@ -1186,6 +1214,9 @@ export class DebtulatorRepository {
       claim.id,
       { eventMemberId: claim.eventMemberId, claimantUserId: claim.claimantUserId },
     );
+    if (updatedClaim.syncStatus === 'pending_update') {
+      await this.queueSyncOperation({ entityType: 'event_member_claim', entityId: updatedClaim.id, operation: 'update', payload: updatedClaim, dependencyIds: [updatedClaim.eventMemberId] });
+    }
     return updatedClaim;
   }
 
@@ -1302,6 +1333,9 @@ export class DebtulatorRepository {
       currency: debt.currency,
       title: debt.title,
     });
+    if (debt.syncStatus === 'pending_upload' || debt.syncStatus === 'pending_create') {
+      await this.queueSyncOperation({ entityType: 'event_debt', entityId: debt.id, operation: 'create', payload: debt, dependencyIds: [debt.eventId, debt.debtorEventMemberId, debt.creditorEventMemberId] });
+    }
     return debt;
   }
 
@@ -1332,6 +1366,9 @@ export class DebtulatorRepository {
       status: updated.status,
       verificationStatus: updated.verificationStatus,
     });
+    if (updated.syncStatus === 'pending_update') {
+      await this.queueSyncOperation({ entityType: 'event_debt', entityId: updated.id, operation: updated.status === 'archived' ? 'archive' : 'update', payload: updated, dependencyIds: [updated.eventId, updated.debtorEventMemberId, updated.creditorEventMemberId] });
+    }
     return updated;
   }
 
@@ -1380,6 +1417,15 @@ export class DebtulatorRepository {
       input.targetId,
       { eventMemberId: input.eventMemberId, rejectionReason: response.rejectionReason },
     );
+    if (response.syncStatus === 'pending_upload' || response.syncStatus === 'pending_create' || response.syncStatus === 'pending_update') {
+      await this.queueSyncOperation({
+        entityType: 'event_verification',
+        entityId: response.id,
+        operation: response.remoteId ? 'update' : 'create',
+        payload: response,
+        dependencyIds: [response.eventId, response.eventMemberId, response.targetId],
+      });
+    }
     return response;
   }
 
@@ -1430,12 +1476,20 @@ export class DebtulatorRepository {
         attachmentKind: attachment.attachmentKind,
       });
     }
+    if (attachment.syncStatus === 'pending_upload' || attachment.syncStatus === 'pending_create') {
+      await this.queueSyncOperation({ entityType: 'attachment', entityId: attachment.id, operation: 'create', payload: attachment, dependencyIds: [attachment.targetId] });
+    }
     return attachment;
   }
 
   async upsertAttachment(attachment: Attachment) {
     await insertAttachment(this.db, attachment);
     return attachment;
+  }
+
+  async upsertComment(comment: Comment) {
+    await insertComment(this.db, comment);
+    return comment;
   }
 
   async archiveAttachment(attachment: Attachment, actorUserId?: string | null) {
@@ -1455,6 +1509,9 @@ export class DebtulatorRepository {
         targetType: attachment.targetType,
         targetId: attachment.targetId,
       });
+    }
+    if (updated.syncStatus === 'pending_update') {
+      await this.queueSyncOperation({ entityType: 'attachment', entityId: updated.id, operation: 'archive', payload: updated, dependencyIds: [updated.targetId] });
     }
     return updated;
   }
@@ -1487,6 +1544,9 @@ export class DebtulatorRepository {
         targetId: comment.targetId,
       });
     }
+    if (comment.syncStatus === 'pending_upload' || comment.syncStatus === 'pending_create') {
+      await this.queueSyncOperation({ entityType: 'comment', entityId: comment.id, operation: 'create', payload: comment, dependencyIds: [comment.targetId] });
+    }
     return comment;
   }
 
@@ -1509,6 +1569,9 @@ export class DebtulatorRepository {
         targetId: comment.targetId,
       });
     }
+    if (updated.syncStatus === 'pending_update') {
+      await this.queueSyncOperation({ entityType: 'comment', entityId: updated.id, operation: 'update', payload: updated, dependencyIds: [updated.targetId] });
+    }
     return updated;
   }
 
@@ -1529,6 +1592,9 @@ export class DebtulatorRepository {
         targetType: comment.targetType,
         targetId: comment.targetId,
       });
+    }
+    if (updated.syncStatus === 'pending_update') {
+      await this.queueSyncOperation({ entityType: 'comment', entityId: updated.id, operation: 'delete', payload: updated, dependencyIds: [updated.targetId] });
     }
     return updated;
   }
@@ -1943,7 +2009,17 @@ export class DebtulatorRepository {
       });
     }
     if (payment.syncStatus === 'pending_upload' || payment.syncStatus === 'pending_create') {
-      await this.queueSyncOperation({ entityType: 'payment', entityId: payment.id, operation: 'create', payload: payment });
+      await this.queueSyncOperation({
+        entityType: 'payment',
+        entityId: payment.id,
+        operation: 'create',
+        payload: payment,
+        dependencyIds: [
+          payment.eventId,
+          payment.payerEventMemberId,
+          payment.payeeEventMemberId,
+        ].filter(Boolean) as string[],
+      });
       await this.queueSyncOperation({
         entityType: 'settlement',
         entityId: settlement.id,

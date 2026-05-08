@@ -84,6 +84,7 @@ export function EventFormScreen() {
       ownerDisplayName: auth.identity.displayName,
       ownerEmail: auth.identity.email,
       remoteId: remote?.remoteEventId ?? event?.remoteId ?? null,
+      ownerRemoteEventMemberId: remote?.remoteOwnerEventMemberId ?? null,
       syncStatus,
       memberIds: visibility === 'private' ? memberIds : [],
     };

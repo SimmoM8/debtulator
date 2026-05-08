@@ -4,24 +4,14 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { DEFAULT_BASE_CURRENCY } from '@/src/constants/currencies';
 import { isSupabaseConfigured, supabase } from '@/src/services/supabase';
 import { fetchRemoteStage2Records } from '@/src/services/stage2Sync';
-import { fetchRemoteStage3Records } from '@/src/services/stage3Sync';
-import { withGeneratedObligations } from '@/src/services/splits';
+import { canRetrySyncEntry } from '@/src/services/stage6Sync';
+import { runSyncEngine } from '@/src/services/sync/syncEngine';
 import { useAppData } from '@/src/state/AppDataProvider';
 import type {
   CurrencyCode,
   Debt,
   DebtVerification,
-  Event,
-  EventActivityLog,
-  EventDebt,
-  EventDuplicateWarning,
-  EventInvite,
-  EventMemberClaim,
-  EventParticipant,
-  EventVerificationResponse,
   LinkRequest,
-  SharedEventMember,
-  SharedExpense,
   UserProfile,
 } from '@/src/types/models';
 import { nowIso } from '@/src/utils/id';
@@ -260,267 +250,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [data, user]);
 
-  const syncStage3Records = useCallback(async () => {
+  const runRemoteDataSync = useCallback(async () => {
     if (!user) {
       return;
     }
-
-    const remote = await fetchRemoteStage3Records({ userId: user.id, email: user.email ?? null });
-    if (!remote) {
-      return;
-    }
-
-    for (const row of remote.events ?? []) {
-      const existing = data.events.find((event) => event.remoteId === row.id);
-      const event: Event = {
-        id: existing?.id ?? `event_remote_${row.id}`,
-        localId: null,
-        remoteId: row.id,
-        ownerUserId: row.owner_user_id,
-        name: row.name,
-        notes: row.description,
-        defaultCurrency: row.default_currency,
-        allowedCurrencies: row.allowed_currencies?.length ? row.allowed_currencies : [row.default_currency],
-        tags: row.tags ?? [],
-        status: row.status,
-        visibility: row.visibility,
-        syncStatus: 'synced',
-        archived: Boolean(row.archived_at) || row.status === 'archived',
-        archivedAt: row.archived_at,
-        finalisedAt: row.finalised_at,
-        lockedAt: row.locked_at,
-        ignoredDuplicateKeys: existing?.ignoredDuplicateKeys ?? [],
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-      };
-      await data.upsertEvent(event);
-    }
-
-    for (const row of remote.participants ?? []) {
-      const event = data.events.find((item) => item.remoteId === row.event_id) ?? data.events.find((item) => item.id === `event_remote_${row.event_id}`);
-      const existing = data.eventParticipants.find((participant) => participant.remoteId === row.id);
-      const participant: EventParticipant = {
-        id: existing?.id ?? `event_participant_remote_${row.id}`,
-        remoteId: row.id,
-        eventId: event?.id ?? `event_remote_${row.event_id}`,
-        remoteEventId: row.event_id,
-        userId: row.user_id,
-        role: row.role,
-        status: row.status,
-        joinedAt: row.joined_at,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-        syncStatus: 'synced',
-      };
-      await data.upsertEventParticipant(participant);
-    }
-
-    for (const row of remote.invites ?? []) {
-      const event = data.events.find((item) => item.remoteId === row.event_id) ?? data.events.find((item) => item.id === `event_remote_${row.event_id}`);
-      const existing = data.eventInvites.find((invite) => invite.remoteId === row.id);
-      const invite: EventInvite = {
-        id: existing?.id ?? `event_invite_remote_${row.id}`,
-        remoteId: row.id,
-        eventId: event?.id ?? `event_remote_${row.event_id}`,
-        remoteEventId: row.event_id,
-        inviterUserId: row.inviter_user_id,
-        invitedUserId: row.invited_user_id,
-        invitedEmail: row.invited_email,
-        invitedPhone: row.invited_phone,
-        invitedDisplayName: row.invited_display_name,
-        offeredRole: row.offered_role,
-        status: row.status,
-        message: row.message,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-        respondedAt: row.responded_at,
-        syncStatus: 'synced',
-      };
-      await data.upsertEventInvite(invite);
-    }
-
-    for (const row of remote.members ?? []) {
-      const event = data.events.find((item) => item.remoteId === row.event_id) ?? data.events.find((item) => item.id === `event_remote_${row.event_id}`);
-      const existing = data.sharedEventMembers.find((member) => member.remoteId === row.id);
-      const member: SharedEventMember = {
-        id: existing?.id ?? `event_member_remote_${row.id}`,
-        remoteId: row.id,
-        eventId: event?.id ?? `event_remote_${row.event_id}`,
-        remoteEventId: row.event_id,
-        type: row.type,
-        linkedUserId: row.linked_user_id,
-        displayName: row.display_name,
-        alias: row.alias,
-        email: row.email,
-        phone: row.phone,
-        notes: row.notes,
-        createdByUserId: row.created_by_user_id,
-        status: row.status,
-        mergedIntoEventMemberId: row.merged_into_event_member_id,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-        syncStatus: 'synced',
-      };
-      await data.upsertSharedEventMember(member);
-    }
-
-    for (const row of remote.expenses ?? []) {
-      const event = data.events.find((item) => item.remoteId === row.event_id) ?? data.events.find((item) => item.id === `event_remote_${row.event_id}`);
-      const existing = data.sharedExpenses.find((expense) => expense.remoteId === row.id);
-      const participantIds = (remote.splits ?? [])
-        .filter((split) => split.expense_id === row.id && split.included !== false)
-        .map((split) => split.event_member_id);
-      const expense: SharedExpense = withGeneratedObligations({
-        id: existing?.id ?? `event_expense_remote_${row.id}`,
-        remoteId: row.id,
-        eventId: event?.id ?? `event_remote_${row.event_id}`,
-        creatorUserId: row.creator_user_id,
-        payerId: row.payer_event_member_id,
-        expensePayers: [],
-        amount: Number(row.amount),
-        currency: row.currency,
-        title: row.title,
-        notes: row.notes,
-        expenseDate: row.date,
-        participantIds: participantIds.length > 0 ? participantIds : [row.payer_event_member_id].filter(Boolean),
-        splitMethod: row.split_method ?? 'equal',
-        splitAllocations: {},
-        dueDate: null,
-        recurringTemplateId: null,
-        tags: row.tags ?? [],
-        status: row.status,
-        verificationStatus: row.verification_status,
-        visibility: 'shared_event',
-        syncStatus: 'synced',
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-      });
-      await data.upsertSharedExpense(expense);
-    }
-
-    for (const row of remote.debts ?? []) {
-      const event = data.events.find((item) => item.remoteId === row.event_id) ?? data.events.find((item) => item.id === `event_remote_${row.event_id}`);
-      const existing = data.eventDebts.find((debt) => debt.remoteId === row.id);
-      const debt: EventDebt = {
-        id: existing?.id ?? `event_debt_remote_${row.id}`,
-        remoteId: row.id,
-        eventId: event?.id ?? `event_remote_${row.event_id}`,
-        remoteEventId: row.event_id,
-        creatorUserId: row.creator_user_id,
-        debtorEventMemberId: row.debtor_event_member_id,
-        creditorEventMemberId: row.creditor_event_member_id,
-        amount: Number(row.amount),
-        currency: row.currency,
-        title: row.title,
-        notes: row.notes,
-        debtDate: row.date,
-        dueDate: null,
-        tags: row.tags ?? [],
-        verificationStatus: row.verification_status,
-        settlementStatus: row.settlement_status,
-        status: row.status,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-        archivedAt: row.archived_at,
-        syncStatus: 'synced',
-      };
-      await data.upsertEventDebt(debt);
-    }
-
-    for (const row of remote.claims ?? []) {
-      const event = data.events.find((item) => item.remoteId === row.event_id) ?? data.events.find((item) => item.id === `event_remote_${row.event_id}`);
-      const existing = data.eventMemberClaims.find((claim) => claim.remoteId === row.id);
-      const claim: EventMemberClaim = {
-        id: existing?.id ?? `event_claim_remote_${row.id}`,
-        remoteId: row.id,
-        eventId: event?.id ?? `event_remote_${row.event_id}`,
-        remoteEventId: row.event_id,
-        eventMemberId: row.event_member_id,
-        remoteEventMemberId: row.event_member_id,
-        claimantUserId: row.claimant_user_id,
-        status: row.status,
-        message: row.message,
-        respondedByUserId: row.responded_by_user_id,
-        respondedAt: row.responded_at,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-        syncStatus: 'synced',
-      };
-      await data.upsertEventMemberClaim(claim);
-    }
-
-    for (const row of remote.warnings ?? []) {
-      const event = data.events.find((item) => item.remoteId === row.event_id) ?? data.events.find((item) => item.id === `event_remote_${row.event_id}`);
-      const existing = data.eventDuplicateWarnings.find((warning) => warning.remoteId === row.id);
-      const warning: EventDuplicateWarning = {
-        id: existing?.id ?? `event_duplicate_remote_${row.id}`,
-        remoteId: row.id,
-        eventId: event?.id ?? `event_remote_${row.event_id}`,
-        eventMemberIdA: row.event_member_id_a,
-        eventMemberIdB: row.event_member_id_b,
-        reason: row.reason,
-        confidence: row.confidence,
-        status: row.status,
-        ignoredByUserId: row.ignored_by_user_id,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-        syncStatus: 'synced',
-      };
-      await data.upsertEventDuplicateWarning(warning);
-    }
-
-    for (const row of remote.verifications ?? []) {
-      const event = data.events.find((item) => item.remoteId === row.event_id) ?? data.events.find((item) => item.id === `event_remote_${row.event_id}`);
-      const existing = data.eventVerificationResponses.find((response) => response.remoteId === row.id);
-      const response: EventVerificationResponse = {
-        id: existing?.id ?? `event_verify_remote_${row.id}`,
-        remoteId: row.id,
-        eventId: event?.id ?? `event_remote_${row.event_id}`,
-        remoteEventId: row.event_id,
-        targetType: row.target_type,
-        targetId: row.target_id,
-        remoteTargetId: row.target_id,
-        eventMemberId: row.event_member_id,
-        linkedUserId: row.linked_user_id,
-        responseStatus: row.response_status,
-        rejectionReason: row.rejection_reason,
-        respondedAt: row.responded_at,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-        syncStatus: 'synced',
-      };
-      await data.upsertEventVerificationResponse(response);
-    }
-
-    for (const row of remote.activity ?? []) {
-      const event = data.events.find((item) => item.remoteId === row.event_id) ?? data.events.find((item) => item.id === `event_remote_${row.event_id}`);
-      const existing = data.eventActivityLogs.find((activity) => activity.remoteId === row.id);
-      const activity: EventActivityLog = {
-        id: existing?.id ?? `event_activity_remote_${row.id}`,
-        remoteId: row.id,
-        eventId: event?.id ?? `event_remote_${row.event_id}`,
-        remoteEventId: row.event_id,
-        actorUserId: row.actor_user_id,
-        action: row.action,
-        targetType: row.target_type,
-        targetId: row.target_id,
-        metadata: row.metadata ?? {},
-        createdAt: row.created_at,
-        syncStatus: 'synced',
-      };
-      await data.upsertEventActivityLog(activity);
-    }
+    await runSyncEngine({ store: data, userId: user.id, email: user.email ?? null });
+    await data.refresh();
   }, [data, user]);
 
   const refreshProfileRef = useRef(refreshProfile);
   const syncStage2RecordsRef = useRef(syncStage2Records);
-  const syncStage3RecordsRef = useRef(syncStage3Records);
+  const runRemoteDataSyncRef = useRef(runRemoteDataSync);
+  const bootSyncedUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     refreshProfileRef.current = refreshProfile;
     syncStage2RecordsRef.current = syncStage2Records;
-    syncStage3RecordsRef.current = syncStage3Records;
-  }, [refreshProfile, syncStage2Records, syncStage3Records]);
+    runRemoteDataSyncRef.current = runRemoteDataSync;
+  }, [refreshProfile, syncStage2Records, runRemoteDataSync]);
 
   useEffect(() => {
     if (!supabase) {
@@ -566,12 +313,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (user?.id) {
+    if (!user?.id) {
+      bootSyncedUserIdRef.current = null;
+      return;
+    }
+    if (user?.id && data.ready && bootSyncedUserIdRef.current !== user.id) {
+      bootSyncedUserIdRef.current = user.id;
       refreshProfileRef.current().catch(() => undefined);
       syncStage2RecordsRef.current().catch(() => undefined);
-      syncStage3RecordsRef.current().catch(() => undefined);
+      runRemoteDataSyncRef.current().catch(() => undefined);
     }
-  }, [user?.id]);
+  }, [data.ready, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !data.ready) {
+      return;
+    }
+    const hasPendingQueue = data.syncQueue.some((entry) => canRetrySyncEntry(entry));
+    if (!hasPendingQueue) {
+      return;
+    }
+    const timeout = setTimeout(() => {
+      runRemoteDataSyncRef.current().catch(() => undefined);
+    }, 500);
+    return () => clearTimeout(timeout);
+  }, [data.ready, data.syncQueue, user?.id]);
 
   const signUp = useCallback(
     async ({ email, password, displayName }: { email: string; password: string; displayName: string }) => {
