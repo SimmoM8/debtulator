@@ -1,12 +1,14 @@
 import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { EventRow } from '@/src/components/EntityRows';
 import {
   Button,
   Card,
   EmptyState,
+  FilterSheet,
+  IconButton,
   LoadingState,
   PageHeader,
   Screen,
@@ -15,6 +17,7 @@ import {
   SelectChips,
 } from '@/src/components/ui/Primitives';
 import { CURRENCIES } from '@/src/constants/currencies';
+import { palette, spacing } from '@/src/constants/design';
 import { filterEvents } from '@/src/services/filters';
 import { explainEventSettlement } from '@/src/services/ledger';
 import { useAppData } from '@/src/state/AppDataProvider';
@@ -37,6 +40,7 @@ export function EventsScreen() {
   const data = useAppData();
   const auth = useAuth();
   const [filters, setFilters] = useState<EventFilters>(defaultFilters);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const eventBalances = useMemo(() => {
     const balances: Record<string, MoneyMap> = {};
@@ -79,6 +83,20 @@ export function EventsScreen() {
     return <LoadingState />;
   }
 
+  const sharedCount = data.events.filter((event) => event.visibility === 'shared' && !event.archived).length;
+  const unsettledCount = eventAttention.unsettledEventIds.size;
+  const activeFilterCount = countActiveEventFilters(filters);
+
+  function applyQuickFilter(mode: 'active' | 'shared' | 'unsettled' | 'settled') {
+    setFilters((current) => ({
+      ...current,
+      status: mode === 'settled' ? 'settled' : 'all',
+      visibility: mode === 'shared' ? 'shared' : 'all',
+      attention: mode === 'unsettled' ? 'unsettled' : 'all',
+      archivedMode: 'active',
+    }));
+  }
+
   return (
     <Screen>
       <PageHeader
@@ -88,12 +106,83 @@ export function EventsScreen() {
         action={<Button title="Add event" icon="people" onPress={() => router.push('/event/form')} />}
       />
 
-      <Card tone="peach">
-        <SearchField
-          value={filters.query}
-          onChangeText={(query) => setFilters((current) => ({ ...current, query }))}
-          placeholder="Search events, notes, tags"
-        />
+      <View style={styles.searchBlock}>
+        <View style={styles.searchLine}>
+          <View style={styles.searchFlex}>
+            <SearchField
+              value={filters.query}
+              onChangeText={(query) => setFilters((current) => ({ ...current, query }))}
+              placeholder="Search groups"
+            />
+          </View>
+          <IconButton icon="options-outline" label="Open filters" onPress={() => setFiltersOpen(true)} />
+        </View>
+        <View style={styles.quickFilters}>
+          <QuickFilter label="Active" active={filters.archivedMode === 'active' && filters.visibility === 'all' && filters.attention === 'all' && filters.status === 'all'} onPress={() => applyQuickFilter('active')} />
+          <QuickFilter label="Shared" active={filters.visibility === 'shared'} onPress={() => applyQuickFilter('shared')} />
+          <QuickFilter label="Unsettled" active={filters.attention === 'unsettled'} onPress={() => applyQuickFilter('unsettled')} />
+          <QuickFilter label="Settled" active={filters.status === 'settled'} onPress={() => applyQuickFilter('settled')} />
+        </View>
+      </View>
+
+      <Card style={styles.summaryCard}>
+        <View>
+          <Text style={styles.summaryValue}>{events.length}</Text>
+          <Text style={styles.summaryLabel}>Shown</Text>
+        </View>
+        <View>
+          <Text style={styles.summaryValue}>{sharedCount}</Text>
+          <Text style={styles.summaryLabel}>Shared</Text>
+        </View>
+        <View>
+          <Text style={styles.summaryValue}>{unsettledCount}</Text>
+          <Text style={styles.summaryLabel}>Unsettled</Text>
+        </View>
+      </Card>
+
+      <SectionTitle
+        title="Events and groups"
+        subtitle="Event balances are calculated by currency."
+        action={activeFilterCount ? <Button title="Clear" variant="ghost" onPress={() => setFilters({ ...defaultFilters, query: filters.query })} /> : undefined}
+      />
+      <Card>
+        <View>
+          {events.length > 0 ? (
+            events.map((event) => {
+              const explanation = explainEventSettlement(event.id, data.ledgerEntries);
+              return (
+                <EventRow
+                  key={event.id}
+                  event={event}
+                  memberCount={
+                    event.visibility === 'shared'
+                      ? data.sharedEventMembers.filter(
+                          (eventMember) => eventMember.eventId === event.id && eventMember.status !== 'merged',
+                        ).length
+                      : data.eventMembers.filter((eventMember) => eventMember.eventId === event.id).length + 1
+                  }
+                  balance={eventBalances[event.id] ?? {}}
+                  settings={data.settings}
+                  currencyRates={data.currencyRates}
+                  unsettled={explanation.suggestions.length > 0}
+                />
+              );
+            })
+          ) : (
+            <EmptyState
+              title="No groups found"
+              body="Try another filter or create a group for shared expenses."
+              action={<Button title="Add event" icon="people" onPress={() => router.push('/event/form')} />}
+            />
+          )}
+        </View>
+      </Card>
+
+      <FilterSheet
+        visible={filtersOpen}
+        title="Filter groups"
+        subtitle="Advanced controls stay tucked away until you need them."
+        onClose={() => setFiltersOpen(false)}>
         <SelectChips
           label="Visibility"
           value={filters.visibility}
@@ -173,37 +262,85 @@ export function EventsScreen() {
           ]}
           onChange={(sort) => setFilters((current) => ({ ...current, sort }))}
         />
-      </Card>
-
-      <SectionTitle title="Events and groups" subtitle="Event balances are calculated by currency." />
-      <Card>
-        <View>
-          {events.length > 0 ? (
-            events.map((event) => {
-              const explanation = explainEventSettlement(event.id, data.ledgerEntries);
-              return (
-                <EventRow
-                  key={event.id}
-                  event={event}
-                  memberCount={
-                    event.visibility === 'shared'
-                      ? data.sharedEventMembers.filter(
-                          (eventMember) => eventMember.eventId === event.id && eventMember.status !== 'merged',
-                        ).length
-                      : data.eventMembers.filter((eventMember) => eventMember.eventId === event.id).length + 1
-                  }
-                  balance={eventBalances[event.id] ?? {}}
-                  settings={data.settings}
-                  currencyRates={data.currencyRates}
-                  unsettled={explanation.suggestions.length > 0}
-                />
-              );
-            })
-          ) : (
-            <EmptyState title="No events match" body="Create a structured group for shared expenses." />
-          )}
+        <View style={styles.sheetActions}>
+          <Button title="Reset filters" variant="secondary" onPress={() => setFilters({ ...defaultFilters, query: filters.query })} />
+          <Button title="Show results" onPress={() => setFiltersOpen(false)} />
         </View>
-      </Card>
+      </FilterSheet>
     </Screen>
   );
 }
+
+function QuickFilter({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} style={[styles.quickFilter, active && styles.quickFilterActive]}>
+      <Text style={[styles.quickFilterText, active && styles.quickFilterTextActive]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function countActiveEventFilters(filters: EventFilters) {
+  return Object.entries(filters).filter(([key, value]) => key !== 'query' && value !== defaultFilters[key as keyof EventFilters]).length;
+}
+
+const styles = StyleSheet.create({
+  searchBlock: {
+    gap: spacing.md,
+  },
+  searchLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  searchFlex: {
+    flex: 1,
+  },
+  quickFilters: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  quickFilter: {
+    minHeight: 32,
+    borderRadius: 12,
+    paddingHorizontal: spacing.md,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.64)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(55,48,163,0.12)',
+  },
+  quickFilterActive: {
+    backgroundColor: palette.brand,
+    borderColor: palette.brand,
+  },
+  quickFilterText: {
+    color: palette.muted,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  quickFilterTextActive: {
+    color: '#FFFFFF',
+  },
+  summaryCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: spacing.md,
+  },
+  summaryValue: {
+    color: palette.ink,
+    fontSize: 20,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  summaryLabel: {
+    color: palette.muted,
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  sheetActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+});

@@ -16,7 +16,7 @@ import {
   Screen,
   SectionTitle,
 } from '@/src/components/ui/Primitives';
-import { palette, radii, spacing } from '@/src/constants/design';
+import { palette, spacing } from '@/src/constants/design';
 import { paidVsUnpaidSummary, verifiedVsPendingSummary } from '@/src/services/analytics';
 import { explainEventSettlement } from '@/src/services/ledger';
 import { buildSmartSuggestionDrafts } from '@/src/services/smartSuggestions';
@@ -138,22 +138,29 @@ export function DashboardScreen() {
         <Text style={styles.activityMeta}>Offline-first queue and conflict review</Text>
       </Pressable>
 
-      <SectionTitle title="Next actions" subtitle="Add, settle, review, or keep your data safe." />
+      <SectionTitle title="Next actions" subtitle="The things people usually need first." />
       <View style={styles.quickActions}>
         <QuickAction label="Add debt" icon="receipt" onPress={() => router.push('/debt/form')} />
-        <QuickAction label="Add member" icon="person-add" onPress={() => router.push('/member/form')} />
-        <QuickAction label="Add event" icon="people" onPress={() => router.push('/event/form')} />
-        <QuickAction label="Shared event" icon="globe" onPress={() => router.push({ pathname: '/event/form', params: { visibility: 'shared' } })} />
         <QuickAction label="Add expense" icon="cart" onPress={() => router.push('/expense/form')} />
-        <QuickAction label="Recurring" icon="repeat" onPress={() => router.push('/recurring')} />
-        <QuickAction label="Requests" icon="notifications" onPress={() => router.push('/requests')} />
-        <QuickAction label="Analytics" icon="analytics" onPress={() => router.push('/analytics')} />
-        <QuickAction label="Export" icon="download" onPress={() => router.push('/export')} />
-        <QuickAction label="Import CSV" icon="cloud-upload" onPress={() => router.push('/import-csv')} />
-        <QuickAction label="Suggestions" icon="sparkles" onPress={() => router.push('/suggestions')} />
-        <QuickAction label="Sync" icon="sync" onPress={() => router.push('/sync' as never)} />
-        <QuickAction label="Notifications" icon="notifications" onPress={() => router.push('/notifications' as never)} />
+        <QuickAction label="Record payment" icon="card" onPress={() => router.push('/payment/form')} />
+        <QuickAction label="Add person" icon="person-add" onPress={() => router.push('/member/form')} />
       </View>
+
+      <Card style={styles.toolsCard}>
+        <SectionTitle title="More tools" subtitle="Everything else stays close, without competing for attention." />
+        <View style={styles.toolGrid}>
+          <ToolLink label="Shared event" icon="globe" onPress={() => router.push({ pathname: '/event/form', params: { visibility: 'shared' } })} />
+          <ToolLink label="Events" icon="people" onPress={() => router.push('/event/form')} />
+          <ToolLink label="Recurring" icon="repeat" onPress={() => router.push('/recurring')} />
+          <ToolLink label="Requests" icon="notifications" onPress={() => router.push('/requests')} />
+          <ToolLink label="Analytics" icon="analytics" onPress={() => router.push('/analytics')} />
+          <ToolLink label="Suggestions" icon="sparkles" onPress={() => router.push('/suggestions')} />
+          <ToolLink label="Export" icon="download" onPress={() => router.push('/export')} />
+          <ToolLink label="Import CSV" icon="cloud-upload" onPress={() => router.push('/import-csv')} />
+          <ToolLink label="Sync" icon="sync" onPress={() => router.push('/sync' as never)} />
+          <ToolLink label="Notifications" icon="notifications" onPress={() => router.push('/notifications' as never)} />
+        </View>
+      </Card>
 
       <ResponsiveGrid>
         <View style={styles.gridItem}>
@@ -404,8 +411,27 @@ function QuickAction({
 }) {
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.quickAction, pressed && styles.pressed]}>
-      <Ionicons name={icon} size={19} color={palette.brand} />
+      <View style={styles.quickIcon}>
+        <Ionicons name={icon} size={19} color={palette.brand} />
+      </View>
       <Text style={styles.quickText}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function ToolLink({
+  label,
+  icon,
+  onPress,
+}: {
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.toolLink, pressed && styles.pressed]}>
+      <Ionicons name={icon} size={16} color={palette.muted} />
+      <Text style={styles.toolText}>{label}</Text>
     </Pressable>
   );
 }
@@ -451,7 +477,7 @@ function mergeMoneyMaps(
 
 const styles = StyleSheet.create({
   heroCard: {
-    gap: spacing.lg,
+    gap: spacing.md,
     overflow: 'hidden',
   },
   heroTop: {
@@ -465,18 +491,17 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   heroLabel: {
-    color: palette.brandDark,
-    fontSize: 13,
-    fontWeight: '900',
-    textTransform: 'uppercase',
+    color: palette.muted,
+    fontSize: 12,
+    fontWeight: '700',
   },
   heroIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: radii.lg,
-    backgroundColor: palette.peachSoft,
-    borderWidth: 1,
-    borderColor: '#FFD4C2',
+    width: 46,
+    height: 46,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.68)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(253,186,155,0.36)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -491,20 +516,20 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   syncIndicator: {
-    backgroundColor: 'rgba(255,255,255,0.76)',
-    borderColor: palette.line,
-    borderRadius: radii.lg,
-    borderWidth: 1,
+    backgroundColor: 'rgba(255,255,255,0.64)',
+    borderColor: 'rgba(55,48,163,0.10)',
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
     gap: spacing.xs,
     padding: spacing.lg,
   },
   summaryTile: {
     flex: 1,
     minWidth: 150,
-    backgroundColor: 'rgba(255,255,255,0.78)',
-    borderWidth: 1,
-    borderColor: palette.line,
-    borderRadius: radii.md,
+    backgroundColor: 'rgba(255,255,255,0.58)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(55,48,163,0.10)',
+    borderRadius: 16,
     padding: spacing.md,
     gap: spacing.sm,
   },
@@ -544,23 +569,53 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   quickAction: {
-    minHeight: 54,
+    minHeight: 68,
     flexGrow: 1,
     flexBasis: '47%',
-    borderRadius: radii.lg,
-    backgroundColor: 'rgba(255,255,255,0.82)',
-    borderWidth: 1,
-    borderColor: palette.line,
-    paddingHorizontal: spacing.md,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.74)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(55,48,163,0.12)',
+    padding: spacing.md,
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  quickIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
-    gap: spacing.sm,
+    backgroundColor: 'rgba(232,227,255,0.70)',
   },
   quickText: {
     color: palette.ink,
     fontSize: 14,
-    fontWeight: '900',
+    fontWeight: '800',
+  },
+  toolsCard: {
+    gap: spacing.md,
+  },
+  toolGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  toolLink: {
+    minHeight: 36,
+    flexBasis: '47%',
+    flexGrow: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderRadius: 12,
+    paddingHorizontal: spacing.sm,
+  },
+  toolText: {
+    color: palette.ink,
+    fontSize: 13,
+    fontWeight: '700',
   },
   pressed: {
     opacity: 0.72,

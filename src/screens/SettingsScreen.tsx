@@ -62,7 +62,7 @@ export function SettingsScreen() {
         subtitle="Local data remains on-device. Accounts unlock linking and verification."
       />
 
-      <Card tone={auth.user ? 'lavender' : 'peach'}>
+      <Card tone="lavender">
         <SectionTitle
           title="Account"
           subtitle={auth.user ? 'Signed in account identity and local profile cache.' : 'Continue without account keeps your ledger local/private.'}
@@ -299,7 +299,7 @@ export function SettingsScreen() {
       </Card>
 
       <Card tone="amber">
-        <SectionTitle title="Development data" subtitle="Reset local SQLite data while building Stage 1." />
+        <SectionTitle title="Development data" subtitle="Reset local SQLite data while building." />
         <View style={styles.buttonRow}>
           <Button
             title="Reset demo data"

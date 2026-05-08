@@ -74,16 +74,16 @@ export const typography = {
 export const shadows = {
   card: {
     shadowColor: palette.shadow,
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.08,
-    shadowRadius: 28,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.055,
+    shadowRadius: 24,
+    elevation: 2,
   },
   soft: {
     shadowColor: palette.shadow,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.06,
-    shadowRadius: 18,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.04,
+    shadowRadius: 14,
+    elevation: 1,
   },
 };

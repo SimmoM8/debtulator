@@ -1,12 +1,14 @@
 import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { DebtRow } from '@/src/components/EntityRows';
 import {
   Button,
   Card,
   EmptyState,
+  FilterSheet,
+  IconButton,
   LoadingState,
   PageHeader,
   Screen,
@@ -16,7 +18,7 @@ import {
   TextField,
 } from '@/src/components/ui/Primitives';
 import { CURRENCIES } from '@/src/constants/currencies';
-import { spacing } from '@/src/constants/design';
+import { palette, spacing } from '@/src/constants/design';
 import { filterDebtEntries } from '@/src/services/filters';
 import { useAppData } from '@/src/state/AppDataProvider';
 import type { DebtFilters } from '@/src/types/models';
@@ -49,6 +51,7 @@ const defaultFilters: DebtFilters = {
 export function DebtsScreen() {
   const data = useAppData();
   const [filters, setFilters] = useState<DebtFilters>(defaultFilters);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const entries = useMemo(
     () =>
@@ -85,6 +88,38 @@ export function DebtsScreen() {
     return <LoadingState />;
   }
 
+  const today = new Date().toISOString().slice(0, 10);
+  const openCount = data.ledgerEntries.filter((entry) => entry.remainingAmount > 0.005 && entry.status !== 'archived').length;
+  const dueSoonCount = data.ledgerEntries.filter((entry) => entry.dueDate && entry.dueDate >= today && entry.remainingAmount > 0.005).length;
+  const sharedCount = data.ledgerEntries.filter((entry) => entry.visibility === 'shared_event' || entry.visibility === 'shared_with_involved_member').length;
+  const activeFilterCount = countActiveDebtFilters(filters);
+
+  function applyQuickFilter(mode: 'all' | 'owe' | 'owed' | 'shared' | 'due') {
+    const query = filters.query;
+    if (mode === 'all') {
+      setFilters({ ...defaultFilters, query });
+      return;
+    }
+    setFilters({
+      ...defaultFilters,
+      query,
+      direction: mode === 'owe' ? 'i_owe_them' : mode === 'owed' ? 'they_owe_me' : 'all',
+      visibility: mode === 'shared' ? 'shared_event' : 'all',
+      dueMode: mode === 'due' ? 'due_soon' : 'all',
+    });
+  }
+
+  const quickMode =
+    filters.direction === 'i_owe_them'
+      ? 'owe'
+      : filters.direction === 'they_owe_me'
+        ? 'owed'
+        : filters.visibility === 'shared_event'
+          ? 'shared'
+          : filters.dueMode === 'due_soon'
+            ? 'due'
+            : 'all';
+
   return (
     <Screen>
       <PageHeader
@@ -94,13 +129,73 @@ export function DebtsScreen() {
         action={<Button title="Add debt" icon="add" onPress={() => router.push('/debt/form')} />}
       />
 
-      <Card tone="lavender">
-        <SearchField
-          value={filters.query}
-          onChangeText={(query) => setFilters((current) => ({ ...current, query }))}
-          placeholder="Search titles, people, notes, tags"
-        />
+      <View style={styles.searchBlock}>
+        <View style={styles.searchLine}>
+          <View style={styles.searchFlex}>
+            <SearchField
+              value={filters.query}
+              onChangeText={(query) => setFilters((current) => ({ ...current, query }))}
+              placeholder="Search debts, people, notes"
+            />
+          </View>
+          <IconButton icon="options-outline" label="Open filters" onPress={() => setFiltersOpen(true)} />
+        </View>
+        <View style={styles.quickFilters}>
+          <QuickFilter label="All" active={quickMode === 'all'} onPress={() => applyQuickFilter('all')} />
+          <QuickFilter label="You owe" active={quickMode === 'owe'} onPress={() => applyQuickFilter('owe')} />
+          <QuickFilter label="Owed to you" active={quickMode === 'owed'} onPress={() => applyQuickFilter('owed')} />
+          <QuickFilter label="Shared" active={quickMode === 'shared'} onPress={() => applyQuickFilter('shared')} />
+          <QuickFilter label="Due soon" active={quickMode === 'due'} onPress={() => applyQuickFilter('due')} />
+        </View>
+      </View>
 
+      <Card style={styles.summaryCard}>
+        <View style={styles.summaryItem}>
+          <Text style={styles.summaryValue}>{openCount}</Text>
+          <Text style={styles.summaryLabel}>Open</Text>
+        </View>
+        <View style={styles.summaryDivider} />
+        <View style={styles.summaryItem}>
+          <Text style={styles.summaryValue}>{dueSoonCount}</Text>
+          <Text style={styles.summaryLabel}>Due soon</Text>
+        </View>
+        <View style={styles.summaryDivider} />
+        <View style={styles.summaryItem}>
+          <Text style={styles.summaryValue}>{sharedCount}</Text>
+          <Text style={styles.summaryLabel}>Shared</Text>
+        </View>
+      </Card>
+
+      <SectionTitle
+        title="Ledger records"
+        subtitle={`${entries.length} shown${activeFilterCount ? ` · ${activeFilterCount} filters` : ''}`}
+        action={activeFilterCount ? <Button title="Clear" variant="ghost" onPress={() => setFilters({ ...defaultFilters, query: filters.query })} /> : undefined}
+      />
+      <Card>
+        {entries.length > 0 ? (
+          entries.map((entry) => (
+            <DebtRow
+              key={entry.id}
+              entry={entry}
+              members={data.members}
+              sharedEventMembers={data.sharedEventMembers}
+              event={entry.eventId ? data.events.find((event) => event.id === entry.eventId) : undefined}
+            />
+          ))
+        ) : (
+          <EmptyState
+            title="No debts here"
+            body="Try another quick filter or add a new debt."
+            action={<Button title="Add debt" icon="add" onPress={() => router.push('/debt/form')} />}
+          />
+        )}
+      </Card>
+
+      <FilterSheet
+        visible={filtersOpen}
+        title="Filter debts"
+        subtitle="Advanced filters stay here so the ledger stays readable."
+        onClose={() => setFiltersOpen(false)}>
         <View style={styles.twoColumn}>
           <TextField
             label="Min amount"
@@ -278,29 +373,98 @@ export function DebtsScreen() {
           ]}
           onChange={(sort) => setFilters((current) => ({ ...current, sort }))}
         />
-      </Card>
-
-      <SectionTitle title="Ledger records" subtitle={`${entries.length} matching rows`} />
-      <Card>
-        {entries.length > 0 ? (
-          entries.map((entry) => (
-            <DebtRow
-              key={entry.id}
-              entry={entry}
-              members={data.members}
-              sharedEventMembers={data.sharedEventMembers}
-              event={entry.eventId ? data.events.find((event) => event.id === entry.eventId) : undefined}
-            />
-          ))
-        ) : (
-          <EmptyState title="No ledger rows match" body="Try clearing a filter or adding a new debt." />
-        )}
-      </Card>
+        <View style={styles.sheetActions}>
+          <Button title="Reset filters" variant="secondary" onPress={() => setFilters({ ...defaultFilters, query: filters.query })} />
+          <Button title="Show results" onPress={() => setFiltersOpen(false)} />
+        </View>
+      </FilterSheet>
     </Screen>
   );
 }
 
+function QuickFilter({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} style={[styles.quickFilter, active && styles.quickFilterActive]}>
+      <Text style={[styles.quickFilterText, active && styles.quickFilterTextActive]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function countActiveDebtFilters(filters: DebtFilters) {
+  return Object.entries(filters).filter(([key, value]) => {
+    const defaultValue = defaultFilters[key as keyof DebtFilters];
+    if (key === 'query') {
+      return false;
+    }
+    return value !== defaultValue;
+  }).length;
+}
+
 const styles = StyleSheet.create({
+  searchBlock: {
+    gap: spacing.md,
+  },
+  searchLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  searchFlex: {
+    flex: 1,
+  },
+  quickFilters: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  quickFilter: {
+    minHeight: 32,
+    borderRadius: 12,
+    paddingHorizontal: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.64)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(55,48,163,0.12)',
+  },
+  quickFilterActive: {
+    backgroundColor: palette.brand,
+    borderColor: palette.brand,
+  },
+  quickFilterText: {
+    color: palette.muted,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  quickFilterTextActive: {
+    color: '#FFFFFF',
+  },
+  summaryCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
+  },
+  summaryItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
+  summaryValue: {
+    color: palette.ink,
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  summaryLabel: {
+    color: palette.muted,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  summaryDivider: {
+    width: StyleSheet.hairlineWidth,
+    height: 30,
+    backgroundColor: palette.line,
+  },
   twoColumn: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -309,5 +473,10 @@ const styles = StyleSheet.create({
   flexField: {
     flex: 1,
     minWidth: 180,
+  },
+  sheetActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
 });

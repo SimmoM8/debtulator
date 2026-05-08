@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   ScrollView,
   StyleProp,
@@ -15,7 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { palette, radii, shadows, spacing, typography } from '@/src/constants/design';
+import { palette, shadows, spacing, typography } from '@/src/constants/design';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -358,6 +359,41 @@ export function EmptyState({
   );
 }
 
+export function FilterSheet({
+  visible,
+  title = 'Filters',
+  subtitle,
+  children,
+  onClose,
+}: {
+  visible: boolean;
+  title?: string;
+  subtitle?: string;
+  children: React.ReactNode;
+  onClose: () => void;
+}) {
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={styles.sheetOverlay}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Close filters" style={styles.sheetBackdrop} onPress={onClose} />
+        <View style={styles.sheet}>
+          <View style={styles.sheetHandle} />
+          <View style={styles.sheetHeader}>
+            <View style={styles.flexOne}>
+              <Text style={styles.sheetTitle}>{title}</Text>
+              {subtitle ? <Text style={styles.sheetSubtitle}>{subtitle}</Text> : null}
+            </View>
+            <IconButton icon="close" label="Close filters" onPress={onClose} />
+          </View>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.sheetContent}>
+            {children}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export function ResponsiveGrid({ children }: { children: React.ReactNode }) {
   const { width } = useWindowDimensions();
   return <View style={[styles.grid, width >= 820 && styles.gridWide]}>{children}</View>;
@@ -365,27 +401,27 @@ export function ResponsiveGrid({ children }: { children: React.ReactNode }) {
 
 const toneStyles = StyleSheet.create({
   default: {},
-  mint: { backgroundColor: palette.successSoft, borderColor: '#B7E8D5' },
-  coral: { backgroundColor: palette.dangerSoft, borderColor: '#FFC7C7' },
-  amber: { backgroundColor: palette.warningSoft, borderColor: '#F8D78A' },
-  blue: { backgroundColor: palette.brandSoft, borderColor: palette.borderStrong },
-  peach: { backgroundColor: palette.peachSoft, borderColor: '#FFD4C2' },
-  lavender: { backgroundColor: palette.surfaceLavender, borderColor: palette.border },
+  mint: { backgroundColor: 'rgba(223,248,238,0.72)', borderColor: 'rgba(20,138,104,0.14)' },
+  coral: { backgroundColor: 'rgba(255,228,228,0.78)', borderColor: 'rgba(214,66,66,0.18)' },
+  amber: { backgroundColor: 'rgba(255,244,214,0.76)', borderColor: 'rgba(183,110,0,0.18)' },
+  blue: { backgroundColor: 'rgba(232,227,255,0.62)', borderColor: 'rgba(55,48,163,0.12)' },
+  peach: { backgroundColor: 'rgba(255,241,234,0.58)', borderColor: 'rgba(253,186,155,0.24)' },
+  lavender: { backgroundColor: 'rgba(255,255,255,0.78)', borderColor: 'rgba(221,214,254,0.56)' },
 });
 
 const textVariants = StyleSheet.create({
   body: { color: palette.ink, fontSize: typography.body, lineHeight: 22 },
   muted: { color: palette.muted, fontSize: 14, lineHeight: 20 },
   small: { color: palette.muted, fontSize: typography.micro, lineHeight: 17 },
-  label: { color: palette.brand, fontSize: typography.micro, fontWeight: '800', letterSpacing: 0, textTransform: 'uppercase' },
-  title: { color: palette.ink, fontSize: 24, fontWeight: '900', lineHeight: 30 },
-  subtitle: { color: palette.ink, fontSize: 18, fontWeight: '900', lineHeight: 24 },
+  label: { color: palette.muted, fontSize: typography.micro, fontWeight: '700', letterSpacing: 0 },
+  title: { color: palette.ink, fontSize: 23, fontWeight: '800', lineHeight: 29 },
+  subtitle: { color: palette.ink, fontSize: 17, fontWeight: '800', lineHeight: 23 },
 });
 
 const buttonVariants = StyleSheet.create({
   primary: { backgroundColor: palette.brand, borderColor: palette.brand },
-  secondary: { backgroundColor: palette.brandSoft, borderColor: palette.borderStrong },
-  ghost: { backgroundColor: 'rgba(255,255,255,0.42)', borderColor: palette.line },
+  secondary: { backgroundColor: 'rgba(255,255,255,0.72)', borderColor: 'rgba(55,48,163,0.14)' },
+  ghost: { backgroundColor: 'transparent', borderColor: 'rgba(55,48,163,0.12)' },
   danger: { backgroundColor: palette.negative, borderColor: palette.negative },
 });
 
@@ -398,21 +434,21 @@ const styles = StyleSheet.create({
     position: 'absolute',
     pointerEvents: 'none',
     top: -120,
-    right: -120,
-    width: 320,
-    height: 320,
-    borderRadius: 160,
-    backgroundColor: 'rgba(221,214,254,0.72)',
+    right: -160,
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: 'rgba(221,214,254,0.34)',
   },
   backdropPeach: {
     position: 'absolute',
     pointerEvents: 'none',
-    top: 170,
-    left: -150,
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    backgroundColor: 'rgba(253,186,155,0.20)',
+    top: 210,
+    left: -170,
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: 'rgba(253,186,155,0.10)',
   },
   scrollContent: {
     alignItems: 'center',
@@ -421,8 +457,8 @@ const styles = StyleSheet.create({
   content: {
     width: '100%',
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    gap: spacing.xl,
+    paddingTop: spacing.lg,
+    gap: spacing.lg,
   },
   footer: {
     position: 'absolute',
@@ -444,7 +480,7 @@ const styles = StyleSheet.create({
   pageHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: spacing.lg,
+    gap: spacing.md,
     paddingBottom: spacing.xs,
   },
   flexOne: {
@@ -452,30 +488,30 @@ const styles = StyleSheet.create({
   },
   eyebrow: {
     color: palette.brand,
-    fontSize: 12,
-    fontWeight: '900',
+    fontSize: 11,
+    fontWeight: '800',
     letterSpacing: 0,
     textTransform: 'uppercase',
     marginBottom: spacing.xs,
   },
   pageTitle: {
     color: palette.ink,
-    fontSize: typography.title,
-    lineHeight: 38,
+    fontSize: 30,
+    lineHeight: 35,
     fontWeight: '900',
     letterSpacing: 0,
   },
   pageSubtitle: {
     color: palette.muted,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 14,
+    lineHeight: 21,
     marginTop: spacing.xs,
   },
   card: {
-    backgroundColor: palette.surfaceGlass,
-    borderColor: palette.line,
-    borderWidth: 1,
-    borderRadius: radii.lg,
+    backgroundColor: 'rgba(255,255,255,0.78)',
+    borderColor: 'rgba(221,214,254,0.48)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 22,
     padding: spacing.lg,
     ...shadows.card,
     gap: spacing.md,
@@ -488,9 +524,9 @@ const styles = StyleSheet.create({
   },
   sectionHeading: {
     color: palette.ink,
-    fontSize: 18,
-    lineHeight: 23,
-    fontWeight: '900',
+    fontSize: 17,
+    lineHeight: 22,
+    fontWeight: '800',
   },
   muted: {
     color: palette.muted,
@@ -504,9 +540,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   button: {
-    minHeight: 46,
-    borderRadius: radii.pill,
-    borderWidth: 1,
+    minHeight: 42,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
@@ -516,7 +552,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: palette.brand,
     fontSize: 14,
-    fontWeight: '900',
+    fontWeight: '800',
   },
   buttonTextLight: {
     color: '#FFFFFF',
@@ -528,12 +564,12 @@ const styles = StyleSheet.create({
     opacity: 0.72,
   },
   iconButton: {
-    width: 44,
-    height: 44,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: palette.line,
-    backgroundColor: palette.surfaceGlass,
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(55,48,163,0.14)',
+    backgroundColor: 'rgba(255,255,255,0.74)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -545,19 +581,18 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   label: {
-    color: palette.brand,
+    color: palette.muted,
     fontSize: 12,
-    fontWeight: '900',
+    fontWeight: '700',
     letterSpacing: 0,
-    textTransform: 'uppercase',
   },
   input: {
-    minHeight: 50,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: palette.line,
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    paddingHorizontal: spacing.lg,
+    minHeight: 46,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(55,48,163,0.16)',
+    backgroundColor: 'rgba(255,255,255,0.74)',
+    paddingHorizontal: spacing.md,
     color: palette.ink,
     fontSize: 16,
   },
@@ -567,11 +602,11 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   searchField: {
-    minHeight: 50,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: palette.line,
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    minHeight: 46,
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(55,48,163,0.16)',
+    backgroundColor: 'rgba(255,255,255,0.78)',
     paddingHorizontal: spacing.lg,
     alignItems: 'center',
     flexDirection: 'row',
@@ -584,18 +619,18 @@ const styles = StyleSheet.create({
   },
   segmented: {
     flexDirection: 'row',
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: palette.line,
-    backgroundColor: palette.surfaceAlt,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(55,48,163,0.12)',
+    backgroundColor: 'rgba(241,237,255,0.62)',
     padding: 3,
   },
   segment: {
     flex: 1,
-    minHeight: 36,
+    minHeight: 34,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radii.pill,
+    borderRadius: 13,
     paddingHorizontal: spacing.sm,
   },
   segmentActive: {
@@ -616,12 +651,12 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   selectChip: {
-    minHeight: 36,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: palette.line,
-    backgroundColor: 'rgba(255,255,255,0.84)',
+    minHeight: 34,
+    paddingHorizontal: spacing.md,
+    borderRadius: 13,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(55,48,163,0.14)',
+    backgroundColor: 'rgba(255,255,255,0.68)',
     justifyContent: 'center',
   },
   selectChipActive: {
@@ -630,7 +665,7 @@ const styles = StyleSheet.create({
   },
   selectChipText: {
     color: palette.muted,
-    fontWeight: '800',
+    fontWeight: '700',
     fontSize: 13,
   },
   selectChipTextActive: {
@@ -641,6 +676,55 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: spacing.xl,
     gap: spacing.sm,
+  },
+  sheetOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  sheetBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(17,24,39,0.22)',
+  },
+  sheet: {
+    maxHeight: '86%',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    backgroundColor: 'rgba(252,250,255,0.98)',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(221,214,254,0.78)',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.lg,
+    ...shadows.card,
+  },
+  sheetHandle: {
+    alignSelf: 'center',
+    width: 38,
+    height: 4,
+    borderRadius: 999,
+    backgroundColor: 'rgba(107,114,128,0.26)',
+    marginBottom: spacing.md,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingBottom: spacing.md,
+  },
+  sheetTitle: {
+    color: palette.ink,
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  sheetSubtitle: {
+    color: palette.muted,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 2,
+  },
+  sheetContent: {
+    gap: spacing.lg,
+    paddingBottom: spacing.xl,
   },
   grid: {
     gap: spacing.md,
