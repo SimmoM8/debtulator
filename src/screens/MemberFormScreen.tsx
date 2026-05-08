@@ -59,10 +59,10 @@ export function MemberFormScreen() {
       <PageHeader
         eyebrow="Member"
         title={member ? 'Edit member' : 'Add member'}
-        subtitle="Stage 1 members are manual and unlinked, with placeholders for future account linking."
+        subtitle="Add the person once, then use them across debts, events, payments, and settlements."
       />
 
-      <Card>
+      <Card tone="peach">
         <TextField label="Display name" value={displayName} onChangeText={setDisplayName} placeholder="Daniel" />
         <TextField label="Notes" value={notes} onChangeText={setNotes} placeholder="How you know them" multiline />
         <TextField label="Email placeholder" value={email} onChangeText={setEmail} keyboardType="email-address" />

@@ -104,7 +104,7 @@ export function MemberDetailScreen() {
         action={<IconButton icon="create-outline" label="Edit member" onPress={() => router.push({ pathname: '/member/form', params: { id: member.id } })} />}
       />
 
-      <Card tone="mint">
+      <Card tone="peach">
         <Text style={styles.label}>Net balance with this member</Text>
         <BalanceStack
           balances={data.memberBalances[member.id] ?? {}}

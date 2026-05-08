@@ -286,7 +286,7 @@ export function EventDetailScreen() {
         }
       />
 
-      <Card tone={isShared ? 'mint' : 'blue'}>
+      <Card tone={isShared ? 'peach' : 'lavender'}>
         <View style={styles.eventTop}>
           <View style={styles.flexOne}>
             <View style={styles.badgeLine}>
@@ -1088,7 +1088,9 @@ const styles = StyleSheet.create({
   badgeBox: {
     minWidth: 86,
     borderRadius: radii.lg,
-    backgroundColor: '#C6E3D9',
+    backgroundColor: palette.peachSoft,
+    borderWidth: 1,
+    borderColor: '#FFD4C2',
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.md,
@@ -1124,7 +1126,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: palette.line,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255,255,255,0.82)',
     paddingHorizontal: spacing.md,
     justifyContent: 'center',
   },

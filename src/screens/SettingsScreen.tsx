@@ -62,7 +62,7 @@ export function SettingsScreen() {
         subtitle="Local data remains on-device. Accounts unlock linking and verification."
       />
 
-      <Card tone={auth.user ? 'mint' : 'amber'}>
+      <Card tone={auth.user ? 'lavender' : 'peach'}>
         <SectionTitle
           title="Account"
           subtitle={auth.user ? 'Signed in account identity and local profile cache.' : 'Continue without account keeps your ledger local/private.'}
@@ -146,7 +146,7 @@ export function SettingsScreen() {
       </Card>
 
       <Card>
-        <SectionTitle title="Stage 5 defaults" subtitle="Privacy-first defaults for analytics, exports, imports, attachments, and suggestions." />
+        <SectionTitle title="Privacy defaults" subtitle="Calm defaults for analytics, exports, imports, attachments, and suggestions." />
         <View style={styles.switchRow}>
           <View style={styles.switchText}>
             <Text style={styles.rowTitle}>Smart suggestions</Text>
@@ -200,7 +200,7 @@ export function SettingsScreen() {
       </Card>
 
       <Card>
-        <SectionTitle title="Stage 6 production controls" subtitle="Sync, privacy, notifications, backup, export, deletion, language, and accessibility." />
+        <SectionTitle title="Data and safety" subtitle="Sync, privacy, notifications, backup, export, deletion, language, and accessibility." />
         <View style={styles.buttonRow}>
           <Button title="Sync status" icon="sync" variant="secondary" onPress={() => router.push('/sync' as never)} />
           <Button title="Conflicts" icon="git-compare" variant="secondary" onPress={() => router.push('/conflicts' as never)} />
@@ -239,7 +239,7 @@ export function SettingsScreen() {
       </Card>
 
       <Card>
-        <SectionTitle title="Stage 4 defaults" subtitle="Converted settlements stay off unless explicitly enabled." />
+        <SectionTitle title="Settlement defaults" subtitle="Converted settlements stay off unless explicitly enabled." />
         <View style={styles.switchRow}>
           <View style={styles.switchText}>
             <Text style={styles.rowTitle}>Converted settlement suggestions</Text>

@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 
 import {
   Button,
@@ -12,6 +12,7 @@ import {
   TextField,
 } from '@/src/components/ui/Primitives';
 import { CURRENCIES } from '@/src/constants/currencies';
+import { palette, spacing } from '@/src/constants/design';
 import { suggestTags } from '@/src/services/smartSuggestions';
 import { useAppData } from '@/src/state/AppDataProvider';
 import { useAuth } from '@/src/state/AuthProvider';
@@ -169,10 +170,10 @@ export function DebtFormScreen() {
       <PageHeader
         eyebrow={isSharedEventDebt ? 'Shared event debt' : 'Simple debt'}
         title={debt ? 'Edit debt' : 'Add debt'}
-        subtitle={isSharedEventDebt ? 'Direct event debts use event members and participate in event settlement.' : 'Outside events, use clear personal direction: They owe me or I owe them.'}
+        subtitle={isSharedEventDebt ? 'Choose who owes whom, then review before saving.' : 'Choose who it is with, whether you owe or they owe you, then review before saving.'}
       />
 
-      <Card>
+      <Card tone="lavender">
         {isSharedEventDebt ? (
           <>
             <SelectChips label="Debtor" value={debtorEventMemberId} options={eventMemberOptions} onChange={setDebtorEventMemberId} />
@@ -235,7 +236,7 @@ export function DebtFormScreen() {
           onChange={setStatus}
         />
         <SelectChips
-          label="Verification placeholder"
+          label="Review state"
           value={verificationStatus}
           options={[
             { label: 'Local only', value: 'local_only' },
@@ -261,6 +262,32 @@ export function DebtFormScreen() {
           />
         ) : null}
       </Card>
+
+      <Card tone="peach">
+        <Text style={styles.reviewEyebrow}>Review</Text>
+        <View style={styles.reviewRow}>
+          <Text style={styles.reviewLabel}>What</Text>
+          <Text style={styles.reviewValue}>{title.trim() || 'Untitled debt'}</Text>
+        </View>
+        <View style={styles.reviewRow}>
+          <Text style={styles.reviewLabel}>Amount</Text>
+          <Text style={styles.reviewValue}>{Number(amount) > 0 ? `${amount} ${currency}` : 'Enter an amount'}</Text>
+        </View>
+        <View style={styles.reviewRow}>
+          <Text style={styles.reviewLabel}>Direction</Text>
+          <Text style={styles.reviewValue}>
+            {isSharedEventDebt
+              ? `${eventMemberOptions.find((option) => option.value === debtorEventMemberId)?.label ?? 'Someone'} owes ${eventMemberOptions.find((option) => option.value === creditorEventMemberId)?.label ?? 'someone'}`
+              : direction === 'they_owe_me'
+                ? `${memberOptions.find((option) => option.value === selectedMemberId)?.label ?? 'They'} owe you`
+                : `You owe ${memberOptions.find((option) => option.value === selectedMemberId)?.label ?? 'them'}`}
+          </Text>
+        </View>
+        <View style={styles.reviewRow}>
+          <Text style={styles.reviewLabel}>Due</Text>
+          <Text style={styles.reviewValue}>{dueDate || 'No due date'}</Text>
+        </View>
+      </Card>
     </Screen>
   );
 }
@@ -275,3 +302,32 @@ function splitTags(value: string) {
 function mergeTagText(current: string, tag: string) {
   return Array.from(new Set([...splitTags(current), tag])).join(', ');
 }
+
+const styles = StyleSheet.create({
+  reviewEyebrow: {
+    color: palette.brand,
+    fontSize: 12,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  reviewRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(55,48,163,0.14)',
+  },
+  reviewLabel: {
+    color: palette.muted,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  reviewValue: {
+    color: palette.ink,
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '900',
+    textAlign: 'right',
+  },
+});

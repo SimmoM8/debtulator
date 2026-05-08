@@ -125,7 +125,7 @@ export function PaymentFormScreen() {
         subtitle="Payments are separate from debts. Settlement lines explain what the payment clears."
       />
 
-      <Card>
+      <Card tone="lavender">
         <SelectChips label="Payer" value={payerId} options={participantOptions} onChange={setPayerId} />
         <SelectChips label="Receiver" value={payeeId} options={participantOptions} onChange={setPayeeId} />
         <TextField label="Amount" value={amount} onChangeText={setAmount} keyboardType="numeric" />
@@ -156,7 +156,7 @@ export function PaymentFormScreen() {
         />
       </Card>
 
-      <Card tone={overpayment > 0 ? 'amber' : 'blue'}>
+      <Card tone={overpayment > 0 ? 'amber' : 'peach'}>
         <SectionTitle title="Settlement preview" subtitle="This preview is what the settlement record will explain." />
         {previewLines.map((line) => (
           <View key={line.entry.id} style={styles.row}>

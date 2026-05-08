@@ -79,7 +79,7 @@ export function PaymentDetailScreen() {
         subtitle="A payment records real-world money movement."
       />
 
-      <Card tone="mint">
+      <Card tone="lavender">
         <View style={styles.topRow}>
           <View>
             <Text style={styles.label}>Amount paid</Text>

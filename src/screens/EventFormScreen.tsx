@@ -111,7 +111,7 @@ export function EventFormScreen() {
       <PageHeader
         eyebrow="Event"
         title={event ? 'Edit event' : 'Add event'}
-        subtitle="Create private local events or shared synced events for collaborative ledgers."
+        subtitle="Create a calm place for shared expenses, people, notes, and settlement history."
       />
 
       {error ? (
@@ -120,7 +120,7 @@ export function EventFormScreen() {
         </Card>
       ) : null}
 
-      <Card>
+      <Card tone="peach">
         <TextField label="Event name" value={name} onChangeText={setName} placeholder="Ski Trip Sweden" />
         <TextField label="Notes" value={notes} onChangeText={setNotes} multiline />
         <SelectChips

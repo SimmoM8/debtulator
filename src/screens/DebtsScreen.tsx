@@ -90,11 +90,11 @@ export function DebtsScreen() {
       <PageHeader
         eyebrow="Ledger"
         title="Debts"
-        subtitle="Manual debts and generated obligations from shared expenses."
+        subtitle="Find what is open, settled, shared, overdue, or waiting for review."
         action={<Button title="Add debt" icon="add" onPress={() => router.push('/debt/form')} />}
       />
 
-      <Card>
+      <Card tone="lavender">
         <SearchField
           value={filters.query}
           onChangeText={(query) => setFilters((current) => ({ ...current, query }))}
@@ -107,12 +107,14 @@ export function DebtsScreen() {
             value={filters.minAmount}
             onChangeText={(minAmount) => setFilters((current) => ({ ...current, minAmount }))}
             keyboardType="numeric"
+            style={styles.flexField}
           />
           <TextField
             label="Max amount"
             value={filters.maxAmount}
             onChangeText={(maxAmount) => setFilters((current) => ({ ...current, maxAmount }))}
             keyboardType="numeric"
+            style={styles.flexField}
           />
         </View>
 
@@ -301,6 +303,11 @@ export function DebtsScreen() {
 const styles = StyleSheet.create({
   twoColumn: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.md,
+  },
+  flexField: {
+    flex: 1,
+    minWidth: 180,
   },
 });

@@ -93,25 +93,25 @@ export function DashboardScreen() {
   return (
     <Screen>
       <PageHeader
-        eyebrow="Local-first ledger"
+        eyebrow="Today"
         title="Debtulator"
         subtitle={
           auth.user
-            ? `Signed in as ${auth.identity.displayName}. Local debts remain private until shared.`
-            : 'Track debts locally without an account. Sign in only when you want linking and verification.'
+            ? `Signed in as ${auth.identity.displayName}. Your ledger stays private until you choose to share.`
+            : 'Make debt feel lighter, clearer, and easier to settle. Sign in only when you want linking and verification.'
         }
         action={<Button title={auth.user ? 'Requests' : 'Sign in'} icon={auth.user ? 'notifications' : 'person-circle'} onPress={() => router.push(auth.user ? '/requests' : '/auth')} />}
       />
 
-      <Card tone="mint" style={styles.heroCard}>
+      <Card tone="lavender" style={styles.heroCard}>
         <View style={styles.heroTop}>
           <View style={styles.heroTitleBlock}>
-            <Text style={styles.heroLabel}>Net balance</Text>
+            <Text style={styles.heroLabel}>Current picture</Text>
             <BalanceStack
               balances={data.personalTotals.net}
               settings={data.settings}
               currencyRates={data.currencyRates}
-              empty="Settled up"
+              empty="You're all settled"
             />
           </View>
           <View style={styles.heroIcon}>
@@ -125,7 +125,7 @@ export function DashboardScreen() {
 
         <View style={styles.summaryGrid}>
           <SummaryTile title="Owed to you" balances={data.personalTotals.owedToMe} tone="positive" />
-          <SummaryTile title="You owe" balances={data.personalTotals.iOwe} tone="negative" />
+          <SummaryTile title="You owe" balances={data.personalTotals.iOwe} tone="blue" />
         </View>
       </Card>
 
@@ -138,6 +138,7 @@ export function DashboardScreen() {
         <Text style={styles.activityMeta}>Offline-first queue and conflict review</Text>
       </Pressable>
 
+      <SectionTitle title="Next actions" subtitle="Add, settle, review, or keep your data safe." />
       <View style={styles.quickActions}>
         <QuickAction label="Add debt" icon="receipt" onPress={() => router.push('/debt/form')} />
         <QuickAction label="Add member" icon="person-add" onPress={() => router.push('/member/form')} />
@@ -156,15 +157,15 @@ export function DashboardScreen() {
 
       <ResponsiveGrid>
         <View style={styles.gridItem}>
-          <SectionTitle title="Paid vs unpaid" subtitle="Open, paid, partial, and overpaid totals" />
+          <SectionTitle title="What is open" subtitle="Open, paid, partial, and overpaid totals" />
           <Card>
             <SummaryLine label="Open" value={formatMoneyMapLike(paidSummary.totals.remaining)} tone="amber" />
             <SummaryLine label="Paid" value={formatMoneyMapLike(paidSummary.totals.paid)} tone="positive" />
-            <SummaryLine label="Overpaid" value={formatMoneyMapLike(paidSummary.totals.overpaid)} tone="negative" />
+            <SummaryLine label="Overpaid" value={formatMoneyMapLike(paidSummary.totals.overpaid)} tone="amber" />
           </Card>
         </View>
         <View style={styles.gridItem}>
-          <SectionTitle title="Trust summary" subtitle="Verification state across active records" />
+          <SectionTitle title="Needs review" subtitle="Verification state across active records" />
           <Card>
             <SummaryLine label="Verified" value={formatMoneyMapLike(trustSummary.verified)} tone="positive" />
             <SummaryLine label="Pending" value={formatMoneyMapLike(trustSummary.pending)} tone="amber" />
@@ -373,7 +374,7 @@ function SummaryTile({
 }: {
   title: string;
   balances: Record<string, number | undefined>;
-  tone: 'positive' | 'negative';
+  tone: 'positive' | 'blue';
 }) {
   const lines = Object.entries(balances).filter(([, amount]) => Math.abs(amount ?? 0) > 0.005);
   return (
@@ -451,6 +452,7 @@ function mergeMoneyMaps(
 const styles = StyleSheet.create({
   heroCard: {
     gap: spacing.lg,
+    overflow: 'hidden',
   },
   heroTop: {
     flexDirection: 'row',
@@ -472,7 +474,9 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: radii.lg,
-    backgroundColor: '#C6E3D9',
+    backgroundColor: palette.peachSoft,
+    borderWidth: 1,
+    borderColor: '#FFD4C2',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -487,19 +491,19 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   syncIndicator: {
-    backgroundColor: palette.surface,
+    backgroundColor: 'rgba(255,255,255,0.76)',
     borderColor: palette.line,
-    borderRadius: radii.md,
+    borderRadius: radii.lg,
     borderWidth: 1,
     gap: spacing.xs,
-    padding: spacing.md,
+    padding: spacing.lg,
   },
   summaryTile: {
     flex: 1,
     minWidth: 150,
-    backgroundColor: 'rgba(255,255,255,0.72)',
+    backgroundColor: 'rgba(255,255,255,0.78)',
     borderWidth: 1,
-    borderColor: '#D2E2DB',
+    borderColor: palette.line,
     borderRadius: radii.md,
     padding: spacing.md,
     gap: spacing.sm,
@@ -532,7 +536,7 @@ const styles = StyleSheet.create({
     color: palette.positive,
   },
   negative: {
-    color: palette.negative,
+    color: palette.primaryDeep,
   },
   quickActions: {
     flexDirection: 'row',
@@ -540,11 +544,11 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   quickAction: {
-    minHeight: 48,
+    minHeight: 54,
     flexGrow: 1,
     flexBasis: '47%',
     borderRadius: radii.lg,
-    backgroundColor: palette.surface,
+    backgroundColor: 'rgba(255,255,255,0.82)',
     borderWidth: 1,
     borderColor: palette.line,
     paddingHorizontal: spacing.md,
@@ -556,7 +560,7 @@ const styles = StyleSheet.create({
   quickText: {
     color: palette.ink,
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: '900',
   },
   pressed: {
     opacity: 0.72,

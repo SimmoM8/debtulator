@@ -64,7 +64,7 @@ export function AuthScreen() {
         subtitle="Use the app locally without an account, or sign in to link members and verify debts."
       />
 
-      <Card tone={auth.configured ? 'mint' : 'amber'}>
+      <Card tone={auth.configured ? 'lavender' : 'peach'}>
         <SectionTitle
           title="Authentication"
           subtitle={

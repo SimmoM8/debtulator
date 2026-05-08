@@ -38,7 +38,7 @@ export function AttachmentDetailScreen() {
         subtitle="Lightweight attachment metadata and preview."
       />
 
-      <Card tone={attachment.attachmentKind === 'receipt' || attachment.attachmentKind === 'proof' ? 'mint' : 'blue'}>
+      <Card tone={attachment.attachmentKind === 'receipt' || attachment.attachmentKind === 'proof' ? 'peach' : 'lavender'}>
         <View style={styles.badgeLine}>
           <Badge label={ATTACHMENT_KIND_LABELS[attachment.attachmentKind]} tone="positive" />
           <Badge label={attachment.visibility} tone={attachment.visibility === 'shared' ? 'amber' : 'neutral'} />
@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
     width: '100%',
     minHeight: 320,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255,255,255,0.86)',
   },
   filePreview: {
     minHeight: 220,
@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: palette.line,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255,255,255,0.86)',
     padding: spacing.lg,
   },
   filePreviewText: {

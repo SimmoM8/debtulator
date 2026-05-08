@@ -17,7 +17,7 @@ export function Amount({
   signed?: boolean;
   size?: 'sm' | 'md' | 'lg';
 }) {
-  const tone = amount > 0 ? palette.positive : amount < 0 ? palette.negative : palette.muted;
+  const tone = amount > 0 ? palette.positive : amount < 0 ? palette.primaryDeep : palette.muted;
   return <Text style={[styles.amount, styles[size], { color: tone }]}>{formatMoney(amount, currency, { signed })}</Text>;
 }
 
@@ -69,6 +69,7 @@ const styles = StyleSheet.create({
   amount: {
     fontWeight: '900',
     letterSpacing: 0,
+    fontVariant: ['tabular-nums'],
   },
   sm: {
     fontSize: 14,

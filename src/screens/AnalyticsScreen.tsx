@@ -58,11 +58,11 @@ export function AnalyticsScreen() {
         action={<Button title="Export data" icon="download" variant="secondary" onPress={() => router.push('/export')} />}
       />
 
-      <Card>
+      <Card tone="lavender">
         <SectionTitle title="Filters" subtitle="Charts use existing ledger calculations and never silently merge currencies." />
         <View style={styles.twoColumn}>
-          <TextField label="Start date" value={startDate} onChangeText={setStartDate} placeholder="YYYY-MM-DD" />
-          <TextField label="End date" value={endDate} onChangeText={setEndDate} placeholder="YYYY-MM-DD" />
+          <TextField label="Start date" value={startDate} onChangeText={setStartDate} placeholder="YYYY-MM-DD" style={styles.flexField} />
+          <TextField label="End date" value={endDate} onChangeText={setEndDate} placeholder="YYYY-MM-DD" style={styles.flexField} />
         </View>
         <SelectChips
           label="Chart currency"
@@ -147,7 +147,12 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
 const styles = StyleSheet.create({
   twoColumn: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.md,
+  },
+  flexField: {
+    flex: 1,
+    minWidth: 180,
   },
   badgeLine: {
     flexDirection: 'row',

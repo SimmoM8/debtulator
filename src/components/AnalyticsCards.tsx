@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
   },
   barFill: {
     minHeight: 8,
-    backgroundColor: palette.brand,
+    backgroundColor: palette.positive,
   },
   barFillSecondary: {
     minHeight: 6,

@@ -83,12 +83,12 @@ export function EventsScreen() {
     <Screen>
       <PageHeader
         eyebrow="Groups"
-        title="Events"
-        subtitle="Structured containers for trips, households, family events, and shared expense groups."
+        title="Shared"
+        subtitle="Trips, households, family events, and shared expense groups in one calm place."
         action={<Button title="Add event" icon="people" onPress={() => router.push('/event/form')} />}
       />
 
-      <Card>
+      <Card tone="peach">
         <SearchField
           value={filters.query}
           onChangeText={(query) => setFilters((current) => ({ ...current, query }))}

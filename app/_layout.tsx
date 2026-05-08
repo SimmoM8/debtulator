@@ -19,10 +19,10 @@ const DebtulatorTheme = {
     ...DefaultTheme.colors,
     primary: palette.brand,
     background: palette.background,
-    card: palette.surface,
+    card: palette.surfaceGlass,
     text: palette.ink,
     border: palette.line,
-    notification: palette.coral,
+    notification: palette.warning,
   },
 };
 

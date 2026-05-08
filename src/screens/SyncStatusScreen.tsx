@@ -15,13 +15,13 @@ export function SyncStatusScreen() {
   return (
     <Screen>
       <PageHeader
-        eyebrow="Stage 6"
+        eyebrow="Data safety"
         title="Sync status"
         subtitle="Offline changes are queued locally and never discarded silently."
         action={<Button title="Conflicts" icon="git-compare" variant="secondary" onPress={() => router.push('/conflicts' as never)} />}
       />
 
-      <Card tone={data.syncSummary.hasBlockingProblems ? 'amber' : 'mint'}>
+      <Card tone={data.syncSummary.hasBlockingProblems ? 'amber' : 'lavender'}>
         <SectionTitle title={data.syncSummary.statusLabel} subtitle="Central sync state for local and shared records." />
         <View style={styles.badgeLine}>
           <Badge label={`${data.syncSummary.pendingCount} pending`} tone={data.syncSummary.pendingCount ? 'amber' : 'neutral'} />

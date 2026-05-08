@@ -123,7 +123,7 @@ export function ImportCsvScreen() {
         subtitle="Preview, validate, and confirm before saving members or simple debts."
       />
 
-      <Card>
+      <Card tone="lavender">
         <SectionTitle title="Choose CSV" subtitle="Use a file URI when available, or paste CSV content directly." />
         <TextField label="Source name" value={sourceName} onChangeText={setSourceName} placeholder="debts.csv" />
         <TextField label="File URI" value={fileUri} onChangeText={setFileUri} placeholder="file:///.../debts.csv" />
@@ -137,7 +137,7 @@ export function ImportCsvScreen() {
         />
       </Card>
 
-      <Card tone={errorCount ? 'amber' : 'mint'}>
+      <Card tone={errorCount ? 'amber' : 'peach'}>
         <SectionTitle title="Preview" subtitle="Invalid rows can be fixed in the CSV text or skipped by importing valid rows only." />
         <View style={styles.badgeLine}>
           <Badge label={`${previewRows.length} rows`} tone="blue" />

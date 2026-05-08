@@ -212,10 +212,10 @@ export function ExpenseFormScreen() {
       <PageHeader
         eyebrow="Shared expense"
         title={expense ? 'Edit expense' : 'Add expense'}
-        subtitle="Default event flow: one payer, equal split, custom participant selection."
+        subtitle="Choose who paid, who shared it, and review the split before saving."
       />
 
-      <Card>
+      <Card tone="peach">
         <SelectChips label="Event" value={selectedEventId} options={eventOptions} onChange={setSelectedEventId} />
         <SelectChips label="Primary payer" value={payerId} options={participantOptions} onChange={setPayerId} />
         <TextField label="Title" value={title} onChangeText={setTitle} placeholder="Groceries" />
@@ -287,7 +287,7 @@ export function ExpenseFormScreen() {
           onChange={setStatus}
         />
         <SelectChips
-          label="Verification placeholder"
+          label="Review state"
           value={verificationStatus}
           options={[
             { label: 'Local only', value: 'local_only' },
@@ -301,7 +301,7 @@ export function ExpenseFormScreen() {
         />
       </Card>
 
-      <Card tone="blue">
+      <Card tone="lavender">
         <Text style={styles.label}>Split preview</Text>
         {splitErrors.map((error) => (
           <Text key={error} style={styles.errorText}>{error}</Text>
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#CAD7EF',
+    borderBottomColor: palette.line,
   },
   previewText: {
     flex: 1,

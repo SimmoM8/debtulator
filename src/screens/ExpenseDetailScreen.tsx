@@ -96,7 +96,7 @@ export function ExpenseDetailScreen() {
         action={<IconButton icon="create-outline" label="Edit expense" onPress={() => router.push({ pathname: '/expense/form', params: { id: expense.id } })} />}
       />
 
-      <Card tone={expense.verificationStatus === 'rejected' || expense.verificationStatus === 'disputed' ? 'coral' : 'mint'}>
+      <Card tone={expense.verificationStatus === 'rejected' || expense.verificationStatus === 'disputed' ? 'coral' : 'peach'}>
         <View style={styles.amountRow}>
           <View>
             <Text style={styles.label}>Paid amount</Text>

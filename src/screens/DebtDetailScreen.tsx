@@ -129,7 +129,7 @@ export function DebtDetailScreen() {
         action={<IconButton icon="create-outline" label="Edit debt" onPress={() => router.push({ pathname: '/debt/form', params: { id: debt.id } })} />}
       />
 
-      <Card tone={debt.verificationStatus === 'rejected' || debt.verificationStatus === 'disputed' ? 'coral' : 'mint'}>
+      <Card tone={debt.verificationStatus === 'rejected' || debt.verificationStatus === 'disputed' ? 'coral' : 'lavender'}>
         <View style={styles.amountRow}>
           <View>
             <Text style={styles.label}>Amount</Text>
@@ -403,7 +403,7 @@ const styles = StyleSheet.create({
     borderColor: palette.line,
     borderRadius: 14,
     padding: spacing.md,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255,255,255,0.78)',
   },
   badgeLine: {
     flexDirection: 'row',

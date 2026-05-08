@@ -76,7 +76,7 @@ export function SettlementDetailScreen() {
         subtitle="A settlement groups payments and explains which obligations they reduce."
       />
 
-      <Card tone={settlement.status === 'rejected' ? 'coral' : 'mint'}>
+      <Card tone={settlement.status === 'rejected' ? 'coral' : 'lavender'}>
         <View style={styles.topRow}>
           <View>
             <Text style={styles.label}>Total amount</Text>

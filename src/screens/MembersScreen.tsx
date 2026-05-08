@@ -48,12 +48,12 @@ export function MembersScreen() {
     <Screen>
       <PageHeader
         eyebrow="People"
-        title="Members"
-        subtitle="Manual contacts can stay local or be linked to real Debtulator users."
+        title="People"
+        subtitle="See who you have balances with, what needs attention, and who is safely linked."
         action={<Button title="Add" icon="person-add" onPress={() => router.push('/member/form')} />}
       />
 
-      <Card>
+      <Card tone="peach">
         <SearchField
           value={filters.query}
           onChangeText={(query) => setFilters((current) => ({ ...current, query }))}
@@ -97,7 +97,7 @@ export function MembersScreen() {
         </View>
       </Card>
 
-      <SectionTitle title="Active member balances" subtitle="Native currency balances stay separate." />
+      <SectionTitle title="People balances" subtitle="Native currency balances stay separate." />
       <Card>
         {members.length > 0 ? (
           members.map((member) => (

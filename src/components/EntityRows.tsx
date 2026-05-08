@@ -121,7 +121,7 @@ export function EventRow({
   return (
     <Pressable onPress={() => router.push({ pathname: '/event/[id]', params: { id: event.id } })} style={styles.row}>
       <View style={[styles.eventMark, unsettled ? styles.eventMarkHot : null]}>
-        <Ionicons name="people" size={18} color={unsettled ? palette.negative : palette.brand} />
+        <Ionicons name="people" size={18} color={unsettled ? palette.warning : palette.brand} />
       </View>
       <View style={styles.rowMain}>
         <View style={styles.rowTitleLine}>
@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.lg,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: palette.line,
   },
@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: spacing.md,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.lg,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: palette.line,
   },
@@ -174,9 +174,9 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: radii.pill,
-    backgroundColor: palette.brandSoft,
+    backgroundColor: palette.peachSoft,
     borderWidth: 1,
-    borderColor: '#BFDCD4',
+    borderColor: '#FFD4C2',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -189,18 +189,18 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: radii.md,
-    backgroundColor: palette.brandSoft,
+    backgroundColor: palette.peachSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   eventMarkHot: {
-    backgroundColor: palette.negativeSoft,
+    backgroundColor: palette.amberSoft,
   },
   rowIcon: {
     width: 34,
     height: 34,
     borderRadius: radii.pill,
-    backgroundColor: palette.surfaceAlt,
+    backgroundColor: palette.brandSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
   rowTitle: {
     color: palette.ink,
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '900',
   },
   rowSubtitle: {
     color: palette.muted,
@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
   rowMeta: {
     color: palette.brand,
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '900',
   },
   badgeLine: {
     flexDirection: 'row',
@@ -238,11 +238,13 @@ const styles = StyleSheet.create({
   amountBlock: {
     alignItems: 'flex-end',
     gap: spacing.xs,
+    maxWidth: 112,
   },
   amountText: {
     color: palette.ink,
     fontSize: 15,
     fontWeight: '900',
+    fontVariant: ['tabular-nums'],
   },
   kindText: {
     color: palette.muted,

@@ -30,9 +30,9 @@ export function TagChips({ tags, limit }: { tags: string[]; limit?: number }) {
 
 export function StatusBadge({ status }: { status: DebtStatus | EventStatus }) {
   const tone =
-    status === 'active'
+    status === 'settled'
       ? 'positive'
-      : status === 'archived' || status === 'settled'
+      : status === 'archived'
         ? 'neutral'
         : status === 'finalising'
           ? 'amber'
@@ -123,18 +123,18 @@ export function visibilityLabel(visibility: DebtVisibility) {
 }
 
 const badgeTone = StyleSheet.create({
-  positive: { backgroundColor: palette.positiveSoft, borderColor: '#BADEC9' },
-  negative: { backgroundColor: palette.negativeSoft, borderColor: '#EAC2BA' },
-  amber: { backgroundColor: palette.amberSoft, borderColor: '#EBD49B' },
-  blue: { backgroundColor: palette.blueSoft, borderColor: '#C9D7F2' },
-  neutral: { backgroundColor: '#EFECE4', borderColor: palette.line },
+  positive: { backgroundColor: palette.positiveSoft, borderColor: '#B7E8D5' },
+  negative: { backgroundColor: palette.negativeSoft, borderColor: '#FFC7C7' },
+  amber: { backgroundColor: palette.amberSoft, borderColor: '#F8D78A' },
+  blue: { backgroundColor: palette.brandSoft, borderColor: palette.borderStrong },
+  neutral: { backgroundColor: palette.surfaceAlt, borderColor: palette.line },
 });
 
 const badgeTextTone = StyleSheet.create({
   positive: { color: palette.positive },
   negative: { color: palette.negative },
-  amber: { color: '#8D5E0E' },
-  blue: { color: palette.blue },
+  amber: { color: palette.warning },
+  blue: { color: palette.brand },
   neutral: { color: palette.muted },
 });
 
@@ -146,17 +146,17 @@ const styles = StyleSheet.create({
   },
   tag: {
     borderRadius: radii.pill,
-    backgroundColor: '#EFF2EA',
+    backgroundColor: palette.peachSoft,
     borderWidth: 1,
-    borderColor: palette.line,
+    borderColor: '#FFD4C2',
     paddingHorizontal: spacing.sm,
     minHeight: 25,
     justifyContent: 'center',
   },
   tagText: {
-    color: palette.muted,
+    color: palette.primaryDeep,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   badge: {
     borderWidth: 1,

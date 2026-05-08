@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { palette, radii, spacing } from '@/src/constants/design';
+import { palette, radii, shadows, spacing, typography } from '@/src/constants/design';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -33,6 +33,8 @@ export function Screen({
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <View style={styles.backdropLavender} />
+      <View style={styles.backdropPeach} />
       {scroll ? (
         <ScrollView
           contentContainerStyle={styles.scrollContent}
@@ -89,7 +91,7 @@ export function Card({
 }: {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
-  tone?: 'default' | 'mint' | 'coral' | 'amber' | 'blue';
+  tone?: 'default' | 'mint' | 'coral' | 'amber' | 'blue' | 'peach' | 'lavender';
 }) {
   return <View style={[styles.card, toneStyles[tone], style]}>{children}</View>;
 }
@@ -191,6 +193,7 @@ export function TextField({
   keyboardType,
   multiline,
   secureTextEntry,
+  style,
 }: {
   label: string;
   value: string;
@@ -199,9 +202,10 @@ export function TextField({
   keyboardType?: 'default' | 'numeric' | 'email-address' | 'phone-pad';
   multiline?: boolean;
   secureTextEntry?: boolean;
+  style?: StyleProp<ViewStyle>;
 }) {
   return (
-    <View style={styles.field}>
+    <View style={[styles.field, style]}>
       <Text style={styles.label}>{label}</Text>
       <TextInput
         value={value}
@@ -361,25 +365,27 @@ export function ResponsiveGrid({ children }: { children: React.ReactNode }) {
 
 const toneStyles = StyleSheet.create({
   default: {},
-  mint: { backgroundColor: palette.surfaceAlt, borderColor: '#C8DDD5' },
-  coral: { backgroundColor: palette.coralSoft, borderColor: '#F3C5BA' },
-  amber: { backgroundColor: palette.amberSoft, borderColor: '#EBD49B' },
-  blue: { backgroundColor: palette.blueSoft, borderColor: '#C8D6F1' },
+  mint: { backgroundColor: palette.successSoft, borderColor: '#B7E8D5' },
+  coral: { backgroundColor: palette.dangerSoft, borderColor: '#FFC7C7' },
+  amber: { backgroundColor: palette.warningSoft, borderColor: '#F8D78A' },
+  blue: { backgroundColor: palette.brandSoft, borderColor: palette.borderStrong },
+  peach: { backgroundColor: palette.peachSoft, borderColor: '#FFD4C2' },
+  lavender: { backgroundColor: palette.surfaceLavender, borderColor: palette.border },
 });
 
 const textVariants = StyleSheet.create({
-  body: { color: palette.ink, fontSize: 15, lineHeight: 22 },
+  body: { color: palette.ink, fontSize: typography.body, lineHeight: 22 },
   muted: { color: palette.muted, fontSize: 14, lineHeight: 20 },
-  small: { color: palette.muted, fontSize: 12, lineHeight: 17 },
-  label: { color: palette.muted, fontSize: 12, fontWeight: '700', letterSpacing: 0, textTransform: 'uppercase' },
-  title: { color: palette.ink, fontSize: 24, fontWeight: '800', lineHeight: 30 },
-  subtitle: { color: palette.ink, fontSize: 18, fontWeight: '800', lineHeight: 24 },
+  small: { color: palette.muted, fontSize: typography.micro, lineHeight: 17 },
+  label: { color: palette.brand, fontSize: typography.micro, fontWeight: '800', letterSpacing: 0, textTransform: 'uppercase' },
+  title: { color: palette.ink, fontSize: 24, fontWeight: '900', lineHeight: 30 },
+  subtitle: { color: palette.ink, fontSize: 18, fontWeight: '900', lineHeight: 24 },
 });
 
 const buttonVariants = StyleSheet.create({
   primary: { backgroundColor: palette.brand, borderColor: palette.brand },
-  secondary: { backgroundColor: palette.brandSoft, borderColor: '#BFDCD4' },
-  ghost: { backgroundColor: 'transparent', borderColor: palette.line },
+  secondary: { backgroundColor: palette.brandSoft, borderColor: palette.borderStrong },
+  ghost: { backgroundColor: 'rgba(255,255,255,0.42)', borderColor: palette.line },
   danger: { backgroundColor: palette.negative, borderColor: palette.negative },
 });
 
@@ -388,6 +394,26 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: palette.background,
   },
+  backdropLavender: {
+    position: 'absolute',
+    pointerEvents: 'none',
+    top: -120,
+    right: -120,
+    width: 320,
+    height: 320,
+    borderRadius: 160,
+    backgroundColor: 'rgba(221,214,254,0.72)',
+  },
+  backdropPeach: {
+    position: 'absolute',
+    pointerEvents: 'none',
+    top: 170,
+    left: -150,
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    backgroundColor: 'rgba(253,186,155,0.20)',
+  },
   scrollContent: {
     alignItems: 'center',
     paddingBottom: 112,
@@ -395,8 +421,8 @@ const styles = StyleSheet.create({
   content: {
     width: '100%',
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    gap: spacing.lg,
+    paddingTop: spacing.xl,
+    gap: spacing.xl,
   },
   footer: {
     position: 'absolute',
@@ -404,7 +430,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     padding: spacing.lg,
-    backgroundColor: 'rgba(246,244,238,0.96)',
+    backgroundColor: 'rgba(248,246,255,0.94)',
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: palette.line,
   },
@@ -417,8 +443,9 @@ const styles = StyleSheet.create({
   },
   pageHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
+    alignItems: 'flex-start',
+    gap: spacing.lg,
+    paddingBottom: spacing.xs,
   },
   flexOne: {
     flex: 1,
@@ -426,14 +453,14 @@ const styles = StyleSheet.create({
   eyebrow: {
     color: palette.brand,
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '900',
     letterSpacing: 0,
     textTransform: 'uppercase',
     marginBottom: spacing.xs,
   },
   pageTitle: {
     color: palette.ink,
-    fontSize: 32,
+    fontSize: typography.title,
     lineHeight: 38,
     fontWeight: '900',
     letterSpacing: 0,
@@ -445,16 +472,12 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   card: {
-    backgroundColor: palette.surface,
+    backgroundColor: palette.surfaceGlass,
     borderColor: palette.line,
     borderWidth: 1,
     borderRadius: radii.lg,
     padding: spacing.lg,
-    shadowColor: palette.shadow,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.08,
-    shadowRadius: 24,
-    elevation: 2,
+    ...shadows.card,
     gap: spacing.md,
   },
   sectionTitle: {
@@ -467,7 +490,7 @@ const styles = StyleSheet.create({
     color: palette.ink,
     fontSize: 18,
     lineHeight: 23,
-    fontWeight: '800',
+    fontWeight: '900',
   },
   muted: {
     color: palette.muted,
@@ -481,7 +504,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   button: {
-    minHeight: 44,
+    minHeight: 46,
     borderRadius: radii.pill,
     borderWidth: 1,
     paddingHorizontal: spacing.lg,
@@ -493,7 +516,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: palette.brand,
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: '900',
   },
   buttonTextLight: {
     color: '#FFFFFF',
@@ -505,36 +528,36 @@ const styles = StyleSheet.create({
     opacity: 0.72,
   },
   iconButton: {
-    width: 42,
-    height: 42,
+    width: 44,
+    height: 44,
     borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: palette.line,
-    backgroundColor: palette.surface,
+    backgroundColor: palette.surfaceGlass,
     alignItems: 'center',
     justifyContent: 'center',
   },
   iconButtonDanger: {
     backgroundColor: palette.negativeSoft,
-    borderColor: '#EDC3BC',
+    borderColor: '#FFC7C7',
   },
   field: {
     gap: spacing.sm,
   },
   label: {
-    color: palette.muted,
+    color: palette.brand,
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '900',
     letterSpacing: 0,
     textTransform: 'uppercase',
   },
   input: {
-    minHeight: 48,
+    minHeight: 50,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: palette.lineStrong,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: spacing.md,
+    borderColor: palette.line,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    paddingHorizontal: spacing.lg,
     color: palette.ink,
     fontSize: 16,
   },
@@ -544,12 +567,12 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   searchField: {
-    minHeight: 48,
+    minHeight: 50,
     borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: palette.line,
-    backgroundColor: palette.surface,
-    paddingHorizontal: spacing.md,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    paddingHorizontal: spacing.lg,
     alignItems: 'center',
     flexDirection: 'row',
     gap: spacing.sm,
@@ -564,7 +587,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: palette.line,
-    backgroundColor: '#ECE7DC',
+    backgroundColor: palette.surfaceAlt,
     padding: 3,
   },
   segment: {
@@ -577,19 +600,15 @@ const styles = StyleSheet.create({
   },
   segmentActive: {
     backgroundColor: palette.surface,
-    shadowColor: palette.shadow,
-    shadowOpacity: 0.07,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 1,
+    ...shadows.soft,
   },
   segmentText: {
     color: palette.muted,
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   segmentTextActive: {
-    color: palette.ink,
+    color: palette.brand,
   },
   chipWrap: {
     flexDirection: 'row',
@@ -597,12 +616,12 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   selectChip: {
-    minHeight: 34,
-    paddingHorizontal: spacing.md,
+    minHeight: 36,
+    paddingHorizontal: spacing.lg,
     borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: palette.line,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255,255,255,0.84)',
     justifyContent: 'center',
   },
   selectChipActive: {
@@ -611,7 +630,7 @@ const styles = StyleSheet.create({
   },
   selectChipText: {
     color: palette.muted,
-    fontWeight: '700',
+    fontWeight: '800',
     fontSize: 13,
   },
   selectChipTextActive: {
@@ -621,6 +640,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: spacing.xl,
+    gap: spacing.sm,
   },
   grid: {
     gap: spacing.md,

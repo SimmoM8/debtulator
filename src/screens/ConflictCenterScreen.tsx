@@ -15,7 +15,7 @@ export function ConflictCenterScreen() {
   return (
     <Screen>
       <PageHeader eyebrow="Sync review" title="Conflict center" subtitle="Conflicts that affect balances are never auto-resolved." />
-      <Card tone={conflicts.length ? 'amber' : 'mint'}>
+      <Card tone={conflicts.length ? 'amber' : 'lavender'}>
         <SectionTitle title={`${conflicts.length} unresolved`} subtitle="Review local and remote versions before choosing a resolution." />
         <Text style={styles.body}>Financial conflicts keep the local snapshot, remote snapshot, and chosen resolution in audit history.</Text>
       </Card>
