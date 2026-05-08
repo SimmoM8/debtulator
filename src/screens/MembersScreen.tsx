@@ -1,13 +1,14 @@
-import { router } from 'expo-router';
-import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { router } from "expo-router";
+import React, { useMemo, useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { MemberRow } from '@/src/components/EntityRows';
+import { MemberRow } from "@/src/components/EntityRows";
 import {
   Button,
   Card,
   EmptyState,
   FilterSheet,
+  FloatingActionButton,
   IconButton,
   LoadingState,
   PageHeader,
@@ -15,18 +16,18 @@ import {
   SearchField,
   SectionTitle,
   SelectChips,
-} from '@/src/components/ui/Primitives';
-import { palette, spacing } from '@/src/constants/design';
-import { filterMembers } from '@/src/services/filters';
-import { useAppData } from '@/src/state/AppDataProvider';
-import type { MemberFilters } from '@/src/types/models';
+} from "@/src/components/ui/Primitives";
+import { palette, spacing } from "@/src/constants/design";
+import { filterMembers } from "@/src/services/filters";
+import { useAppData } from "@/src/state/AppDataProvider";
+import type { MemberFilters } from "@/src/types/models";
 
 const defaultFilters: MemberFilters = {
-  query: '',
+  query: "",
   tag: null,
-  balanceMode: 'all',
-  archivedMode: 'active',
-  sort: 'name_asc',
+  balanceMode: "all",
+  archivedMode: "active",
+  sort: "name_asc",
 };
 
 export function MembersScreen() {
@@ -35,7 +36,10 @@ export function MembersScreen() {
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const tagOptions = useMemo(
-    () => [{ label: 'All tags', value: 'all' }, ...data.tags.map((tag) => ({ label: tag.name, value: tag.name }))],
+    () => [
+      { label: "All tags", value: "all" },
+      ...data.tags.map((tag) => ({ label: tag.name, value: tag.name })),
+    ],
     [data.tags],
   );
   const members = useMemo(
@@ -47,24 +51,39 @@ export function MembersScreen() {
     return <LoadingState />;
   }
 
-  const balanceCount = data.members.filter((member) => Math.abs(Object.values(data.memberBalances[member.id] ?? {}).reduce((sum, amount) => sum + Math.abs(amount ?? 0), 0)) > 0.005).length;
+  const balanceCount = data.members.filter(
+    (member) =>
+      Math.abs(
+        Object.values(data.memberBalances[member.id] ?? {}).reduce(
+          (sum, amount) => sum + Math.abs(amount ?? 0),
+          0,
+        ),
+      ) > 0.005,
+  ).length;
   const activeFilterCount = countActiveMemberFilters(filters);
 
-  function applyQuickFilter(mode: 'active' | 'balance' | 'archived') {
+  function applyQuickFilter(mode: "active" | "balance" | "archived") {
     setFilters((current) => ({
       ...current,
-      balanceMode: mode === 'balance' ? 'has_balance' : 'all',
-      archivedMode: mode === 'archived' ? 'archived' : 'active',
+      balanceMode: mode === "balance" ? "has_balance" : "all",
+      archivedMode: mode === "archived" ? "archived" : "active",
     }));
   }
 
   return (
-    <Screen>
+    <Screen
+      floatingAction={
+        <FloatingActionButton
+          icon="person-add"
+          label="Add person"
+          onPress={() => router.push("/member/form")}
+        />
+      }
+    >
       <PageHeader
         eyebrow="People"
         title="People"
         subtitle="See who you have balances with, what needs attention, and who is safely linked."
-        action={<Button title="Add" icon="person-add" onPress={() => router.push('/member/form')} />}
       />
 
       <View style={styles.searchBlock}>
@@ -72,16 +91,36 @@ export function MembersScreen() {
           <View style={styles.searchFlex}>
             <SearchField
               value={filters.query}
-              onChangeText={(query) => setFilters((current) => ({ ...current, query }))}
+              onChangeText={(query) =>
+                setFilters((current) => ({ ...current, query }))
+              }
               placeholder="Search people"
             />
           </View>
-          <IconButton icon="options-outline" label="Open filters" onPress={() => setFiltersOpen(true)} />
+          <IconButton
+            icon="options-outline"
+            label="Open filters"
+            onPress={() => setFiltersOpen(true)}
+          />
         </View>
         <View style={styles.quickFilters}>
-          <QuickFilter label="Active" active={filters.archivedMode === 'active' && filters.balanceMode === 'all'} onPress={() => applyQuickFilter('active')} />
-          <QuickFilter label="Has balance" active={filters.balanceMode === 'has_balance'} onPress={() => applyQuickFilter('balance')} />
-          <QuickFilter label="Archived" active={filters.archivedMode === 'archived'} onPress={() => applyQuickFilter('archived')} />
+          <QuickFilter
+            label="Active"
+            active={
+              filters.archivedMode === "active" && filters.balanceMode === "all"
+            }
+            onPress={() => applyQuickFilter("active")}
+          />
+          <QuickFilter
+            label="Has balance"
+            active={filters.balanceMode === "has_balance"}
+            onPress={() => applyQuickFilter("balance")}
+          />
+          <QuickFilter
+            label="Archived"
+            active={filters.archivedMode === "archived"}
+            onPress={() => applyQuickFilter("archived")}
+          />
         </View>
       </View>
 
@@ -99,7 +138,17 @@ export function MembersScreen() {
       <SectionTitle
         title="People balances"
         subtitle="Native currency balances stay separate."
-        action={activeFilterCount ? <Button title="Clear" variant="ghost" onPress={() => setFilters({ ...defaultFilters, query: filters.query })} /> : undefined}
+        action={
+          activeFilterCount ? (
+            <Button
+              title="Clear"
+              variant="ghost"
+              onPress={() =>
+                setFilters({ ...defaultFilters, query: filters.query })
+              }
+            />
+          ) : undefined
+        }
       />
       <Card>
         {members.length > 0 ? (
@@ -116,7 +165,13 @@ export function MembersScreen() {
           <EmptyState
             title="No people found"
             body="Try another filter or add someone you share expenses with."
-            action={<Button title="Add person" icon="person-add" onPress={() => router.push('/member/form')} />}
+            action={
+              <Button
+                title="Add person"
+                icon="person-add"
+                onPress={() => router.push("/member/form")}
+              />
+            }
           />
         )}
       </Card>
@@ -125,45 +180,61 @@ export function MembersScreen() {
         visible={filtersOpen}
         title="Filter people"
         subtitle="Keep the people list focused while preserving advanced filters."
-        onClose={() => setFiltersOpen(false)}>
+        onClose={() => setFiltersOpen(false)}
+      >
         <View style={styles.filterGrid}>
           <SelectChips
             label="Tags"
-            value={filters.tag ?? 'all'}
+            value={filters.tag ?? "all"}
             options={tagOptions}
-            onChange={(value) => setFilters((current) => ({ ...current, tag: value === 'all' ? null : value }))}
+            onChange={(value) =>
+              setFilters((current) => ({
+                ...current,
+                tag: value === "all" ? null : value,
+              }))
+            }
           />
           <SelectChips
             label="Balance"
             value={filters.balanceMode}
             options={[
-              { label: 'All', value: 'all' },
-              { label: 'Has balance', value: 'has_balance' },
+              { label: "All", value: "all" },
+              { label: "Has balance", value: "has_balance" },
             ]}
-            onChange={(balanceMode) => setFilters((current) => ({ ...current, balanceMode }))}
+            onChange={(balanceMode) =>
+              setFilters((current) => ({ ...current, balanceMode }))
+            }
           />
           <SelectChips
             label="Archive"
             value={filters.archivedMode}
             options={[
-              { label: 'Active', value: 'active' },
-              { label: 'Archived', value: 'archived' },
-              { label: 'All', value: 'all' },
+              { label: "Active", value: "active" },
+              { label: "Archived", value: "archived" },
+              { label: "All", value: "all" },
             ]}
-            onChange={(archivedMode) => setFilters((current) => ({ ...current, archivedMode }))}
+            onChange={(archivedMode) =>
+              setFilters((current) => ({ ...current, archivedMode }))
+            }
           />
           <SelectChips
             label="Sort"
             value={filters.sort}
             options={[
-              { label: 'Name', value: 'name_asc' },
-              { label: 'Balance', value: 'balance_desc' },
+              { label: "Name", value: "name_asc" },
+              { label: "Balance", value: "balance_desc" },
             ]}
             onChange={(sort) => setFilters((current) => ({ ...current, sort }))}
           />
         </View>
         <View style={styles.sheetActions}>
-          <Button title="Reset filters" variant="secondary" onPress={() => setFilters({ ...defaultFilters, query: filters.query })} />
+          <Button
+            title="Reset filters"
+            variant="secondary"
+            onPress={() =>
+              setFilters({ ...defaultFilters, query: filters.query })
+            }
+          />
           <Button title="Show results" onPress={() => setFiltersOpen(false)} />
         </View>
       </FilterSheet>
@@ -171,16 +242,38 @@ export function MembersScreen() {
   );
 }
 
-function QuickFilter({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+function QuickFilter({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
   return (
-    <Pressable onPress={onPress} style={[styles.quickFilter, active && styles.quickFilterActive]}>
-      <Text style={[styles.quickFilterText, active && styles.quickFilterTextActive]}>{label}</Text>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.quickFilter,
+        active && styles.quickFilterActive,
+        pressed && styles.quickFilterPressed,
+      ]}
+    >
+      <Text
+        style={[styles.quickFilterText, active && styles.quickFilterTextActive]}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 }
 
 function countActiveMemberFilters(filters: MemberFilters) {
-  return Object.entries(filters).filter(([key, value]) => key !== 'query' && value !== defaultFilters[key as keyof MemberFilters]).length;
+  return Object.entries(filters).filter(
+    ([key, value]) =>
+      key !== "query" && value !== defaultFilters[key as keyof MemberFilters],
+  ).length;
 }
 
 const styles = StyleSheet.create({
@@ -188,62 +281,65 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   searchLine: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.sm,
   },
   searchFlex: {
     flex: 1,
   },
   quickFilters: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.sm,
   },
   quickFilter: {
-    minHeight: 32,
-    borderRadius: 12,
+    minHeight: 36,
+    borderRadius: 999,
     paddingHorizontal: spacing.md,
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.64)',
+    justifyContent: "center",
+    backgroundColor: palette.surfaceGlassElevated,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(55,48,163,0.12)',
+    borderColor: palette.borderIndigoSoft,
   },
   quickFilterActive: {
     backgroundColor: palette.brand,
     borderColor: palette.brand,
   },
+  quickFilterPressed: {
+    opacity: 0.82,
+  },
   quickFilterText: {
     color: palette.muted,
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   quickFilterTextActive: {
-    color: '#FFFFFF',
+    color: palette.surface,
   },
   summaryCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: spacing.md,
+    flexDirection: "row",
+    justifyContent: "space-around",
+    paddingVertical: spacing.lg,
   },
   summaryValue: {
     color: palette.ink,
-    fontSize: 20,
-    fontWeight: '800',
-    textAlign: 'center',
+    fontSize: 22,
+    fontWeight: "800",
+    textAlign: "center",
   },
   summaryLabel: {
     color: palette.muted,
     fontSize: 12,
-    fontWeight: '700',
-    textAlign: 'center',
+    fontWeight: "700",
+    textAlign: "center",
   },
   filterGrid: {
     gap: spacing.md,
   },
   sheetActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.sm,
   },
 });

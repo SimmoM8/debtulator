@@ -1,16 +1,16 @@
-import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
+import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import "react-native-reanimated";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
-import { palette } from '@/src/constants/design';
-import { ErrorBoundary } from '@/src/components/ErrorBoundary';
-import { AppDataProvider } from '@/src/state/AppDataProvider';
-import { AuthProvider } from '@/src/state/AuthProvider';
+import { ErrorBoundary } from "@/src/components/ErrorBoundary";
+import { palette } from "@/src/constants/design";
+import { AppDataProvider } from "@/src/state/AppDataProvider";
+import { AuthProvider } from "@/src/state/AuthProvider";
 
 export const unstable_settings = {
-  anchor: '(tabs)',
+  anchor: "(tabs)",
 };
 
 const DebtulatorTheme = {
@@ -19,10 +19,10 @@ const DebtulatorTheme = {
     ...DefaultTheme.colors,
     primary: palette.brand,
     background: palette.background,
-    card: palette.surfaceGlass,
+    card: palette.surfaceGlassStrong,
     text: palette.ink,
-    border: palette.line,
-    notification: palette.warning,
+    border: palette.borderIndigoSoft,
+    notification: palette.coral,
   },
 };
 
