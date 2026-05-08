@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import React from 'react';
 import {
   ActivityIndicator,
@@ -67,14 +68,20 @@ export function PageHeader({
   title,
   subtitle,
   action,
+  showBackButton = true,
 }: {
   eyebrow?: string;
   title: string;
   subtitle?: string;
   action?: React.ReactNode;
+  showBackButton?: boolean;
 }) {
+  const navigation = useNavigation();
+  const canGoBack = navigation.canGoBack();
+
   return (
     <View style={styles.pageHeader}>
+      {showBackButton && canGoBack ? <IconButton icon="chevron-back" label="Go back" onPress={() => navigation.goBack()} /> : null}
       <View style={styles.flexOne}>
         {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
         <Text style={styles.pageTitle}>{title}</Text>
