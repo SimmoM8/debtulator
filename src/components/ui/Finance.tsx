@@ -294,10 +294,13 @@ export function ListRow({
   status,
   statusTone = "muted",
   meta,
+  trailingLabel,
+  trailingTone,
   icon,
   iconTone = "lavender",
   avatars,
   onPress,
+  showDivider,
 }: {
   title: string;
   subtitle?: string;
@@ -305,13 +308,19 @@ export function ListRow({
   status?: string;
   statusTone?: Tone;
   meta?: string;
+  trailingLabel?: string;
+  trailingTone?: Tone;
   icon?: IconName;
   iconTone?: Tone;
   avatars?: string[];
   onPress?: () => void;
+  showDivider?: boolean;
 }) {
+  const supportingLabel = trailingLabel ?? meta ?? status;
+  const supportingTone = trailingTone ?? (status ? statusTone : "muted");
+
   const body = (
-    <View style={styles.listRow}>
+    <View style={[styles.listRow, showDivider && styles.listRowDivider]}>
       <View
         style={[
           styles.listIcon,
@@ -328,22 +337,50 @@ export function ListRow({
         />
       </View>
       <View style={styles.listCopy}>
-        <View style={styles.listTopLine}>
-          <Text style={styles.listTitle} numberOfLines={1}>
-            {title}
-          </Text>
-          {amount ? <Text style={styles.listAmount}>{amount}</Text> : null}
-        </View>
+        <Text style={styles.listTitle} numberOfLines={1}>
+          {title}
+        </Text>
         {subtitle ? (
           <Text style={styles.listSubtitle} numberOfLines={1}>
             {subtitle}
           </Text>
         ) : null}
-        <View style={styles.listMetaRow}>
-          {status ? <StatusPill label={status} tone={statusTone} /> : null}
-          {meta ? <Text style={styles.listMeta}>{meta}</Text> : null}
-          {avatars?.length ? <AvatarStack labels={avatars} /> : null}
-        </View>
+        {avatars?.length ? <AvatarStack labels={avatars} /> : null}
+      </View>
+      <View style={styles.listRightColumn}>
+        {amount ? <Text style={styles.listAmount}>{amount}</Text> : null}
+        {supportingLabel ? (
+          <Text
+            style={[
+              styles.listSupporting,
+              { color: toneStyles[supportingTone].text },
+            ]}
+            numberOfLines={1}
+          >
+            {supportingLabel}
+          </Text>
+        ) : null}
+      </View>
+      {onPress ? (
+        <Ionicons
+          name="chevron-forward"
+          size={15}
+          color={palette.textTertiary}
+          style={styles.listChevron}
+        />
+      ) : null}
+      <View style={styles.listCopyMobileMeta}>
+        {supportingLabel ? (
+          <Text
+            style={[
+              styles.listSupporting,
+              { color: toneStyles[supportingTone].text },
+            ]}
+            numberOfLines={1}
+          >
+            {supportingLabel}
+          </Text>
+        ) : null}
       </View>
     </View>
   );
@@ -625,40 +662,34 @@ const styles = StyleSheet.create({
     fontFamily: typefaces.bodyStrong,
   },
   rowShell: {
-    borderRadius: 22,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderIndigoSoft,
-    backgroundColor: palette.surfaceGlassElevated,
+    backgroundColor: "transparent",
     overflow: "hidden",
   },
   listRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.md,
-    minHeight: 72,
+    gap: 12,
+    minHeight: 78,
     paddingHorizontal: spacing.md,
-    paddingVertical: 14,
+    paddingVertical: 15,
+  },
+  listRowDivider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: palette.line,
   },
   listIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: "center",
     justifyContent: "center",
   },
   listCopy: {
     flex: 1,
-    gap: 4,
+    gap: 3,
     minWidth: 0,
   },
-  listTopLine: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
   listTitle: {
-    flex: 1,
     color: palette.textPrimary,
     fontSize: 15,
     fontFamily: typefaces.bodyStrong,
@@ -668,22 +699,31 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: typefaces.bodyHeavy,
     fontVariant: ["tabular-nums"],
+    textAlign: "right",
   },
   listSubtitle: {
     color: palette.muted,
-    fontSize: 13,
-    fontFamily: typefaces.body,
-  },
-  listMetaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    flexWrap: "wrap",
-  },
-  listMeta: {
-    color: palette.textTertiary,
     fontSize: 12,
+    lineHeight: 16,
     fontFamily: typefaces.body,
+  },
+  listRightColumn: {
+    alignItems: "flex-end",
+    justifyContent: "center",
+    gap: 4,
+    minWidth: 92,
+  },
+  listSupporting: {
+    fontSize: 11,
+    lineHeight: 14,
+    fontFamily: typefaces.bodyStrong,
+    textAlign: "right",
+  },
+  listChevron: {
+    marginLeft: -2,
+  },
+  listCopyMobileMeta: {
+    display: "none",
   },
   progressCard: {
     flexDirection: "row",

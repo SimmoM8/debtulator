@@ -33,7 +33,7 @@ import {
     shadows,
     spacing,
     typefaces,
-    typography
+    typography,
 } from "@/src/constants/design";
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -144,13 +144,15 @@ export function LoadingState({
 }
 
 export function PageHeader({
-  eyebrow,
+  eyebrow: _eyebrow,
+  detailLabel,
   title,
-  subtitle,
+  subtitle: _subtitle,
   action,
   showBackButton = true,
 }: {
   eyebrow?: string;
+  detailLabel?: string;
   title: string;
   subtitle?: string;
   action?: React.ReactNode;
@@ -158,26 +160,48 @@ export function PageHeader({
 }) {
   const navigation = useNavigation();
   const canGoBack = navigation.canGoBack();
+  const detailHeader = showBackButton && canGoBack;
 
   return (
-    <View style={styles.pageHeader}>
-      <View style={styles.pageHeaderMain}>
-        {showBackButton && canGoBack ? (
-          <IconButton
-            icon="chevron-back"
-            label="Go back"
-            onPress={() => navigation.goBack()}
-          />
-        ) : null}
-        <View style={styles.pageHeaderCopy}>
-          {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
-          <Text style={styles.pageTitle}>{title}</Text>
-          {subtitle ? (
-            <Text style={styles.pageSubtitle}>{subtitle}</Text>
+    <View
+      style={[
+        styles.pageHeader,
+        detailHeader ? styles.pageHeaderDetail : styles.pageHeaderRoot,
+      ]}
+    >
+      {detailHeader ? (
+        <>
+          <View style={styles.pageHeaderEdge}>
+            <IconButton
+              icon="chevron-back"
+              label="Go back"
+              onPress={() => navigation.goBack()}
+            />
+          </View>
+          <View style={styles.pageHeaderCenter}>
+            {detailLabel ? (
+              <Text style={styles.pageEyebrowDetail}>{detailLabel}</Text>
+            ) : null}
+            <Text numberOfLines={1} style={styles.pageTitleDetail}>
+              {title}
+            </Text>
+          </View>
+          <View style={[styles.pageHeaderEdge, styles.pageHeaderEdgeRight]}>
+            {action ? action : <View style={styles.pageHeaderActionSpacer} />}
+          </View>
+        </>
+      ) : (
+        <>
+          <View style={styles.pageHeaderMain}>
+            <View style={styles.pageHeaderCopy}>
+              <Text style={styles.pageTitleRoot}>{title}</Text>
+            </View>
+          </View>
+          {action ? (
+            <View style={styles.pageHeaderAction}>{action}</View>
           ) : null}
-        </View>
-      </View>
-      {action ? <View style={styles.pageHeaderAction}>{action}</View> : null}
+        </>
+      )}
     </View>
   );
 }
@@ -338,7 +362,7 @@ export function IconButton({
     >
       <Ionicons
         name={icon}
-        size={20}
+        size={22}
         color={tone === "danger" ? palette.danger : palette.primary}
       />
     </Pressable>
@@ -710,42 +734,65 @@ const styles = StyleSheet.create({
   pageHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
     gap: spacing.md,
+  },
+  pageHeaderRoot: {
+    minHeight: 40,
+  },
+  pageHeaderDetail: {
+    minHeight: 40,
   },
   pageHeaderMain: {
     flex: 1,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.md,
+    minWidth: 0,
   },
   pageHeaderCopy: {
     flex: 1,
     minWidth: 0,
   },
+  pageHeaderCenter: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 0,
+    paddingHorizontal: spacing.md,
+    gap: 2,
+  },
+  pageHeaderEdge: {
+    width: 40,
+    alignItems: "flex-start",
+    justifyContent: "center",
+  },
+  pageHeaderEdgeRight: {
+    alignItems: "flex-end",
+  },
+  pageHeaderActionSpacer: {
+    width: 40,
+    height: 40,
+  },
   pageHeaderAction: {
-    alignSelf: "flex-start",
+    alignSelf: "center",
   },
-  eyebrow: {
+  pageEyebrowDetail: {
     color: palette.primary,
-    fontSize: 12,
+    fontSize: 11,
+    lineHeight: 14,
     fontFamily: typefaces.bodyStrong,
-    letterSpacing: 0.4,
-    marginBottom: 6,
+    letterSpacing: 0.2,
   },
-  pageTitle: {
+  pageTitleRoot: {
     color: palette.textPrimary,
-    fontSize: 30,
-    lineHeight: 34,
-    fontFamily: typefaces.display,
+    fontSize: 18,
+    lineHeight: 22,
+    fontFamily: typefaces.displayMedium,
   },
-  pageSubtitle: {
-    color: palette.muted,
+  pageTitleDetail: {
+    color: palette.textPrimary,
     fontSize: 14,
-    lineHeight: 20,
-    marginTop: 8,
-    fontFamily: typefaces.body,
-    maxWidth: 560,
+    lineHeight: 18,
+    fontFamily: typefaces.bodyStrong,
+    textAlign: "center",
   },
   flexOne: {
     flex: 1,
@@ -820,19 +867,17 @@ const styles = StyleSheet.create({
     opacity: 0.76,
   },
   iconButton: {
-    width: 48,
-    height: 48,
-    borderRadius: radii.pill,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderIndigoSoft,
-    backgroundColor: palette.surfaceGlassStrong,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 0,
+    borderColor: "transparent",
+    backgroundColor: "transparent",
     alignItems: "center",
     justifyContent: "center",
-    ...shadows.soft,
   },
   iconButtonDanger: {
-    backgroundColor: palette.dangerSoft,
-    borderColor: "rgba(255,107,107,0.24)",
+    backgroundColor: "transparent",
   },
   field: {
     gap: 10,

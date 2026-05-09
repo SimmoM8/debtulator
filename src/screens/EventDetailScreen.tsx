@@ -391,7 +391,7 @@ export function EventDetailScreen() {
   return (
     <Screen>
       <PageHeader
-        eyebrow={isShared ? "Shared event" : "Private event"}
+        detailLabel="Event details"
         title={event.name}
         subtitle={
           event.notes ??
@@ -714,7 +714,11 @@ export function EventDetailScreen() {
                 </Text>
                 <Text style={styles.infoValue}>
                   {formatMoney(
-                    estimateMoneyMap(moneyMap, data.settings, data.currencyRates),
+                    estimateMoneyMap(
+                      moneyMap,
+                      data.settings,
+                      data.currencyRates,
+                    ),
                     data.settings.baseCurrency,
                     { signed: true },
                   )}
@@ -743,13 +747,11 @@ export function EventDetailScreen() {
           <MoneyMapListCard
             title="Spending by category"
             subtitle="Multiple tags split the amount evenly for analytics."
-            rows={analytics.byTag
-              .slice(0, 8)
-              .map((row) => ({
-                label: row.tag,
-                totals: row.totalsByCurrency,
-                tone: "blue",
-              }))}
+            rows={analytics.byTag.slice(0, 8).map((row) => ({
+              label: row.tag,
+              totals: row.totalsByCurrency,
+              tone: "blue",
+            }))}
             settings={data.settings}
             currencyRates={data.currencyRates}
           />

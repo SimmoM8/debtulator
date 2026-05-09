@@ -16,7 +16,6 @@ import {
 import { palette, spacing, typefaces } from "@/src/constants/design";
 import {
     ATTACHMENT_KIND_LABELS,
-    ATTACHMENT_TARGET_LABELS,
     formatFileSize,
 } from "@/src/services/attachments";
 import { useAppData } from "@/src/state/AppDataProvider";
@@ -50,7 +49,7 @@ export function AttachmentDetailScreen() {
   return (
     <Screen>
       <PageHeader
-        eyebrow={ATTACHMENT_TARGET_LABELS[attachment.targetType]}
+        detailLabel="Attachment details"
         title={attachment.fileName}
         subtitle="Lightweight attachment metadata and preview."
       />

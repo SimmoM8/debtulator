@@ -225,44 +225,28 @@ function LedgerSection({
         }
       >
         <View style={styles.listColumn}>
-          {entries.map((entry) => (
+          {entries.map((entry, index) => (
             <ListRow
               key={entry.id}
               title={entry.title}
-              subtitle={entryDirectionText(entry, members, sharedEventMembers)}
+              subtitle={
+                entry.eventId
+                  ? "Shared"
+                  : entry.kind === "expense_obligation"
+                    ? "Bills"
+                    : entryDirectionText(entry, members, sharedEventMembers)
+              }
               amount={formatMoney(
                 entry.remainingAmount <= 0.005
                   ? entry.originalAmount
                   : entry.remainingAmount,
                 entry.currency as CurrencyCode,
               )}
-              status={
-                entry.remainingAmount <= 0.005
-                  ? "Settled"
-                  : entry.dueDate
-                    ? "Due soon"
-                    : entry.toId === "me"
-                      ? "Owed to you"
-                      : "You owe"
-              }
-              statusTone={
-                entry.remainingAmount <= 0.005
-                  ? "teal"
-                  : entry.toId === "me"
-                    ? "teal"
-                    : entry.dueDate
-                      ? "amber"
-                      : "coral"
-              }
-              meta={
-                entry.dueDate
-                  ? `Due ${entry.dueDate}`
-                  : entry.eventId
-                    ? "Shared event"
-                    : "Standalone"
-              }
+              trailingLabel={debtDueLabel(entry)}
+              trailingTone={debtDueTone(entry)}
               icon={entry.eventId ? "people-outline" : "wallet-outline"}
-              avatars={participantLabels(entry, members, sharedEventMembers)}
+              iconTone={entry.eventId ? "teal" : "indigo"}
+              showDivider={index < entries.length - 1}
               onPress={() => openEntry(entry)}
             />
           ))}
@@ -270,27 +254,6 @@ function LedgerSection({
       </GlassCard>
     </>
   );
-}
-
-function participantLabels(
-  entry: Pick<LedgerEntry, "fromId" | "toId">,
-  members: Member[],
-  sharedEventMembers: SharedEventMember[],
-) {
-  return [entry.fromId, entry.toId]
-    .filter((participantId) => participantId !== "me")
-    .map((participantId) => {
-      const sharedMember = sharedEventMembers.find(
-        (member) => member.id === participantId,
-      );
-      if (sharedMember) {
-        return sharedMember.alias || sharedMember.displayName;
-      }
-      return (
-        members.find((member) => member.id === participantId)?.displayName ??
-        "You"
-      );
-    });
 }
 
 function openEntry(
@@ -308,6 +271,50 @@ function openEntry(
     pathname: "/expense/[id]",
     params: { id: entry.expenseId ?? entry.sourceId },
   });
+}
+
+function debtDueLabel(entry: LedgerEntry) {
+  if (entry.remainingAmount <= 0.005 || entry.status === "settled") {
+    return "Settled";
+  }
+
+  if (!entry.dueDate) {
+    return entry.toId === "me" ? "Waiting on them" : "No due date";
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  if (entry.dueDate < today) {
+    return "Overdue";
+  }
+
+  const todayTime = new Date(`${today}T00:00:00Z`).getTime();
+  const dueTime = new Date(`${entry.dueDate}T00:00:00Z`).getTime();
+  const days = Math.max(0, Math.round((dueTime - todayTime) / 86400000));
+
+  if (days === 0) {
+    return "Due today";
+  }
+  if (days === 1) {
+    return "Due tomorrow";
+  }
+  return `Due in ${days} days`;
+}
+
+function debtDueTone(entry: LedgerEntry): "teal" | "amber" | "coral" | "muted" | "indigo" {
+  if (entry.remainingAmount <= 0.005 || entry.status === "settled") {
+    return "teal";
+  }
+  if (!entry.dueDate) {
+    return "muted";
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  if (entry.dueDate < today) {
+    return "coral";
+  }
+  const todayTime = new Date(`${today}T00:00:00Z`).getTime();
+  const dueTime = new Date(`${entry.dueDate}T00:00:00Z`).getTime();
+  const days = Math.max(0, Math.round((dueTime - todayTime) / 86400000));
+  return days <= 2 ? "coral" : "indigo";
 }
 
 const FILTERS: { label: string; value: DebtFilter }[] = [

@@ -5,9 +5,9 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
 import {
     GlassCard,
+  ListRow,
     SearchBar,
     StatCard,
-    StatusPill,
 } from "@/src/components/ui/Finance";
 import {
     Button,
@@ -168,13 +168,14 @@ export function MembersScreen() {
       <GlassCard tone="lavender">
         {members.length ? (
           <View style={styles.listColumn}>
-            {members.map((member) => (
+            {members.map((member, index) => (
               <MemberRow
                 key={member.id}
                 member={member}
                 balance={data.memberBalances[member.id] ?? {}}
                 settings={data.settings}
                 currencyRates={data.currencyRates}
+                showDivider={index < members.length - 1}
               />
             ))}
           </View>
@@ -210,55 +211,50 @@ function MemberRow({
   balance,
   settings,
   currencyRates,
+  showDivider,
 }: {
   member: Member;
   balance: Record<string, number>;
   settings: AppSettings;
   currencyRates: CurrencyRate[];
+  showDivider?: boolean;
 }) {
   const estimated = estimateMoneyMap(balance, settings, currencyRates);
   const status = Math.abs(estimated) <= MINIMUM_BALANCE_THRESHOLD
-    ? { label: "Settled", tone: "lavender" as const }
+    ? { label: "Settled", tone: "muted" as const }
     : estimated > 0
       ? { label: "Owes you", tone: "teal" as const }
       : { label: "You owe", tone: "coral" as const };
 
+  const subtitle = member.linkStatus === "linked"
+    ? "Linked"
+    : dataLabelForMember(member);
+
   return (
-    <Pressable
+    <ListRow
+      title={member.displayName}
+      subtitle={subtitle}
+      amount={formatMoney(Math.abs(estimated), settings.baseCurrency)}
+      trailingLabel={status.label}
+      trailingTone={status.tone}
+      icon="person-outline"
+      iconTone={member.linkStatus === "linked" ? "peach" : "indigo"}
+      showDivider={showDivider}
       onPress={() =>
         router.push({ pathname: "/member/[id]", params: { id: member.id } })
       }
-      style={({ pressed }) => [styles.memberRow, pressed && styles.pressed]}
-    >
-      <View style={styles.memberIdentity}>
-        <View style={styles.memberAvatar}>
-          <Text style={styles.memberAvatarText}>
-            {member.displayName.slice(0, 1).toUpperCase()}
-          </Text>
-        </View>
-        <View style={styles.memberCopy}>
-          <Text style={styles.memberName}>{member.displayName}</Text>
-          <Text style={styles.memberMeta}>
-            {member.email || member.phone || "No contact details yet"}
-          </Text>
-          <View style={styles.memberBadges}>
-            {member.linkStatus === "linked" ? (
-              <StatusPill label="Linked" tone="indigo" />
-            ) : null}
-            {member.linkStatus !== "linked" ? (
-              <StatusPill label="Private" tone="lavender" />
-            ) : null}
-          </View>
-        </View>
-      </View>
-      <View style={styles.memberBalance}>
-        <StatusPill label={status.label} tone={status.tone} />
-        <Text style={styles.memberAmount}>
-          {formatMoney(Math.abs(estimated), settings.baseCurrency)}
-        </Text>
-      </View>
-    </Pressable>
+    />
   );
+}
+
+function dataLabelForMember(member: Member) {
+  if (member.phone) {
+    return member.phone;
+  }
+  if (member.email) {
+    return member.email;
+  }
+  return "Private";
 }
 
 const FILTERS: { label: string; value: MemberFilter }[] = [
@@ -300,66 +296,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   listColumn: {
-    gap: spacing.sm,
-  },
-  memberRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.md,
-    minHeight: 72,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 14,
-    borderRadius: 22,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderIndigoSoft,
-    backgroundColor: palette.surfaceGlassElevated,
-  },
-  memberIdentity: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-  },
-  memberAvatar: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(253,186,155,0.22)",
-  },
-  memberAvatarText: {
-    color: palette.primaryDeep,
-    fontSize: 15,
-    fontFamily: typefaces.bodyHeavy,
-  },
-  memberCopy: {
-    flex: 1,
-    gap: 3,
-  },
-  memberName: {
-    color: palette.textPrimary,
-    fontSize: 15,
-    fontFamily: typefaces.bodyStrong,
-  },
-  memberMeta: {
-    color: palette.muted,
-    fontSize: 12,
-    fontFamily: typefaces.body,
-  },
-  memberBadges: {
-    flexDirection: "row",
-    gap: spacing.xs,
-  },
-  memberBalance: {
-    alignItems: "flex-end",
-    gap: 8,
-  },
-  memberAmount: {
-    color: palette.textPrimary,
-    fontSize: 15,
-    fontFamily: typefaces.bodyHeavy,
+    gap: 0,
   },
   inviteTitle: {
     color: palette.textPrimary,

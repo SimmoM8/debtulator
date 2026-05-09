@@ -121,7 +121,7 @@ export function MemberDetailScreen() {
   return (
     <Screen>
       <PageHeader
-        eyebrow="Member detail"
+        detailLabel="Member details"
         title={member.displayName}
         subtitle={
           member.archived

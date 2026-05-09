@@ -167,7 +167,7 @@ export function DebtDetailScreen() {
   return (
     <Screen>
       <PageHeader
-        eyebrow="Simple debt"
+        detailLabel="Debt details"
         title={debt.title}
         subtitle={entryDirectionText(entry, data.members)}
         action={

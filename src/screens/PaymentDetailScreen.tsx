@@ -21,12 +21,12 @@ import {
     activeAttachmentsForTarget,
     attachmentBadges,
 } from "@/src/services/attachments";
+import { convertCurrency } from "@/src/services/currency";
 import {
     debtPdfLines,
     shareExport,
     writePdfExport,
 } from "@/src/services/export";
-import { convertCurrency } from "@/src/services/currency";
 import { participantName } from "@/src/services/ledger";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
@@ -103,7 +103,7 @@ export function PaymentDetailScreen() {
   return (
     <Screen>
       <PageHeader
-        eyebrow="Payment"
+        detailLabel="Payment details"
         title={`${participantName(payerId, data.members, data.sharedEventMembers)} paid ${participantName(payeeId, data.members, data.sharedEventMembers)}`}
         subtitle="A payment records real-world money movement."
       />
