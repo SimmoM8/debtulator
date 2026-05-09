@@ -124,9 +124,7 @@ export function ExpenseDetailScreen() {
   return (
     <Screen>
       <PageHeader
-        detailLabel="Expense details"
-        title={expense.title}
-        subtitle={`${participantName(expense.payerId, data.members, data.sharedEventMembers)} paid in ${event.name}`}
+        title="Expense details"
         action={
           <IconButton
             icon="create-outline"

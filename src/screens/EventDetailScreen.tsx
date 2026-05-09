@@ -393,12 +393,7 @@ export function EventDetailScreen() {
   return (
     <Screen>
       <PageHeader
-        detailLabel="Event details"
-        title={event.name}
-        subtitle={
-          event.notes ??
-          "Collaborative expenses, balances, settlements, and activity."
-        }
+        title="Event details"
         action={
           canManagePeople || !isShared ? (
             <IconButton

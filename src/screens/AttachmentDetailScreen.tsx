@@ -51,9 +51,7 @@ export function AttachmentDetailScreen() {
   return (
     <Screen>
       <PageHeader
-        detailLabel="Attachment details"
-        title={attachment.fileName}
-        subtitle="Lightweight attachment metadata and preview."
+        title="Attachment details"
       />
 
       <Card tone="lavender" style={styles.heroCard}>

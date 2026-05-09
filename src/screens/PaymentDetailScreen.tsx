@@ -29,7 +29,6 @@ import {
     shareExport,
     writePdfExport,
 } from "@/src/services/export";
-import { participantName } from "@/src/services/ledger";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
 import { formatMoney } from "@/src/utils/money";
@@ -43,8 +42,6 @@ export function PaymentDetailScreen() {
   const settlement = data.settlements.find((item) =>
     lines.some((line) => line.settlementId === item.id),
   );
-  const payerId = payment?.payerEventMemberId ?? payment?.payerMemberId ?? "me";
-  const payeeId = payment?.payeeEventMemberId ?? payment?.payeeMemberId ?? "me";
   const attachments = payment
     ? activeAttachmentsForTarget(data.attachments, "payment", payment.id)
     : [];
@@ -105,9 +102,7 @@ export function PaymentDetailScreen() {
   return (
     <Screen>
       <PageHeader
-        detailLabel="Payment details"
-        title={`${participantName(payerId, data.members, data.sharedEventMembers)} paid ${participantName(payeeId, data.members, data.sharedEventMembers)}`}
-        subtitle="A payment records real-world money movement."
+        title="Payment details"
       />
 
       <Card tone="lavender" style={styles.heroCard}>

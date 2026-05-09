@@ -2,47 +2,44 @@ import { router, useLocalSearchParams } from "expo-router";
 import React from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 
-import { AttachmentsSection } from "@/src/components/AttachmentsSection";
-import { CommentsSection } from "@/src/components/CommentsSection";
 import { DebtulatorOrbitIllustration } from "@/src/components/illustrations/DebtulatorOrbitIllustration";
-import {
-    Badge,
-    LinkStatusBadge,
-    StatusBadge,
-    SyncBadge,
-    TagChips,
-    VerificationBadge,
-    VisibilityBadge,
-} from "@/src/components/ui/Badges";
+import { Badge, StatusBadge, VerificationBadge } from "@/src/components/ui/Badges";
+import { AvatarStack } from "@/src/components/ui/Finance";
 import { Amount } from "@/src/components/ui/Money";
 import {
-    Button,
-    Card,
-    EmptyState,
-    IconButton,
-    LoadingState,
-    PageHeader,
-    Screen,
-    SectionTitle,
-    SelectChips,
+  Button,
+  Card,
+  EmptyState,
+  IconButton,
+  LoadingState,
+  PageHeader,
+  Screen,
+  SectionTitle,
 } from "@/src/components/ui/Primitives";
-import { palette, spacing, typefaces,
-typography,
+import {
+  palette,
+  shadows,
+  spacing,
+  typefaces,
+  typography,
 } from "@/src/constants/design";
 import {
-    activeAttachmentsForTarget,
-    attachmentBadges,
-} from "@/src/services/attachments";
-import {
-    debtPdfLines,
-    shareExport,
-    writePdfExport,
+  debtPdfLines,
+  shareExport,
+  writePdfExport,
 } from "@/src/services/export";
 import { buildLedgerEntries, entryDirectionText } from "@/src/services/ledger";
 import { createRemoteDebtVerification } from "@/src/services/stage2Sync";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
-import type { DebtStatus, VerificationStatus } from "@/src/types/models";
+import type { DebtStatus } from "@/src/types/models";
+
+type ActivityItem = {
+  id: string;
+  title: string;
+  detail: string;
+  createdAt: string;
+};
 
 export function DebtDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -60,23 +57,12 @@ export function DebtDetailScreen() {
     data.ledgerEntries.find(
       (item) => item.kind === "simple_debt" && item.sourceId === id,
     ) ?? entry;
-  const paymentLines = data.settlementLines.filter(
-    (line) =>
-      line.sourceRecordType === "simple_debt" && line.sourceRecordId === id,
-  );
-  const payments = data.payments.filter((payment) =>
-    paymentLines.some((line) => line.paymentId === payment.id),
-  );
-  const attachments = debt
-    ? activeAttachmentsForTarget(data.attachments, "debt", debt.id)
-    : [];
-  const attachmentState = attachmentBadges(attachments);
 
   if (data.loading) {
     return <LoadingState />;
   }
 
-  if (!debt || !entry) {
+  if (!debt || !entry || !currentEntry) {
     return (
       <Screen>
         <EmptyState
@@ -88,13 +74,60 @@ export function DebtDetailScreen() {
   }
 
   const currentDebt = debt;
+  const paymentLines = data.settlementLines.filter(
+    (line) =>
+      line.sourceRecordType === "simple_debt" &&
+      line.sourceRecordId === currentDebt.id,
+  );
+  const payments = data.payments.filter((payment) =>
+    paymentLines.some((line) => line.paymentId === payment.id),
+  );
+
+  const eventParticipants = currentDebt.eventId
+    ? data.sharedEventMembers
+        .filter(
+          (item) =>
+            item.eventId === currentDebt.eventId && item.status === "active",
+        )
+        .map((item) => item.alias ?? item.displayName)
+    : [];
+
+  const participantLabels = Array.from(
+    new Set(["You", member?.displayName ?? "Unknown member", ...eventParticipants]),
+  );
+
+  const activityItems: ActivityItem[] = [
+    {
+      id: `created-${currentDebt.id}`,
+      title: "Debt created",
+      detail: `${currentDebt.amount} ${currentDebt.currency}`,
+      createdAt: currentDebt.createdAt,
+    },
+    ...data.activityLogs
+      .filter(
+        (activity) =>
+          activity.entityKind === "debt" && activity.entityId === currentDebt.id,
+      )
+      .map((activity) => ({
+        id: activity.id,
+        title: activity.action.replaceAll("_", " "),
+        detail: "Ledger activity",
+        createdAt: activity.createdAt,
+      })),
+    ...payments.map((payment) => ({
+      id: `payment-${payment.id}`,
+      title: "Payment recorded",
+      detail: `${payment.amount} ${payment.currency} · ${payment.status.replaceAll("_", " ")}`,
+      createdAt: payment.paymentDate,
+    })),
+  ].sort((a, b) => {
+    const aTime = new Date(a.createdAt).getTime();
+    const bTime = new Date(b.createdAt).getTime();
+    return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime);
+  });
 
   async function updateStatus(status: DebtStatus) {
     await data.updateDebt(currentDebt.id, { status });
-  }
-
-  async function updateVerification(verificationStatus: VerificationStatus) {
-    await data.updateDebt(currentDebt.id, { verificationStatus });
   }
 
   async function requestVerification() {
@@ -166,557 +199,374 @@ export function DebtDetailScreen() {
     await shareExport(uri, `${currentDebt.title} PDF`);
   }
 
-  return (
-    <Screen>
-      <PageHeader
-        detailLabel="Debt details"
-        title={debt.title}
-        subtitle={entryDirectionText(entry, data.members)}
-        action={
-          <IconButton
-            icon="create-outline"
-            label="Edit debt"
-            onPress={() =>
-              router.push({ pathname: "/debt/form", params: { id: debt.id } })
-            }
-          />
-        }
-      />
+  function openOptions() {
+    Alert.alert("Debt options", "Choose an action", [
+      {
+        text: "Edit debt",
+        onPress: () =>
+          router.push({ pathname: "/debt/form", params: { id: currentDebt.id } }),
+      },
+      {
+        text: "Export PDF",
+        onPress: () => {
+          void exportPdf();
+        },
+      },
+      ...(member?.linkStatus === "linked" &&
+      currentDebt.verificationStatus !== "pending"
+        ? [
+            {
+              text: "Request verification",
+              onPress: () => {
+                void requestVerification();
+              },
+            },
+          ]
+        : []),
+      ...(currentDebt.status !== "archived"
+        ? [
+            {
+              text: "Archive",
+              style: "destructive" as const,
+              onPress: () => {
+                void updateStatus("archived");
+              },
+            },
+          ]
+        : []),
+      { text: "Cancel", style: "cancel" as const },
+    ]);
+  }
 
-      <Card
-        tone={
-          debt.verificationStatus === "rejected" ||
-          debt.verificationStatus === "disputed"
-            ? "coral"
-            : "lavender"
-        }
-      >
-        <View style={styles.heroBackdrop} />
-        <View style={styles.amountRow}>
-          <View style={styles.amountColumn}>
-            <Text style={styles.label}>Amount</Text>
-            <Amount
-              amount={
-                debt.direction === "they_owe_me" ? debt.amount : -debt.amount
-              }
-              currency={debt.currency}
-              signed
-              size="lg"
-            />
-            <Text style={styles.bodyMuted}>
-              {debt.direction === "they_owe_me"
-                ? `${member?.displayName ?? "This member"} owes you.`
-                : `You owe ${member?.displayName ?? "this member"}.`}
-            </Text>
-          </View>
-          <View style={styles.heroArtWrap}>
-            <DebtulatorOrbitIllustration width={116} height={90} compact />
-          </View>
-          <View style={styles.badgeStack}>
-            <StatusBadge status={debt.status} />
-            <VerificationBadge status={debt.verificationStatus} />
-            <VisibilityBadge visibility={debt.visibility} />
-            <SyncBadge status={debt.syncStatus} />
-            <Badge
-              label={currentEntry!.paymentStatus.replaceAll("_", " ")}
-              tone={
-                currentEntry!.paymentStatus === "overpaid"
-                  ? "amber"
-                  : currentEntry!.paymentStatus === "paid"
-                    ? "positive"
-                    : "blue"
-              }
-            />
-            {attachmentState.receiptLabel ? (
-              <Badge label={attachmentState.receiptLabel} tone="positive" />
-            ) : null}
-            {attachmentState.proofLabel ? (
-              <Badge label={attachmentState.proofLabel} tone="blue" />
-            ) : null}
-          </View>
-        </View>
-        <View style={styles.contextGrid}>
-          <InfoTile label="Member" value={member?.displayName ?? "Unknown"} />
-          <InfoTile label="Due" value={debt.dueDate ?? "No due date"} />
-          <InfoTile label="Event" value={event?.name ?? "Standalone"} />
-          <InfoTile label="Files" value={String(attachments.length)} />
-        </View>
-        <View style={styles.paymentGrid}>
-          <InfoTile
-            label="Original"
-            value={`${debt.amount} ${debt.currency}`}
-          />
-          <InfoTile
-            label="Paid"
-            value={`${currentEntry!.amountPaid} ${debt.currency}`}
-          />
-          <InfoTile
-            label="Remaining"
-            value={`${currentEntry!.remainingAmount} ${debt.currency}`}
-          />
-        </View>
-        {currentEntry!.overpaidAmount > 0 ? (
-          <Text style={styles.body}>
-            Overpaid by {currentEntry!.overpaidAmount} {debt.currency}. This
-            creates an explainable unallocated credit between the same people.
-          </Text>
-        ) : null}
-        {debt.notes ? <Text style={styles.body}>{debt.notes}</Text> : null}
-        <TagChips tags={debt.tags} />
-        <View style={styles.actionRow}>
+  const dueLabel = currentDebt.dueDate
+    ? formatDate(currentDebt.dueDate)
+    : "No due date";
+
+  const signedAmount =
+    currentDebt.direction === "they_owe_me" ? currentDebt.amount : -currentDebt.amount;
+
+  return (
+    <Screen
+      footer={
+        <View style={styles.footerActions}>
           <Button
-            title="Record payment"
+            title="Settle up"
+            icon="checkmark-circle"
+            onPress={() => {
+              void updateStatus("settled");
+            }}
+            disabled={currentDebt.status === "settled"}
+            style={styles.footerButton}
+          />
+          <Button
+            title="Add payment"
             icon="card"
+            variant="secondary"
             onPress={() =>
               router.push({
                 pathname: "/payment/form",
-                params: { debtId: debt.id },
+                params: { debtId: currentDebt.id },
               })
             }
-          />
-          <Button
-            title="Export PDF"
-            icon="document-text"
-            variant="secondary"
-            onPress={exportPdf}
+            style={styles.footerButton}
           />
         </View>
-      </Card>
-
-      <AttachmentsSection
-        targetType="debt"
-        targetId={debt.id}
-        eventId={debt.eventId}
-        parentVisibility={debt.visibility}
-        preferredKind="receipt"
+      }
+    >
+      <PageHeader
+        title="Debt details"
+        action={
+          <IconButton
+            icon="ellipsis-horizontal"
+            label="Debt options"
+            onPress={openOptions}
+          />
+        }
       />
 
-      <CommentsSection
-        targetType="debt"
-        targetId={debt.id}
-        eventId={debt.eventId}
-        sharedAvailable={debt.visibility !== "private"}
-      />
+      <View style={styles.overview}>
+        <View style={styles.overviewTop}>
+          <View style={styles.heroArtWrap}>
+            <DebtulatorOrbitIllustration width={112} height={88} compact />
+          </View>
+          <View style={styles.overviewCopy}>
+            <Text style={styles.debtTitle}>{currentDebt.title}</Text>
+            <Text style={styles.subtext}>{entryDirectionText(entry, data.members)}</Text>
+          </View>
+          <Badge
+            label={
+              currentDebt.direction === "they_owe_me" ? "owes you" : "you owe"
+            }
+            tone={currentDebt.direction === "they_owe_me" ? "positive" : "amber"}
+          />
+        </View>
+        <View style={styles.amountBlock}>
+          <Amount
+            amount={signedAmount}
+            currency={currentDebt.currency}
+            signed
+            size="lg"
+          />
+          <Text style={styles.dueLine}>Due {dueLabel}</Text>
+        </View>
+      </View>
 
-      <Card>
+      <Card tone="lavender" style={styles.summaryCard}>
         <SectionTitle
-          title="Payment history"
-          subtitle="Payments are real transfers; settlement lines show how they apply."
-        />
-        {payments.length > 0 ? (
-          payments.map((payment) => (
-            <InfoRow
-              key={payment.id}
-              label={`${payment.paymentDate} · ${payment.status.replaceAll("_", " ")}`}
-              value={`${payment.amount} ${payment.currency}`}
-            />
-          ))
-        ) : (
-          <Text style={styles.body}>No payments recorded yet.</Text>
-        )}
-      </Card>
-
-      <Card>
-        <SectionTitle
-          title="Verification"
-          subtitle={
-            member?.linkStatus === "linked"
-              ? "Request verification without sharing unrelated historical debts."
-              : "Link this member to request verification."
-          }
+          title="Summary"
+          subtitle="Status, participants, split context, and notes."
         />
         <View style={styles.badgeLine}>
-          {member ? <LinkStatusBadge status={member.linkStatus} /> : null}
-          <VerificationBadge status={debt.verificationStatus} />
-          <VisibilityBadge visibility={debt.visibility} />
+          <StatusBadge status={currentDebt.status} />
+          <VerificationBadge status={currentDebt.verificationStatus} />
+          <Badge
+            label={currentEntry.paymentStatus.replaceAll("_", " ")}
+            tone={
+              currentEntry.paymentStatus === "paid"
+                ? "positive"
+                : currentEntry.paymentStatus === "overpaid"
+                  ? "amber"
+                  : "blue"
+            }
+          />
         </View>
-        <Text style={styles.body}>
-          {debt.visibility === "private"
-            ? "This debt is private in your local ledger."
-            : "This debt is shared only with the involved linked member for verification."}
-        </Text>
-        <View style={styles.actionRow}>
-          <Button
-            title="Request verification"
-            icon="shield-checkmark"
-            onPress={requestVerification}
-            disabled={
-              debt.verificationStatus === "pending" ||
-              member?.linkStatus !== "linked"
-            }
-          />
-          {debt.verificationStatus === "pending" ? (
-            <Button
-              title="Cancel request"
-              icon="close-circle"
-              variant="secondary"
-              onPress={() =>
-                data.cancelDebtVerification(
-                  debt.id,
-                  auth.identity.authenticatedUserId,
-                )
-              }
-            />
-          ) : null}
-        </View>
-      </Card>
-
-      {debt.verificationStatus === "rejected" ? (
-        <Card tone="coral">
-          <SectionTitle
-            title="Rejected debt"
-            subtitle="This remains in your personal ledger."
-          />
-          <InfoRow
-            label="Rejected by"
-            value={debt.rejectedByUserId ?? "Linked member"}
-          />
-          <InfoRow
-            label="Rejected at"
-            value={
-              debt.rejectedAt
-                ? new Date(debt.rejectedAt).toLocaleString()
-                : "Unknown"
-            }
-          />
-          <InfoRow
-            label="Reason"
-            value={debt.rejectionReason ?? "No reason provided"}
-          />
-          <Text style={styles.body}>
-            Rejected and disputed debts are excluded from shared settlement
-            suggestions by default. You can keep this privately, edit it, mark
-            it disputed or resolved, or archive it.
-          </Text>
-          <View style={styles.actionRow}>
-            <Button
-              title="Keep privately"
-              icon="lock-closed"
-              variant="secondary"
-              onPress={() => updateVerification("local_only")}
-            />
-            <Button
-              title="Edit and resend"
-              icon="create"
-              variant="secondary"
-              onPress={() =>
-                router.push({ pathname: "/debt/form", params: { id: debt.id } })
-              }
-            />
-            <Button
-              title="Mark disputed"
-              icon="warning"
-              variant="secondary"
-              onPress={() =>
-                data.markDebtDisputed(
-                  debt.id,
-                  auth.identity.authenticatedUserId,
-                )
-              }
-            />
-            <Button
-              title="Mark resolved"
-              icon="checkmark-circle"
-              variant="secondary"
-              onPress={() =>
-                data.markDebtResolved(
-                  debt.id,
-                  auth.identity.authenticatedUserId,
-                )
-              }
-            />
-            <Button
-              title="Archive"
-              icon="archive"
-              variant="danger"
-              onPress={() => updateStatus("archived")}
-            />
-          </View>
-        </Card>
-      ) : null}
-
-      {debt.verificationStatus === "disputed" ? (
-        <Card tone="amber">
-          <SectionTitle
-            title="Disputed debt"
-            subtitle="The other party rejected it and you marked the rejection as disputed."
-          />
-          <InfoRow
-            label="Rejection reason"
-            value={debt.rejectionReason ?? "No reason provided"}
-          />
-          <InfoRow
-            label="Private dispute note"
-            value={debt.disputeReason ?? "None"}
-          />
-          <View style={styles.actionRow}>
-            <Button
-              title="Edit and resend"
-              icon="create"
-              variant="secondary"
-              onPress={() =>
-                router.push({ pathname: "/debt/form", params: { id: debt.id } })
-              }
-            />
-            <Button
-              title="Mark resolved"
-              icon="checkmark-circle"
-              variant="secondary"
-              onPress={() =>
-                data.markDebtResolved(
-                  debt.id,
-                  auth.identity.authenticatedUserId,
-                )
-              }
-            />
-            <Button
-              title="Archive"
-              icon="archive"
-              variant="danger"
-              onPress={() => updateStatus("archived")}
-            />
-          </View>
-        </Card>
-      ) : null}
-
-      {debt.verificationStatus === "resolved" ? (
-        <Card tone="blue">
-          <SectionTitle
-            title="Resolved"
-            subtitle="Excluded from verified shared balances unless verified again later."
-          />
-          <InfoRow
-            label="Resolution note"
-            value={
-              debt.resolutionNote ??
-              "Resolved without verifying the original debt."
-            }
-          />
-        </Card>
-      ) : null}
-
-      <Card>
-        <SectionTitle
-          title="Metadata"
-          subtitle="Financial edits to verified debts reset local verification to pending."
-        />
-        <InfoRow label="Member" value={member?.displayName ?? "Unknown"} />
-        <InfoRow label="Member link" value={member?.linkStatus ?? "unlinked"} />
-        <InfoRow label="Event" value={event?.name ?? "Not attached"} />
-        <InfoRow
-          label="Visibility"
-          value={debt.visibility.replaceAll("_", " ")}
-        />
-        <InfoRow label="Sync" value={debt.syncStatus.replaceAll("_", " ")} />
-        <InfoRow label="Debt date" value={debt.debtDate} />
-        <InfoRow label="Due date" value={debt.dueDate ?? "None"} />
-        <InfoRow
-          label="Created"
-          value={new Date(debt.createdAt).toLocaleString()}
-        />
-        <InfoRow
-          label="Updated"
-          value={new Date(debt.updatedAt).toLocaleString()}
-        />
-        <InfoRow
-          label="Balance impact"
+        <SummaryRow label="Created by" value="You" />
+        <SummaryRow
+          label="Participants"
           value={
-            debt.direction === "they_owe_me"
-              ? "Increases owed to you"
-              : "Increases what you owe"
+            <View style={styles.participantsValue}>
+              <AvatarStack labels={participantLabels} />
+              <Text style={styles.valueMeta}>
+                {participantLabels.length} participant
+                {participantLabels.length === 1 ? "" : "s"}
+              </Text>
+            </View>
           }
         />
-        {debt.verifiedAt ? (
-          <InfoRow
-            label="Verified at"
-            value={new Date(debt.verifiedAt).toLocaleString()}
-          />
-        ) : null}
-        {debt.verifiedByUserId ? (
-          <InfoRow label="Verified by" value={debt.verifiedByUserId} />
+        <SummaryRow label="Split type" value={event ? "Event debt" : "Direct debt"} />
+        <SummaryRow
+          label={
+            currentDebt.direction === "they_owe_me"
+              ? "Amount owed to you"
+              : "Amount you owe"
+          }
+          value={`${currentDebt.amount} ${currentDebt.currency}`}
+        />
+        <SummaryRow
+          label="Total amount"
+          value={`${currentDebt.amount} ${currentDebt.currency}`}
+        />
+        <SummaryRow label="Related member" value={member?.displayName ?? "Unknown"} />
+        <SummaryRow label="Event" value={event?.name ?? "Standalone"} />
+        {currentDebt.notes ? (
+          <View style={styles.notesBlock}>
+            <Text style={styles.summaryLabel}>Notes</Text>
+            <Text style={styles.notesText}>{currentDebt.notes}</Text>
+          </View>
         ) : null}
       </Card>
 
-      <Card>
+      <Card style={styles.activityCard}>
         <SectionTitle
-          title="Local status controls"
-          subtitle="Stage 1 simulates future verification/dispute workflows locally."
+          title="Activity history"
+          subtitle="Creation, updates, and payments tied to this debt."
         />
-        <SelectChips
-          label="Debt status"
-          value={debt.status}
-          options={[
-            { label: "Active", value: "active" },
-            { label: "Settled", value: "settled" },
-            { label: "Archived", value: "archived" },
-          ]}
-          onChange={updateStatus}
-        />
-        <SelectChips
-          label="Verification"
-          value={debt.verificationStatus}
-          options={[
-            { label: "Local only", value: "local_only" },
-            { label: "Pending", value: "pending" },
-            { label: "Verified", value: "verified" },
-            { label: "Rejected", value: "rejected" },
-            { label: "Disputed", value: "disputed" },
-            { label: "Resolved", value: "resolved" },
-            { label: "Cancelled", value: "cancelled" },
-          ]}
-          onChange={updateVerification}
-        />
-      </Card>
-
-      <Card>
-        <SectionTitle
-          title="Activity"
-          subtitle="Linking and verification history for this debt."
-        />
-        {data.activityLogs.filter(
-          (activity) =>
-            activity.entityKind === "debt" && activity.entityId === debt.id,
-        ).length > 0 ? (
-          data.activityLogs
-            .filter(
-              (activity) =>
-                activity.entityKind === "debt" && activity.entityId === debt.id,
-            )
-            .map((activity) => (
-              <InfoRow
-                key={activity.id}
-                label={activity.action.replaceAll("_", " ")}
-                value={new Date(activity.createdAt).toLocaleString()}
-              />
-            ))
+        {activityItems.length > 0 ? (
+          activityItems.map((activity, index) => (
+            <View
+              key={activity.id}
+              style={[
+                styles.activityRow,
+                index === activityItems.length - 1 && styles.activityRowLast,
+              ]}
+            >
+              <View style={styles.activityCopy}>
+                <Text style={styles.activityTitle}>{activity.title}</Text>
+                <Text style={styles.activityDetail}>{activity.detail}</Text>
+              </View>
+              <Text style={styles.activityDate}>{formatDate(activity.createdAt)}</Text>
+            </View>
+          ))
         ) : (
-          <Text style={styles.body}>No activity yet.</Text>
+          <Text style={styles.emptyText}>No activity yet.</Text>
         )}
       </Card>
     </Screen>
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+function SummaryRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) {
   return (
-    <View style={styles.infoRow}>
-      <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={styles.infoValue}>{value}</Text>
+    <View style={styles.summaryRow}>
+      <Text style={styles.summaryLabel}>{label}</Text>
+      {typeof value === "string" ? (
+        <Text style={styles.summaryValue}>{value}</Text>
+      ) : (
+        value
+      )}
     </View>
   );
 }
 
-function InfoTile({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.infoTile}>
-      <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={styles.infoValue}>{value}</Text>
-    </View>
-  );
+function formatDate(input: string) {
+  const date = new Date(input);
+  if (Number.isNaN(date.getTime())) {
+    return input;
+  }
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 const styles = StyleSheet.create({
-  heroBackdrop: {
-    position: "absolute",
-    top: -24,
-    right: -10,
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    backgroundColor: "rgba(221,214,254,0.22)",
-  },
-  amountRow: {
+  footerActions: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: spacing.lg,
-    flexWrap: "wrap",
+    gap: spacing.sm,
   },
-  amountColumn: {
+  footerButton: {
     flex: 1,
-    minWidth: 180,
-    gap: spacing.xs,
+  },
+  overview: {
+    gap: spacing.md,
+    paddingHorizontal: spacing.xs,
+    marginBottom: spacing.md,
+  },
+  overviewTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
   },
   heroArtWrap: {
-    width: 124,
-    height: 96,
+    width: 112,
+    height: 88,
     borderRadius: 24,
-    backgroundColor: "rgba(255,255,255,0.34)",
+    backgroundColor: palette.surfaceGlass,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderGlass,
     alignItems: "center",
     justifyContent: "center",
+    ...shadows.soft,
   },
-  badgeStack: {
-    alignItems: "flex-end",
+  overviewCopy: {
+    flex: 1,
     gap: spacing.xs,
   },
-  label: {
-    color: palette.brandDark,
-    fontSize: typography.size.sm,
-    fontFamily: typefaces.bodyStrong,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-  },
-  body: {
+  debtTitle: {
     color: palette.ink,
     fontSize: typography.size.lg,
     lineHeight: typography.line.h3,
-    fontFamily: typefaces.body,
+    fontFamily: typefaces.displayMedium,
   },
-  bodyMuted: {
+  subtext: {
     color: palette.muted,
     fontSize: typography.size.base,
     lineHeight: typography.line.xl,
     fontFamily: typefaces.body,
   },
-  actionRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.md,
+  amountBlock: {
+    gap: spacing.xs,
   },
-  contextGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+  dueLine: {
+    color: palette.muted,
+    fontSize: typography.size.base,
+    lineHeight: typography.line.xl,
+    fontFamily: typefaces.bodyStrong,
+  },
+  summaryCard: {
     gap: spacing.sm,
-  },
-  paymentGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-  },
-  infoTile: {
-    flex: 1,
-    minWidth: 120,
-    borderWidth: 1,
-    borderColor: palette.line,
-    borderRadius: 14,
-    padding: spacing.md,
-    backgroundColor: "rgba(255,255,255,0.78)",
   },
   badgeLine: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.xs,
+    marginBottom: spacing.xs,
   },
-  infoRow: {
+  summaryRow: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
-    gap: spacing.lg,
+    gap: spacing.md,
     paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: palette.line,
   },
-  infoLabel: {
+  summaryLabel: {
     color: palette.muted,
     fontSize: typography.size.md,
     fontFamily: typefaces.bodyStrong,
   },
-  infoValue: {
+  summaryValue: {
     color: palette.ink,
     fontSize: typography.size.md,
     fontFamily: typefaces.body,
-    flex: 1,
     textAlign: "right",
+    flex: 1,
+  },
+  participantsValue: {
+    alignItems: "flex-end",
+    gap: spacing.xs,
+  },
+  valueMeta: {
+    color: palette.muted,
+    fontSize: typography.size.sm,
+    fontFamily: typefaces.body,
+  },
+  notesBlock: {
+    gap: spacing.xs,
+    paddingTop: spacing.sm,
+  },
+  notesText: {
+    color: palette.ink,
+    fontSize: typography.size.md,
+    lineHeight: typography.line.xl,
+    fontFamily: typefaces.body,
+  },
+  activityCard: {
+    gap: spacing.sm,
+  },
+  activityRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: palette.line,
+  },
+  activityRowLast: {
+    borderBottomWidth: 0,
+  },
+  activityCopy: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  activityTitle: {
+    color: palette.ink,
+    fontSize: typography.size.md,
+    fontFamily: typefaces.bodyStrong,
+    textTransform: "capitalize",
+  },
+  activityDetail: {
+    color: palette.muted,
+    fontSize: typography.size.sm,
+    fontFamily: typefaces.body,
+  },
+  activityDate: {
+    color: palette.muted,
+    fontSize: typography.size.sm,
+    fontFamily: typefaces.bodyStrong,
+  },
+  emptyText: {
+    color: palette.muted,
+    fontSize: typography.size.md,
+    fontFamily: typefaces.body,
   },
 });

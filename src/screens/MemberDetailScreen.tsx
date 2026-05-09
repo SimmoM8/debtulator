@@ -123,13 +123,7 @@ export function MemberDetailScreen() {
   return (
     <Screen>
       <PageHeader
-        detailLabel="Member details"
-        title={member.displayName}
-        subtitle={
-          member.archived
-            ? "Archived local member"
-            : "Manual, unlinked local member"
-        }
+        title="Member details"
         action={
           <IconButton
             icon="create-outline"
