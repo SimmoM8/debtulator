@@ -107,13 +107,25 @@ export function GlassCard({
         style,
       ]}
     >
-      <BlurView
-        tint="light"
-        intensity={12}
-        experimentalBlurMethod="dimezisBlurView"
-        pointerEvents="none"
-        style={StyleSheet.absoluteFill}
-      />
+      {allowOverflow ? (
+        <View pointerEvents="none" style={styles.cardBlurClip}>
+          <BlurView
+            tint="light"
+            intensity={12}
+            experimentalBlurMethod="dimezisBlurView"
+            pointerEvents="none"
+            style={StyleSheet.absoluteFill}
+          />
+        </View>
+      ) : (
+        <BlurView
+          tint="light"
+          intensity={12}
+          experimentalBlurMethod="dimezisBlurView"
+          pointerEvents="none"
+          style={StyleSheet.absoluteFill}
+        />
+      )}
       {children}
     </View>
   );
@@ -736,12 +748,17 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderRadius: radii.xl,
     borderWidth: StyleSheet.hairlineWidth,
-    padding: spacing.lg,
-    gap: spacing.md,
+    padding: spacing.md,
+    gap: spacing.sm,
     ...shadows.card,
   },
   cardOverflowVisible: {
     overflow: "visible",
+  },
+  cardBlurClip: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: radii.xl,
+    overflow: "hidden",
   },
   pill: {
     minHeight: 30,
@@ -778,12 +795,12 @@ const styles = StyleSheet.create({
     color: palette.surface,
   },
   searchBar: {
-    minHeight: 52,
+    minHeight: 48,
     borderRadius: radii.pill,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderIndigoSoft,
     backgroundColor: palette.surfaceGlassStrong,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: 10,
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
@@ -804,9 +821,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   searchToolbarButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
+    width: 48,
+    height: 48,
+    borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderIndigoSoft,
     backgroundColor: palette.surfaceGlassStrong,
@@ -819,16 +836,16 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(55,48,163,0.08)",
   },
   filterOptionList: {
-    borderRadius: 22,
+    borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderIndigoSoft,
     backgroundColor: "rgba(255,255,255,0.66)",
     overflow: "hidden",
   },
   filterOption: {
-    minHeight: 72,
+    minHeight: 64,
     paddingHorizontal: spacing.md,
-    paddingVertical: 14,
+    paddingVertical: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -867,11 +884,11 @@ const styles = StyleSheet.create({
   statCard: {
     flex: 1,
     minWidth: 100,
-    borderRadius: 20,
+    borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
     backgroundColor: "rgba(255,255,255,0.72)",
-    padding: spacing.md,
-    gap: 6,
+    padding: 10,
+    gap: 4,
   },
   statCardCompact: {
     minWidth: 0,
@@ -940,12 +957,12 @@ const styles = StyleSheet.create({
   actionTile: {
     minWidth: 100,
     flex: 1,
-    borderRadius: 20,
+    borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderIndigoSoft,
     backgroundColor: palette.surfaceGlassElevated,
-    padding: spacing.md,
-    gap: 10,
+    padding: 10,
+    gap: 8,
   },
   actionIcon: {
     width: 44,
@@ -1003,9 +1020,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    minHeight: 78,
+    minHeight: 70,
     paddingHorizontal: spacing.md,
-    paddingVertical: 15,
+    paddingVertical: 12,
   },
   listRowDivider: {
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -1062,7 +1079,7 @@ const styles = StyleSheet.create({
   progressCard: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   progressRingWrap: {
     width: 76,
@@ -1106,14 +1123,14 @@ const styles = StyleSheet.create({
     fontFamily: typefaces.body,
   },
   settingsRow: {
-    minHeight: 68,
+    minHeight: 62,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.md,
-    paddingVertical: 14,
+    paddingVertical: 12,
     paddingHorizontal: spacing.md,
-    borderRadius: 20,
+    borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderIndigoSoft,
     backgroundColor: palette.surfaceGlassElevated,

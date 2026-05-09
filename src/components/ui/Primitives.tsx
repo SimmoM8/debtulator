@@ -696,13 +696,13 @@ const styles = StyleSheet.create({
   content: {
     width: "100%",
     paddingHorizontal: spacing.screen,
-    paddingTop: spacing.lg,
-    gap: spacing.xl,
+    paddingTop: spacing.md,
+    gap: spacing.lg,
   },
   footerWrap: {
     position: "absolute",
-    left: 16,
-    right: 16,
+    left: 12,
+    right: 12,
     bottom: 0,
   },
   footer: {
@@ -711,7 +711,7 @@ const styles = StyleSheet.create({
   },
   floatingAction: {
     position: "absolute",
-    right: 24,
+    right: 18,
   },
   loading: {
     flex: 1,
@@ -800,7 +800,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   sectionHeading: {
     color: palette.textPrimary,
@@ -947,8 +947,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.sm,
-    paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.md,
   },
   emptyIcon: {
     width: 44,
@@ -970,7 +970,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
     maxHeight: "82%",
-    paddingTop: 10,
+    paddingTop: 8,
   },
   sheetHandle: {
     alignSelf: "center",
