@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import React from "react";
 import {
+    Animated,
     Pressable,
     StyleSheet,
     Text,
@@ -85,10 +86,12 @@ export function GlassCard({
   children,
   style,
   tone = "lavender",
+  allowOverflow = false,
 }: {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   tone?: Tone;
+  allowOverflow?: boolean;
 }) {
   const toneStyle = toneStyles[tone];
 
@@ -100,6 +103,7 @@ export function GlassCard({
           borderColor: toneStyle.border,
           backgroundColor: palette.surfaceGlass,
         },
+        allowOverflow && styles.cardOverflowVisible,
         style,
       ]}
     >
@@ -291,18 +295,134 @@ export function StatCard({
   value,
   subtitle,
   tone = "lavender",
+  compact = false,
+  withDivider = false,
 }: {
   label: string;
   value: string;
   subtitle?: string;
   tone?: Tone;
+  compact?: boolean;
+  withDivider?: boolean;
 }) {
   const toneStyle = toneStyles[tone];
+  const [showInfo, setShowInfo] = React.useState(false);
+  const showsCompactInfo = compact && Boolean(subtitle);
+  const infoOpacity = React.useRef(new Animated.Value(0)).current;
+  const hideTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const dismissInfo = React.useCallback(() => {
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+
+    Animated.timing(infoOpacity, {
+      toValue: 0,
+      duration: 220,
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished) {
+        setShowInfo(false);
+      }
+    });
+  }, [infoOpacity]);
+
+  const revealInfo = React.useCallback(() => {
+    if (!showsCompactInfo) {
+      return;
+    }
+
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+
+    setShowInfo(true);
+    infoOpacity.stopAnimation();
+    infoOpacity.setValue(0);
+    Animated.timing(infoOpacity, {
+      toValue: 1,
+      duration: 180,
+      useNativeDriver: true,
+    }).start();
+
+    hideTimerRef.current = setTimeout(() => {
+      dismissInfo();
+    }, 1500);
+  }, [dismissInfo, infoOpacity, showsCompactInfo]);
+
+  React.useEffect(
+    () => () => {
+      if (hideTimerRef.current) {
+        clearTimeout(hideTimerRef.current);
+      }
+      infoOpacity.stopAnimation();
+    },
+    [infoOpacity],
+  );
+
+  const content = (
+    <>
+      <Text style={[styles.statLabel, compact && styles.statLabelCompact]}>
+        {label}
+      </Text>
+      <Text
+        style={[
+          styles.statValue,
+          { color: toneStyle.text },
+          compact && styles.statValueCompact,
+        ]}
+        numberOfLines={1}
+      >
+        {value}
+      </Text>
+      {!compact && subtitle ? (
+        <Text style={styles.statSubtitle} numberOfLines={1}>
+          {subtitle}
+        </Text>
+      ) : null}
+      {showsCompactInfo && showInfo ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.statInfoBubble, { opacity: infoOpacity }]}
+        >
+          <Text style={styles.statInfoText}>{subtitle}</Text>
+        </Animated.View>
+      ) : null}
+    </>
+  );
+
+  if (showsCompactInfo) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${label} info`}
+        accessibilityHint="Shows a short explanation for this summary metric"
+        onPress={revealInfo}
+        style={({ pressed }) => [
+          styles.statCard,
+          { borderColor: toneStyle.border },
+          styles.statCardCompact,
+          withDivider && styles.statCardCompactDivider,
+          pressed && styles.pressed,
+        ]}
+      >
+        {content}
+      </Pressable>
+    );
+  }
+
   return (
-    <View style={[styles.statCard, { borderColor: toneStyle.border }]}>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text style={[styles.statValue, { color: toneStyle.text }]}>{value}</Text>
-      {subtitle ? <Text style={styles.statSubtitle}>{subtitle}</Text> : null}
+    <View
+      style={[
+        styles.statCard,
+        { borderColor: toneStyle.border },
+        compact && styles.statCardCompact,
+        compact && withDivider && styles.statCardCompactDivider,
+      ]}
+    >
+      {content}
     </View>
   );
 }
@@ -620,6 +740,9 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     ...shadows.card,
   },
+  cardOverflowVisible: {
+    overflow: "visible",
+  },
   pill: {
     minHeight: 30,
     paddingHorizontal: 12,
@@ -750,10 +873,29 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     gap: 6,
   },
+  statCardCompact: {
+    minWidth: 0,
+    borderRadius: 0,
+    borderWidth: 0,
+    backgroundColor: "transparent",
+    position: "relative",
+    overflow: "visible",
+    paddingHorizontal: spacing.md,
+    paddingVertical: 2,
+    gap: 2,
+  },
+  statCardCompactDivider: {
+    borderRightWidth: StyleSheet.hairlineWidth,
+    borderRightColor: palette.line,
+  },
   statLabel: {
     color: palette.muted,
     fontSize: 12,
     fontFamily: typefaces.bodyStrong,
+  },
+  statLabelCompact: {
+    fontSize: 11,
+    lineHeight: 14,
   },
   statValue: {
     color: palette.textPrimary,
@@ -761,10 +903,39 @@ const styles = StyleSheet.create({
     lineHeight: 26,
     fontFamily: typefaces.displayMedium,
   },
+  statValueCompact: {
+    fontSize: 18,
+    lineHeight: 22,
+  },
   statSubtitle: {
     color: palette.textTertiary,
     fontSize: 12,
     fontFamily: typefaces.body,
+  },
+  statSubtitleCompact: {
+    fontSize: 11,
+    lineHeight: 14,
+  },
+  statInfoBubble: {
+    position: "absolute",
+    left: spacing.sm,
+    maxWidth: 168,
+    bottom: "100%",
+    marginBottom: 10,
+    zIndex: 2,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderIndigoSoft,
+    backgroundColor: "rgba(255,255,255,0.94)",
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    ...shadows.soft,
+  },
+  statInfoText: {
+    color: palette.textPrimary,
+    fontSize: 10,
+    lineHeight: 13,
+    fontFamily: typefaces.bodyStrong,
   },
   actionTile: {
     minWidth: 100,

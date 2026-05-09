@@ -91,25 +91,30 @@ export function EventsScreen() {
         filterLabel="Open event filters"
       />
 
-      <GlassCard tone="peach">
+      <GlassCard tone="peach" allowOverflow>
         <View style={styles.statsRow}>
           <StatCard
             label="Shared"
             value={String(sharedCount)}
             subtitle="Groups with other people"
             tone="peach"
+            compact
+            withDivider
           />
           <StatCard
             label="Active"
             value={String(activeCount)}
             subtitle="Currently in motion"
             tone="indigo"
+            compact
+            withDivider
           />
           <StatCard
             label="Settled"
             value={String(settledCount)}
             subtitle="Closed out events"
             tone="teal"
+            compact
           />
         </View>
       </GlassCard>
@@ -280,7 +285,9 @@ function capitalize(value: string) {
 
 const styles = StyleSheet.create({
   statsRow: {
-    gap: spacing.sm,
+    flexDirection: "row",
+    alignItems: "stretch",
+    gap: 0,
   },
   eventColumn: {
     gap: spacing.md,

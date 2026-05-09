@@ -134,25 +134,30 @@ export function DebtsScreen() {
         filterLabel="Open debt filters"
       />
 
-      <GlassCard tone="lavender">
+      <GlassCard tone="lavender" allowOverflow>
         <View style={styles.statsRow}>
           <StatCard
             label="Open"
             value={String(youOwe.length + owedToYou.length)}
             subtitle="Balances that still need action"
             tone="indigo"
+            compact
+            withDivider
           />
           <StatCard
             label="Due soon"
             value={String(dueSoonCount)}
             subtitle="Deadlines coming up"
             tone="amber"
+            compact
+            withDivider
           />
           <StatCard
             label="Settled"
             value={String(settled.length)}
             subtitle="Closed out items"
             tone="teal"
+            compact
           />
         </View>
       </GlassCard>
@@ -361,7 +366,9 @@ const FILTERS: { label: string; value: DebtFilter; description: string }[] = [
 
 const styles = StyleSheet.create({
   statsRow: {
-    gap: spacing.sm,
+    flexDirection: "row",
+    alignItems: "stretch",
+    gap: 0,
   },
   listColumn: {
     gap: spacing.sm,

@@ -203,7 +203,7 @@ export function RequestsScreen() {
         filterLabel="Open request filters"
       />
 
-      <GlassCard tone="lavender">
+      <GlassCard tone="lavender" allowOverflow>
         <View style={styles.statsRow}>
           <StatCard
             label="Pending"
@@ -214,18 +214,23 @@ export function RequestsScreen() {
             )}
             subtitle="Needs your answer"
             tone="amber"
+            compact
+            withDivider
           />
           <StatCard
             label="Completed"
             value={String(completedItems.length)}
             subtitle="Already handled"
             tone="teal"
+            compact
+            withDivider
           />
           <StatCard
             label="Needs review"
             value={String(disputeCount)}
             subtitle="Disputes and mismatches"
             tone="coral"
+            compact
           />
         </View>
       </GlassCard>
@@ -608,7 +613,9 @@ function completedStatus(item: { status: string }) {
 
 const styles = StyleSheet.create({
   statsRow: {
-    gap: spacing.sm,
+    flexDirection: "row",
+    alignItems: "stretch",
+    gap: 0,
   },
   sectionColumn: {
     gap: spacing.sm,

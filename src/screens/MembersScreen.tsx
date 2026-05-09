@@ -19,7 +19,7 @@ import {
   Screen,
   SectionTitle,
 } from "@/src/components/ui/Primitives";
-import { palette, spacing, typefaces } from "@/src/constants/design";
+import { palette, typefaces } from "@/src/constants/design";
 import { estimateMoneyMap } from "@/src/services/currency";
 import { useAppData } from "@/src/state/AppDataProvider";
 import type { AppSettings, CurrencyRate, Member } from "@/src/types/models";
@@ -127,25 +127,30 @@ export function MembersScreen() {
         filterLabel="Open member filters"
       />
 
-      <GlassCard tone="lavender">
+      <GlassCard tone="lavender" allowOverflow>
         <View style={styles.statsRow}>
           <StatCard
             label="Linked"
             value={String(linkedCount)}
             subtitle="Ready for shared sync"
             tone="indigo"
+            compact
+            withDivider
           />
           <StatCard
             label="Owes you"
             value={String(owingYouCount)}
             subtitle="People who should pay you"
             tone="teal"
+            compact
+            withDivider
           />
           <StatCard
             label="You owe"
             value={String(youOweCount)}
             subtitle="People you still owe"
             tone="coral"
+            compact
           />
         </View>
       </GlassCard>
@@ -292,7 +297,9 @@ const FILTERS: { label: string; value: MemberFilter; description: string }[] = [
 
 const styles = StyleSheet.create({
   statsRow: {
-    gap: spacing.sm,
+    flexDirection: "row",
+    alignItems: "stretch",
+    gap: 0,
   },
   listColumn: {
     gap: 0,
