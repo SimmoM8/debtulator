@@ -4,12 +4,7 @@ import React, { useMemo, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
-import {
-  ActionTile,
-  GlassCard,
-  ListRow,
-  StatCard,
-} from "@/src/components/ui/Finance";
+import { GlassCard, ListRow, StatCard } from "@/src/components/ui/Finance";
 import {
   EmptyState,
   IconButton,
@@ -371,33 +366,54 @@ export function DashboardScreen() {
         subtitle="Common tasks stay visible without taking over the screen."
       />
       <View style={styles.actionGrid}>
-        <ActionTile
-          icon="receipt-outline"
-          title="Add debt"
-          subtitle="Track who owes what"
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Add debt"
           onPress={() => router.push("/debt/form")}
-        />
-        <ActionTile
-          icon="card-outline"
-          title="Record payment"
-          subtitle="Log money that moved"
-          tone="teal"
+          style={({ pressed }) => [
+            styles.quickActionTile,
+            pressed && styles.quickActionTilePressed,
+          ]}
+        >
+          <Ionicons name="add-circle" size={20} color={palette.primary} />
+          <Text style={styles.quickActionLabel}>Add debt</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Record payment"
           onPress={() => router.push("/payment/form")}
-        />
-        <ActionTile
-          icon="pie-chart-outline"
-          title="Split expense"
-          subtitle="Create shared shares"
-          tone="peach"
+          style={({ pressed }) => [
+            styles.quickActionTile,
+            pressed && styles.quickActionTilePressed,
+          ]}
+        >
+          <Ionicons name="card" size={20} color={palette.primary} />
+          <Text style={styles.quickActionLabel}>Record payment</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Split bill"
           onPress={() => router.push("/expense/form")}
-        />
-        <ActionTile
-          icon="person-add-outline"
-          title="Invite member"
-          subtitle="Add someone once"
-          tone="lavender"
+          style={({ pressed }) => [
+            styles.quickActionTile,
+            pressed && styles.quickActionTilePressed,
+          ]}
+        >
+          <Ionicons name="people" size={20} color={palette.primary} />
+          <Text style={styles.quickActionLabel}>Split bill</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Add member"
           onPress={() => router.push("/member/form")}
-        />
+          style={({ pressed }) => [
+            styles.quickActionTile,
+            pressed && styles.quickActionTilePressed,
+          ]}
+        >
+          <Ionicons name="person-add" size={20} color={palette.primary} />
+          <Text style={styles.quickActionLabel}>Add member</Text>
+        </Pressable>
       </View>
 
       <SectionTitle
@@ -750,8 +766,30 @@ const styles = StyleSheet.create({
   },
   actionGrid: {
     flexDirection: "row",
-    flexWrap: "wrap",
+    alignItems: "stretch",
     gap: spacing.sm,
+  },
+  quickActionTile: {
+    flex: 1,
+    minHeight: 78,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderIndigoSoft,
+    backgroundColor: "rgba(255,255,255,0.9)",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    paddingHorizontal: 6,
+  },
+  quickActionTilePressed: {
+    opacity: 0.75,
+  },
+  quickActionLabel: {
+    color: palette.primary,
+    fontSize: typography.size.xs,
+    lineHeight: typography.line.xs,
+    fontFamily: typefaces.bodyStrong,
+    textAlign: "center",
   },
   listColumn: {
     gap: spacing.sm,

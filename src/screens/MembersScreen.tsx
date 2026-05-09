@@ -1,6 +1,7 @@
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
   GlassCard,
@@ -10,14 +11,12 @@ import {
   StatCard,
 } from "@/src/components/ui/Finance";
 import {
-  Button,
   EmptyState,
   FilterSheet,
   IconButton,
   LoadingState,
   PageHeader,
   Screen,
-  SectionTitle,
 } from "@/src/components/ui/Primitives";
 import { palette, typefaces, typography } from "@/src/constants/design";
 import { estimateMoneyMap } from "@/src/services/currency";
@@ -202,21 +201,29 @@ export function MembersScreen() {
         )}
       </GlassCard>
 
-      <SectionTitle
-        title="Invite friends"
-        subtitle="Shared expenses work best when everyone is easy to find."
-      />
-      <GlassCard tone="peach">
-        <Text style={styles.inviteTitle}>Bring someone into your circle</Text>
-        <Text style={styles.inviteBody}>
-          Add a person once, then use them across debts, events, and payments
-          without repeating details.
-        </Text>
-        <Button
-          title="Invite member"
-          onPress={() => router.push("/member/form")}
-        />
-      </GlassCard>
+      <View style={styles.inviteCard}>
+        <View style={styles.inviteRow}>
+          <Ionicons name="person-add" size={18} color={palette.primary} />
+          <View style={styles.inviteCopy}>
+            <Text style={styles.inviteTitle}>Invite friends</Text>
+            <Text style={styles.inviteBody}>
+              Share your invite link or send an invite.
+            </Text>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Invite"
+            onPress={() => router.push("/member/form")}
+            style={({ pressed }) => [
+              styles.inviteButton,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text style={styles.inviteButtonText}>Invite</Text>
+            <Ionicons name="link" size={14} color={palette.primary} />
+          </Pressable>
+        </View>
+      </View>
     </Screen>
   );
 }
@@ -309,16 +316,53 @@ const styles = StyleSheet.create({
   listColumn: {
     gap: 0,
   },
+  inviteCard: {
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.border,
+    backgroundColor: "rgba(244,245,255,0.98)",
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+  },
+  inviteRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  inviteCopy: {
+    flex: 1,
+    gap: 2,
+  },
   inviteTitle: {
     color: palette.textPrimary,
-    fontSize: typography.size.h3,
-    fontFamily: typefaces.displayMedium,
+    fontSize: typography.size.base,
+    fontFamily: typefaces.bodyStrong,
   },
   inviteBody: {
     color: palette.muted,
-    fontSize: typography.size.base,
-    lineHeight: typography.line.xl,
+    fontSize: typography.size.xs,
+    lineHeight: typography.line.sm,
     fontFamily: typefaces.body,
+  },
+  inviteButton: {
+    minHeight: 36,
+    borderRadius: 11,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.border,
+    backgroundColor: "rgba(255,255,255,0.98)",
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  inviteButtonText: {
+    color: palette.primary,
+    fontSize: typography.size.xs,
+    lineHeight: typography.line.sm,
+    fontFamily: typefaces.bodyStrong,
   },
   pressed: {
     opacity: 0.78,
