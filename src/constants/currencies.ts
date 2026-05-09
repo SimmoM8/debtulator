@@ -19,3 +19,11 @@ export const CURRENCY_SYMBOLS: Record<CurrencyCode, string> = {
   USD: '$',
   GBP: '£',
 };
+
+export const CURRENCY_SYMBOL_PLACEMENT: Record<CurrencyCode, 'prefix' | 'suffix'> = {
+  SEK: 'suffix',
+  AUD: 'prefix',
+  EUR: 'prefix',
+  USD: 'prefix',
+  GBP: 'prefix',
+};

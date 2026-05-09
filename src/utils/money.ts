@@ -1,4 +1,4 @@
-import { CURRENCY_SYMBOLS } from '@/src/constants/currencies';
+import { CURRENCY_SYMBOL_PLACEMENT, CURRENCY_SYMBOLS } from '@/src/constants/currencies';
 import type { CurrencyCode, MoneyMap } from '@/src/types/models';
 
 export function roundMoney(amount: number) {
@@ -7,10 +7,15 @@ export function roundMoney(amount: number) {
 
 export function formatMoney(amount: number, currency: CurrencyCode, options?: { signed?: boolean }) {
   const absolute = Math.abs(roundMoney(amount));
-  const formatted = `${CURRENCY_SYMBOLS[currency]}${absolute.toLocaleString(undefined, {
+  const value = absolute.toLocaleString(undefined, {
     minimumFractionDigits: absolute % 1 === 0 ? 0 : 2,
     maximumFractionDigits: 2,
-  })}`;
+  });
+  const symbol = CURRENCY_SYMBOLS[currency];
+  const formatted =
+    CURRENCY_SYMBOL_PLACEMENT[currency] === 'suffix'
+      ? `${value} ${symbol}`
+      : `${symbol}${value}`;
 
   if (!options?.signed || amount === 0) {
     return formatted;
