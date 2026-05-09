@@ -745,11 +745,11 @@ export function EventDetailScreen() {
             subtitle="Multiple tags split the amount evenly for analytics."
             rows={analytics.byTag
               .slice(0, 8)
-                .map((row) => ({
-                  label: row.tag,
-                  totals: row.totalsByCurrency,
-                  tone: "blue",
-                }))}
+              .map((row) => ({
+                label: row.tag,
+                totals: row.totalsByCurrency,
+                tone: "blue",
+              }))}
             settings={data.settings}
             currencyRates={data.currencyRates}
           />
