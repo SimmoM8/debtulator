@@ -20,7 +20,6 @@ import {
   SegmentedControl,
 } from "@/src/components/ui/Primitives";
 import { palette, spacing, typefaces } from "@/src/constants/design";
-import { paidVsUnpaidSummary } from "@/src/services/analytics";
 import { estimateMoneyMap } from "@/src/services/currency";
 import {
   calculatePersonalTotals,
@@ -91,9 +90,6 @@ export function DashboardScreen() {
     data.linkRequests.filter((item) => item.status === "pending").length +
     data.eventInvites.filter((item) => item.status === "pending").length +
     data.debtVerifications.filter((item) => item.status === "pending").length;
-  const settledCount =
-    paymentSummary.counts.paid + paymentSummary.counts.overpaid;
-  const progress = settledCount / Math.max(scopedEntries.length, 1);
   const netEstimatedInBase = estimateMoneyMap(
     totals.net,
     data.settings,
