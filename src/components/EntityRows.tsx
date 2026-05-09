@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
     borderColor: palette.borderIndigoSoft,
     borderRadius: 24,
     backgroundColor: palette.surfaceWarm,
-    ...shadows.soft,
+    ...shadows.card,
   },
   ledgerRow: {
     flexDirection: "row",
@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
     borderColor: palette.borderIndigoSoft,
     borderRadius: 24,
     backgroundColor: palette.surfaceWarm,
-    ...shadows.soft,
+    ...shadows.card,
   },
   rowPressed: {
     opacity: 0.82,

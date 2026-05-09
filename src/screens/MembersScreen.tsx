@@ -4,21 +4,26 @@ import React, { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
-  GlassCard,
-  ListRow,
-  SearchFilterBar,
-  SingleSelectFilterList,
-  StatCard,
+    GlassCard,
+    ListRow,
+    SearchFilterBar,
+    SingleSelectFilterList,
+    StatCard,
 } from "@/src/components/ui/Finance";
 import {
-  EmptyState,
-  FilterSheet,
-  IconButton,
-  LoadingState,
-  PageHeader,
-  Screen,
+    EmptyState,
+    FilterSheet,
+    IconButton,
+    LoadingState,
+    PageHeader,
+    Screen,
 } from "@/src/components/ui/Primitives";
-import { palette, typefaces, typography } from "@/src/constants/design";
+import {
+    palette,
+    shadows,
+    typefaces,
+    typography,
+} from "@/src/constants/design";
 import { estimateMoneyMap } from "@/src/services/currency";
 import { useAppData } from "@/src/state/AppDataProvider";
 import type { AppSettings, CurrencyRate, Member } from "@/src/types/models";
@@ -319,13 +324,11 @@ const styles = StyleSheet.create({
   inviteCard: {
     borderRadius: 20,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.border,
-    backgroundColor: "rgba(244,245,255,0.98)",
+    borderColor: palette.borderGlass,
+    backgroundColor: palette.surfaceGlassElevated,
     paddingHorizontal: 18,
     paddingVertical: 18,
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    elevation: 0,
+    ...shadows.card,
   },
   inviteRow: {
     flexDirection: "row",

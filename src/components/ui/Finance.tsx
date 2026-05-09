@@ -97,37 +97,44 @@ export function GlassCard({
   const toneStyle = toneStyles[tone];
 
   return (
-    <View
-      style={[
-        styles.card,
-        {
-          borderColor: toneStyle.border,
-          backgroundColor: palette.surfaceGlass,
-        },
-        allowOverflow && styles.cardOverflowVisible,
-        style,
-      ]}
-    >
-      {allowOverflow ? (
-        <View pointerEvents="none" style={styles.cardBlurClip}>
+    <View style={styles.cardLift}>
+      <View
+        style={[
+          styles.card,
+          {
+            borderColor: toneStyle.border,
+            backgroundColor: palette.surfaceGlassElevated,
+          },
+          allowOverflow && styles.cardOverflowVisible,
+          style,
+        ]}
+      >
+        {allowOverflow ? (
+          <View pointerEvents="none" style={styles.cardBlurClip}>
+            <BlurView
+              tint="light"
+              intensity={18}
+              experimentalBlurMethod="dimezisBlurView"
+              pointerEvents="none"
+              style={StyleSheet.absoluteFill}
+            />
+          </View>
+        ) : (
           <BlurView
             tint="light"
-            intensity={12}
+            intensity={18}
             experimentalBlurMethod="dimezisBlurView"
             pointerEvents="none"
             style={StyleSheet.absoluteFill}
           />
-        </View>
-      ) : (
-        <BlurView
-          tint="light"
-          intensity={12}
-          experimentalBlurMethod="dimezisBlurView"
+        )}
+        <View pointerEvents="none" style={styles.cardSheen} />
+        <View
           pointerEvents="none"
-          style={StyleSheet.absoluteFill}
+          style={[styles.cardGlow, { backgroundColor: toneStyle.chip }]}
         />
-      )}
-      {children}
+        {children}
+      </View>
     </View>
   );
 }
@@ -793,6 +800,11 @@ export function FloatingAddButton({ onPress }: { onPress: () => void }) {
 }
 
 const styles = StyleSheet.create({
+  cardLift: {
+    borderRadius: radii.xl,
+    overflow: "visible",
+    ...shadows.card,
+  },
   card: {
     position: "relative",
     overflow: "hidden",
@@ -800,7 +812,6 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     padding: spacing.md,
     gap: spacing.sm,
-    ...shadows.card,
   },
   cardOverflowVisible: {
     overflow: "visible",
@@ -809,6 +820,23 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     borderRadius: radii.xl,
     overflow: "hidden",
+  },
+  cardSheen: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: "54%",
+    backgroundColor: "rgba(255,255,255,0.2)",
+  },
+  cardGlow: {
+    position: "absolute",
+    width: 130,
+    height: 130,
+    borderRadius: radii.pill,
+    right: -36,
+    bottom: -56,
+    opacity: 0.22,
   },
   pill: {
     minHeight: 30,
@@ -934,12 +962,13 @@ const styles = StyleSheet.create({
   statCard: {
     flex: 1,
     minWidth: 100,
-    borderRadius: 18,
+    borderRadius: 20,
     borderWidth: StyleSheet.hairlineWidth,
-    backgroundColor: "rgba(255,255,255,0.72)",
-    padding: 10,
+    backgroundColor: palette.surfaceGlassElevated,
+    padding: 12,
     gap: 4,
     alignItems: "center",
+    ...shadows.card,
   },
   statCardCompact: {
     minWidth: 0,
@@ -1044,12 +1073,13 @@ const styles = StyleSheet.create({
   actionTile: {
     minWidth: 100,
     flex: 1,
-    borderRadius: 18,
+    borderRadius: 20,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderIndigoSoft,
+    borderColor: palette.borderGlass,
     backgroundColor: palette.surfaceGlassElevated,
-    padding: 10,
+    padding: 12,
     gap: 8,
+    ...shadows.card,
   },
   actionIcon: {
     width: 44,
@@ -1221,6 +1251,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderIndigoSoft,
     backgroundColor: palette.surfaceGlassElevated,
+    ...shadows.card,
   },
   settingsLead: {
     flex: 1,

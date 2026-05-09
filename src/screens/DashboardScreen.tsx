@@ -6,32 +6,33 @@ import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
 import { GlassCard, ListRow, StatCard } from "@/src/components/ui/Finance";
 import {
-  EmptyState,
-  IconButton,
-  LoadingState,
-  Screen,
-  SectionActionLink,
-  SectionTitle,
+    EmptyState,
+    IconButton,
+    LoadingState,
+    Screen,
+    SectionActionLink,
+    SectionTitle,
 } from "@/src/components/ui/Primitives";
 import {
-  palette,
-  spacing,
-  typefaces,
-  typography,
+    palette,
+    shadows,
+    spacing,
+    typefaces,
+    typography,
 } from "@/src/constants/design";
 import { estimateMoneyMap } from "@/src/services/currency";
 import {
-  calculatePersonalTotals,
-  entryDirectionText,
+    calculatePersonalTotals,
+    entryDirectionText,
 } from "@/src/services/ledger";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
 import type {
-  AppSettings,
-  CurrencyRate,
-  LedgerEntry,
-  Member,
-  SharedEventMember,
+    AppSettings,
+    CurrencyRate,
+    LedgerEntry,
+    Member,
+    SharedEventMember,
 } from "@/src/types/models";
 import { formatMoney } from "@/src/utils/money";
 
@@ -774,12 +775,13 @@ const styles = StyleSheet.create({
     minHeight: 78,
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderIndigoSoft,
-    backgroundColor: "rgba(255,255,255,0.9)",
+    borderColor: palette.borderGlass,
+    backgroundColor: palette.surfaceGlassElevated,
     alignItems: "center",
     justifyContent: "center",
     gap: 4,
     paddingHorizontal: 6,
+    ...shadows.card,
   },
   quickActionTilePressed: {
     opacity: 0.75,
