@@ -1,783 +1,331 @@
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 
-import { DebtRow } from "@/src/components/EntityRows";
-import { DebtulatorOrbitIllustration } from "@/src/components/illustrations/DebtulatorOrbitIllustration";
 import {
-    Button,
-    Card,
+    FilterChip,
+    GlassCard,
+    ListRow,
+    SearchBar,
+    StatCard,
+} from "@/src/components/ui/Finance";
+import {
     EmptyState,
-    FilterSheet,
-    FloatingActionButton,
-    IconButton,
     LoadingState,
     PageHeader,
     Screen,
-    SearchField,
     SectionTitle,
-    SelectChips,
-    TextField,
 } from "@/src/components/ui/Primitives";
-import { CURRENCIES } from "@/src/constants/currencies";
-import { palette, spacing, typefaces } from "@/src/constants/design";
-import { filterDebtEntries } from "@/src/services/filters";
+import { spacing } from "@/src/constants/design";
+import { entryDirectionText } from "@/src/services/ledger";
 import { useAppData } from "@/src/state/AppDataProvider";
-import type { DebtFilters } from "@/src/types/models";
+import type {
+    CurrencyCode,
+    LedgerEntry,
+    Member,
+    SharedEventMember,
+} from "@/src/types/models";
+import { formatMoney } from "@/src/utils/money";
 
-const defaultFilters: DebtFilters = {
-  query: "",
-  memberId: null,
-  eventId: null,
-  minAmount: "",
-  maxAmount: "",
-  currency: "all",
-  direction: "all",
-  status: "all",
-  verificationStatus: "all",
-  linkMode: "all",
-  visibility: "all",
-  tag: null,
-  kind: "all",
-  paymentStatus: "all",
-  dueMode: "all",
-  reminderMode: "all",
-  recurringMode: "all",
-  settlementRecordMode: "all",
-  attachmentMode: "all",
-  commentMode: "all",
-  suggestionMode: "all",
-  sort: "date_desc",
-};
+type DebtFilter = "all" | "you-owe" | "owed-to-you" | "due-soon" | "settled";
 
 export function DebtsScreen() {
   const data = useAppData();
-  const [filters, setFilters] = useState<DebtFilters>(defaultFilters);
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<DebtFilter>("all");
 
-  const entries = useMemo(
-    () =>
-      filterDebtEntries(
-        data.ledgerEntries,
+  const filteredEntries = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+
+    return data.ledgerEntries.filter((entry) => {
+      if (entry.status === "archived") {
+        return false;
+      }
+
+      const direction = entryDirectionText(
+        entry,
         data.members,
-        data.events,
-        filters,
         data.sharedEventMembers,
-        {
-          attachments: data.attachments,
-          comments: data.comments,
-          smartSuggestions: data.smartSuggestions,
-        },
-      ),
-    [
-      data.attachments,
-      data.comments,
-      data.events,
-      data.ledgerEntries,
-      data.members,
-      data.sharedEventMembers,
-      data.smartSuggestions,
-      filters,
-    ],
-  );
+      ).toLowerCase();
+      const eventName = entry.eventId
+        ? (data.events
+            .find((event) => event.id === entry.eventId)
+            ?.name.toLowerCase() ?? "")
+        : "";
+      const matchesQuery =
+        !normalized ||
+        entry.title.toLowerCase().includes(normalized) ||
+        (entry.notes ?? "").toLowerCase().includes(normalized) ||
+        direction.includes(normalized) ||
+        eventName.includes(normalized);
 
-  const memberOptions = useMemo(
-    () => [
-      { label: "All members", value: "all" },
-      ...data.members
-        .filter((member) => !member.archived)
-        .map((member) => ({ label: member.displayName, value: member.id })),
-    ],
-    [data.members],
-  );
+      if (!matchesQuery) {
+        return false;
+      }
 
-  const eventOptions = useMemo(
-    () => [
-      { label: "All events", value: "all" },
-      ...data.events
-        .filter((event) => !event.archived)
-        .map((event) => ({ label: event.name, value: event.id })),
-    ],
-    [data.events],
-  );
+      const isSettled =
+        entry.remainingAmount <= 0.005 ||
+        entry.status === "settled" ||
+        entry.paymentStatus === "paid";
+      const isDueSoon = Boolean(entry.dueDate && entry.remainingAmount > 0.005);
+      const isYouOwe = entry.fromId === "me";
+      const isOwedToYou = entry.toId === "me";
 
-  const tagOptions = useMemo(
-    () => [
-      { label: "All tags", value: "all" },
-      ...data.tags.map((tag) => ({ label: tag.name, value: tag.name })),
-    ],
-    [data.tags],
+      switch (filter) {
+        case "you-owe":
+          return isYouOwe && !isSettled;
+        case "owed-to-you":
+          return isOwedToYou && !isSettled;
+        case "due-soon":
+          return isDueSoon && !isSettled;
+        case "settled":
+          return isSettled;
+        default:
+          return true;
+      }
+    });
+  }, [
+    data.events,
+    data.ledgerEntries,
+    data.members,
+    data.sharedEventMembers,
+    filter,
+    query,
+  ]);
+
+  const youOwe = filteredEntries.filter(
+    (entry) => entry.fromId === "me" && entry.remainingAmount > 0.005,
   );
+  const owedToYou = filteredEntries.filter(
+    (entry) => entry.toId === "me" && entry.remainingAmount > 0.005,
+  );
+  const settled = filteredEntries.filter(
+    (entry) =>
+      entry.remainingAmount <= 0.005 ||
+      entry.status === "settled" ||
+      entry.paymentStatus === "paid",
+  );
+  const dueSoonCount = filteredEntries.filter(
+    (entry) => entry.dueDate && entry.remainingAmount > 0.005,
+  ).length;
 
   if (data.loading) {
     return <LoadingState />;
   }
 
-  const today = new Date().toISOString().slice(0, 10);
-  const openCount = data.ledgerEntries.filter(
-    (entry) => entry.remainingAmount > 0.005 && entry.status !== "archived",
-  ).length;
-  const dueSoonCount = data.ledgerEntries.filter(
-    (entry) =>
-      entry.dueDate && entry.dueDate >= today && entry.remainingAmount > 0.005,
-  ).length;
-  const sharedCount = data.ledgerEntries.filter(
-    (entry) =>
-      entry.visibility === "shared_event" ||
-      entry.visibility === "shared_with_involved_member",
-  ).length;
-  const activeFilterCount = countActiveDebtFilters(filters);
-
-  function applyQuickFilter(mode: "all" | "owe" | "owed" | "shared" | "due") {
-    const query = filters.query;
-    if (mode === "all") {
-      setFilters({ ...defaultFilters, query });
-      return;
-    }
-    setFilters({
-      ...defaultFilters,
-      query,
-      direction:
-        mode === "owe" ? "i_owe_them" : mode === "owed" ? "they_owe_me" : "all",
-      visibility: mode === "shared" ? "shared_event" : "all",
-      dueMode: mode === "due" ? "due_soon" : "all",
-    });
-  }
-
-  const quickMode =
-    filters.direction === "i_owe_them"
-      ? "owe"
-      : filters.direction === "they_owe_me"
-        ? "owed"
-        : filters.visibility === "shared_event"
-          ? "shared"
-          : filters.dueMode === "due_soon"
-            ? "due"
-            : "all";
-  const openEntries = entries.filter(
-    (entry) => entry.remainingAmount > 0.005 && entry.status !== "archived",
-  );
-  const youOweEntries = openEntries.filter((entry) => entry.fromId === "me");
-  const owedToYouEntries = openEntries.filter((entry) => entry.toId === "me");
-  const settledEntries = entries.filter(
-    (entry) => entry.remainingAmount <= 0.005 || entry.status === "settled",
-  );
-
   return (
-    <Screen
-      floatingAction={
-        <FloatingActionButton
-          icon="add"
-          label="Add debt"
-          onPress={() => router.push("/debt/form")}
-        />
-      }
-    >
+    <Screen>
       <PageHeader
-        eyebrow="Ledger"
         title="Debts"
-        subtitle="Find what is open, settled, shared, overdue, or waiting for review."
+        subtitle="See what you owe, what is owed to you, what is due soon, and what is already settled."
+        showBackButton={false}
       />
 
-      <Card tone="lavender" style={styles.heroCard}>
-        <View style={styles.heroGlow} />
-        <View style={styles.heroTop}>
-          <View style={styles.heroCopy}>
-            <Text style={styles.heroLabel}>Clear ledger</Text>
-            <Text style={styles.heroTitle}>
-              See what you owe, what is owed to you, and what is already
-              settled.
-            </Text>
-            <Text style={styles.heroBody}>
-              The ledger groups the most important states first, so you spend
-              less time scanning and more time deciding.
-            </Text>
-          </View>
-          <View style={styles.heroArtWrap}>
-            <DebtulatorOrbitIllustration width={138} height={106} compact />
-          </View>
-        </View>
-      </Card>
-
-      <View style={styles.searchBlock}>
-        <View style={styles.searchLine}>
-          <View style={styles.searchFlex}>
-            <SearchField
-              value={filters.query}
-              onChangeText={(query) =>
-                setFilters((current) => ({ ...current, query }))
-              }
-              placeholder="Search debts, people, notes"
+      <GlassCard tone="lavender">
+        <SearchBar
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Search debts"
+        />
+        <View style={styles.chipRow}>
+          {FILTERS.map((item) => (
+            <FilterChip
+              key={item.value}
+              label={item.label}
+              active={filter === item.value}
+              onPress={() => setFilter(item.value)}
             />
-          </View>
-          <IconButton
-            icon="options-outline"
-            label="Open filters"
-            onPress={() => setFiltersOpen(true)}
-          />
+          ))}
         </View>
-        <View style={styles.quickFilters}>
-          <QuickFilter
-            label="All"
-            active={quickMode === "all"}
-            onPress={() => applyQuickFilter("all")}
+        <View style={styles.statsRow}>
+          <StatCard
+            label="Open"
+            value={String(youOwe.length + owedToYou.length)}
+            subtitle="Balances that still need action"
+            tone="indigo"
           />
-          <QuickFilter
-            label="You owe"
-            active={quickMode === "owe"}
-            onPress={() => applyQuickFilter("owe")}
-          />
-          <QuickFilter
-            label="Owed to you"
-            active={quickMode === "owed"}
-            onPress={() => applyQuickFilter("owed")}
-          />
-          <QuickFilter
-            label="Shared"
-            active={quickMode === "shared"}
-            onPress={() => applyQuickFilter("shared")}
-          />
-          <QuickFilter
+          <StatCard
             label="Due soon"
-            active={quickMode === "due"}
-            onPress={() => applyQuickFilter("due")}
+            value={String(dueSoonCount)}
+            subtitle="Deadlines coming up"
+            tone="amber"
+          />
+          <StatCard
+            label="Settled"
+            value={String(settled.length)}
+            subtitle="Closed out items"
+            tone="teal"
           />
         </View>
-      </View>
+      </GlassCard>
 
-      <Card style={styles.summaryCard}>
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryValue}>{openCount}</Text>
-          <Text style={styles.summaryLabel}>Open</Text>
-        </View>
-        <View style={styles.summaryDivider} />
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryValue}>{dueSoonCount}</Text>
-          <Text style={styles.summaryLabel}>Due soon</Text>
-        </View>
-        <View style={styles.summaryDivider} />
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryValue}>{sharedCount}</Text>
-          <Text style={styles.summaryLabel}>Shared</Text>
-        </View>
-      </Card>
-
-      <SectionTitle
+      <LedgerSection
         title="You owe"
-        subtitle={`${entries.length} shown${activeFilterCount ? ` · ${activeFilterCount} filters` : ""}`}
-        action={
-          activeFilterCount ? (
-            <Button
-              title="Clear"
-              variant="ghost"
-              onPress={() =>
-                setFilters({ ...defaultFilters, query: filters.query })
-              }
-            />
-          ) : undefined
-        }
+        subtitle="Things you still need to pay."
+        entries={youOwe}
+        members={data.members}
+        sharedEventMembers={data.sharedEventMembers}
       />
-      <Card>
-        {youOweEntries.length > 0 ? (
-          youOweEntries.map((entry) => (
-            <DebtRow
-              key={entry.id}
-              entry={entry}
-              members={data.members}
-              sharedEventMembers={data.sharedEventMembers}
-              event={
-                entry.eventId
-                  ? data.events.find((event) => event.id === entry.eventId)
-                  : undefined
-              }
-            />
-          ))
-        ) : (
-          <EmptyState
-            title="Nothing in this section"
-            body="Debts where you owe someone will appear here."
-            action={
-              <Button
-                title="Add debt"
-                icon="add"
-                onPress={() => router.push("/debt/form")}
-              />
-            }
-          />
-        )}
-      </Card>
-
-      <SectionTitle
+      <LedgerSection
         title="Owed to you"
-        subtitle="Balances others still owe you."
+        subtitle="Things other people still owe you."
+        entries={owedToYou}
+        members={data.members}
+        sharedEventMembers={data.sharedEventMembers}
       />
-      <Card>
-        {owedToYouEntries.length > 0 ? (
-          owedToYouEntries.map((entry) => (
-            <DebtRow
-              key={entry.id}
-              entry={entry}
-              members={data.members}
-              sharedEventMembers={data.sharedEventMembers}
-              event={
-                entry.eventId
-                  ? data.events.find((event) => event.id === entry.eventId)
-                  : undefined
-              }
-            />
-          ))
-        ) : (
-          <EmptyState
-            title="Nothing owed to you"
-            body="Open balances in your favour will appear here."
-          />
-        )}
-      </Card>
-
-      <SectionTitle
+      <LedgerSection
         title="Settled"
-        subtitle="Records that are fully paid or otherwise settled."
+        subtitle="Finished and paid items."
+        entries={settled}
+        members={data.members}
+        sharedEventMembers={data.sharedEventMembers}
       />
-      <Card>
-        {settledEntries.length > 0 ? (
-          settledEntries
-            .slice(0, 8)
-            .map((entry) => (
-              <DebtRow
-                key={entry.id}
-                entry={entry}
-                members={data.members}
-                sharedEventMembers={data.sharedEventMembers}
-                event={
-                  entry.eventId
-                    ? data.events.find((event) => event.id === entry.eventId)
-                    : undefined
-                }
-              />
-            ))
-        ) : (
+
+      {!filteredEntries.length ? (
+        <GlassCard tone="lavender">
           <EmptyState
-            title="No settled records yet"
-            body="Completed or fully paid balances will collect here."
+            title="No debts found"
+            body="Try a different filter or add a new debt from the center add button."
           />
-        )}
-      </Card>
-
-      <FilterSheet
-        visible={filtersOpen}
-        title="Filter debts"
-        subtitle="Advanced filters stay here so the ledger stays readable."
-        onClose={() => setFiltersOpen(false)}
-      >
-        <View style={styles.twoColumn}>
-          <TextField
-            label="Min amount"
-            value={filters.minAmount}
-            onChangeText={(minAmount) =>
-              setFilters((current) => ({ ...current, minAmount }))
-            }
-            keyboardType="numeric"
-            style={styles.flexField}
-          />
-          <TextField
-            label="Max amount"
-            value={filters.maxAmount}
-            onChangeText={(maxAmount) =>
-              setFilters((current) => ({ ...current, maxAmount }))
-            }
-            keyboardType="numeric"
-            style={styles.flexField}
-          />
-        </View>
-
-        <SelectChips
-          label="Member"
-          value={filters.memberId ?? "all"}
-          options={memberOptions}
-          onChange={(value) =>
-            setFilters((current) => ({
-              ...current,
-              memberId: value === "all" ? null : value,
-            }))
-          }
-        />
-        <SelectChips
-          label="Event"
-          value={filters.eventId ?? "all"}
-          options={eventOptions}
-          onChange={(value) =>
-            setFilters((current) => ({
-              ...current,
-              eventId: value === "all" ? null : value,
-            }))
-          }
-        />
-        <SelectChips
-          label="Currency"
-          value={filters.currency}
-          options={[
-            { label: "All", value: "all" },
-            ...CURRENCIES.map((currency) => ({
-              label: currency,
-              value: currency,
-            })),
-          ]}
-          onChange={(currency) =>
-            setFilters((current) => ({ ...current, currency }))
-          }
-        />
-        <SelectChips
-          label="Direction"
-          value={filters.direction}
-          options={[
-            { label: "All", value: "all" },
-            { label: "They owe me", value: "they_owe_me" },
-            { label: "I owe them", value: "i_owe_them" },
-          ]}
-          onChange={(direction) =>
-            setFilters((current) => ({ ...current, direction }))
-          }
-        />
-        <SelectChips
-          label="Type"
-          value={filters.kind}
-          options={[
-            { label: "All", value: "all" },
-            { label: "Simple debt", value: "simple_debt" },
-            { label: "Generated split", value: "expense_obligation" },
-            { label: "Event debt", value: "event_direct_debt" },
-          ]}
-          onChange={(kind) => setFilters((current) => ({ ...current, kind }))}
-        />
-        <SelectChips
-          label="Status"
-          value={filters.status}
-          options={[
-            { label: "All", value: "all" },
-            { label: "Active", value: "active" },
-            { label: "Settled", value: "settled" },
-            { label: "Archived", value: "archived" },
-          ]}
-          onChange={(status) =>
-            setFilters((current) => ({ ...current, status }))
-          }
-        />
-        <SelectChips
-          label="Payment state"
-          value={filters.paymentStatus}
-          options={[
-            { label: "All", value: "all" },
-            { label: "Unpaid", value: "unpaid" },
-            { label: "Partially paid", value: "partially_paid" },
-            { label: "Paid", value: "paid" },
-            { label: "Overpaid", value: "overpaid" },
-          ]}
-          onChange={(paymentStatus) =>
-            setFilters((current) => ({ ...current, paymentStatus }))
-          }
-        />
-        <SelectChips
-          label="Due date"
-          value={filters.dueMode}
-          options={[
-            { label: "All", value: "all" },
-            { label: "Due soon", value: "due_soon" },
-            { label: "Overdue", value: "overdue" },
-            { label: "No due date", value: "no_due_date" },
-          ]}
-          onChange={(dueMode) =>
-            setFilters((current) => ({ ...current, dueMode }))
-          }
-        />
-        <SelectChips
-          label="Verification"
-          value={filters.verificationStatus}
-          options={[
-            { label: "All", value: "all" },
-            { label: "Local", value: "local_only" },
-            { label: "Pending", value: "pending" },
-            { label: "Partially verified", value: "partially_verified" },
-            { label: "Verified", value: "verified" },
-            { label: "Rejected", value: "rejected" },
-            { label: "Disputed", value: "disputed" },
-            { label: "Resolved", value: "resolved" },
-            { label: "Cancelled", value: "cancelled" },
-          ]}
-          onChange={(verificationStatus) =>
-            setFilters((current) => ({ ...current, verificationStatus }))
-          }
-        />
-        <SelectChips
-          label="Member link"
-          value={filters.linkMode}
-          options={[
-            { label: "All", value: "all" },
-            { label: "Linked", value: "linked" },
-            { label: "Unlinked", value: "unlinked" },
-          ]}
-          onChange={(linkMode) =>
-            setFilters((current) => ({ ...current, linkMode }))
-          }
-        />
-        <SelectChips
-          label="Visibility"
-          value={filters.visibility}
-          options={[
-            { label: "All", value: "all" },
-            { label: "Private", value: "private" },
-            { label: "Shared", value: "shared_with_involved_member" },
-            { label: "Shared event", value: "shared_event" },
-            { label: "Event later", value: "future_event_shared" },
-          ]}
-          onChange={(visibility) =>
-            setFilters((current) => ({ ...current, visibility }))
-          }
-        />
-        <SelectChips
-          label="Tags"
-          value={filters.tag ?? "all"}
-          options={tagOptions}
-          onChange={(value) =>
-            setFilters((current) => ({
-              ...current,
-              tag: value === "all" ? null : value,
-            }))
-          }
-        />
-        <SelectChips
-          label="Attachments"
-          value={filters.attachmentMode}
-          options={[
-            { label: "All", value: "all" },
-            { label: "Has attachment", value: "has_attachment" },
-            { label: "Receipt", value: "has_receipt" },
-            { label: "Proof", value: "has_proof" },
-            { label: "None", value: "none" },
-          ]}
-          onChange={(attachmentMode) =>
-            setFilters((current) => ({ ...current, attachmentMode }))
-          }
-        />
-        <SelectChips
-          label="Comments"
-          value={filters.commentMode}
-          options={[
-            { label: "All", value: "all" },
-            { label: "Has comments", value: "has_comments" },
-            { label: "None", value: "none" },
-          ]}
-          onChange={(commentMode) =>
-            setFilters((current) => ({ ...current, commentMode }))
-          }
-        />
-        <SelectChips
-          label="Smart suggestion"
-          value={filters.suggestionMode}
-          options={[
-            { label: "All", value: "all" },
-            { label: "Has suggestion", value: "has_suggestion" },
-          ]}
-          onChange={(suggestionMode) =>
-            setFilters((current) => ({ ...current, suggestionMode }))
-          }
-        />
-        <SelectChips
-          label="Sort"
-          value={filters.sort}
-          options={[
-            { label: "Newest", value: "date_desc" },
-            { label: "Oldest", value: "date_asc" },
-            { label: "High amount", value: "amount_desc" },
-            { label: "Low amount", value: "amount_asc" },
-            { label: "Title", value: "name_asc" },
-          ]}
-          onChange={(sort) => setFilters((current) => ({ ...current, sort }))}
-        />
-        <View style={styles.sheetActions}>
-          <Button
-            title="Reset filters"
-            variant="secondary"
-            onPress={() =>
-              setFilters({ ...defaultFilters, query: filters.query })
-            }
-          />
-          <Button title="Show results" onPress={() => setFiltersOpen(false)} />
-        </View>
-      </FilterSheet>
+        </GlassCard>
+      ) : null}
     </Screen>
   );
 }
 
-function QuickFilter({
-  label,
-  active,
-  onPress,
+function LedgerSection({
+  title,
+  subtitle,
+  entries,
+  members,
+  sharedEventMembers,
 }: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
+  title: string;
+  subtitle: string;
+  entries: LedgerEntry[];
+  members: Member[];
+  sharedEventMembers: SharedEventMember[];
 }) {
+  if (!entries.length) {
+    return null;
+  }
+
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.quickFilter,
-        active && styles.quickFilterActive,
-        pressed && styles.quickFilterPressed,
-      ]}
-    >
-      <Text
-        style={[styles.quickFilterText, active && styles.quickFilterTextActive]}
+    <>
+      <SectionTitle title={title} subtitle={subtitle} />
+      <GlassCard
+        tone={
+          title === "You owe"
+            ? "coral"
+            : title === "Settled"
+              ? "teal"
+              : "lavender"
+        }
       >
-        {label}
-      </Text>
-    </Pressable>
+        <View style={styles.listColumn}>
+          {entries.map((entry) => (
+            <ListRow
+              key={entry.id}
+              title={entry.title}
+              subtitle={entryDirectionText(entry, members, sharedEventMembers)}
+              amount={formatMoney(
+                entry.remainingAmount <= 0.005
+                  ? entry.originalAmount
+                  : entry.remainingAmount,
+                entry.currency as CurrencyCode,
+              )}
+              status={
+                entry.remainingAmount <= 0.005
+                  ? "Settled"
+                  : entry.dueDate
+                    ? "Due soon"
+                    : entry.toId === "me"
+                      ? "Owed to you"
+                      : "You owe"
+              }
+              statusTone={
+                entry.remainingAmount <= 0.005
+                  ? "teal"
+                  : entry.toId === "me"
+                    ? "teal"
+                    : entry.dueDate
+                      ? "amber"
+                      : "coral"
+              }
+              meta={
+                entry.dueDate
+                  ? `Due ${entry.dueDate}`
+                  : entry.eventId
+                    ? "Shared event"
+                    : "Standalone"
+              }
+              icon={entry.eventId ? "people-outline" : "wallet-outline"}
+              avatars={participantLabels(entry, members, sharedEventMembers)}
+              onPress={() => openEntry(entry)}
+            />
+          ))}
+        </View>
+      </GlassCard>
+    </>
   );
 }
 
-function countActiveDebtFilters(filters: DebtFilters) {
-  return Object.entries(filters).filter(([key, value]) => {
-    const defaultValue = defaultFilters[key as keyof DebtFilters];
-    if (key === "query") {
-      return false;
-    }
-    return value !== defaultValue;
-  }).length;
+function participantLabels(
+  entry: Pick<LedgerEntry, "fromId" | "toId">,
+  members: Member[],
+  sharedEventMembers: SharedEventMember[],
+) {
+  return [entry.fromId, entry.toId]
+    .filter((participantId) => participantId !== "me")
+    .map((participantId) => {
+      const sharedMember = sharedEventMembers.find(
+        (member) => member.id === participantId,
+      );
+      if (sharedMember) {
+        return sharedMember.alias || sharedMember.displayName;
+      }
+      return (
+        members.find((member) => member.id === participantId)?.displayName ??
+        "You"
+      );
+    });
 }
 
+function openEntry(
+  entry: Pick<LedgerEntry, "kind" | "sourceId" | "expenseId" | "eventId">,
+) {
+  if (entry.kind === "simple_debt") {
+    router.push({ pathname: "/debt/[id]", params: { id: entry.sourceId } });
+    return;
+  }
+  if (entry.kind === "event_direct_debt" && entry.eventId) {
+    router.push({ pathname: "/event/[id]", params: { id: entry.eventId } });
+    return;
+  }
+  router.push({
+    pathname: "/expense/[id]",
+    params: { id: entry.expenseId ?? entry.sourceId },
+  });
+}
+
+const FILTERS: { label: string; value: DebtFilter }[] = [
+  { label: "All", value: "all" },
+  { label: "You owe", value: "you-owe" },
+  { label: "Owed to you", value: "owed-to-you" },
+  { label: "Due soon", value: "due-soon" },
+  { label: "Settled", value: "settled" },
+];
+
 const styles = StyleSheet.create({
-  heroCard: {
-    overflow: "hidden",
-  },
-  heroGlow: {
-    position: "absolute",
-    top: -24,
-    right: -10,
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: "rgba(221,214,254,0.24)",
-  },
-  heroTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: spacing.lg,
-    flexWrap: "wrap",
-  },
-  heroCopy: {
-    flex: 1,
-    minWidth: 220,
-    gap: spacing.sm,
-  },
-  heroLabel: {
-    color: palette.muted,
-    fontSize: 12,
-    fontFamily: typefaces.bodyStrong,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-  },
-  heroTitle: {
-    color: palette.ink,
-    fontSize: 24,
-    lineHeight: 32,
-    fontFamily: typefaces.displayMedium,
-  },
-  heroBody: {
-    color: palette.muted,
-    fontSize: 14,
-    lineHeight: 21,
-    fontFamily: typefaces.body,
-    maxWidth: 360,
-  },
-  heroArtWrap: {
-    width: 150,
-    height: 114,
-    borderRadius: 24,
-    backgroundColor: "rgba(255,255,255,0.4)",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderGlass,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  searchBlock: {
-    gap: spacing.md,
-  },
-  searchLine: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  searchFlex: {
-    flex: 1,
-  },
-  quickFilters: {
+  chipRow: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.sm,
   },
-  quickFilter: {
-    minHeight: 36,
-    borderRadius: 999,
-    paddingHorizontal: spacing.md,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: palette.surfaceGlassElevated,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderIndigoSoft,
+  statsRow: {
+    gap: spacing.sm,
   },
-  quickFilterActive: {
-    backgroundColor: palette.brand,
-    borderColor: palette.brand,
-  },
-  quickFilterPressed: {
-    opacity: 0.82,
-  },
-  quickFilterText: {
-    color: palette.muted,
-    fontSize: 13,
-    fontFamily: typefaces.bodyStrong,
-  },
-  quickFilterTextActive: {
-    color: palette.surface,
-  },
-  summaryCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: spacing.lg,
-  },
-  summaryItem: {
-    flex: 1,
-    alignItems: "center",
-    gap: 2,
-  },
-  summaryValue: {
-    color: palette.ink,
-    fontSize: 22,
-    fontFamily: typefaces.bodyHeavy,
-  },
-  summaryLabel: {
-    color: palette.muted,
-    fontSize: 12,
-    fontFamily: typefaces.bodyStrong,
-  },
-  summaryDivider: {
-    width: StyleSheet.hairlineWidth,
-    height: 30,
-    backgroundColor: palette.line,
-  },
-  twoColumn: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.md,
-  },
-  flexField: {
-    flex: 1,
-    minWidth: 180,
-  },
-  sheetActions: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+  listColumn: {
     gap: spacing.sm,
   },
 });

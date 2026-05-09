@@ -13,7 +13,10 @@ Debtulator is a local-first debt, shared expense, event ledger, payment, settlem
 
 ## Setup
 
+Use Node 20.19.4 or newer. Expo SDK 54 currently resolves Metro 0.83, which uses modern Array helpers such as `toReversed` that are not available in Node 18.
+
 ```bash
+nvm use
 npm install
 npm run start
 ```

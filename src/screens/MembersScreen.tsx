@@ -2,424 +2,376 @@ import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { MemberRow } from "@/src/components/EntityRows";
-import { DebtulatorOrbitIllustration } from "@/src/components/illustrations/DebtulatorOrbitIllustration";
+import {
+    GlassCard,
+    SearchBar,
+    StatCard,
+    StatusPill,
+} from "@/src/components/ui/Finance";
 import {
     Button,
-    Card,
     EmptyState,
-    FilterSheet,
-    FloatingActionButton,
     IconButton,
     LoadingState,
     PageHeader,
     Screen,
-    SearchField,
     SectionTitle,
-    SelectChips,
 } from "@/src/components/ui/Primitives";
 import { palette, spacing, typefaces } from "@/src/constants/design";
-import { filterMembers } from "@/src/services/filters";
 import { useAppData } from "@/src/state/AppDataProvider";
-import type { MemberFilters } from "@/src/types/models";
+import type { Member } from "@/src/types/models";
+import { formatMoney } from "@/src/utils/money";
 
-const defaultFilters: MemberFilters = {
-  query: "",
-  tag: null,
-  balanceMode: "all",
-  archivedMode: "active",
-  sort: "name_asc",
-};
+type MemberFilter = "all" | "linked" | "shared" | "owed-to-you" | "you-owe";
 
 export function MembersScreen() {
   const data = useAppData();
-  const [filters, setFilters] = useState<MemberFilters>(defaultFilters);
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<MemberFilter>("all");
 
-  const tagOptions = useMemo(
-    () => [
-      { label: "All tags", value: "all" },
-      ...data.tags.map((tag) => ({ label: tag.name, value: tag.name })),
-    ],
-    [data.tags],
-  );
-  const members = useMemo(
-    () => filterMembers(data.members, data.memberBalances, filters),
-    [data.memberBalances, data.members, filters],
-  );
+  const members = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+
+    return data.members.filter((member) => {
+      if (member.archived) {
+        return false;
+      }
+
+      const balance = data.memberBalances[member.id] ?? {};
+      const values = Object.values(balance);
+      const hasPositive = values.some((value) => (value ?? 0) > 0.005);
+      const hasNegative = values.some((value) => (value ?? 0) < -0.005);
+      const hasSharedActivity =
+        data.debts.some(
+          (debt) => debt.memberId === member.id && debt.eventId,
+        ) ||
+        data.events.some(
+          (event) =>
+            !event.archived &&
+            event.name.toLowerCase().includes(member.displayName.toLowerCase()),
+        );
+      const matchesQuery =
+        !normalized ||
+        member.displayName.toLowerCase().includes(normalized) ||
+        (member.email ?? "").toLowerCase().includes(normalized) ||
+        (member.phone ?? "").toLowerCase().includes(normalized);
+
+      if (!matchesQuery) {
+        return false;
+      }
+
+      switch (filter) {
+        case "linked":
+          return member.linkStatus === "linked";
+        case "shared":
+          return hasSharedActivity;
+        case "owed-to-you":
+          return hasPositive;
+        case "you-owe":
+          return hasNegative;
+        default:
+          return true;
+      }
+    });
+  }, [
+    data.debts,
+    data.events,
+    data.memberBalances,
+    data.members,
+    filter,
+    query,
+  ]);
+
+  const linkedCount = data.members.filter(
+    (member) => member.linkStatus === "linked" && !member.archived,
+  ).length;
+  const owingYouCount = members.filter((member) =>
+    Object.values(data.memberBalances[member.id] ?? {}).some(
+      (value) => (value ?? 0) > 0.005,
+    ),
+  ).length;
+  const youOweCount = members.filter((member) =>
+    Object.values(data.memberBalances[member.id] ?? {}).some(
+      (value) => (value ?? 0) < -0.005,
+    ),
+  ).length;
 
   if (data.loading) {
     return <LoadingState />;
   }
 
-  const balanceCount = data.members.filter(
-    (member) =>
-      Math.abs(
-        Object.values(data.memberBalances[member.id] ?? {}).reduce(
-          (sum, amount) => sum + Math.abs(amount ?? 0),
-          0,
-        ),
-      ) > 0.005,
-  ).length;
-  const linkedCount = data.members.filter(
-    (member) => member.linkStatus === "linked",
-  ).length;
-  const activeFilterCount = countActiveMemberFilters(filters);
-
-  function applyQuickFilter(mode: "active" | "balance" | "archived") {
-    setFilters((current) => ({
-      ...current,
-      balanceMode: mode === "balance" ? "has_balance" : "all",
-      archivedMode: mode === "archived" ? "archived" : "active",
-    }));
-  }
-
   return (
-    <Screen
-      floatingAction={
-        <FloatingActionButton
-          icon="person-add"
-          label="Add person"
-          onPress={() => router.push("/member/form")}
-        />
-      }
-    >
+    <Screen>
       <PageHeader
-        eyebrow="People"
-        title="People"
-        subtitle="See who you have balances with, what needs attention, and who is safely linked."
-      />
-
-      <Card tone="lavender" style={styles.heroCard}>
-        <View style={styles.heroGlow} />
-        <View style={styles.heroTop}>
-          <View style={styles.heroCopy}>
-            <Text style={styles.heroLabel}>Shared with you</Text>
-            <Text style={styles.heroTitle}>
-              Keep everyone you split money with in one calm, readable list.
-            </Text>
-            <Text style={styles.heroBody}>
-              Balances stay visible at a glance, with linking status and
-              relationship context kept lightweight instead of noisy.
-            </Text>
-          </View>
-          <View style={styles.heroArtWrap}>
-            <DebtulatorOrbitIllustration width={136} height={104} compact />
-          </View>
-        </View>
-      </Card>
-
-      <View style={styles.searchBlock}>
-        <View style={styles.searchLine}>
-          <View style={styles.searchFlex}>
-            <SearchField
-              value={filters.query}
-              onChangeText={(query) =>
-                setFilters((current) => ({ ...current, query }))
-              }
-              placeholder="Search people"
-            />
-          </View>
-          <IconButton
-            icon="options-outline"
-            label="Open filters"
-            onPress={() => setFiltersOpen(true)}
-          />
-        </View>
-        <View style={styles.quickFilters}>
-          <QuickFilter
-            label="Active"
-            active={
-              filters.archivedMode === "active" && filters.balanceMode === "all"
-            }
-            onPress={() => applyQuickFilter("active")}
-          />
-          <QuickFilter
-            label="Has balance"
-            active={filters.balanceMode === "has_balance"}
-            onPress={() => applyQuickFilter("balance")}
-          />
-          <QuickFilter
-            label="Archived"
-            active={filters.archivedMode === "archived"}
-            onPress={() => applyQuickFilter("archived")}
-          />
-        </View>
-      </View>
-
-      <Card style={styles.summaryCard}>
-        <View>
-          <Text style={styles.summaryValue}>{members.length}</Text>
-          <Text style={styles.summaryLabel}>Shown</Text>
-        </View>
-        <View>
-          <Text style={styles.summaryValue}>{balanceCount}</Text>
-          <Text style={styles.summaryLabel}>With balances</Text>
-        </View>
-        <View>
-          <Text style={styles.summaryValue}>{linkedCount}</Text>
-          <Text style={styles.summaryLabel}>Linked</Text>
-        </View>
-      </Card>
-
-      <SectionTitle
-        title="People balances"
-        subtitle="Native currency balances stay separate."
+        title="Members"
+        subtitle="People, balances, and who’s already linked."
+        showBackButton={false}
         action={
-          activeFilterCount ? (
-            <Button
-              title="Clear"
-              variant="ghost"
-              onPress={() =>
-                setFilters({ ...defaultFilters, query: filters.query })
-              }
-            />
-          ) : undefined
+          <IconButton
+            icon="add"
+            label="Add member"
+            onPress={() => router.push("/member/form")}
+          />
         }
       />
-      <Card>
-        {members.length > 0 ? (
-          members.map((member) => (
-            <MemberRow
-              key={member.id}
-              member={member}
-              balance={data.memberBalances[member.id] ?? {}}
-              settings={data.settings}
-              currencyRates={data.currencyRates}
-            />
-          ))
+
+      <GlassCard tone="lavender">
+        <SearchBar
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Search members"
+        />
+        <View style={styles.chipRow}>
+          {FILTERS.map((item) => (
+            <Pressable
+              key={item.value}
+              onPress={() => setFilter(item.value)}
+              style={[styles.chip, filter === item.value && styles.chipActive]}
+            >
+              <Text
+                style={[
+                  styles.chipText,
+                  filter === item.value && styles.chipTextActive,
+                ]}
+              >
+                {item.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+        <View style={styles.statsRow}>
+          <StatCard
+            label="Linked"
+            value={String(linkedCount)}
+            subtitle="Ready for shared sync"
+            tone="indigo"
+          />
+          <StatCard
+            label="Owes you"
+            value={String(owingYouCount)}
+            subtitle="People who should pay you"
+            tone="teal"
+          />
+          <StatCard
+            label="You owe"
+            value={String(youOweCount)}
+            subtitle="People you still owe"
+            tone="coral"
+          />
+        </View>
+      </GlassCard>
+
+      <SectionTitle
+        title="People and balances"
+        subtitle="Calm summaries instead of noisy contact records."
+      />
+      <GlassCard tone="lavender">
+        {members.length ? (
+          <View style={styles.listColumn}>
+            {members.map((member) => (
+              <MemberRow
+                key={member.id}
+                member={member}
+                balance={data.memberBalances[member.id] ?? {}}
+              />
+            ))}
+          </View>
         ) : (
           <EmptyState
-            title="No people found"
-            body="Try another filter or add someone you share expenses with."
-            action={
-              <Button
-                title="Add person"
-                icon="person-add"
-                onPress={() => router.push("/member/form")}
-              />
-            }
+            title="No members found"
+            body="Try a different filter or invite someone new."
           />
         )}
-      </Card>
+      </GlassCard>
 
-      <FilterSheet
-        visible={filtersOpen}
-        title="Filter people"
-        subtitle="Keep the people list focused while preserving advanced filters."
-        onClose={() => setFiltersOpen(false)}
-      >
-        <View style={styles.filterGrid}>
-          <SelectChips
-            label="Tags"
-            value={filters.tag ?? "all"}
-            options={tagOptions}
-            onChange={(value) =>
-              setFilters((current) => ({
-                ...current,
-                tag: value === "all" ? null : value,
-              }))
-            }
-          />
-          <SelectChips
-            label="Balance"
-            value={filters.balanceMode}
-            options={[
-              { label: "All", value: "all" },
-              { label: "Has balance", value: "has_balance" },
-            ]}
-            onChange={(balanceMode) =>
-              setFilters((current) => ({ ...current, balanceMode }))
-            }
-          />
-          <SelectChips
-            label="Archive"
-            value={filters.archivedMode}
-            options={[
-              { label: "Active", value: "active" },
-              { label: "Archived", value: "archived" },
-              { label: "All", value: "all" },
-            ]}
-            onChange={(archivedMode) =>
-              setFilters((current) => ({ ...current, archivedMode }))
-            }
-          />
-          <SelectChips
-            label="Sort"
-            value={filters.sort}
-            options={[
-              { label: "Name", value: "name_asc" },
-              { label: "Balance", value: "balance_desc" },
-            ]}
-            onChange={(sort) => setFilters((current) => ({ ...current, sort }))}
-          />
-        </View>
-        <View style={styles.sheetActions}>
-          <Button
-            title="Reset filters"
-            variant="secondary"
-            onPress={() =>
-              setFilters({ ...defaultFilters, query: filters.query })
-            }
-          />
-          <Button title="Show results" onPress={() => setFiltersOpen(false)} />
-        </View>
-      </FilterSheet>
+      <SectionTitle
+        title="Invite friends"
+        subtitle="Shared expenses work best when everyone is easy to find."
+      />
+      <GlassCard tone="peach">
+        <Text style={styles.inviteTitle}>Bring someone into your circle</Text>
+        <Text style={styles.inviteBody}>
+          Add a person once, then use them across debts, events, and payments
+          without repeating details.
+        </Text>
+        <Button
+          title="Invite member"
+          onPress={() => router.push("/member/form")}
+        />
+      </GlassCard>
     </Screen>
   );
 }
 
-function QuickFilter({
-  label,
-  active,
-  onPress,
+function MemberRow({
+  member,
+  balance,
 }: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
+  member: Member;
+  balance: Record<string, number>;
 }) {
+  const entries = Object.entries(balance).filter(
+    ([, value]) => Math.abs(value ?? 0) > 0.005,
+  );
+  const primary = entries[0];
+  const status = !primary
+    ? { label: "Settled", tone: "lavender" as const }
+    : primary[1] > 0
+      ? { label: "Owes you", tone: "teal" as const }
+      : { label: "You owe", tone: "coral" as const };
+
   return (
     <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.quickFilter,
-        active && styles.quickFilterActive,
-        pressed && styles.quickFilterPressed,
-      ]}
+      onPress={() =>
+        router.push({ pathname: "/member/[id]", params: { id: member.id } })
+      }
+      style={({ pressed }) => [styles.memberRow, pressed && styles.pressed]}
     >
-      <Text
-        style={[styles.quickFilterText, active && styles.quickFilterTextActive]}
-      >
-        {label}
-      </Text>
+      <View style={styles.memberIdentity}>
+        <View style={styles.memberAvatar}>
+          <Text style={styles.memberAvatarText}>
+            {member.displayName.slice(0, 1).toUpperCase()}
+          </Text>
+        </View>
+        <View style={styles.memberCopy}>
+          <Text style={styles.memberName}>{member.displayName}</Text>
+          <Text style={styles.memberMeta}>
+            {member.email || member.phone || "No contact details yet"}
+          </Text>
+          <View style={styles.memberBadges}>
+            {member.linkStatus === "linked" ? (
+              <StatusPill label="Linked" tone="indigo" />
+            ) : null}
+            {member.linkStatus !== "linked" ? (
+              <StatusPill label="Private" tone="lavender" />
+            ) : null}
+          </View>
+        </View>
+      </View>
+      <View style={styles.memberBalance}>
+        <StatusPill label={status.label} tone={status.tone} />
+        <Text style={styles.memberAmount}>
+          {primary
+            ? formatMoney(Math.abs(primary[1] ?? 0), primary[0] as never)
+            : "$0"}
+        </Text>
+      </View>
     </Pressable>
   );
 }
 
-function countActiveMemberFilters(filters: MemberFilters) {
-  return Object.entries(filters).filter(
-    ([key, value]) =>
-      key !== "query" && value !== defaultFilters[key as keyof MemberFilters],
-  ).length;
-}
+const FILTERS: { label: string; value: MemberFilter }[] = [
+  { label: "All", value: "all" },
+  { label: "Linked", value: "linked" },
+  { label: "Shared", value: "shared" },
+  { label: "Owes you", value: "owed-to-you" },
+  { label: "You owe", value: "you-owe" },
+];
 
 const styles = StyleSheet.create({
-  heroCard: {
-    overflow: "hidden",
-  },
-  heroGlow: {
-    position: "absolute",
-    top: -24,
-    right: -10,
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: "rgba(221,214,254,0.24)",
-  },
-  heroTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: spacing.lg,
-    flexWrap: "wrap",
-  },
-  heroCopy: {
-    flex: 1,
-    minWidth: 220,
-    gap: spacing.sm,
-  },
-  heroLabel: {
-    color: palette.muted,
-    fontSize: 12,
-    fontFamily: typefaces.bodyStrong,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-  },
-  heroTitle: {
-    color: palette.ink,
-    fontSize: 24,
-    lineHeight: 32,
-    fontFamily: typefaces.displayMedium,
-  },
-  heroBody: {
-    color: palette.muted,
-    fontSize: 14,
-    lineHeight: 21,
-    fontFamily: typefaces.body,
-    maxWidth: 360,
-  },
-  heroArtWrap: {
-    width: 148,
-    height: 112,
-    borderRadius: 24,
-    backgroundColor: "rgba(255,255,255,0.4)",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderGlass,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  searchBlock: {
-    gap: spacing.md,
-  },
-  searchLine: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  searchFlex: {
-    flex: 1,
-  },
-  quickFilters: {
+  chipRow: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.sm,
   },
-  quickFilter: {
+  chip: {
     minHeight: 36,
+    paddingHorizontal: 14,
     borderRadius: 999,
-    paddingHorizontal: spacing.md,
-    justifyContent: "center",
-    backgroundColor: palette.surfaceGlassElevated,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderIndigoSoft,
+    backgroundColor: palette.surfaceGlassStrong,
+    justifyContent: "center",
   },
-  quickFilterActive: {
-    backgroundColor: palette.brand,
-    borderColor: palette.brand,
+  chipActive: {
+    backgroundColor: palette.primary,
+    borderColor: palette.primary,
   },
-  quickFilterPressed: {
-    opacity: 0.82,
-  },
-  quickFilterText: {
+  chipText: {
     color: palette.muted,
     fontSize: 13,
     fontFamily: typefaces.bodyStrong,
   },
-  quickFilterTextActive: {
+  chipTextActive: {
     color: palette.surface,
   },
-  summaryCard: {
+  statsRow: {
+    gap: spacing.sm,
+  },
+  listColumn: {
+    gap: spacing.sm,
+  },
+  memberRow: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    paddingVertical: spacing.lg,
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.md,
+    minHeight: 72,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 14,
+    borderRadius: 22,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderIndigoSoft,
+    backgroundColor: palette.surfaceGlassElevated,
   },
-  summaryValue: {
-    color: palette.ink,
-    fontSize: 22,
-    fontFamily: typefaces.bodyHeavy,
-    textAlign: "center",
-  },
-  summaryLabel: {
-    color: palette.muted,
-    fontSize: 12,
-    fontFamily: typefaces.bodyStrong,
-    textAlign: "center",
-  },
-  filterGrid: {
+  memberIdentity: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.md,
   },
-  sheetActions: {
+  memberAvatar: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(253,186,155,0.22)",
+  },
+  memberAvatarText: {
+    color: palette.primaryDeep,
+    fontSize: 15,
+    fontFamily: typefaces.bodyHeavy,
+  },
+  memberCopy: {
+    flex: 1,
+    gap: 3,
+  },
+  memberName: {
+    color: palette.textPrimary,
+    fontSize: 15,
+    fontFamily: typefaces.bodyStrong,
+  },
+  memberMeta: {
+    color: palette.muted,
+    fontSize: 12,
+    fontFamily: typefaces.body,
+  },
+  memberBadges: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
+    gap: spacing.xs,
+  },
+  memberBalance: {
+    alignItems: "flex-end",
+    gap: 8,
+  },
+  memberAmount: {
+    color: palette.textPrimary,
+    fontSize: 15,
+    fontFamily: typefaces.bodyHeavy,
+  },
+  inviteTitle: {
+    color: palette.textPrimary,
+    fontSize: 20,
+    fontFamily: typefaces.displayMedium,
+  },
+  inviteBody: {
+    color: palette.muted,
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: typefaces.body,
+  },
+  pressed: {
+    opacity: 0.78,
   },
 });

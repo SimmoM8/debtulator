@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-import { BlurView } from "expo-blur";
 import React from "react";
 import {
     ActivityIndicator,
@@ -16,9 +15,19 @@ import {
     ViewStyle,
     useWindowDimensions,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+    SafeAreaView,
+    useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 import {
+    FilterChip,
+    FloatingAddButton,
+    GlassCard,
+    SearchBar,
+} from "@/src/components/ui/Finance";
+import {
+    gradients,
     palette,
     radii,
     shadows,
@@ -41,40 +50,60 @@ export function Screen({
   floatingAction?: React.ReactNode;
 }) {
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const bottomReserve = footer ? 144 : 112;
   const content = (
-    <View style={[styles.content, { maxWidth: width >= 900 ? 1100 : 760 }]}>
+    <View style={[styles.content, { maxWidth: width >= 960 ? 1100 : 760 }]}>
       {children}
     </View>
   );
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top"]}>
+    <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
+      <View style={styles.backdropCanvas} />
       <View style={styles.backdropLavender} />
       <View style={styles.backdropIndigo} />
       <View style={styles.backdropPeach} />
+      <View style={styles.backdropSoft} />
       {scroll ? (
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: bottomReserve + insets.bottom },
+          ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           {content}
         </ScrollView>
       ) : (
-        <View style={styles.scrollContent}>{content}</View>
+        <View
+          style={[
+            styles.scrollContent,
+            { paddingBottom: bottomReserve + insets.bottom },
+          ]}
+        >
+          {content}
+        </View>
       )}
       {floatingAction ? (
         <View
           pointerEvents="box-none"
           style={[
             styles.floatingAction,
-            footer ? styles.floatingActionWithFooter : undefined,
+            { bottom: (footer ? 112 : 28) + insets.bottom },
           ]}
         >
           {floatingAction}
         </View>
       ) : null}
-      {footer ? <View style={styles.footer}>{footer}</View> : null}
+      {footer ? (
+        <View
+          style={[styles.footerWrap, { paddingBottom: insets.bottom + 10 }]}
+        >
+          <GlassCard style={styles.footer}>{footer}</GlassCard>
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -87,8 +116,11 @@ export function LoadingState({
   return (
     <Screen scroll={false}>
       <View style={styles.loading}>
-        <ActivityIndicator color={palette.brand} />
-        <Text style={styles.muted}>{label}</Text>
+        <GlassCard style={styles.loadingCard}>
+          <ActivityIndicator color={palette.primary} />
+          <Text style={styles.loadingTitle}>Opening your ledger</Text>
+          <Text style={styles.muted}>{label}</Text>
+        </GlassCard>
       </View>
     </Screen>
   );
@@ -112,17 +144,21 @@ export function PageHeader({
 
   return (
     <View style={styles.pageHeader}>
-      {showBackButton && canGoBack ? (
-        <IconButton
-          icon="chevron-back"
-          label="Go back"
-          onPress={() => navigation.goBack()}
-        />
-      ) : null}
-      <View style={styles.flexOne}>
-        {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
-        <Text style={styles.pageTitle}>{title}</Text>
-        {subtitle ? <Text style={styles.pageSubtitle}>{subtitle}</Text> : null}
+      <View style={styles.pageHeaderMain}>
+        {showBackButton && canGoBack ? (
+          <IconButton
+            icon="chevron-back"
+            label="Go back"
+            onPress={() => navigation.goBack()}
+          />
+        ) : null}
+        <View style={styles.pageHeaderCopy}>
+          {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
+          <Text style={styles.pageTitle}>{title}</Text>
+          {subtitle ? (
+            <Text style={styles.pageSubtitle}>{subtitle}</Text>
+          ) : null}
+        </View>
       </View>
       {action ? <View style={styles.pageHeaderAction}>{action}</View> : null}
     </View>
@@ -138,11 +174,19 @@ export function Card({
   style?: StyleProp<ViewStyle>;
   tone?: "default" | "mint" | "coral" | "amber" | "blue" | "peach" | "lavender";
 }) {
+  const mappedTone =
+    tone === "mint"
+      ? "teal"
+      : tone === "blue"
+        ? "indigo"
+        : tone === "default"
+          ? "lavender"
+          : tone;
+
   return (
-    <View style={[styles.card, toneStyles[tone], style]}>
-      <SurfaceBlur intensity={14} />
+    <GlassCard tone={mappedTone} style={style}>
       {children}
-    </View>
+    </GlassCard>
   );
 }
 
@@ -206,19 +250,23 @@ export function Button({
         style,
       ]}
     >
+      {variant === "primary" ? <View style={styles.buttonPrimaryGlow} /> : null}
       {icon ? (
         <Ionicons
           name={icon}
           size={18}
-          color={variant === "primary" ? "#FFFFFF" : palette.brand}
+          color={
+            variant === "primary" || variant === "danger"
+              ? palette.surface
+              : palette.primary
+          }
         />
       ) : null}
       <Text
         style={[
           styles.buttonText,
-          variant === "primary" || variant === "danger"
-            ? styles.buttonTextLight
-            : null,
+          (variant === "primary" || variant === "danger") &&
+            styles.buttonTextLight,
         ]}
       >
         {title}
@@ -237,15 +285,15 @@ export function FloatingActionButton({
   label: string;
 }) {
   return (
-    <Pressable
+    <View
+      accessible
       accessibilityRole="button"
       accessibilityLabel={label}
-      onPress={onPress}
-      style={({ pressed }) => [styles.fab, pressed && styles.pressed]}
+      style={styles.fabWrap}
     >
-      <SurfaceBlur intensity={34} />
-      <Ionicons name={icon} size={24} color={palette.surface} />
-    </Pressable>
+      <FloatingAddButton onPress={onPress} />
+      <Text style={styles.srOnly}>{icon}</Text>
+    </View>
   );
 }
 
@@ -274,7 +322,7 @@ export function IconButton({
       <Ionicons
         name={icon}
         size={20}
-        color={tone === "danger" ? palette.negative : palette.brand}
+        color={tone === "danger" ? palette.danger : palette.primary}
       />
     </Pressable>
   );
@@ -302,16 +350,20 @@ export function TextField({
   return (
     <View style={[styles.field, style]}>
       <Text style={styles.label}>{label}</Text>
-      <TextInput
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor={palette.faint}
-        keyboardType={keyboardType}
-        multiline={multiline}
-        secureTextEntry={secureTextEntry}
-        style={[styles.input, multiline && styles.inputMultiline]}
-      />
+      <View
+        style={[styles.inputShell, multiline && styles.inputShellMultiline]}
+      >
+        <TextInput
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={palette.textTertiary}
+          keyboardType={keyboardType}
+          multiline={multiline}
+          secureTextEntry={secureTextEntry}
+          style={[styles.input, multiline && styles.inputMultiline]}
+        />
+      </View>
     </View>
   );
 }
@@ -326,16 +378,11 @@ export function SearchField({
   placeholder?: string;
 }) {
   return (
-    <View style={styles.searchField}>
-      <Ionicons name="search" size={18} color={palette.muted} />
-      <TextInput
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor={palette.faint}
-        style={styles.searchInput}
-      />
-    </View>
+    <SearchBar
+      value={value}
+      onChangeText={onChangeText}
+      placeholder={placeholder}
+    />
   );
 }
 
@@ -356,7 +403,11 @@ export function SegmentedControl<T extends string>({
           <Pressable
             key={option.value}
             onPress={() => onChange(option.value)}
-            style={[styles.segment, active && styles.segmentActive]}
+            style={({ pressed }) => [
+              styles.segment,
+              active && styles.segmentActive,
+              pressed && styles.pressed,
+            ]}
           >
             <Text
               style={[styles.segmentText, active && styles.segmentTextActive]}
@@ -385,25 +436,14 @@ export function SelectChips<T extends string>({
     <View style={styles.field}>
       {label ? <Text style={styles.label}>{label}</Text> : null}
       <View style={styles.chipWrap}>
-        {options.map((option) => {
-          const selected = option.value === value;
-          return (
-            <Pressable
-              key={option.value}
-              onPress={() => onChange(option.value)}
-              style={[styles.selectChip, selected && styles.selectChipActive]}
-            >
-              <Text
-                style={[
-                  styles.selectChipText,
-                  selected && styles.selectChipTextActive,
-                ]}
-              >
-                {option.label}
-              </Text>
-            </Pressable>
-          );
-        })}
+        {options.map((option) => (
+          <FilterChip
+            key={option.value}
+            label={option.label}
+            active={option.value === value}
+            onPress={() => onChange(option.value)}
+          />
+        ))}
       </View>
     </View>
   );
@@ -429,25 +469,17 @@ export function MultiSelectChips<T extends string>({
         {options.map((option) => {
           const selected = selectedValues.has(option.value);
           return (
-            <Pressable
+            <FilterChip
               key={option.value}
+              label={option.label}
+              active={selected}
               onPress={() => {
                 const next = selected
-                  ? values.filter((value) => value !== option.value)
+                  ? values.filter((valueItem) => valueItem !== option.value)
                   : [...values, option.value];
                 onChange(next);
               }}
-              style={[styles.selectChip, selected && styles.selectChipActive]}
-            >
-              <Text
-                style={[
-                  styles.selectChipText,
-                  selected && styles.selectChipTextActive,
-                ]}
-              >
-                {option.label}
-              </Text>
-            </Pressable>
+            />
           );
         })}
       </View>
@@ -466,7 +498,9 @@ export function EmptyState({
 }) {
   return (
     <View style={styles.emptyState}>
-      <Ionicons name="file-tray-outline" size={30} color={palette.brand} />
+      <View style={styles.emptyIcon}>
+        <Ionicons name="sparkles-outline" size={20} color={palette.primary} />
+      </View>
       <Text style={styles.sectionHeading}>{title}</Text>
       <Text style={styles.mutedCenter}>{body}</Text>
       {action}
@@ -490,7 +524,7 @@ export function FilterSheet({
   return (
     <Modal
       visible={visible}
-      animationType="slide"
+      animationType="fade"
       transparent
       onRequestClose={onClose}
     >
@@ -501,8 +535,7 @@ export function FilterSheet({
           style={styles.sheetBackdrop}
           onPress={onClose}
         />
-        <View style={styles.sheet}>
-          <SurfaceBlur intensity={34} />
+        <GlassCard style={styles.sheet}>
           <View style={styles.sheetHandle} />
           <View style={styles.sheetHeader}>
             <View style={styles.flexOne}>
@@ -519,7 +552,7 @@ export function FilterSheet({
           >
             {children}
           </ScrollView>
-        </View>
+        </GlassCard>
       </View>
     </Modal>
   );
@@ -527,58 +560,16 @@ export function FilterSheet({
 
 export function ResponsiveGrid({ children }: { children: React.ReactNode }) {
   const { width } = useWindowDimensions();
-  return (
-    <View style={[styles.grid, width >= 820 && styles.gridWide]}>
-      {children}
-    </View>
-  );
-}
+  const wide = width >= 900;
 
-function SurfaceBlur({ intensity }: { intensity: number }) {
-  return (
-    <BlurView
-      tint="light"
-      intensity={intensity}
-      experimentalBlurMethod="dimezisBlurView"
-      pointerEvents="none"
-      style={styles.surfaceBlur}
-    />
-  );
+  return <View style={[styles.grid, wide && styles.gridWide]}>{children}</View>;
 }
-
-const toneStyles = StyleSheet.create({
-  default: {},
-  mint: {
-    backgroundColor: "rgba(255,255,255,0.92)",
-    borderColor: "rgba(47,191,143,0.18)",
-  },
-  coral: {
-    backgroundColor: "rgba(255,251,250,0.96)",
-    borderColor: "rgba(255,107,107,0.18)",
-  },
-  amber: {
-    backgroundColor: "rgba(255,252,246,0.96)",
-    borderColor: "rgba(245,158,11,0.2)",
-  },
-  blue: {
-    backgroundColor: "rgba(252,251,255,0.96)",
-    borderColor: "rgba(55,48,163,0.14)",
-  },
-  peach: {
-    backgroundColor: "rgba(255,252,249,0.96)",
-    borderColor: "rgba(253,186,155,0.18)",
-  },
-  lavender: {
-    backgroundColor: palette.surfaceGlassStrong,
-    borderColor: "rgba(221,214,254,0.44)",
-  },
-});
 
 const textVariants = StyleSheet.create({
   body: {
-    color: palette.ink,
+    color: palette.textPrimary,
     fontSize: typography.body,
-    lineHeight: 22,
+    lineHeight: 24,
     fontFamily: typefaces.body,
   },
   muted: {
@@ -597,37 +588,39 @@ const textVariants = StyleSheet.create({
     color: palette.muted,
     fontSize: typography.micro,
     fontFamily: typefaces.bodyStrong,
-    letterSpacing: 0,
+    letterSpacing: 0.1,
   },
   title: {
-    color: palette.ink,
+    color: palette.textPrimary,
     fontSize: typography.subtitle,
     fontFamily: typefaces.display,
     lineHeight: 30,
   },
   subtitle: {
-    color: palette.ink,
+    color: palette.textPrimary,
     fontSize: 17,
     fontFamily: typefaces.displayMedium,
-    lineHeight: 23,
+    lineHeight: 24,
   },
 });
 
 const buttonVariants = StyleSheet.create({
   primary: {
-    backgroundColor: palette.brand,
-    borderColor: palette.brand,
-    ...shadows.soft,
+    backgroundColor: palette.primary,
+    borderColor: palette.primary,
   },
   secondary: {
-    backgroundColor: palette.surfaceGlassElevated,
-    borderColor: palette.borderIndigo,
-  },
-  ghost: {
-    backgroundColor: palette.surfaceAlt,
+    backgroundColor: palette.surfaceGlassStrong,
     borderColor: palette.borderIndigoSoft,
   },
-  danger: { backgroundColor: palette.negative, borderColor: palette.negative },
+  ghost: {
+    backgroundColor: "rgba(255,255,255,0.48)",
+    borderColor: "transparent",
+  },
+  danger: {
+    backgroundColor: palette.danger,
+    borderColor: palette.danger,
+  },
 });
 
 const styles = StyleSheet.create({
@@ -635,129 +628,138 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: palette.background,
   },
+  backdropCanvas: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: palette.background,
+  },
   backdropLavender: {
     position: "absolute",
-    pointerEvents: "none",
     top: -120,
-    right: -120,
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    backgroundColor: palette.backdropLavender,
+    right: -140,
+    width: 320,
+    height: 320,
+    borderRadius: 160,
+    backgroundColor: gradients.lavenderGlow,
   },
   backdropIndigo: {
     position: "absolute",
-    pointerEvents: "none",
-    top: 34,
-    right: 28,
-    width: 132,
-    height: 132,
-    borderRadius: 66,
-    backgroundColor: palette.backdropIndigo,
+    top: 120,
+    right: -34,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: "rgba(55,48,163,0.1)",
   },
   backdropPeach: {
     position: "absolute",
-    pointerEvents: "none",
-    top: 210,
-    left: -120,
+    top: 340,
+    left: -80,
     width: 220,
     height: 220,
     borderRadius: 110,
-    backgroundColor: palette.backdropPeach,
+    backgroundColor: gradients.peachGlow,
+  },
+  backdropSoft: {
+    position: "absolute",
+    bottom: 120,
+    right: 24,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: "rgba(255,255,255,0.56)",
   },
   scrollContent: {
     alignItems: "center",
-    paddingBottom: 148,
   },
   content: {
     width: "100%",
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.screen,
     paddingTop: spacing.lg,
     gap: spacing.xl,
   },
-  footer: {
+  footerWrap: {
     position: "absolute",
-    left: spacing.md,
-    right: spacing.md,
-    bottom: spacing.md,
-    padding: spacing.md,
-    backgroundColor: palette.surfaceGlassStrong,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderIndigoSoft,
-    borderRadius: radii.xl,
-    overflow: "hidden",
-    ...shadows.soft,
+    left: 16,
+    right: 16,
+    bottom: 0,
+  },
+  footer: {
+    padding: 10,
+    borderRadius: 26,
   },
   floatingAction: {
     position: "absolute",
-    right: spacing.lg,
-    bottom: spacing.xl,
-  },
-  floatingActionWithFooter: {
-    bottom: 96,
+    right: 24,
   },
   loading: {
     flex: 1,
-    minHeight: 360,
+    minHeight: 380,
     alignItems: "center",
     justifyContent: "center",
-    gap: spacing.md,
+  },
+  loadingCard: {
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 220,
+    gap: spacing.sm,
+    paddingVertical: spacing.xl,
+  },
+  loadingTitle: {
+    color: palette.textPrimary,
+    fontSize: 18,
+    fontFamily: typefaces.displayMedium,
   },
   pageHeader: {
     flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "flex-start",
     gap: spacing.md,
-    paddingHorizontal: 2,
-    paddingVertical: spacing.xs,
   },
-  flexOne: {
+  pageHeaderMain: {
     flex: 1,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.md,
+  },
+  pageHeaderCopy: {
+    flex: 1,
+    minWidth: 0,
   },
   pageHeaderAction: {
     alignSelf: "flex-start",
   },
   eyebrow: {
-    color: palette.brandDark,
-    fontSize: 11,
+    color: palette.primary,
+    fontSize: 12,
     fontFamily: typefaces.bodyStrong,
-    letterSpacing: 0.6,
-    textTransform: "uppercase",
-    marginBottom: spacing.xs,
+    letterSpacing: 0.4,
+    marginBottom: 6,
   },
   pageTitle: {
-    color: palette.ink,
-    fontSize: 32,
-    lineHeight: 36,
+    color: palette.textPrimary,
+    fontSize: 30,
+    lineHeight: 34,
     fontFamily: typefaces.display,
-    letterSpacing: 0,
   },
   pageSubtitle: {
     color: palette.muted,
     fontSize: 14,
     lineHeight: 20,
-    marginTop: 6,
+    marginTop: 8,
     fontFamily: typefaces.body,
     maxWidth: 560,
   },
-  card: {
-    backgroundColor: palette.surfaceGlassStrong,
-    borderColor: palette.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radii.xl,
-    padding: spacing.lg,
-    overflow: "hidden",
-    ...shadows.soft,
-    gap: spacing.md,
+  flexOne: {
+    flex: 1,
   },
   sectionTitle: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
-    marginTop: 2,
   },
   sectionHeading: {
-    color: palette.ink,
-    fontSize: 18,
+    color: palette.textPrimary,
+    fontSize: 20,
     lineHeight: 24,
     fontFamily: typefaces.displayMedium,
   },
@@ -775,40 +777,49 @@ const styles = StyleSheet.create({
     fontFamily: typefaces.body,
   },
   button: {
-    minHeight: 50,
+    minHeight: 52,
     borderRadius: radii.pill,
     borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: 18,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
     gap: spacing.sm,
+    overflow: "hidden",
+    ...shadows.soft,
+  },
+  buttonPrimaryGlow: {
+    position: "absolute",
+    top: -20,
+    right: -10,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: "rgba(255,255,255,0.12)",
   },
   buttonText: {
-    color: palette.brandDark,
+    color: palette.primary,
     fontSize: 14,
     fontFamily: typefaces.bodyStrong,
   },
   buttonTextLight: {
     color: palette.surface,
   },
-  fab: {
-    width: 62,
-    height: 62,
-    borderRadius: radii.pill,
-    backgroundColor: palette.brand,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255,255,255,0.82)",
+  fabWrap: {
     alignItems: "center",
     justifyContent: "center",
-    overflow: "hidden",
-    ...shadows.card,
+  },
+  srOnly: {
+    position: "absolute",
+    width: 1,
+    height: 1,
+    opacity: 0,
   },
   disabled: {
     opacity: 0.45,
   },
   pressed: {
-    opacity: 0.72,
+    opacity: 0.76,
   },
   iconButton: {
     width: 48,
@@ -822,59 +833,47 @@ const styles = StyleSheet.create({
     ...shadows.soft,
   },
   iconButtonDanger: {
-    backgroundColor: palette.negativeSoft,
+    backgroundColor: palette.dangerSoft,
     borderColor: "rgba(255,107,107,0.24)",
   },
   field: {
-    gap: spacing.sm,
+    gap: 10,
   },
   label: {
     color: palette.muted,
-    fontSize: typography.micro,
+    fontSize: 12,
     fontFamily: typefaces.bodyStrong,
     letterSpacing: 0.2,
   },
-  input: {
-    minHeight: 52,
+  inputShell: {
+    minHeight: 54,
     borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderIndigoSoft,
-    backgroundColor: palette.surfaceWarm,
+    backgroundColor: "rgba(255,255,255,0.68)",
     paddingHorizontal: spacing.md,
-    color: palette.ink,
+    justifyContent: "center",
+  },
+  inputShellMultiline: {
+    paddingVertical: 12,
+  },
+  input: {
+    color: palette.textPrimary,
     fontSize: 16,
     fontFamily: typefaces.body,
   },
   inputMultiline: {
-    minHeight: 96,
-    paddingTop: spacing.md,
+    minHeight: 90,
     textAlignVertical: "top",
-  },
-  searchField: {
-    minHeight: 52,
-    borderRadius: radii.pill,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderIndigoSoft,
-    backgroundColor: palette.surfaceGlassStrong,
-    paddingHorizontal: spacing.xl,
-    alignItems: "center",
-    flexDirection: "row",
-    gap: spacing.sm,
-    ...shadows.soft,
-  },
-  searchInput: {
-    flex: 1,
-    color: palette.ink,
-    fontSize: 15,
-    fontFamily: typefaces.body,
   },
   segmented: {
     flexDirection: "row",
     borderRadius: radii.pill,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderIndigoSoft,
-    backgroundColor: palette.surfaceMuted,
-    padding: 5,
+    backgroundColor: "rgba(255,255,255,0.54)",
+    padding: 4,
+    gap: 4,
   },
   segment: {
     flex: 1,
@@ -885,7 +884,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
   },
   segmentActive: {
-    backgroundColor: palette.surface,
+    backgroundColor: palette.surfaceGlassStrong,
     ...shadows.soft,
   },
   segmentText: {
@@ -894,79 +893,57 @@ const styles = StyleSheet.create({
     fontFamily: typefaces.bodyStrong,
   },
   segmentTextActive: {
-    color: palette.brand,
+    color: palette.primary,
   },
   chipWrap: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.sm,
   },
-  selectChip: {
-    minHeight: 40,
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.pill,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderIndigoSoft,
-    backgroundColor: palette.surfaceWarm,
-    justifyContent: "center",
-  },
-  selectChipActive: {
-    backgroundColor: palette.brand,
-    borderColor: palette.brand,
-  },
-  selectChipText: {
-    color: palette.muted,
-    fontFamily: typefaces.bodyStrong,
-    fontSize: 13,
-  },
-  selectChipTextActive: {
-    color: palette.surface,
-  },
   emptyState: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: spacing.xxl,
     gap: spacing.sm,
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.lg,
+  },
+  emptyIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(55,48,163,0.1)",
   },
   sheetOverlay: {
     flex: 1,
     justifyContent: "flex-end",
+    backgroundColor: "rgba(17,24,39,0.16)",
   },
   sheetBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: palette.overlayStrong,
   },
   sheet: {
-    maxHeight: "86%",
-    borderTopLeftRadius: radii.xl,
-    borderTopRightRadius: radii.xl,
-    backgroundColor: palette.surfaceGlassStrong,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderGlass,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.lg,
-    overflow: "hidden",
-    ...shadows.card,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    maxHeight: "82%",
+    paddingTop: 10,
   },
   sheetHandle: {
     alignSelf: "center",
-    width: 38,
-    height: 4,
-    borderRadius: 999,
+    width: 52,
+    height: 5,
+    borderRadius: radii.pill,
     backgroundColor: "rgba(107,114,128,0.22)",
     marginBottom: spacing.md,
   },
   sheetHeader: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: spacing.md,
-    paddingBottom: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: palette.borderIndigoSoft,
   },
   sheetTitle: {
-    color: palette.ink,
+    color: palette.textPrimary,
     fontSize: 20,
     fontFamily: typefaces.displayMedium,
   },
@@ -974,12 +951,13 @@ const styles = StyleSheet.create({
     color: palette.muted,
     fontSize: 13,
     lineHeight: 18,
-    marginTop: 2,
+    marginTop: 4,
     fontFamily: typefaces.body,
   },
   sheetContent: {
-    gap: spacing.lg,
-    paddingBottom: spacing.xl,
+    gap: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: 20,
   },
   grid: {
     gap: spacing.md,
@@ -988,8 +966,5 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     alignItems: "flex-start",
-  },
-  surfaceBlur: {
-    ...StyleSheet.absoluteFillObject,
   },
 });

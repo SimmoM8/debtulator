@@ -1,725 +1,245 @@
 import { router } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
-import { Alert, StyleSheet, Switch, Text, View } from "react-native";
+import React from "react";
+import { StyleSheet, Text, View } from "react-native";
 
-import { DebtulatorShieldIllustration } from "@/src/components/illustrations/DebtulatorShieldIllustration";
+import { GlassCard, SettingsRow, StatCard } from "@/src/components/ui/Finance";
 import {
     Button,
-    Card,
     LoadingState,
     PageHeader,
     Screen,
     SectionTitle,
-    SelectChips,
-    TextField,
 } from "@/src/components/ui/Primitives";
-import { CURRENCIES } from "@/src/constants/currencies";
 import { palette, spacing, typefaces } from "@/src/constants/design";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
-import type { CurrencyCode } from "@/src/types/models";
 
 export function SettingsScreen() {
   const data = useAppData();
   const auth = useAuth();
-  const [rateDrafts, setRateDrafts] = useState<Record<string, string>>({});
-  const [displayName, setDisplayName] = useState(
-    auth.identity.profile?.displayName ?? auth.identity.displayName,
-  );
-  const [phone, setPhone] = useState(auth.identity.profile?.phone ?? "");
-  const [profileCurrency, setProfileCurrency] = useState<CurrencyCode>(
-    auth.identity.baseCurrency,
-  );
 
-  const rates = useMemo(
-    () =>
-      Object.fromEntries(
-        data.currencyRates.map((rate) => [
-          rate.currency,
-          rateDrafts[rate.currency] ?? String(rate.rateToSek),
-        ]),
-      ),
-    [data.currencyRates, rateDrafts],
-  );
-
-  useEffect(() => {
-    setDisplayName(
-      auth.identity.profile?.displayName ?? auth.identity.displayName,
-    );
-    setPhone(auth.identity.profile?.phone ?? "");
-    setProfileCurrency(auth.identity.baseCurrency);
-  }, [
-    auth.identity.baseCurrency,
-    auth.identity.displayName,
-    auth.identity.profile,
-  ]);
-
-  if (data.loading) {
+  if (data.loading || auth.loading) {
     return <LoadingState />;
-  }
-
-  async function saveRates() {
-    for (const currency of CURRENCIES) {
-      const rate = Number(rates[currency]);
-      if (Number.isFinite(rate) && rate > 0) {
-        await data.updateRate(currency, rate);
-      }
-    }
-    setRateDrafts({});
   }
 
   return (
     <Screen>
       <PageHeader
-        eyebrow="Settings"
         title="Settings"
-        subtitle="Local data remains on-device. Accounts unlock linking and verification."
+        subtitle="Calm preferences, privacy-first defaults, and clear data safety controls."
+        showBackButton={false}
       />
 
-      <Card tone="lavender" style={styles.heroCard}>
-        <View style={styles.heroGlow} />
-        <View style={styles.heroTop}>
-          <View style={styles.switchText}>
-            <Text style={styles.heroLabel}>Privacy first</Text>
-            <Text style={styles.heroTitle}>
-              Tune identity, defaults, and data safety without breaking the
-              calm.
-            </Text>
-            <Text style={styles.rowBody}>
-              Debtulator stays usable in local-only mode, with account features
-              layered in only when you want them.
-            </Text>
-          </View>
-          <View style={styles.heroArtWrap}>
-            <DebtulatorShieldIllustration width={132} height={104} />
-          </View>
-        </View>
-        <View style={styles.heroMetrics}>
-          <View>
-            <Text style={styles.metricValue}>
-              {auth.user ? "Cloud" : "Local"}
-            </Text>
-            <Text style={styles.metricLabel}>Account mode</Text>
-          </View>
-          <View>
-            <Text style={styles.metricValue}>{data.settings.baseCurrency}</Text>
-            <Text style={styles.metricLabel}>Base currency</Text>
-          </View>
-          <View>
-            <Text style={styles.metricValue}>
-              {data.settings.pushNotificationsEnabled ? "On" : "Off"}
-            </Text>
-            <Text style={styles.metricLabel}>Alerts</Text>
-          </View>
-        </View>
-      </Card>
-
-      <Card style={styles.hubCard}>
-        <SectionTitle
-          title="Quick access"
-          subtitle="The system controls people reach for most should not be buried in a long settings scroll."
-        />
-        <View style={styles.hubGrid}>
-          <Button
-            title="Sync"
-            icon="sync"
-            variant="secondary"
-            onPress={() => router.push("/sync" as never)}
+      <GlassCard tone="lavender">
+        <Text style={styles.accountLabel}>Account</Text>
+        <Text style={styles.accountTitle}>
+          {auth.user
+            ? auth.identity.displayName || auth.identity.email || "Your profile"
+            : "Local-only mode"}
+        </Text>
+        <Text style={styles.accountBody}>
+          {auth.user
+            ? `Signed in as ${auth.identity.email ?? auth.user.id}`
+            : "Everything stays on this device until you decide to sign in."}
+        </Text>
+        <View style={styles.statsRow}>
+          <StatCard
+            label="Mode"
+            value={auth.user ? "Cloud" : "Local"}
+            subtitle="How this device is working right now"
+            tone="indigo"
           />
-          <Button
-            title="Privacy"
-            icon="lock-closed"
-            variant="secondary"
-            onPress={() => router.push("/privacy" as never)}
+          <StatCard
+            label="Currency"
+            value={data.settings.baseCurrency}
+            subtitle="Your base view currency"
+            tone="lavender"
           />
-          <Button
-            title="Backup"
-            icon="archive"
-            variant="secondary"
-            onPress={() => router.push("/backup" as never)}
-          />
-          <Button
-            title="Language"
-            icon="language"
-            variant="secondary"
-            onPress={() => router.push("/language" as never)}
+          <StatCard
+            label="Sync"
+            value={
+              data.syncSummary.hasBlockingProblems ? "Needs review" : "Healthy"
+            }
+            subtitle={data.syncSummary.statusLabel}
+            tone={data.syncSummary.hasBlockingProblems ? "amber" : "teal"}
           />
         </View>
-      </Card>
-
-      <Card tone="lavender">
-        <SectionTitle
-          title="Account"
-          subtitle={
-            auth.user
-              ? "Signed in account identity and local profile cache."
-              : "Continue without account keeps your ledger local/private."
-          }
-        />
         {auth.user ? (
-          <>
-            <Text style={styles.rowBody}>
-              Signed in as {auth.identity.email ?? auth.user.id}
-            </Text>
-            <TextField
-              label="Display name"
-              value={displayName}
-              onChangeText={setDisplayName}
-            />
-            <TextField
-              label="Phone placeholder"
-              value={phone}
-              onChangeText={setPhone}
-              keyboardType="phone-pad"
-            />
-            <SelectChips
-              label="Profile base currency"
-              value={profileCurrency}
-              options={CURRENCIES.map((currency) => ({
-                label: currency,
-                value: currency,
-              }))}
-              onChange={setProfileCurrency}
-            />
-            <View style={styles.buttonRow}>
-              <Button
-                title="Save profile"
-                icon="save"
-                onPress={() =>
-                  auth.updateProfile({
-                    displayName,
-                    phone,
-                    baseCurrency: profileCurrency,
-                  })
-                }
-              />
-              <Button
-                title="Sign out"
-                icon="log-out"
-                variant="secondary"
-                onPress={auth.signOut}
-              />
-            </View>
-            <Text style={styles.rowBody}>
-              Delete account and data export controls are placeholders for
-              production hardening.
-            </Text>
-          </>
+          <Button title="Sign out" variant="secondary" onPress={auth.signOut} />
         ) : (
-          <>
-            <Text style={styles.rowBody}>
-              Signed-out mode is fully usable. Sign in when you want linked
-              members, verification requests, and future synced events.
-            </Text>
-            <Button
-              title="Sign in or create account"
-              icon="person-circle"
-              onPress={() => router.push("/auth")}
-            />
-          </>
+          <Button title="Sign in" onPress={() => router.push("/auth")} />
         )}
-      </Card>
+      </GlassCard>
 
-      <Card>
-        <SectionTitle
-          title="Base currency"
-          subtitle="Estimated balances are approximate and never merge native balances."
-        />
-        <SelectChips
-          value={data.settings.baseCurrency}
-          options={CURRENCIES.map((currency) => ({
-            label: currency,
-            value: currency,
-          }))}
-          onChange={(baseCurrency: CurrencyCode) =>
-            data.updateSettings({ baseCurrency })
-          }
-        />
-
-        <View style={styles.switchRow}>
-          <View style={styles.switchText}>
-            <Text style={styles.rowTitle}>
-              Show estimated base-currency balances
-            </Text>
-            <Text style={styles.rowBody}>
-              Uses the local exchange-rate table below.
-            </Text>
-          </View>
-          <Switch
-            value={data.settings.showEstimatedBase}
-            onValueChange={(showEstimatedBase) =>
-              data.updateSettings({ showEstimatedBase })
-            }
-            trackColor={{ false: palette.lineStrong, true: palette.brandSoft }}
-            thumbColor={
-              data.settings.showEstimatedBase ? palette.brand : "#FFFFFF"
-            }
+      <SectionTitle
+        title="Profile & preferences"
+        subtitle="The defaults you reach for most often."
+      />
+      <GlassCard tone="lavender">
+        <View style={styles.sectionColumn}>
+          <SettingsRow
+            icon="person-outline"
+            title="Profile"
+            subtitle="Name, phone, and account identity"
+            value={auth.user ? "Manage" : "Local"}
+            onPress={() => router.push("/auth")}
+          />
+          <SettingsRow
+            icon="globe-outline"
+            title="Language"
+            subtitle="Keep labels and prompts comfortable"
+            value="English"
+            onPress={() => router.push("/language")}
+          />
+          <SettingsRow
+            icon="cash-outline"
+            title="Base currency"
+            subtitle="Used for estimated summaries only"
+            value={data.settings.baseCurrency}
+            onPress={() => router.push("/settings")}
           />
         </View>
+      </GlassCard>
 
-        <SelectChips
-          label="Theme"
-          value={data.settings.theme}
-          options={[
-            { label: "System", value: "system" },
-            { label: "Light", value: "light" },
-            { label: "Dark later", value: "dark" },
-          ]}
-          onChange={(theme) => data.updateSettings({ theme })}
-        />
-      </Card>
-
-      <Card>
-        <SectionTitle
-          title="Exchange rates"
-          subtitle="Rates are stored locally as value in SEK; a provider can replace this table later."
-        />
-        {CURRENCIES.map((currency) => (
-          <TextField
-            key={currency}
-            label={`${currency} to SEK`}
-            value={rates[currency] ?? ""}
-            onChangeText={(value) =>
-              setRateDrafts((current) => ({ ...current, [currency]: value }))
-            }
-            keyboardType="numeric"
+      <SectionTitle
+        title="Notifications"
+        subtitle="Friendly reminders without noise."
+      />
+      <GlassCard tone="lavender">
+        <View style={styles.sectionColumn}>
+          <SettingsRow
+            icon="notifications-outline"
+            title="Alerts"
+            subtitle="Payment reminders and shared updates"
+            value={data.settings.pushNotificationsEnabled ? "On" : "Off"}
+            onPress={() => router.push("/notifications")}
           />
-        ))}
-        <Button title="Save exchange rates" icon="save" onPress={saveRates} />
-      </Card>
-
-      <Card>
-        <SectionTitle
-          title="Privacy defaults"
-          subtitle="Calm defaults for analytics, exports, imports, attachments, and suggestions."
-        />
-        <View style={styles.switchRow}>
-          <View style={styles.switchText}>
-            <Text style={styles.rowTitle}>Smart suggestions</Text>
-            <Text style={styles.rowBody}>
-              Suggestions assist with tags, events, duplicates, and recurring
-              patterns but never auto-apply.
-            </Text>
-          </View>
-          <Switch
-            value={data.settings.smartSuggestionsEnabled}
-            onValueChange={(smartSuggestionsEnabled) =>
-              data.updateSettings({ smartSuggestionsEnabled })
-            }
-            trackColor={{ false: palette.lineStrong, true: palette.brandSoft }}
-            thumbColor={
-              data.settings.smartSuggestionsEnabled ? palette.brand : "#FFFFFF"
-            }
+          <SettingsRow
+            icon="time-outline"
+            title="Quiet timing"
+            subtitle="Control when reminders appear"
+            value="Review"
+            onPress={() => router.push("/notifications")}
           />
         </View>
-        <View style={styles.switchRow}>
-          <View style={styles.switchText}>
-            <Text style={styles.rowTitle}>
-              Analytics estimated currency mode
-            </Text>
-            <Text style={styles.rowBody}>
-              When enabled, analytics may show clearly labelled approximate
-              base-currency views.
-            </Text>
-          </View>
-          <Switch
-            value={data.settings.analyticsEstimatedCurrencyMode}
-            onValueChange={(analyticsEstimatedCurrencyMode) =>
-              data.updateSettings({ analyticsEstimatedCurrencyMode })
-            }
-            trackColor={{ false: palette.lineStrong, true: palette.brandSoft }}
-            thumbColor={
-              data.settings.analyticsEstimatedCurrencyMode
-                ? palette.brand
-                : "#FFFFFF"
-            }
+      </GlassCard>
+
+      <SectionTitle
+        title="Privacy & security"
+        subtitle="Private by default, with shared controls when you want them."
+      />
+      <GlassCard tone="lavender">
+        <View style={styles.sectionColumn}>
+          <SettingsRow
+            icon="lock-closed-outline"
+            title="Privacy"
+            subtitle="Shared visibility, export defaults, and safe defaults"
+            value="Review"
+            onPress={() => router.push("/privacy")}
+          />
+          <SettingsRow
+            icon="shield-checkmark-outline"
+            title="Accessibility"
+            subtitle="Readable layout and assistive settings"
+            value="Open"
+            onPress={() => router.push("/accessibility")}
           />
         </View>
-        <SelectChips
-          label="Shared attachment upload"
-          value={data.settings.attachmentUploadPreference}
-          options={[
-            { label: "Ask", value: "ask" },
-            { label: "Shared only", value: "shared_only" },
-            { label: "Never", value: "never" },
-          ]}
-          onChange={(attachmentUploadPreference) =>
-            data.updateSettings({ attachmentUploadPreference })
-          }
-        />
-        <View style={styles.switchRow}>
-          <View style={styles.switchText}>
-            <Text style={styles.rowTitle}>Export private notes by default</Text>
-            <Text style={styles.rowBody}>
-              Off by default so private notes are not shared by accident.
-            </Text>
-          </View>
-          <Switch
-            value={data.settings.includePrivateNotesInExports}
-            onValueChange={(includePrivateNotesInExports) =>
-              data.updateSettings({ includePrivateNotesInExports })
-            }
-            trackColor={{ false: palette.lineStrong, true: palette.brandSoft }}
-            thumbColor={
-              data.settings.includePrivateNotesInExports
-                ? palette.brand
-                : "#FFFFFF"
-            }
+      </GlassCard>
+
+      <SectionTitle
+        title="Data & sync"
+        subtitle="Explain what’s safe, what’s waiting, and what needs review."
+      />
+      <GlassCard tone="peach">
+        <View style={styles.sectionColumn}>
+          <SettingsRow
+            icon="sync-outline"
+            title="Sync status"
+            subtitle={data.syncSummary.statusLabel}
+            value={data.syncSummary.hasBlockingProblems ? "Review" : "Healthy"}
+            onPress={() => router.push("/sync")}
           />
-        </View>
-        <View style={styles.buttonRow}>
-          <Button
+          <SettingsRow
+            icon="cloud-outline"
+            title="Backup"
+            subtitle="Stored safely on this device and ready to export"
+            value="Open"
+            onPress={() => router.push("/backup")}
+          />
+          <SettingsRow
+            icon="download-outline"
             title="Export data"
-            icon="download"
-            variant="secondary"
+            subtitle="Share or keep a copy of your ledger"
+            value="Open"
             onPress={() => router.push("/export")}
           />
-          <Button
-            title="Import CSV"
-            icon="cloud-upload"
-            variant="secondary"
-            onPress={() => router.push("/import-csv")}
-          />
         </View>
-      </Card>
+      </GlassCard>
 
-      <Card>
-        <SectionTitle
-          title="Data and safety"
-          subtitle="Sync, privacy, notifications, backup, export, deletion, language, and accessibility."
-        />
+      <SectionTitle
+        title="Safety"
+        subtitle="Important actions stay separate and calm."
+      />
+      <GlassCard tone="coral">
+        <Text style={styles.dangerTitle}>Sensitive actions</Text>
+        <Text style={styles.dangerBody}>
+          Deleting an account or comparing conflicting changes should never be
+          hidden inside normal preferences.
+        </Text>
         <View style={styles.buttonRow}>
           <Button
-            title="Sync status"
-            icon="sync"
+            title="Resolve conflicts"
             variant="secondary"
-            onPress={() => router.push("/sync" as never)}
-          />
-          <Button
-            title="Conflicts"
-            icon="git-compare"
-            variant="secondary"
-            onPress={() => router.push("/conflicts" as never)}
-          />
-          <Button
-            title="Notifications"
-            icon="notifications"
-            variant="secondary"
-            onPress={() => router.push("/notifications" as never)}
-          />
-          <Button
-            title="Backup/restore"
-            icon="archive"
-            variant="secondary"
-            onPress={() => router.push("/backup" as never)}
-          />
-          <Button
-            title="Privacy"
-            icon="lock-closed"
-            variant="secondary"
-            onPress={() => router.push("/privacy" as never)}
-          />
-          <Button
-            title="Full export"
-            icon="download"
-            variant="secondary"
-            onPress={() => router.push("/full-export" as never)}
-          />
-          <Button
-            title="Language"
-            icon="language"
-            variant="secondary"
-            onPress={() => router.push("/language" as never)}
-          />
-          <Button
-            title="Accessibility"
-            icon="accessibility"
-            variant="secondary"
-            onPress={() => router.push("/accessibility" as never)}
+            onPress={() => router.push("/conflicts")}
           />
           <Button
             title="Delete account"
-            icon="trash"
             variant="danger"
-            onPress={() => router.push("/delete-account" as never)}
+            onPress={() => router.push("/delete-account")}
           />
         </View>
-        <View style={styles.switchRow}>
-          <View style={styles.switchText}>
-            <Text style={styles.rowTitle}>Push notifications</Text>
-            <Text style={styles.rowBody}>
-              External delivery is optional; in-app notifications always remain
-              available.
-            </Text>
-          </View>
-          <Switch
-            value={data.settings.pushNotificationsEnabled}
-            onValueChange={(pushNotificationsEnabled) =>
-              data.updateSettings({ pushNotificationsEnabled })
-            }
-            trackColor={{ false: palette.lineStrong, true: palette.brandSoft }}
-            thumbColor={
-              data.settings.pushNotificationsEnabled ? palette.brand : "#FFFFFF"
-            }
-          />
-        </View>
-        <View style={styles.switchRow}>
-          <View style={styles.switchText}>
-            <Text style={styles.rowTitle}>Email notifications</Text>
-            <Text style={styles.rowBody}>
-              Backend-ready preference for important invites, requests,
-              reminders, and export completion.
-            </Text>
-          </View>
-          <Switch
-            value={data.settings.emailNotificationsEnabled}
-            onValueChange={(emailNotificationsEnabled) =>
-              data.updateSettings({ emailNotificationsEnabled })
-            }
-            trackColor={{ false: palette.lineStrong, true: palette.brandSoft }}
-            thumbColor={
-              data.settings.emailNotificationsEnabled
-                ? palette.brand
-                : "#FFFFFF"
-            }
-          />
-        </View>
-      </Card>
-
-      <Card>
-        <SectionTitle
-          title="Settlement defaults"
-          subtitle="Converted settlements stay off unless explicitly enabled."
-        />
-        <View style={styles.switchRow}>
-          <View style={styles.switchText}>
-            <Text style={styles.rowTitle}>
-              Converted settlement suggestions
-            </Text>
-            <Text style={styles.rowBody}>
-              Labelled as estimated and based on the local exchange-rate table.
-            </Text>
-          </View>
-          <Switch
-            value={data.settings.convertedSettlementOptIn}
-            onValueChange={(convertedSettlementOptIn) =>
-              data.updateSettings({ convertedSettlementOptIn })
-            }
-            trackColor={{ false: palette.lineStrong, true: palette.brandSoft }}
-            thumbColor={
-              data.settings.convertedSettlementOptIn ? palette.brand : "#FFFFFF"
-            }
-          />
-        </View>
-        <SelectChips
-          label="Default reminder"
-          value={data.settings.defaultReminderPreference}
-          options={[
-            { label: "None", value: "none" },
-            { label: "Due date", value: "due_date" },
-            { label: "1 day before", value: "one_day_before" },
-            { label: "1 week before", value: "one_week_before" },
-          ]}
-          onChange={(defaultReminderPreference) =>
-            data.updateSettings({ defaultReminderPreference })
-          }
-        />
-        <SelectChips
-          label="Recurring generation"
-          value={data.settings.recurringGenerationPreference}
-          options={[
-            { label: "Prompt", value: "prompt" },
-            { label: "Auto on app open", value: "auto" },
-          ]}
-          onChange={(recurringGenerationPreference) =>
-            data.updateSettings({ recurringGenerationPreference })
-          }
-        />
-        <View style={styles.switchRow}>
-          <View style={styles.switchText}>
-            <Text style={styles.rowTitle}>Include pending records</Text>
-            <Text style={styles.rowBody}>
-              Default settlement suggestions otherwise prefer verified/local
-              trusted records.
-            </Text>
-          </View>
-          <Switch
-            value={data.settings.includePendingSettlements}
-            onValueChange={(includePendingSettlements) =>
-              data.updateSettings({ includePendingSettlements })
-            }
-            trackColor={{ false: palette.lineStrong, true: palette.brandSoft }}
-            thumbColor={
-              data.settings.includePendingSettlements
-                ? palette.brand
-                : "#FFFFFF"
-            }
-          />
-        </View>
-        <View style={styles.switchRow}>
-          <View style={styles.switchText}>
-            <Text style={styles.rowTitle}>Include rejected/disputed</Text>
-            <Text style={styles.rowBody}>
-              Off by default so disputed records do not affect settlement
-              suggestions silently.
-            </Text>
-          </View>
-          <Switch
-            value={data.settings.includeRejectedDisputedSettlements}
-            onValueChange={(includeRejectedDisputedSettlements) =>
-              data.updateSettings({ includeRejectedDisputedSettlements })
-            }
-            trackColor={{ false: palette.lineStrong, true: palette.brandSoft }}
-            thumbColor={
-              data.settings.includeRejectedDisputedSettlements
-                ? palette.brand
-                : "#FFFFFF"
-            }
-          />
-        </View>
-      </Card>
-
-      <Card tone="amber">
-        <SectionTitle
-          title="Development data"
-          subtitle="Reset local SQLite data while building."
-        />
-        <View style={styles.buttonRow}>
-          <Button
-            title="Reset demo data"
-            icon="refresh"
-            variant="secondary"
-            onPress={() =>
-              Alert.alert(
-                "Reset demo data?",
-                "This replaces all local records with the Stage 1 demo ledger.",
-                [
-                  { text: "Cancel", style: "cancel" },
-                  {
-                    text: "Reset",
-                    style: "destructive",
-                    onPress: () => data.resetLocalData(true),
-                  },
-                ],
-              )
-            }
-          />
-          <Button
-            title="Clear local data"
-            icon="trash"
-            variant="danger"
-            onPress={() =>
-              Alert.alert(
-                "Clear local data?",
-                "This deletes members, debts, events, and expenses from SQLite.",
-                [
-                  { text: "Cancel", style: "cancel" },
-                  {
-                    text: "Clear",
-                    style: "destructive",
-                    onPress: () => data.resetLocalData(false),
-                  },
-                ],
-              )
-            }
-          />
-        </View>
-      </Card>
+      </GlassCard>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  heroCard: {
-    overflow: "hidden",
-  },
-  heroGlow: {
-    position: "absolute",
-    top: -28,
-    right: -10,
-    width: 170,
-    height: 170,
-    borderRadius: 85,
-    backgroundColor: "rgba(221,214,254,0.24)",
-  },
-  heroTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: spacing.lg,
-    flexWrap: "wrap",
-  },
-  heroLabel: {
-    color: palette.muted,
+  accountLabel: {
+    color: palette.primary,
     fontSize: 12,
     fontFamily: typefaces.bodyStrong,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
   },
-  heroTitle: {
-    color: palette.ink,
+  accountTitle: {
+    color: palette.textPrimary,
     fontSize: 24,
-    lineHeight: 32,
+    lineHeight: 30,
     fontFamily: typefaces.displayMedium,
   },
-  heroArtWrap: {
-    width: 142,
-    height: 112,
-    borderRadius: 24,
-    backgroundColor: "rgba(255,255,255,0.38)",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderGlass,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  heroMetrics: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: spacing.lg,
-  },
-  metricValue: {
-    color: palette.ink,
-    fontSize: 20,
-    fontFamily: typefaces.bodyHeavy,
-  },
-  metricLabel: {
+  accountBody: {
     color: palette.muted,
-    fontSize: 12,
-    fontFamily: typefaces.bodyStrong,
-    textTransform: "uppercase",
-    letterSpacing: 0.3,
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: typefaces.body,
   },
-  hubCard: {
-    gap: spacing.md,
+  statsRow: {
+    gap: spacing.sm,
   },
-  hubGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.md,
+  sectionColumn: {
+    gap: spacing.sm,
   },
-  switchRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.lg,
+  dangerTitle: {
+    color: palette.textPrimary,
+    fontSize: 18,
+    fontFamily: typefaces.displayMedium,
   },
-  switchText: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  rowTitle: {
-    color: palette.ink,
-    fontSize: 16,
-    fontFamily: typefaces.bodyHeavy,
-  },
-  rowBody: {
+  dangerBody: {
     color: palette.muted,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 14,
+    lineHeight: 20,
     fontFamily: typefaces.body,
   },
   buttonRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.md,
+    gap: spacing.sm,
   },
 });
