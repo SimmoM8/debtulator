@@ -20,6 +20,7 @@ import {
     SectionTitle,
 } from "@/src/components/ui/Primitives";
 import { palette, spacing, typefaces } from "@/src/constants/design";
+import { estimateMoneyMap } from "@/src/services/currency";
 import { explainEventSettlement } from "@/src/services/ledger";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
@@ -148,14 +149,11 @@ export function EventsScreen() {
                     .filter((member) => member.eventId === event.id)
                     .map((member) => member.memberId);
             const myBalance = explanation.participantNets.me ?? {};
-            const firstCurrency = Object.entries(myBalance).find(
-              ([, amount]) => Math.abs(amount ?? 0) > 0.005,
+            const amountLabel = formatMoney(
+              estimateMoneyMap(myBalance, data.settings, data.currencyRates),
+              data.settings.baseCurrency,
+              { signed: true },
             );
-            const amountLabel = firstCurrency
-              ? formatMoney(firstCurrency[1] ?? 0, firstCurrency[0] as never, {
-                  signed: true,
-                })
-              : "$0";
             const progress = explanation.suggestions.length ? 0.4 : 1;
 
             return (

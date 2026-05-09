@@ -15,28 +15,22 @@ import {
     PageHeader,
     Screen,
     SectionTitle,
-    SelectChips,
     TextField,
 } from "@/src/components/ui/Primitives";
-import { CURRENCIES } from "@/src/constants/currencies";
 import { palette, spacing, typefaces } from "@/src/constants/design";
 import {
-    chartTrendForCurrency,
     debtByMember,
     debtByTag,
     monthlyOwedOwingTrend,
     paidVsUnpaidSummary,
     verifiedVsPendingSummary,
 } from "@/src/services/analytics";
+import { estimateMoneyMap } from "@/src/services/currency";
 import { useAppData } from "@/src/state/AppDataProvider";
-import type { CurrencyCode } from "@/src/types/models";
-import { formatMoneyMap } from "@/src/utils/money";
+import { formatMoney } from "@/src/utils/money";
 
 export function AnalyticsScreen() {
   const data = useAppData();
-  const [currency, setCurrency] = useState<CurrencyCode>(
-    data.settings.baseCurrency,
-  );
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [includeRejected, setIncludeRejected] = useState(false);
@@ -77,6 +71,23 @@ export function AnalyticsScreen() {
     () => verifiedVsPendingSummary(data.ledgerEntries, filters),
     [data.ledgerEntries, filters],
   );
+  const trendData = useMemo(
+    () =>
+      trend.map((row) => ({
+        label: row.label,
+        value: estimateMoneyMap(
+          row.owedToMe,
+          data.settings,
+          data.currencyRates,
+        ),
+        valueSecondary: estimateMoneyMap(
+          row.iOwe,
+          data.settings,
+          data.currencyRates,
+        ),
+      })),
+    [data.currencyRates, data.settings, trend],
+  );
   const topCategory = tagRows[0];
 
   if (data.loading) {
@@ -85,10 +96,10 @@ export function AnalyticsScreen() {
 
   return (
     <Screen>
-      <PageHeader
-        eyebrow="Insights"
-        title="Insights"
-        subtitle="Useful summaries that keep currencies separate unless estimated mode is explicitly labelled."
+        <PageHeader
+          eyebrow="Insights"
+          title="Insights"
+          subtitle="Useful summaries shown in your selected base currency."
         action={
           <Button
             title="Export data"
@@ -139,7 +150,7 @@ export function AnalyticsScreen() {
       <Card tone="lavender">
         <SectionTitle
           title="Filters"
-          subtitle="Charts use existing ledger calculations and never silently merge currencies."
+          subtitle="Date and status filters for base-currency insights."
         />
         <View style={styles.twoColumn}>
           <TextField
@@ -157,12 +168,6 @@ export function AnalyticsScreen() {
             style={styles.flexField}
           />
         </View>
-        <SelectChips
-          label="Chart currency"
-          value={currency}
-          options={CURRENCIES.map((code) => ({ label: code, value: code }))}
-          onChange={setCurrency}
-        />
         <View style={styles.badgeLine}>
           <Button
             title="Rejected/disputed"
@@ -181,9 +186,9 @@ export function AnalyticsScreen() {
 
       <BarChartCard
         title="Monthly owed/owing trend"
-        subtitle="Primary bar is owed to you; amber bar is what you owe for the same month."
-        data={chartTrendForCurrency(trend, currency)}
-        currency={currency}
+        subtitle={`Primary bar is owed to you; amber bar is what you owe (${data.settings.baseCurrency}).`}
+        data={trendData}
+        currency={data.settings.baseCurrency}
         secondaryLabel="you owe"
       />
 
@@ -195,6 +200,8 @@ export function AnalyticsScreen() {
           totals: row.totalsByCurrency,
           tone: row.tag === "Untagged" ? "neutral" : "blue",
         }))}
+        settings={data.settings}
+        currencyRates={data.currencyRates}
       />
 
       <MoneyMapListCard
@@ -205,6 +212,8 @@ export function AnalyticsScreen() {
           totals: row.net,
           tone: "neutral",
         }))}
+        settings={data.settings}
+        currencyRates={data.currencyRates}
       />
 
       <Card>
@@ -214,27 +223,51 @@ export function AnalyticsScreen() {
         />
         <SummaryRow
           label="Original"
-          value={formatMoneyMap(paidSummary.totals.original, "None")}
+          value={moneyLabel(
+            paidSummary.totals.original,
+            data.settings,
+            data.currencyRates,
+          )}
         />
         <SummaryRow
           label="Paid"
-          value={formatMoneyMap(paidSummary.totals.paid, "None")}
+          value={moneyLabel(
+            paidSummary.totals.paid,
+            data.settings,
+            data.currencyRates,
+          )}
         />
         <SummaryRow
           label="Open"
-          value={formatMoneyMap(paidSummary.totals.remaining, "None")}
+          value={moneyLabel(
+            paidSummary.totals.remaining,
+            data.settings,
+            data.currencyRates,
+          )}
         />
         <SummaryRow
           label="Partially paid"
-          value={`${paidSummary.counts.partiallyPaid} records · ${formatMoneyMap(paidSummary.totals.partiallyPaid, "None")}`}
+          value={`${paidSummary.counts.partiallyPaid} records · ${moneyLabel(
+            paidSummary.totals.partiallyPaid,
+            data.settings,
+            data.currencyRates,
+          )}`}
         />
         <SummaryRow
           label="Fully paid"
-          value={`${paidSummary.counts.paid} records · ${formatMoneyMap(paidSummary.totals.fullyPaid, "None")}`}
+          value={`${paidSummary.counts.paid} records · ${moneyLabel(
+            paidSummary.totals.fullyPaid,
+            data.settings,
+            data.currencyRates,
+          )}`}
         />
         <SummaryRow
           label="Overpaid"
-          value={`${paidSummary.counts.overpaid} records · ${formatMoneyMap(paidSummary.totals.overpaid, "None")}`}
+          value={`${paidSummary.counts.overpaid} records · ${moneyLabel(
+            paidSummary.totals.overpaid,
+            data.settings,
+            data.currencyRates,
+          )}`}
         />
       </Card>
 
@@ -250,31 +283,59 @@ export function AnalyticsScreen() {
         </View>
         <SummaryRow
           label="Verified"
-          value={formatMoneyMap(trustSummary.verified, "None")}
+          value={moneyLabel(
+            trustSummary.verified,
+            data.settings,
+            data.currencyRates,
+          )}
         />
         <SummaryRow
           label="Pending"
-          value={formatMoneyMap(trustSummary.pending, "None")}
+          value={moneyLabel(
+            trustSummary.pending,
+            data.settings,
+            data.currencyRates,
+          )}
         />
         <SummaryRow
           label="Partially verified"
-          value={formatMoneyMap(trustSummary.partiallyVerified, "None")}
+          value={moneyLabel(
+            trustSummary.partiallyVerified,
+            data.settings,
+            data.currencyRates,
+          )}
         />
         <SummaryRow
           label="Local/private"
-          value={formatMoneyMap(trustSummary.localPrivate, "None")}
+          value={moneyLabel(
+            trustSummary.localPrivate,
+            data.settings,
+            data.currencyRates,
+          )}
         />
         <SummaryRow
           label="Rejected"
-          value={formatMoneyMap(trustSummary.rejected, "None")}
+          value={moneyLabel(
+            trustSummary.rejected,
+            data.settings,
+            data.currencyRates,
+          )}
         />
         <SummaryRow
           label="Disputed"
-          value={formatMoneyMap(trustSummary.disputed, "None")}
+          value={moneyLabel(
+            trustSummary.disputed,
+            data.settings,
+            data.currencyRates,
+          )}
         />
         <SummaryRow
           label="Resolved"
-          value={formatMoneyMap(trustSummary.resolved, "None")}
+          value={moneyLabel(
+            trustSummary.resolved,
+            data.settings,
+            data.currencyRates,
+          )}
         />
       </Card>
     </Screen>
@@ -287,6 +348,18 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
       <Text style={styles.summaryLabel}>{label}</Text>
       <Text style={styles.summaryValue}>{value}</Text>
     </View>
+  );
+}
+
+function moneyLabel(
+  map: Record<string, number>,
+  settings: ReturnType<typeof useAppData>["settings"],
+  currencyRates: ReturnType<typeof useAppData>["currencyRates"],
+) {
+  return formatMoney(
+    estimateMoneyMap(map, settings, currencyRates),
+    settings.baseCurrency,
+    { signed: true },
   );
 }
 

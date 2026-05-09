@@ -25,6 +25,7 @@ import {
     shareExport,
     writePdfExport,
 } from "@/src/services/export";
+import { convertCurrency } from "@/src/services/currency";
 import { participantName } from "@/src/services/ledger";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
@@ -133,7 +134,15 @@ export function SettlementDetailScreen() {
           <View>
             <Text style={styles.label}>Total amount</Text>
             <Text style={styles.total}>
-              {formatMoney(settlement.totalAmount, settlement.currency)}
+              {formatMoney(
+                convertCurrency(
+                  settlement.totalAmount,
+                  settlement.currency,
+                  data.settings.baseCurrency,
+                  data.currencyRates,
+                ),
+                data.settings.baseCurrency,
+              )}
             </Text>
           </View>
           <View style={styles.badgeStack}>
@@ -161,16 +170,15 @@ export function SettlementDetailScreen() {
           <View style={styles.estimateBox}>
             <Badge label="Estimated converted settlement" tone="amber" />
             <Text style={styles.body}>
-              Converted{" "}
               {formatMoney(
-                settlement.originalAmount ?? 0,
-                settlement.originalCurrency ?? settlement.currency,
-              )}{" "}
-              to{" "}
-              {formatMoney(
-                settlement.settlementAmount ?? settlement.totalAmount,
-                settlement.settlementCurrency ?? settlement.currency,
-              )}{" "}
+                convertCurrency(
+                  settlement.settlementAmount ?? settlement.totalAmount,
+                  settlement.settlementCurrency ?? settlement.currency,
+                  data.settings.baseCurrency,
+                  data.currencyRates,
+                ),
+                data.settings.baseCurrency,
+              )} in {data.settings.baseCurrency}{" "}
               using rate {settlement.exchangeRateUsed} from{" "}
               {settlement.exchangeRateDate ?? "the local table"}.
             </Text>
@@ -234,7 +242,15 @@ export function SettlementDetailScreen() {
                   <Text style={styles.body}>{payment.paymentDate}</Text>
                 </View>
                 <Text style={styles.money}>
-                  {formatMoney(payment.amount, payment.currency)}
+                  {formatMoney(
+                    convertCurrency(
+                      payment.amount,
+                      payment.currency,
+                      data.settings.baseCurrency,
+                      data.currencyRates,
+                    ),
+                    data.settings.baseCurrency,
+                  )}
                 </Text>
               </View>
             );
@@ -260,7 +276,16 @@ export function SettlementDetailScreen() {
                   {entry?.title ?? line.sourceRecordType.replaceAll("_", " ")}
                 </Text>
                 <Text style={styles.body}>
-                  Applied {formatMoney(line.appliedAmount, line.currency)}
+                  Applied{" "}
+                  {formatMoney(
+                    convertCurrency(
+                      line.appliedAmount,
+                      line.currency,
+                      data.settings.baseCurrency,
+                      data.currencyRates,
+                    ),
+                    data.settings.baseCurrency,
+                  )}
                   {entry
                     ? `, remaining ${formatMoney(entry.remainingAmount, entry.currency)}`
                     : ""}

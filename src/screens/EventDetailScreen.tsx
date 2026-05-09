@@ -33,6 +33,7 @@ import {
 } from "@/src/components/ui/Primitives";
 import { palette, radii, spacing, typefaces } from "@/src/constants/design";
 import { eventSpendingBreakdown } from "@/src/services/analytics";
+import { convertCurrency, estimateMoneyMap } from "@/src/services/currency";
 import { findDuplicateWarnings } from "@/src/services/duplicates";
 import {
     canAddExpense,
@@ -72,7 +73,7 @@ import type {
     LedgerEntry,
     SharedEventMember,
 } from "@/src/types/models";
-import { formatMoney, formatMoneyMap } from "@/src/utils/money";
+import { formatMoney } from "@/src/utils/money";
 
 type EventTab =
   | "overview"
@@ -697,7 +698,7 @@ export function EventDetailScreen() {
       {tab === "balances" ? (
         <Card>
           <SectionTitle
-            title="Balances by currency"
+            title={`Balances in ${data.settings.baseCurrency}`}
             subtitle="Positive balances receive money; negative balances pay money."
           />
           {Object.entries(explanation.participantNets).map(
@@ -710,7 +711,13 @@ export function EventDetailScreen() {
                     sharedEventMembers,
                   )}
                 </Text>
-                <Text style={styles.infoValue}>{formatMoneyMap(moneyMap)}</Text>
+                <Text style={styles.infoValue}>
+                  {formatMoney(
+                    estimateMoneyMap(moneyMap, data.settings, data.currencyRates),
+                    data.settings.baseCurrency,
+                    { signed: true },
+                  )}
+                </Text>
               </View>
             ),
           )}
@@ -721,7 +728,7 @@ export function EventDetailScreen() {
         <>
           <MoneyMapListCard
             title="Event spending totals"
-            subtitle="Native totals stay separated by currency."
+            subtitle={`Converted totals in ${data.settings.baseCurrency}.`}
             rows={[
               {
                 label: "Total spending",
@@ -729,17 +736,21 @@ export function EventDetailScreen() {
                 tone: "blue",
               },
             ]}
+            settings={data.settings}
+            currencyRates={data.currencyRates}
           />
           <MoneyMapListCard
             title="Spending by category"
             subtitle="Multiple tags split the amount evenly for analytics."
             rows={analytics.byTag
               .slice(0, 8)
-              .map((row) => ({
-                label: row.tag,
-                totals: row.totalsByCurrency,
-                tone: "blue",
-              }))}
+                .map((row) => ({
+                  label: row.tag,
+                  totals: row.totalsByCurrency,
+                  tone: "blue",
+                }))}
+            settings={data.settings}
+            currencyRates={data.currencyRates}
           />
           <MoneyMapListCard
             title="Spending by payer"
@@ -749,6 +760,8 @@ export function EventDetailScreen() {
               totals: row.totalsByCurrency,
               tone: "neutral",
             }))}
+            settings={data.settings}
+            currencyRates={data.currencyRates}
           />
           <MoneyMapListCard
             title="Paid vs unpaid"
@@ -775,16 +788,20 @@ export function EventDetailScreen() {
                 tone: "negative",
               },
             ]}
+            settings={data.settings}
+            currencyRates={data.currencyRates}
           />
           <BarChartCard
             title="Top event balances"
-            subtitle="Ranked native balance magnitude, shown in the event default currency when available."
-            currency={event.defaultCurrency}
+            subtitle={`Ranked by converted balance magnitude in ${data.settings.baseCurrency}.`}
+            currency={data.settings.baseCurrency}
             data={analytics.byMember
               .map((row) => ({
                 label: row.name,
-                value: Math.abs(row.net[event.defaultCurrency] ?? 0),
-                currency: event.defaultCurrency,
+                value: Math.abs(
+                  estimateMoneyMap(row.net, data.settings, data.currencyRates),
+                ),
+                currency: data.settings.baseCurrency,
               }))
               .filter((row) => row.value > 0.005)
               .slice(0, 6)}
@@ -797,7 +814,7 @@ export function EventDetailScreen() {
           <Card>
             <SectionTitle
               title="Settlement suggestions"
-              subtitle="Generated separately by currency using a minimised transfer pass."
+              subtitle={`Generated from event balances and shown in ${data.settings.baseCurrency}.`}
             />
             <SettingToggle
               settings={settlementSettings}
@@ -820,7 +837,15 @@ export function EventDetailScreen() {
                     )}
                   </Text>
                   <Text style={styles.money}>
-                    {formatMoney(suggestion.amount, suggestion.currency)}
+                    {formatMoney(
+                      convertCurrency(
+                        suggestion.amount,
+                        suggestion.currency,
+                        data.settings.baseCurrency,
+                        data.currencyRates,
+                      ),
+                      data.settings.baseCurrency,
+                    )}
                   </Text>
                   <Button
                     title="Record"
@@ -917,7 +942,15 @@ export function EventDetailScreen() {
                 {" -> "}
                 {participantName(step.toId, data.members, sharedEventMembers)}
                 {" - "}
-                {formatMoney(step.amount, step.currency)}
+                {formatMoney(
+                  convertCurrency(
+                    step.amount,
+                    step.currency,
+                    data.settings.baseCurrency,
+                    data.currencyRates,
+                  ),
+                  data.settings.baseCurrency,
+                )}
               </Text>
             ))}
           </Card>
@@ -950,7 +983,15 @@ export function EventDetailScreen() {
                     )}
                   </Text>
                   <Text style={styles.money}>
-                    {formatMoney(payment.amount, payment.currency)}
+                    {formatMoney(
+                      convertCurrency(
+                        payment.amount,
+                        payment.currency,
+                        data.settings.baseCurrency,
+                        data.currencyRates,
+                      ),
+                      data.settings.baseCurrency,
+                    )}
                   </Text>
                 </View>
               ))
