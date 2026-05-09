@@ -192,6 +192,100 @@ export function SearchBar({
   );
 }
 
+export function SearchFilterBar({
+  value,
+  onChangeText,
+  placeholder,
+  onPressFilter,
+  filterActive = false,
+  filterLabel = "Open filters",
+  style,
+  ...props
+}: {
+  value: string;
+  onChangeText: (value: string) => void;
+  placeholder?: string;
+  onPressFilter: () => void;
+  filterActive?: boolean;
+  filterLabel?: string;
+  style?: StyleProp<ViewStyle>;
+} & Omit<TextInputProps, "value" | "onChangeText" | "style">) {
+  return (
+    <View style={[styles.searchToolbar, style]}>
+      <SearchBar
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        style={styles.searchToolbarField}
+        {...props}
+      />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={filterLabel}
+        onPress={onPressFilter}
+        style={({ pressed }) => [
+          styles.searchToolbarButton,
+          filterActive && styles.searchToolbarButtonActive,
+          pressed && styles.pressed,
+        ]}
+      >
+        <Ionicons
+          name="options-outline"
+          size={20}
+          color={filterActive ? palette.primary : palette.muted}
+        />
+      </Pressable>
+    </View>
+  );
+}
+
+export function SingleSelectFilterList({
+  value,
+  options,
+  onChange,
+}: {
+  value: string;
+  options: { label: string; value: string; description?: string }[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <View style={styles.filterOptionList}>
+      {options.map((option, index) => {
+        const active = option.value === value;
+
+        return (
+          <Pressable
+            key={option.value}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active }}
+            onPress={() => onChange(option.value)}
+            style={({ pressed }) => [
+              styles.filterOption,
+              index < options.length - 1 && styles.filterOptionDivider,
+              active && styles.filterOptionActive,
+              pressed && styles.pressed,
+            ]}
+          >
+            <View style={styles.filterOptionCopy}>
+              <Text style={styles.filterOptionLabel}>{option.label}</Text>
+              {option.description ? (
+                <Text style={styles.filterOptionDescription}>
+                  {option.description}
+                </Text>
+              ) : null}
+            </View>
+            {active ? (
+              <View style={styles.filterOptionCheck}>
+                <Ionicons name="checkmark" size={15} color={palette.primary} />
+              </View>
+            ) : null}
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 export function StatCard({
   label,
   value,
@@ -577,6 +671,75 @@ const styles = StyleSheet.create({
     color: palette.textPrimary,
     fontSize: 15,
     fontFamily: typefaces.body,
+  },
+  searchToolbar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  searchToolbarField: {
+    flex: 1,
+  },
+  searchToolbarButton: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderIndigoSoft,
+    backgroundColor: palette.surfaceGlassStrong,
+    alignItems: "center",
+    justifyContent: "center",
+    ...shadows.soft,
+  },
+  searchToolbarButtonActive: {
+    borderColor: "rgba(55,48,163,0.2)",
+    backgroundColor: "rgba(55,48,163,0.08)",
+  },
+  filterOptionList: {
+    borderRadius: 22,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderIndigoSoft,
+    backgroundColor: "rgba(255,255,255,0.66)",
+    overflow: "hidden",
+  },
+  filterOption: {
+    minHeight: 72,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.md,
+  },
+  filterOptionDivider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: palette.line,
+  },
+  filterOptionActive: {
+    backgroundColor: "rgba(55,48,163,0.05)",
+  },
+  filterOptionCopy: {
+    flex: 1,
+    gap: 3,
+  },
+  filterOptionLabel: {
+    color: palette.textPrimary,
+    fontSize: 15,
+    fontFamily: typefaces.bodyStrong,
+  },
+  filterOptionDescription: {
+    color: palette.muted,
+    fontSize: 12,
+    lineHeight: 17,
+    fontFamily: typefaces.body,
+  },
+  filterOptionCheck: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "rgba(55,48,163,0.12)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   statCard: {
     flex: 1,

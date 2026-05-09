@@ -1,21 +1,23 @@
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
 import {
-    GlassCard,
+  GlassCard,
   ListRow,
-    SearchBar,
-    StatCard,
+  SearchFilterBar,
+  SingleSelectFilterList,
+  StatCard,
 } from "@/src/components/ui/Finance";
 import {
-    Button,
-    EmptyState,
-    LoadingState,
-    PageHeader,
-    Screen,
-    SectionTitle,
+  Button,
+  EmptyState,
+  FilterSheet,
+  LoadingState,
+  PageHeader,
+  Screen,
+  SectionTitle,
 } from "@/src/components/ui/Primitives";
 import { palette, spacing, typefaces } from "@/src/constants/design";
 import { estimateMoneyMap } from "@/src/services/currency";
@@ -30,6 +32,7 @@ export function MembersScreen() {
   const data = useAppData();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<MemberFilter>("all");
+  const [filterOpen, setFilterOpen] = useState(false);
 
   const members = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -115,30 +118,16 @@ export function MembersScreen() {
         action={<AppMenuButton />}
       />
 
+      <SearchFilterBar
+        value={query}
+        onChangeText={setQuery}
+        placeholder="Search members"
+        onPressFilter={() => setFilterOpen(true)}
+        filterActive={filter !== "all"}
+        filterLabel="Open member filters"
+      />
+
       <GlassCard tone="lavender">
-        <SearchBar
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Search members"
-        />
-        <View style={styles.chipRow}>
-          {FILTERS.map((item) => (
-            <Pressable
-              key={item.value}
-              onPress={() => setFilter(item.value)}
-              style={[styles.chip, filter === item.value && styles.chipActive]}
-            >
-              <Text
-                style={[
-                  styles.chipText,
-                  filter === item.value && styles.chipTextActive,
-                ]}
-              >
-                {item.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
         <View style={styles.statsRow}>
           <StatCard
             label="Linked"
@@ -160,6 +149,22 @@ export function MembersScreen() {
           />
         </View>
       </GlassCard>
+
+      <FilterSheet
+        visible={filterOpen}
+        title="Member filters"
+        subtitle="Choose which people and balance states you want to focus on."
+        onClose={() => setFilterOpen(false)}
+      >
+        <SingleSelectFilterList
+          value={filter}
+          options={FILTERS}
+          onChange={(value) => {
+            setFilter(value as MemberFilter);
+            setFilterOpen(false);
+          }}
+        />
+      </FilterSheet>
 
       <SectionTitle
         title="People and balances"
@@ -220,15 +225,15 @@ function MemberRow({
   showDivider?: boolean;
 }) {
   const estimated = estimateMoneyMap(balance, settings, currencyRates);
-  const status = Math.abs(estimated) <= MINIMUM_BALANCE_THRESHOLD
-    ? { label: "Settled", tone: "muted" as const }
-    : estimated > 0
-      ? { label: "Owes you", tone: "teal" as const }
-      : { label: "You owe", tone: "coral" as const };
+  const status =
+    Math.abs(estimated) <= MINIMUM_BALANCE_THRESHOLD
+      ? { label: "Settled", tone: "muted" as const }
+      : estimated > 0
+        ? { label: "Owes you", tone: "teal" as const }
+        : { label: "You owe", tone: "coral" as const };
 
-  const subtitle = member.linkStatus === "linked"
-    ? "Linked"
-    : dataLabelForMember(member);
+  const subtitle =
+    member.linkStatus === "linked" ? "Linked" : dataLabelForMember(member);
 
   return (
     <ListRow
@@ -257,41 +262,35 @@ function dataLabelForMember(member: Member) {
   return "Private";
 }
 
-const FILTERS: { label: string; value: MemberFilter }[] = [
-  { label: "All", value: "all" },
-  { label: "Linked", value: "linked" },
-  { label: "Shared", value: "shared" },
-  { label: "Owes you", value: "owed-to-you" },
-  { label: "You owe", value: "you-owe" },
+const FILTERS: { label: string; value: MemberFilter; description: string }[] = [
+  {
+    label: "All",
+    value: "all",
+    description: "Everyone in your member list, no matter their status.",
+  },
+  {
+    label: "Linked",
+    value: "linked",
+    description: "People already connected to a shared identity.",
+  },
+  {
+    label: "Shared",
+    value: "shared",
+    description: "People involved in shared activity or group history.",
+  },
+  {
+    label: "Owes you",
+    value: "owed-to-you",
+    description: "People who currently owe you money.",
+  },
+  {
+    label: "You owe",
+    value: "you-owe",
+    description: "People you currently owe money to.",
+  },
 ];
 
 const styles = StyleSheet.create({
-  chipRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-  },
-  chip: {
-    minHeight: 36,
-    paddingHorizontal: 14,
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderIndigoSoft,
-    backgroundColor: palette.surfaceGlassStrong,
-    justifyContent: "center",
-  },
-  chipActive: {
-    backgroundColor: palette.primary,
-    borderColor: palette.primary,
-  },
-  chipText: {
-    color: palette.muted,
-    fontSize: 13,
-    fontFamily: typefaces.bodyStrong,
-  },
-  chipTextActive: {
-    color: palette.surface,
-  },
   statsRow: {
     gap: spacing.sm,
   },

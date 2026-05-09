@@ -5,14 +5,15 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
 import {
     AvatarStack,
-    FilterChip,
     GlassCard,
-    SearchBar,
+    SearchFilterBar,
+    SingleSelectFilterList,
     StatCard,
     StatusPill,
 } from "@/src/components/ui/Finance";
 import {
     EmptyState,
+    FilterSheet,
     LoadingState,
     PageHeader,
     Screen,
@@ -32,6 +33,7 @@ export function EventsScreen() {
   const auth = useAuth();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<EventFilter>("all");
+  const [filterOpen, setFilterOpen] = useState(false);
 
   const events = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -80,22 +82,16 @@ export function EventsScreen() {
         action={<AppMenuButton />}
       />
 
+      <SearchFilterBar
+        value={query}
+        onChangeText={setQuery}
+        placeholder="Search events"
+        onPressFilter={() => setFilterOpen(true)}
+        filterActive={filter !== "all"}
+        filterLabel="Open event filters"
+      />
+
       <GlassCard tone="peach">
-        <SearchBar
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Search events"
-        />
-        <View style={styles.chipRow}>
-          {FILTERS.map((item) => (
-            <FilterChip
-              key={item.value}
-              label={item.label}
-              active={filter === item.value}
-              onPress={() => setFilter(item.value)}
-            />
-          ))}
-        </View>
         <View style={styles.statsRow}>
           <StatCard
             label="Shared"
@@ -117,6 +113,22 @@ export function EventsScreen() {
           />
         </View>
       </GlassCard>
+
+      <FilterSheet
+        visible={filterOpen}
+        title="Event filters"
+        subtitle="Choose which groups and event states appear here."
+        onClose={() => setFilterOpen(false)}
+      >
+        <SingleSelectFilterList
+          value={filter}
+          options={FILTERS}
+          onChange={(value) => {
+            setFilter(value as EventFilter);
+            setFilterOpen(false);
+          }}
+        />
+      </FilterSheet>
 
       <SectionTitle
         title="Your groups"
@@ -239,11 +251,27 @@ export function EventsScreen() {
   );
 }
 
-const FILTERS: { label: string; value: EventFilter }[] = [
-  { label: "All", value: "all" },
-  { label: "Planning", value: "planning" },
-  { label: "Active", value: "active" },
-  { label: "Settled", value: "settled" },
+const FILTERS: { label: string; value: EventFilter; description: string }[] = [
+  {
+    label: "All",
+    value: "all",
+    description: "Every visible event, no matter where it is in the flow.",
+  },
+  {
+    label: "Planning",
+    value: "planning",
+    description: "Groups still being organized before money starts moving.",
+  },
+  {
+    label: "Active",
+    value: "active",
+    description: "Events with ongoing balances and shared activity.",
+  },
+  {
+    label: "Settled",
+    value: "settled",
+    description: "Closed-out groups with nothing left to sort.",
+  },
 ];
 
 function capitalize(value: string) {
@@ -251,11 +279,6 @@ function capitalize(value: string) {
 }
 
 const styles = StyleSheet.create({
-  chipRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-  },
   statsRow: {
     gap: spacing.sm,
   },

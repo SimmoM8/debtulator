@@ -4,14 +4,16 @@ import { StyleSheet, Text, View } from "react-native";
 
 import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
 import {
-    FilterChip,
     GlassCard,
+    SearchFilterBar,
+    SingleSelectFilterList,
     StatCard,
     StatusPill,
 } from "@/src/components/ui/Finance";
 import {
     Button,
     EmptyState,
+    FilterSheet,
     LoadingState,
     PageHeader,
     Screen,
@@ -32,10 +34,13 @@ type InboxFilter = "all" | "pending" | "completed";
 export function RequestsScreen() {
   const data = useAppData();
   const auth = useAuth();
+  const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<InboxFilter>("pending");
+  const [filterOpen, setFilterOpen] = useState(false);
 
   const userId = auth.identity.authenticatedUserId;
   const email = auth.identity.email?.toLowerCase() ?? null;
+  const normalizedQuery = query.trim().toLowerCase();
 
   const incomingLinks = useMemo(
     () =>
@@ -66,24 +71,28 @@ export function RequestsScreen() {
       ),
     [data.eventInvites, email, userId],
   );
-  const completedItems = [
-    ...data.linkRequests.filter(
-      (request) =>
-        request.status !== "pending" &&
-        (request.requesterUserId === userId || request.targetUserId === userId),
-    ),
-    ...data.debtVerifications.filter(
-      (verification) =>
-        verification.status !== "pending" &&
-        (verification.requesterUserId === userId ||
-          verification.responderUserId === userId),
-    ),
-    ...data.eventInvites.filter(
-      (invite) =>
-        invite.status !== "pending" &&
-        (invite.inviterUserId === userId || invite.invitedUserId === userId),
-    ),
-  ];
+  const completedItems = useMemo(
+    () => [
+      ...data.linkRequests.filter(
+        (request) =>
+          request.status !== "pending" &&
+          (request.requesterUserId === userId ||
+            request.targetUserId === userId),
+      ),
+      ...data.debtVerifications.filter(
+        (verification) =>
+          verification.status !== "pending" &&
+          (verification.requesterUserId === userId ||
+            verification.responderUserId === userId),
+      ),
+      ...data.eventInvites.filter(
+        (invite) =>
+          invite.status !== "pending" &&
+          (invite.inviterUserId === userId || invite.invitedUserId === userId),
+      ),
+    ],
+    [data.debtVerifications, data.eventInvites, data.linkRequests, userId],
+  );
   const disputeCount =
     data.debts.filter(
       (debt) =>
@@ -95,6 +104,60 @@ export function RequestsScreen() {
         entry.verificationStatus === "rejected" ||
         entry.verificationStatus === "disputed",
     ).length;
+
+  const visibleLinks = useMemo(
+    () =>
+      incomingLinks.filter((request) =>
+        matchesQuery(normalizedQuery, [
+          request.requesterLabel,
+          request.message,
+          request.targetEmail,
+        ]),
+      ),
+    [incomingLinks, normalizedQuery],
+  );
+  const visibleVerifications = useMemo(
+    () =>
+      incomingVerifications.filter((verification) => {
+        const debt = data.debts.find((item) => item.id === verification.debtId);
+        const member = debt
+          ? data.members.find((item) => item.id === debt.memberId)
+          : undefined;
+
+        return matchesQuery(normalizedQuery, [
+          debt?.title,
+          debt?.debtDate,
+          member?.displayName,
+          verification.status,
+        ]);
+      }),
+    [data.debts, data.members, incomingVerifications, normalizedQuery],
+  );
+  const visibleEventInvites = useMemo(
+    () =>
+      incomingEventInvites.filter((invite) => {
+        const event = data.events.find((item) => item.id === invite.eventId);
+
+        return matchesQuery(normalizedQuery, [
+          event?.name,
+          invite.invitedDisplayName,
+          invite.message,
+          invite.offeredRole,
+        ]);
+      }),
+    [data.events, incomingEventInvites, normalizedQuery],
+  );
+  const visibleCompletedItems = useMemo(
+    () =>
+      completedItems.filter((item) =>
+        matchesQuery(normalizedQuery, [
+          completedTitle(item),
+          completedBody(item),
+          item.status,
+        ]),
+      ),
+    [completedItems, normalizedQuery],
+  );
 
   if (data.loading || auth.loading) {
     return <LoadingState />;
@@ -131,17 +194,16 @@ export function RequestsScreen() {
         action={<AppMenuButton />}
       />
 
+      <SearchFilterBar
+        value={query}
+        onChangeText={setQuery}
+        placeholder="Search requests"
+        onPressFilter={() => setFilterOpen(true)}
+        filterActive={filter !== "pending"}
+        filterLabel="Open request filters"
+      />
+
       <GlassCard tone="lavender">
-        <View style={styles.chipRow}>
-          {FILTERS.map((item) => (
-            <FilterChip
-              key={item.value}
-              label={item.label}
-              active={filter === item.value}
-              onPress={() => setFilter(item.value)}
-            />
-          ))}
-        </View>
         <View style={styles.statsRow}>
           <StatCard
             label="Pending"
@@ -168,6 +230,22 @@ export function RequestsScreen() {
         </View>
       </GlassCard>
 
+      <FilterSheet
+        visible={filterOpen}
+        title="Request filters"
+        subtitle="Choose which inbox items you want to review."
+        onClose={() => setFilterOpen(false)}
+      >
+        <SingleSelectFilterList
+          value={filter}
+          options={FILTERS}
+          onChange={(value) => {
+            setFilter(value as InboxFilter);
+            setFilterOpen(false);
+          }}
+        />
+      </FilterSheet>
+
       {(filter === "all" || filter === "pending") && (
         <>
           <RequestSection
@@ -176,7 +254,7 @@ export function RequestsScreen() {
             emptyTitle="No link requests"
             emptyBody="New connection requests will show up here."
           >
-            {incomingLinks.map((request) => (
+            {visibleLinks.map((request) => (
               <RequestCard
                 key={request.id}
                 title={request.requesterLabel}
@@ -229,7 +307,7 @@ export function RequestsScreen() {
             emptyTitle="No pending confirmations"
             emptyBody="Debt verification requests will show up here."
           >
-            {incomingVerifications.map((verification) => {
+            {visibleVerifications.map((verification) => {
               const debt = data.debts.find(
                 (item) => item.id === verification.debtId,
               );
@@ -299,7 +377,7 @@ export function RequestsScreen() {
             emptyTitle="No event invites"
             emptyBody="New event invites will show up here."
           >
-            {incomingEventInvites.map((invite) => {
+            {visibleEventInvites.map((invite) => {
               const event = data.events.find(
                 (item) => item.id === invite.eventId,
               );
@@ -366,7 +444,7 @@ export function RequestsScreen() {
             emptyTitle="Nothing completed yet"
             emptyBody="Handled requests will appear here."
           >
-            {completedItems.map((item) => (
+            {visibleCompletedItems.map((item) => (
               <RequestCard
                 key={item.id}
                 title={completedTitle(item)}
@@ -480,11 +558,31 @@ function RequestCard({
   );
 }
 
-const FILTERS: { label: string; value: InboxFilter }[] = [
-  { label: "All", value: "all" },
-  { label: "Pending", value: "pending" },
-  { label: "Completed", value: "completed" },
+const FILTERS: { label: string; value: InboxFilter; description: string }[] = [
+  {
+    label: "All",
+    value: "all",
+    description: "Every request and completed item in your inbox.",
+  },
+  {
+    label: "Pending",
+    value: "pending",
+    description: "Only things still waiting for your answer.",
+  },
+  {
+    label: "Completed",
+    value: "completed",
+    description: "Only requests you have already handled.",
+  },
 ];
+
+function matchesQuery(query: string, values: (string | null | undefined)[]) {
+  if (!query) {
+    return true;
+  }
+
+  return values.some((value) => value?.toLowerCase().includes(query));
+}
 
 function completedTitle(item: {
   status: string;
@@ -509,11 +607,6 @@ function completedStatus(item: { status: string }) {
 }
 
 const styles = StyleSheet.create({
-  chipRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-  },
   statsRow: {
     gap: spacing.sm,
   },

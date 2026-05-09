@@ -4,27 +4,28 @@ import { StyleSheet, View } from "react-native";
 
 import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
 import {
-    FilterChip,
-    GlassCard,
-    ListRow,
-    SearchBar,
-    StatCard,
+  GlassCard,
+  ListRow,
+  SearchFilterBar,
+  SingleSelectFilterList,
+  StatCard,
 } from "@/src/components/ui/Finance";
 import {
-    EmptyState,
-    LoadingState,
-    PageHeader,
-    Screen,
-    SectionTitle,
+  EmptyState,
+  FilterSheet,
+  LoadingState,
+  PageHeader,
+  Screen,
+  SectionTitle,
 } from "@/src/components/ui/Primitives";
 import { spacing } from "@/src/constants/design";
 import { entryDirectionText } from "@/src/services/ledger";
 import { useAppData } from "@/src/state/AppDataProvider";
 import type {
-    CurrencyCode,
-    LedgerEntry,
-    Member,
-    SharedEventMember,
+  CurrencyCode,
+  LedgerEntry,
+  Member,
+  SharedEventMember,
 } from "@/src/types/models";
 import { formatMoney } from "@/src/utils/money";
 
@@ -34,6 +35,7 @@ export function DebtsScreen() {
   const data = useAppData();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<DebtFilter>("all");
+  const [filterOpen, setFilterOpen] = useState(false);
 
   const filteredEntries = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -123,22 +125,16 @@ export function DebtsScreen() {
         action={<AppMenuButton />}
       />
 
+      <SearchFilterBar
+        value={query}
+        onChangeText={setQuery}
+        placeholder="Search debts"
+        onPressFilter={() => setFilterOpen(true)}
+        filterActive={filter !== "all"}
+        filterLabel="Open debt filters"
+      />
+
       <GlassCard tone="lavender">
-        <SearchBar
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Search debts"
-        />
-        <View style={styles.chipRow}>
-          {FILTERS.map((item) => (
-            <FilterChip
-              key={item.value}
-              label={item.label}
-              active={filter === item.value}
-              onPress={() => setFilter(item.value)}
-            />
-          ))}
-        </View>
         <View style={styles.statsRow}>
           <StatCard
             label="Open"
@@ -160,6 +156,22 @@ export function DebtsScreen() {
           />
         </View>
       </GlassCard>
+
+      <FilterSheet
+        visible={filterOpen}
+        title="Debt filters"
+        subtitle="Choose which balances show up in your list."
+        onClose={() => setFilterOpen(false)}
+      >
+        <SingleSelectFilterList
+          value={filter}
+          options={FILTERS}
+          onChange={(value) => {
+            setFilter(value as DebtFilter);
+            setFilterOpen(false);
+          }}
+        />
+      </FilterSheet>
 
       <LedgerSection
         title="You owe"
@@ -300,7 +312,9 @@ function debtDueLabel(entry: LedgerEntry) {
   return `Due in ${days} days`;
 }
 
-function debtDueTone(entry: LedgerEntry): "teal" | "amber" | "coral" | "muted" | "indigo" {
+function debtDueTone(
+  entry: LedgerEntry,
+): "teal" | "amber" | "coral" | "muted" | "indigo" {
   if (entry.remainingAmount <= 0.005 || entry.status === "settled") {
     return "teal";
   }
@@ -317,20 +331,35 @@ function debtDueTone(entry: LedgerEntry): "teal" | "amber" | "coral" | "muted" |
   return days <= 2 ? "coral" : "indigo";
 }
 
-const FILTERS: { label: string; value: DebtFilter }[] = [
-  { label: "All", value: "all" },
-  { label: "You owe", value: "you-owe" },
-  { label: "Owed to you", value: "owed-to-you" },
-  { label: "Due soon", value: "due-soon" },
-  { label: "Settled", value: "settled" },
+const FILTERS: { label: string; value: DebtFilter; description: string }[] = [
+  {
+    label: "All",
+    value: "all",
+    description: "Everything still visible, regardless of direction or status.",
+  },
+  {
+    label: "You owe",
+    value: "you-owe",
+    description: "Only balances you still need to pay.",
+  },
+  {
+    label: "Owed to you",
+    value: "owed-to-you",
+    description: "Only balances other people still owe you.",
+  },
+  {
+    label: "Due soon",
+    value: "due-soon",
+    description: "Open balances that already have a due date.",
+  },
+  {
+    label: "Settled",
+    value: "settled",
+    description: "Finished items that are already paid or closed out.",
+  },
 ];
 
 const styles = StyleSheet.create({
-  chipRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-  },
   statsRow: {
     gap: spacing.sm,
   },
