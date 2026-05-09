@@ -215,6 +215,7 @@ export function RequestsScreen() {
             subtitle="Needs your answer"
             tone="amber"
             compact
+            compactDensity="tight"
             withDivider
           />
           <StatCard
@@ -223,6 +224,7 @@ export function RequestsScreen() {
             subtitle="Already handled"
             tone="teal"
             compact
+            compactDensity="tight"
             withDivider
           />
           <StatCard
@@ -231,6 +233,7 @@ export function RequestsScreen() {
             subtitle="Disputes and mismatches"
             tone="coral"
             compact
+            compactDensity="tight"
           />
         </View>
       </GlassCard>

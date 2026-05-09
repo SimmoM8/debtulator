@@ -308,18 +308,29 @@ export function StatCard({
   subtitle,
   tone = "lavender",
   compact = false,
+  compactDensity = "default",
   withDivider = false,
+  dividerSide = "right",
+  showCompactSubtitle = false,
+  subtitleIcon,
 }: {
   label: string;
   value: string;
   subtitle?: string;
   tone?: Tone;
   compact?: boolean;
+  compactDensity?: "default" | "tight";
   withDivider?: boolean;
+  dividerSide?: "left" | "right";
+  showCompactSubtitle?: boolean;
+  subtitleIcon?: IconName;
 }) {
   const toneStyle = toneStyles[tone];
   const [showInfo, setShowInfo] = React.useState(false);
-  const showsCompactInfo = compact && Boolean(subtitle);
+  const compactSubtitleVisible =
+    compact && showCompactSubtitle && Boolean(subtitle);
+  const showsCompactInfo =
+    compact && Boolean(subtitle) && !compactSubtitleVisible;
   const infoOpacity = React.useRef(new Animated.Value(0)).current;
   const hideTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -376,7 +387,13 @@ export function StatCard({
 
   const content = (
     <>
-      <Text style={[styles.statLabel, compact && styles.statLabelCompact]}>
+      <Text
+        style={[
+          styles.statLabel,
+          compact && styles.statLabelCompact,
+          compact && compactDensity === "tight" && styles.statLabelCompactTight,
+        ]}
+      >
         {label}
       </Text>
       <Text
@@ -384,6 +401,7 @@ export function StatCard({
           styles.statValue,
           { color: toneStyle.text },
           compact && styles.statValueCompact,
+          compact && compactDensity === "tight" && styles.statValueCompactTight,
         ]}
         numberOfLines={1}
       >
@@ -393,6 +411,28 @@ export function StatCard({
         <Text style={styles.statSubtitle} numberOfLines={1}>
           {subtitle}
         </Text>
+      ) : null}
+      {compactSubtitleVisible ? (
+        <View style={styles.statSubtitleRow}>
+          <Text
+            style={[
+              styles.statSubtitle,
+              styles.statSubtitleCompactVisible,
+              { color: toneStyle.text },
+            ]}
+            numberOfLines={1}
+          >
+            {subtitle}
+          </Text>
+          {subtitleIcon ? (
+            <Ionicons
+              name={subtitleIcon}
+              size={12}
+              color={toneStyle.text}
+              style={styles.statSubtitleIcon}
+            />
+          ) : null}
+        </View>
       ) : null}
       {showsCompactInfo && showInfo ? (
         <Animated.View
@@ -416,7 +456,11 @@ export function StatCard({
           styles.statCard,
           { borderColor: toneStyle.border },
           styles.statCardCompact,
-          withDivider && styles.statCardCompactDivider,
+          compactDensity === "tight" && styles.statCardCompactTight,
+          withDivider &&
+            (dividerSide === "left"
+              ? styles.statCardCompactDividerLeft
+              : styles.statCardCompactDivider),
           pressed && styles.pressed,
         ]}
       >
@@ -431,7 +475,12 @@ export function StatCard({
         styles.statCard,
         { borderColor: toneStyle.border },
         compact && styles.statCardCompact,
-        compact && withDivider && styles.statCardCompactDivider,
+        compact && compactDensity === "tight" && styles.statCardCompactTight,
+        compact &&
+          withDivider &&
+          (dividerSide === "left"
+            ? styles.statCardCompactDividerLeft
+            : styles.statCardCompactDivider),
       ]}
     >
       {content}
@@ -889,6 +938,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.72)",
     padding: 10,
     gap: 4,
+    alignItems: "center",
   },
   statCardCompact: {
     minWidth: 0,
@@ -897,41 +947,77 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
     position: "relative",
     overflow: "visible",
-    paddingHorizontal: spacing.md,
-    paddingVertical: 2,
-    gap: 2,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    gap: 4,
+    alignItems: "center",
+  },
+  statCardCompactTight: {
+    paddingHorizontal: 10,
+    paddingVertical: 0,
+    gap: 1,
   },
   statCardCompactDivider: {
     borderRightWidth: StyleSheet.hairlineWidth,
-    borderRightColor: palette.line,
+    borderRightColor: palette.lineStrong,
+  },
+  statCardCompactDividerLeft: {
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderLeftColor: palette.lineStrong,
   },
   statLabel: {
     color: palette.muted,
     fontSize: 12,
     fontFamily: typefaces.bodyStrong,
+    textAlign: "center",
   },
   statLabelCompact: {
     fontSize: 11,
     lineHeight: 14,
+    fontFamily: typefaces.body,
+  },
+  statLabelCompactTight: {
+    fontSize: 10,
+    lineHeight: 12,
   },
   statValue: {
     color: palette.textPrimary,
     fontSize: 22,
     lineHeight: 26,
     fontFamily: typefaces.displayMedium,
+    textAlign: "center",
   },
   statValueCompact: {
-    fontSize: 18,
-    lineHeight: 22,
+    fontSize: 16,
+    lineHeight: 19,
+  },
+  statValueCompactTight: {
+    fontSize: 15,
+    lineHeight: 18,
   },
   statSubtitle: {
     color: palette.textTertiary,
     fontSize: 12,
     fontFamily: typefaces.body,
+    textAlign: "center",
   },
   statSubtitleCompact: {
     fontSize: 11,
     lineHeight: 14,
+  },
+  statSubtitleCompactVisible: {
+    fontSize: 11,
+    lineHeight: 14,
+    fontFamily: typefaces.bodyStrong,
+  },
+  statSubtitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+  },
+  statSubtitleIcon: {
+    marginTop: 0.5,
   },
   statInfoBubble: {
     position: "absolute",

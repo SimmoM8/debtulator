@@ -105,6 +105,7 @@ export function EventsScreen() {
             subtitle="Groups with other people"
             tone="peach"
             compact
+            compactDensity="tight"
             withDivider
           />
           <StatCard
@@ -113,6 +114,7 @@ export function EventsScreen() {
             subtitle="Currently in motion"
             tone="indigo"
             compact
+            compactDensity="tight"
             withDivider
           />
           <StatCard
@@ -121,6 +123,7 @@ export function EventsScreen() {
             subtitle="Closed out events"
             tone="teal"
             compact
+            compactDensity="tight"
           />
         </View>
       </GlassCard>

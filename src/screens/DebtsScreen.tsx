@@ -148,6 +148,7 @@ export function DebtsScreen() {
             subtitle="Balances that still need action"
             tone="indigo"
             compact
+            compactDensity="tight"
             withDivider
           />
           <StatCard
@@ -156,6 +157,7 @@ export function DebtsScreen() {
             subtitle="Deadlines coming up"
             tone="amber"
             compact
+            compactDensity="tight"
             withDivider
           />
           <StatCard
@@ -164,6 +166,7 @@ export function DebtsScreen() {
             subtitle="Closed out items"
             tone="teal"
             compact
+            compactDensity="tight"
           />
         </View>
       </GlassCard>

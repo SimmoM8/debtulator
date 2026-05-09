@@ -141,6 +141,7 @@ export function MembersScreen() {
             subtitle="Ready for shared sync"
             tone="indigo"
             compact
+            compactDensity="tight"
             withDivider
           />
           <StatCard
@@ -149,6 +150,7 @@ export function MembersScreen() {
             subtitle="People who should pay you"
             tone="teal"
             compact
+            compactDensity="tight"
             withDivider
           />
           <StatCard
@@ -157,6 +159,7 @@ export function MembersScreen() {
             subtitle="People you still owe"
             tone="coral"
             compact
+            compactDensity="tight"
           />
         </View>
       </GlassCard>

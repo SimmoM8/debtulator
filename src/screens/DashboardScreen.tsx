@@ -4,7 +4,12 @@ import React, { useMemo, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
-import { ActionTile, GlassCard, ListRow } from "@/src/components/ui/Finance";
+import {
+  ActionTile,
+  GlassCard,
+  ListRow,
+  StatCard,
+} from "@/src/components/ui/Finance";
 import {
   Button,
   EmptyState,
@@ -131,6 +136,24 @@ export function DashboardScreen() {
     [data.currencyRates, data.settings, dueSoonEntries],
   );
   const modeLabel = MODE_LABELS[mode];
+  const netSummaryLabel =
+    netEstimatedInBase > 0
+      ? "You're ahead"
+      : netEstimatedInBase < 0
+        ? "You're behind"
+        : "All square";
+  const netSummaryIcon =
+    netEstimatedInBase > 0
+      ? "arrow-up-circle"
+      : netEstimatedInBase < 0
+        ? "arrow-down-circle"
+        : "remove-circle";
+  const netStatusTone =
+    netEstimatedInBase > 0
+      ? palette.success
+      : netEstimatedInBase < 0
+        ? palette.danger
+        : palette.textSecondary;
 
   if (data.loading || auth.loading) {
     return <LoadingState />;
@@ -175,8 +198,26 @@ export function DashboardScreen() {
           </Pressable>
         </View>
 
+        <View style={styles.netSpotlight}>
+          <Text style={styles.netSpotlightLabel}>Net position</Text>
+          <Text style={styles.netSpotlightValue}>
+            {signedMoneyLabel(totals.net, data.settings, data.currencyRates)}
+          </Text>
+          <View style={styles.netSpotlightMetaRow}>
+            <Ionicons
+              name={netSummaryIcon}
+              size={13}
+              color={netStatusTone}
+              style={styles.netSpotlightMetaIcon}
+            />
+            <Text style={[styles.netSpotlightMeta, { color: netStatusTone }]}>
+              {netSummaryLabel}
+            </Text>
+          </View>
+        </View>
+
         <View style={styles.snapshotRow}>
-          <SnapshotMetric
+          <StatCard
             label="You owe"
             value={moneyLabel(totals.iOwe, data.settings, data.currencyRates)}
             subtitle={
@@ -185,8 +226,11 @@ export function DashboardScreen() {
                 : "Nothing urgent"
             }
             tone="coral"
+            compact
+            showCompactSubtitle
+            withDivider
           />
-          <SnapshotMetric
+          <StatCard
             label="Owed to you"
             value={moneyLabel(
               totals.owedToMe,
@@ -201,32 +245,8 @@ export function DashboardScreen() {
                   : "Nothing pending"
             }
             tone="indigo"
-            withDivider
-          />
-          <SnapshotMetric
-            label="Net position"
-            value={signedMoneyLabel(
-              totals.net,
-              data.settings,
-              data.currencyRates,
-            )}
-            subtitle={
-              netEstimatedInBase > 0
-                ? "You're ahead"
-                : netEstimatedInBase < 0
-                  ? "You’re behind"
-                  : "All square"
-            }
-            tone="indigo"
-            subtitleIcon={
-              netEstimatedInBase > 0
-                ? "arrow-up-circle"
-                : netEstimatedInBase < 0
-                  ? "arrow-down-circle"
-                  : "remove-circle"
-            }
-            withDivider
-            align="right"
+            compact
+            showCompactSubtitle
           />
         </View>
       </GlassCard>
@@ -422,83 +442,6 @@ export function DashboardScreen() {
   );
 }
 
-function SnapshotMetric({
-  label,
-  value,
-  subtitle,
-  tone,
-  subtitleIcon,
-  withDivider,
-  align = "left",
-}: {
-  label: string;
-  value: string;
-  subtitle: string;
-  tone: "coral" | "indigo";
-  subtitleIcon?: keyof typeof Ionicons.glyphMap;
-  withDivider?: boolean;
-  align?: "left" | "right";
-}) {
-  const subtitleTone =
-    tone === "coral"
-      ? styles.snapshotSubtitleCoral
-      : styles.snapshotSubtitleIndigo;
-
-  return (
-    <View
-      style={[
-        styles.snapshotMetric,
-        withDivider && styles.snapshotMetricDivider,
-        align === "right" && styles.snapshotMetricRight,
-      ]}
-    >
-      <Text
-        style={[
-          styles.snapshotLabel,
-          align === "right" && styles.snapshotTextRight,
-        ]}
-      >
-        {label}
-      </Text>
-      <Text
-        style={[
-          styles.snapshotValue,
-          tone === "coral"
-            ? styles.snapshotValueCoral
-            : styles.snapshotValueIndigo,
-          align === "right" && styles.snapshotTextRight,
-        ]}
-      >
-        {value}
-      </Text>
-      <View
-        style={[
-          styles.snapshotSubtitleRow,
-          align === "right" && styles.snapshotSubtitleRowRight,
-        ]}
-      >
-        <Text
-          style={[
-            styles.snapshotSubtitle,
-            subtitleTone,
-            align === "right" && styles.snapshotTextRight,
-          ]}
-        >
-          {subtitle}
-        </Text>
-        {subtitleIcon ? (
-          <Ionicons
-            name={subtitleIcon}
-            size={12}
-            style={styles.snapshotSubtitleIcon}
-            color={tone === "coral" ? palette.danger : palette.primary}
-          />
-        ) : null}
-      </View>
-    </View>
-  );
-}
-
 function openEntry(
   entry: Pick<LedgerEntry, "kind" | "sourceId" | "expenseId" | "eventId">,
 ) {
@@ -642,9 +585,9 @@ const styles = StyleSheet.create({
     fontFamily: typefaces.body,
   },
   heroCard: {
-    gap: 14,
-    paddingTop: 18,
-    paddingBottom: 14,
+    gap: 10,
+    paddingTop: 16,
+    paddingBottom: 10,
     backgroundColor: "rgba(255,255,255,0.78)",
   },
   heroTopRow: {
@@ -689,66 +632,45 @@ const styles = StyleSheet.create({
   snapshotRow: {
     flexDirection: "row",
     alignItems: "stretch",
-    borderRadius: 20,
-    overflow: "hidden",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.line,
-    backgroundColor: "rgba(255,255,255,0.42)",
+    gap: 0,
+    backgroundColor: "transparent",
   },
-  snapshotMetric: {
-    flex: 1,
-    gap: 5,
-    paddingHorizontal: 15,
-    paddingVertical: 13,
+  netSpotlight: {
+    alignSelf: "stretch",
+    alignItems: "flex-start",
+    justifyContent: "center",
+    paddingHorizontal: 2,
+    paddingVertical: 2,
+    gap: 3,
   },
-  snapshotMetricDivider: {
-    borderLeftWidth: StyleSheet.hairlineWidth,
-    borderLeftColor: palette.lineStrong,
-  },
-  snapshotMetricRight: {
-    alignItems: "flex-end",
-  },
-  snapshotLabel: {
+  netSpotlightLabel: {
     color: palette.textSecondary,
     fontSize: 11,
     lineHeight: 14,
     fontFamily: typefaces.body,
+    textAlign: "left",
   },
-  snapshotValue: {
-    fontSize: 16,
-    lineHeight: 19,
-    fontFamily: typefaces.displayMedium,
-  },
-  snapshotValueCoral: {
+  netSpotlightValue: {
     color: palette.primaryDeep,
+    fontSize: 34,
+    lineHeight: 38,
+    fontFamily: typefaces.display,
+    textAlign: "left",
   },
-  snapshotValueIndigo: {
-    color: palette.primaryDeep,
-  },
-  snapshotSubtitle: {
-    fontSize: 11,
-    lineHeight: 14,
-    fontFamily: typefaces.bodyStrong,
-  },
-  snapshotSubtitleRow: {
+  netSpotlightMetaRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "flex-start",
     gap: 4,
   },
-  snapshotSubtitleRowRight: {
-    justifyContent: "flex-end",
-  },
-  snapshotSubtitleCoral: {
-    color: palette.danger,
-  },
-  snapshotSubtitleIndigo: {
-    color: palette.primary,
-  },
-  snapshotSubtitleIcon: {
+  netSpotlightMetaIcon: {
     marginTop: 0.5,
   },
-  snapshotTextRight: {
-    textAlign: "right",
+  netSpotlightMeta: {
+    fontSize: 12,
+    lineHeight: 15,
+    fontFamily: typefaces.bodyStrong,
+    textAlign: "left",
   },
   modeMenuOverlay: {
     flex: 1,
