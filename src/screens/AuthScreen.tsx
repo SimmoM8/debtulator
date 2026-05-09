@@ -12,7 +12,9 @@ import {
     SegmentedControl,
     TextField,
 } from "@/src/components/ui/Primitives";
-import { palette, spacing, typefaces } from "@/src/constants/design";
+import { palette, spacing, typefaces,
+typography,
+} from "@/src/constants/design";
 import { useAuth } from "@/src/state/AuthProvider";
 
 type AuthMode = "signin" | "signup" | "forgot";
@@ -190,21 +192,21 @@ const styles = StyleSheet.create({
   },
   heroLabel: {
     color: palette.muted,
-    fontSize: 12,
+    fontSize: typography.size.sm,
     fontFamily: typefaces.bodyStrong,
     textTransform: "uppercase",
     letterSpacing: 0.4,
   },
   heroTitle: {
     color: palette.ink,
-    fontSize: 24,
-    lineHeight: 32,
+    fontSize: typography.size.h1,
+    lineHeight: typography.line.displayMd,
     fontFamily: typefaces.displayMedium,
   },
   heroBody: {
     color: palette.muted,
-    fontSize: 14,
-    lineHeight: 21,
+    fontSize: typography.size.base,
+    lineHeight: typography.line.xlPlus,
     fontFamily: typefaces.body,
   },
   heroArtWrap: {
@@ -219,14 +221,14 @@ const styles = StyleSheet.create({
   },
   error: {
     color: palette.negative,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: typography.size.base,
+    lineHeight: typography.line.xl,
     fontFamily: typefaces.bodyStrong,
   },
   message: {
     color: palette.positive,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: typography.size.base,
+    lineHeight: typography.line.xl,
     fontFamily: typefaces.bodyStrong,
   },
   buttonRow: {

@@ -18,7 +18,12 @@ import {
   Screen,
   SectionTitle,
 } from "@/src/components/ui/Primitives";
-import { palette, spacing, typefaces } from "@/src/constants/design";
+import {
+  palette,
+  spacing,
+  typefaces,
+  typography,
+} from "@/src/constants/design";
 import { estimateMoneyMap } from "@/src/services/currency";
 import { entryDirectionText } from "@/src/services/ledger";
 import { useAppData } from "@/src/state/AppDataProvider";
@@ -449,9 +454,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   sectionAmount: {
-    fontSize: 30,
-    lineHeight: 34,
-    fontFamily: typefaces.display,
+    fontSize: typography.size.xl,
+    lineHeight: typography.line.xl,
+    fontFamily: typefaces.displayMedium,
   },
   sectionAmountPositive: {
     color: palette.success,

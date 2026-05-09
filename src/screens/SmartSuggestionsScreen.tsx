@@ -13,7 +13,9 @@ import {
     Screen,
     SectionTitle,
 } from "@/src/components/ui/Primitives";
-import { palette, spacing, typefaces } from "@/src/constants/design";
+import { palette, spacing, typefaces,
+typography,
+} from "@/src/constants/design";
 import {
     buildSmartSuggestionDrafts,
     type SuggestionDraft,
@@ -261,15 +263,15 @@ const styles = StyleSheet.create({
   },
   heroLabel: {
     color: palette.muted,
-    fontSize: 12,
+    fontSize: typography.size.sm,
     fontFamily: typefaces.bodyStrong,
     textTransform: "uppercase",
     letterSpacing: 0.4,
   },
   heroTitle: {
     color: palette.ink,
-    fontSize: 24,
-    lineHeight: 32,
+    fontSize: typography.size.h1,
+    lineHeight: typography.line.displayMd,
     fontFamily: typefaces.displayMedium,
   },
   heroArtWrap: {
@@ -295,13 +297,13 @@ const styles = StyleSheet.create({
   },
   title: {
     color: palette.ink,
-    fontSize: 16,
+    fontSize: typography.size.xl,
     fontFamily: typefaces.bodyHeavy,
   },
   body: {
     color: palette.muted,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: typography.size.base,
+    lineHeight: typography.line.xl,
     fontFamily: typefaces.body,
   },
   actionRow: {

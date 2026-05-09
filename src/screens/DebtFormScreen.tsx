@@ -13,7 +13,9 @@ import {
     TextField,
 } from "@/src/components/ui/Primitives";
 import { CURRENCIES } from "@/src/constants/currencies";
-import { palette, spacing, typefaces } from "@/src/constants/design";
+import { palette, spacing, typefaces,
+typography,
+} from "@/src/constants/design";
 import { suggestTags } from "@/src/services/smartSuggestions";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
@@ -472,14 +474,14 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     color: palette.ink,
-    fontSize: 24,
-    lineHeight: 32,
+    fontSize: typography.size.h1,
+    lineHeight: typography.line.displayMd,
     fontFamily: typefaces.displayMedium,
   },
   heroBody: {
     color: palette.muted,
-    fontSize: 14,
-    lineHeight: 21,
+    fontSize: typography.size.base,
+    lineHeight: typography.line.xlPlus,
     fontFamily: typefaces.body,
   },
   heroArtWrap: {
@@ -494,7 +496,7 @@ const styles = StyleSheet.create({
   },
   reviewEyebrow: {
     color: palette.brand,
-    fontSize: 12,
+    fontSize: typography.size.sm,
     fontFamily: typefaces.bodyStrong,
     textTransform: "uppercase",
     letterSpacing: 0.4,
@@ -509,13 +511,13 @@ const styles = StyleSheet.create({
   },
   reviewLabel: {
     color: palette.muted,
-    fontSize: 13,
+    fontSize: typography.size.md,
     fontFamily: typefaces.bodyStrong,
   },
   reviewValue: {
     color: palette.ink,
     flex: 1,
-    fontSize: 14,
+    fontSize: typography.size.base,
     fontFamily: typefaces.bodyHeavy,
     textAlign: "right",
   },

@@ -16,7 +16,9 @@ import {
     Screen,
     SectionTitle,
 } from "@/src/components/ui/Primitives";
-import { palette, spacing, typefaces } from "@/src/constants/design";
+import { palette, spacing, typefaces,
+typography,
+} from "@/src/constants/design";
 import {
     activeAttachmentsForTarget,
     attachmentBadges,
@@ -302,15 +304,15 @@ const styles = StyleSheet.create({
   },
   heroLabel: {
     color: palette.muted,
-    fontSize: 12,
+    fontSize: typography.size.sm,
     fontFamily: typefaces.bodyStrong,
     textTransform: "uppercase",
     letterSpacing: 0.4,
   },
   heroTitle: {
     color: palette.ink,
-    fontSize: 24,
-    lineHeight: 32,
+    fontSize: typography.size.h1,
+    lineHeight: typography.line.displayMd,
     fontFamily: typefaces.displayMedium,
   },
   heroArtWrap: {
@@ -334,7 +336,7 @@ const styles = StyleSheet.create({
   },
   label: {
     color: palette.brandDark,
-    fontSize: 12,
+    fontSize: typography.size.sm,
     fontFamily: typefaces.bodyHeavy,
     textTransform: "uppercase",
     letterSpacing: 0.4,
@@ -352,18 +354,18 @@ const styles = StyleSheet.create({
   },
   rowTitle: {
     color: palette.ink,
-    fontSize: 15,
+    fontSize: typography.size.lg,
     fontFamily: typefaces.bodyHeavy,
   },
   body: {
     color: palette.muted,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: typography.size.md,
+    lineHeight: typography.line.lg,
     fontFamily: typefaces.body,
   },
   money: {
     color: palette.ink,
-    fontSize: 14,
+    fontSize: typography.size.base,
     fontFamily: typefaces.bodyHeavy,
   },
   infoRow: {
@@ -374,12 +376,12 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     color: palette.muted,
-    fontSize: 13,
+    fontSize: typography.size.md,
     fontFamily: typefaces.bodyStrong,
   },
   infoValue: {
     color: palette.ink,
-    fontSize: 13,
+    fontSize: typography.size.md,
     fontFamily: typefaces.bodyStrong,
     textAlign: "right",
   },

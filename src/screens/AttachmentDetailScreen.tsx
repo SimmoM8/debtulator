@@ -13,7 +13,9 @@ import {
     Screen,
     SectionTitle,
 } from "@/src/components/ui/Primitives";
-import { palette, spacing, typefaces } from "@/src/constants/design";
+import { palette, spacing, typefaces,
+typography,
+} from "@/src/constants/design";
 import {
     ATTACHMENT_KIND_LABELS,
     formatFileSize,
@@ -201,15 +203,15 @@ const styles = StyleSheet.create({
   },
   heroLabel: {
     color: palette.muted,
-    fontSize: 12,
+    fontSize: typography.size.sm,
     fontFamily: typefaces.bodyStrong,
     textTransform: "uppercase",
     letterSpacing: 0.4,
   },
   heroTitle: {
     color: palette.ink,
-    fontSize: 24,
-    lineHeight: 32,
+    fontSize: typography.size.h1,
+    lineHeight: typography.line.displayMd,
     fontFamily: typefaces.displayMedium,
   },
   heroArtWrap: {
@@ -246,13 +248,13 @@ const styles = StyleSheet.create({
   },
   filePreviewText: {
     color: palette.ink,
-    fontSize: 20,
+    fontSize: typography.size.h3,
     fontFamily: typefaces.bodyHeavy,
   },
   body: {
     color: palette.muted,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: typography.size.md,
+    lineHeight: typography.line.lg,
     fontFamily: typefaces.body,
     textAlign: "center",
   },
@@ -266,14 +268,14 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     color: palette.muted,
-    fontSize: 13,
+    fontSize: typography.size.md,
     fontFamily: typefaces.bodyStrong,
   },
   infoValue: {
     flex: 1,
     textAlign: "right",
     color: palette.ink,
-    fontSize: 13,
+    fontSize: typography.size.md,
     fontFamily: typefaces.bodyStrong,
   },
 });

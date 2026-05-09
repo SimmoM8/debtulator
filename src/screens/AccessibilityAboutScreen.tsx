@@ -9,7 +9,9 @@ import {
     Screen,
     SectionTitle,
 } from "@/src/components/ui/Primitives";
-import { palette, spacing, typefaces } from "@/src/constants/design";
+import { palette, spacing, typefaces,
+typography,
+} from "@/src/constants/design";
 
 const checks = [
   "Buttons expose accessibility roles through shared primitives.",
@@ -99,15 +101,15 @@ const styles = StyleSheet.create({
   },
   heroLabel: {
     color: palette.muted,
-    fontSize: 12,
+    fontSize: typography.size.sm,
     fontFamily: typefaces.bodyStrong,
     textTransform: "uppercase",
     letterSpacing: 0.4,
   },
   heroTitle: {
     color: palette.ink,
-    fontSize: 22,
-    lineHeight: 30,
+    fontSize: typography.size.h2,
+    lineHeight: typography.line.displaySm,
     fontFamily: typefaces.displayMedium,
   },
   heroArtWrap: {
@@ -129,8 +131,8 @@ const styles = StyleSheet.create({
   body: {
     color: palette.muted,
     flex: 1,
-    fontSize: 13,
-    lineHeight: 19,
+    fontSize: typography.size.md,
+    lineHeight: typography.line.lgPlus,
     fontFamily: typefaces.body,
   },
 });

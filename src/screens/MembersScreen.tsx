@@ -19,7 +19,7 @@ import {
   Screen,
   SectionTitle,
 } from "@/src/components/ui/Primitives";
-import { palette, typefaces } from "@/src/constants/design";
+import { palette, typefaces, typography } from "@/src/constants/design";
 import { estimateMoneyMap } from "@/src/services/currency";
 import { useAppData } from "@/src/state/AppDataProvider";
 import type { AppSettings, CurrencyRate, Member } from "@/src/types/models";
@@ -180,10 +180,6 @@ export function MembersScreen() {
         />
       </FilterSheet>
 
-      <SectionTitle
-        title="People and balances"
-        subtitle="Calm summaries instead of noisy contact records."
-      />
       <GlassCard tone="lavender">
         {members.length ? (
           <View style={styles.listColumn}>
@@ -315,13 +311,13 @@ const styles = StyleSheet.create({
   },
   inviteTitle: {
     color: palette.textPrimary,
-    fontSize: 20,
+    fontSize: typography.size.h3,
     fontFamily: typefaces.displayMedium,
   },
   inviteBody: {
     color: palette.muted,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: typography.size.base,
+    lineHeight: typography.line.xl,
     fontFamily: typefaces.body,
   },
   pressed: {

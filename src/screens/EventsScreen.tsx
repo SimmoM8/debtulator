@@ -19,7 +19,9 @@ import {
     Screen,
     SectionTitle,
 } from "@/src/components/ui/Primitives";
-import { palette, spacing, typefaces } from "@/src/constants/design";
+import { palette, spacing, typefaces,
+typography,
+} from "@/src/constants/design";
 import { estimateMoneyMap } from "@/src/services/currency";
 import { explainEventSettlement } from "@/src/services/ledger";
 import { useAppData } from "@/src/state/AppDataProvider";
@@ -332,23 +334,23 @@ const styles = StyleSheet.create({
   },
   eventTitle: {
     color: palette.textPrimary,
-    fontSize: 18,
+    fontSize: typography.size.xxl,
     fontFamily: typefaces.displayMedium,
   },
   eventMeta: {
     color: palette.muted,
-    fontSize: 12,
+    fontSize: typography.size.sm,
     fontFamily: typefaces.body,
   },
   eventAmount: {
     color: palette.primaryDeep,
-    fontSize: 16,
+    fontSize: typography.size.xl,
     fontFamily: typefaces.bodyHeavy,
   },
   eventNotes: {
     color: palette.muted,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: typography.size.base,
+    lineHeight: typography.line.xl,
     fontFamily: typefaces.body,
   },
   eventFooter: {
@@ -359,7 +361,7 @@ const styles = StyleSheet.create({
   },
   eventProgress: {
     color: palette.primary,
-    fontSize: 12,
+    fontSize: typography.size.sm,
     fontFamily: typefaces.bodyStrong,
   },
   progressBarTrack: {

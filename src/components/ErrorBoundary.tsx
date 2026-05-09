@@ -2,7 +2,9 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/src/components/ui/Primitives';
-import { palette, spacing } from '@/src/constants/design';
+import { palette, spacing,
+typography,
+} from '@/src/constants/design';
 import { userMessageForError } from '@/src/services/errors';
 
 type State = {
@@ -42,12 +44,12 @@ const styles = StyleSheet.create({
   },
   title: {
     color: palette.ink,
-    fontSize: 22,
+    fontSize: typography.size.h2,
     fontWeight: '900',
   },
   body: {
     color: palette.muted,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: typography.size.base,
+    lineHeight: typography.line.xl,
   },
 });

@@ -3,7 +3,9 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Badge } from '@/src/components/ui/Badges';
 import { Card, EmptyState, SectionTitle } from '@/src/components/ui/Primitives';
-import { palette, radii, spacing } from '@/src/constants/design';
+import { palette, radii, spacing,
+typography,
+} from '@/src/constants/design';
 import type { ChartDatum } from '@/src/services/analytics';
 import { estimateMoneyMap } from '@/src/services/currency';
 import type { AppSettings, CurrencyCode, CurrencyRate, MoneyMap } from '@/src/types/models';
@@ -105,7 +107,7 @@ const styles = StyleSheet.create({
   },
   chartLabel: {
     color: palette.ink,
-    fontSize: 13,
+    fontSize: typography.size.md,
     fontWeight: '800',
   },
   barTrack: {
@@ -125,7 +127,7 @@ const styles = StyleSheet.create({
   },
   chartValue: {
     color: palette.muted,
-    fontSize: 12,
+    fontSize: typography.size.sm,
     fontWeight: '800',
   },
   legend: {
@@ -146,7 +148,7 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'right',
     color: palette.ink,
-    fontSize: 14,
+    fontSize: typography.size.base,
     fontWeight: '900',
   },
 });

@@ -9,7 +9,9 @@ import {
     SectionTitle,
     SelectChips,
 } from "@/src/components/ui/Primitives";
-import { palette, spacing, typefaces } from "@/src/constants/design";
+import { palette, spacing, typefaces,
+typography,
+} from "@/src/constants/design";
 import { formatLocaleCurrency, formatLocaleDate, t } from "@/src/services/i18n";
 import { useAppData } from "@/src/state/AppDataProvider";
 
@@ -94,14 +96,14 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 220,
     color: palette.ink,
-    fontSize: 18,
-    lineHeight: 26,
+    fontSize: typography.size.xxl,
+    lineHeight: typography.line.h1,
     fontFamily: typefaces.displayMedium,
   },
   line: {
     color: palette.ink,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: typography.size.lg,
+    lineHeight: typography.line.h3,
     fontFamily: typefaces.body,
   },
 });

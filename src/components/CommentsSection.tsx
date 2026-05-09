@@ -3,7 +3,9 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Badge } from '@/src/components/ui/Badges';
 import { Button, Card, EmptyState, SectionTitle, SelectChips, TextField } from '@/src/components/ui/Primitives';
-import { palette, radii, spacing } from '@/src/constants/design';
+import { palette, radii, spacing,
+typography,
+} from '@/src/constants/design';
 import { useAppData } from '@/src/state/AppDataProvider';
 import { useAuth } from '@/src/state/AuthProvider';
 import type { Comment, CommentTargetType, CommentVisibility } from '@/src/types/models';
@@ -152,17 +154,17 @@ const styles = StyleSheet.create({
   },
   author: {
     color: palette.ink,
-    fontSize: 14,
+    fontSize: typography.size.base,
     fontWeight: '900',
   },
   body: {
     color: palette.ink,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: typography.size.base,
+    lineHeight: typography.line.xl,
   },
   dateText: {
     color: palette.faint,
-    fontSize: 12,
+    fontSize: typography.size.sm,
     fontWeight: '700',
   },
   actionRow: {
@@ -179,7 +181,7 @@ const styles = StyleSheet.create({
   },
   inlineActionText: {
     color: palette.brand,
-    fontSize: 13,
+    fontSize: typography.size.md,
     fontWeight: '800',
   },
   dangerText: {

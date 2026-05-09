@@ -6,7 +6,9 @@ import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Badge } from '@/src/components/ui/Badges';
 import { Button, Card, EmptyState, SectionTitle, SelectChips, TextField } from '@/src/components/ui/Primitives';
-import { palette, radii, spacing } from '@/src/constants/design';
+import { palette, radii, spacing,
+typography,
+} from '@/src/constants/design';
 import {
   ATTACHMENT_KIND_LABELS,
   activeAttachmentsForTarget,
@@ -234,12 +236,12 @@ const styles = StyleSheet.create({
   },
   fileName: {
     color: palette.ink,
-    fontSize: 14,
+    fontSize: typography.size.base,
     fontWeight: '800',
   },
   meta: {
     color: palette.muted,
-    fontSize: 12,
+    fontSize: typography.size.sm,
     fontWeight: '700',
   },
   removeButton: {

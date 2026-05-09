@@ -21,6 +21,7 @@ import {
     shadows,
     spacing,
     typefaces,
+    typography,
 } from "@/src/constants/design";
 import { initials } from "@/src/utils/text";
 
@@ -818,7 +819,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   pillText: {
-    fontSize: 12,
+    fontSize: typography.size.sm,
     fontFamily: typefaces.bodyStrong,
     letterSpacing: 0.1,
   },
@@ -837,7 +838,7 @@ const styles = StyleSheet.create({
   },
   filterChipText: {
     color: palette.muted,
-    fontSize: 13,
+    fontSize: typography.size.md,
     fontFamily: typefaces.bodyStrong,
   },
   filterChipTextActive: {
@@ -858,7 +859,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     color: palette.textPrimary,
-    fontSize: 15,
+    fontSize: typography.size.lg,
     fontFamily: typefaces.body,
   },
   searchToolbar: {
@@ -913,13 +914,13 @@ const styles = StyleSheet.create({
   },
   filterOptionLabel: {
     color: palette.textPrimary,
-    fontSize: 15,
+    fontSize: typography.size.lg,
     fontFamily: typefaces.bodyStrong,
   },
   filterOptionDescription: {
     color: palette.muted,
-    fontSize: 12,
-    lineHeight: 17,
+    fontSize: typography.size.sm,
+    lineHeight: typography.line.basePlus,
     fontFamily: typefaces.body,
   },
   filterOptionCheck: {
@@ -967,47 +968,47 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     color: palette.muted,
-    fontSize: 12,
+    fontSize: typography.size.sm,
     fontFamily: typefaces.bodyStrong,
     textAlign: "center",
   },
   statLabelCompact: {
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: typography.size.xs,
+    lineHeight: typography.line.sm,
     fontFamily: typefaces.body,
   },
   statLabelCompactTight: {
-    fontSize: 10,
-    lineHeight: 12,
+    fontSize: typography.size.xxs,
+    lineHeight: typography.line.xxs,
   },
   statValue: {
     color: palette.textPrimary,
-    fontSize: 22,
-    lineHeight: 26,
+    fontSize: typography.size.h2,
+    lineHeight: typography.line.h1,
     fontFamily: typefaces.displayMedium,
     textAlign: "center",
   },
   statValueCompact: {
-    fontSize: 16,
-    lineHeight: 19,
+    fontSize: typography.size.xl,
+    lineHeight: typography.line.lgPlus,
   },
   statValueCompactTight: {
-    fontSize: 15,
-    lineHeight: 18,
+    fontSize: typography.size.lg,
+    lineHeight: typography.line.lg,
   },
   statSubtitle: {
     color: palette.textTertiary,
-    fontSize: 12,
+    fontSize: typography.size.sm,
     fontFamily: typefaces.body,
     textAlign: "center",
   },
   statSubtitleCompact: {
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: typography.size.xs,
+    lineHeight: typography.line.sm,
   },
   statSubtitleCompactVisible: {
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: typography.size.xs,
+    lineHeight: typography.line.sm,
     fontFamily: typefaces.bodyStrong,
   },
   statSubtitleRow: {
@@ -1036,8 +1037,8 @@ const styles = StyleSheet.create({
   },
   statInfoText: {
     color: palette.textPrimary,
-    fontSize: 10,
-    lineHeight: 13,
+    fontSize: typography.size.xxs,
+    lineHeight: typography.line.xs,
     fontFamily: typefaces.bodyStrong,
   },
   actionTile: {
@@ -1060,13 +1061,13 @@ const styles = StyleSheet.create({
   },
   actionTitle: {
     color: palette.textPrimary,
-    fontSize: 14,
+    fontSize: typography.size.md,
     fontFamily: typefaces.bodyStrong,
   },
   actionSubtitle: {
     color: palette.muted,
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: typography.size.sm,
+    lineHeight: typography.line.base,
     fontFamily: typefaces.body,
   },
   avatarStack: {
@@ -1085,7 +1086,7 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     color: palette.primaryDeep,
-    fontSize: 11,
+    fontSize: typography.size.xs,
     fontFamily: typefaces.bodyStrong,
   },
   avatarOverflow: {
@@ -1095,7 +1096,7 @@ const styles = StyleSheet.create({
   },
   avatarOverflowText: {
     color: palette.primary,
-    fontSize: 10,
+    fontSize: typography.size.xxs,
     fontFamily: typefaces.bodyStrong,
   },
   rowShell: {
@@ -1128,20 +1129,20 @@ const styles = StyleSheet.create({
   },
   listTitle: {
     color: palette.textPrimary,
-    fontSize: 15,
+    fontSize: typography.size.base,
     fontFamily: typefaces.bodyStrong,
   },
   listAmount: {
     color: palette.textPrimary,
-    fontSize: 15,
+    fontSize: typography.size.base,
     fontFamily: typefaces.bodyHeavy,
     fontVariant: ["tabular-nums"],
     textAlign: "right",
   },
   listSubtitle: {
     color: palette.muted,
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: typography.size.sm,
+    lineHeight: typography.line.base,
     fontFamily: typefaces.body,
   },
   listRightColumn: {
@@ -1151,8 +1152,8 @@ const styles = StyleSheet.create({
     minWidth: 92,
   },
   listSupporting: {
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: typography.size.xs,
+    lineHeight: typography.line.sm,
     fontFamily: typefaces.bodyStrong,
     textAlign: "right",
   },
@@ -1180,7 +1181,7 @@ const styles = StyleSheet.create({
   },
   progressPercent: {
     color: palette.primary,
-    fontSize: 16,
+    fontSize: typography.size.xl,
     fontFamily: typefaces.bodyHeavy,
   },
   progressCopy: {
@@ -1189,23 +1190,23 @@ const styles = StyleSheet.create({
   },
   progressTitle: {
     color: palette.textPrimary,
-    fontSize: 16,
+    fontSize: typography.size.lg,
     fontFamily: typefaces.bodyStrong,
   },
   progressSubtitle: {
     color: palette.muted,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: typography.size.md,
+    lineHeight: typography.line.lg,
     fontFamily: typefaces.body,
   },
   progressValue: {
     color: palette.primaryDeep,
-    fontSize: 14,
+    fontSize: typography.size.base,
     fontFamily: typefaces.bodyStrong,
   },
   progressHelper: {
     color: palette.textTertiary,
-    fontSize: 12,
+    fontSize: typography.size.sm,
     fontFamily: typefaces.body,
   },
   settingsRow: {
@@ -1241,13 +1242,13 @@ const styles = StyleSheet.create({
   },
   settingsTitle: {
     color: palette.textPrimary,
-    fontSize: 15,
+    fontSize: typography.size.base,
     fontFamily: typefaces.bodyStrong,
   },
   settingsSubtitle: {
     color: palette.muted,
-    fontSize: 12,
-    lineHeight: 17,
+    fontSize: typography.size.sm,
+    lineHeight: typography.line.basePlus,
     fontFamily: typefaces.body,
   },
   settingsTail: {
@@ -1257,7 +1258,7 @@ const styles = StyleSheet.create({
   },
   settingsValue: {
     color: palette.textTertiary,
-    fontSize: 12,
+    fontSize: typography.size.sm,
     fontFamily: typefaces.bodyStrong,
   },
   addButton: {

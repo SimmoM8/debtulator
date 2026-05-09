@@ -16,7 +16,9 @@ import {
     TextField,
 } from "@/src/components/ui/Primitives";
 import { CURRENCIES } from "@/src/constants/currencies";
-import { palette, spacing, typefaces } from "@/src/constants/design";
+import { palette, spacing, typefaces,
+typography,
+} from "@/src/constants/design";
 import { participantName } from "@/src/services/ledger";
 import { suggestTags } from "@/src/services/smartSuggestions";
 import {
@@ -593,21 +595,21 @@ const styles = StyleSheet.create({
   },
   heroLabel: {
     color: palette.muted,
-    fontSize: 12,
+    fontSize: typography.size.sm,
     fontFamily: typefaces.bodyStrong,
     textTransform: "uppercase",
     letterSpacing: 0.4,
   },
   heroTitle: {
     color: palette.ink,
-    fontSize: 24,
-    lineHeight: 32,
+    fontSize: typography.size.h1,
+    lineHeight: typography.line.displayMd,
     fontFamily: typefaces.displayMedium,
   },
   heroBody: {
     color: palette.muted,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: typography.size.base,
+    lineHeight: typography.line.xl,
     fontFamily: typefaces.body,
   },
   heroArtWrap: {
@@ -622,7 +624,7 @@ const styles = StyleSheet.create({
   },
   label: {
     color: palette.brandDark,
-    fontSize: 12,
+    fontSize: typography.size.sm,
     fontFamily: typefaces.bodyHeavy,
     textTransform: "uppercase",
     letterSpacing: 0.4,
@@ -638,17 +640,17 @@ const styles = StyleSheet.create({
   previewText: {
     flex: 1,
     color: palette.ink,
-    fontSize: 14,
+    fontSize: typography.size.base,
     fontFamily: typefaces.bodyStrong,
   },
   previewMoney: {
     color: palette.blue,
-    fontSize: 14,
+    fontSize: typography.size.base,
     fontFamily: typefaces.bodyHeavy,
   },
   errorText: {
     color: palette.negative,
-    fontSize: 13,
+    fontSize: typography.size.md,
     fontFamily: typefaces.bodyStrong,
   },
 });

@@ -31,7 +31,9 @@ import {
     SelectChips,
     TextField,
 } from "@/src/components/ui/Primitives";
-import { palette, radii, spacing, typefaces } from "@/src/constants/design";
+import { palette, radii, spacing, typefaces,
+typography,
+} from "@/src/constants/design";
 import { eventSpendingBreakdown } from "@/src/services/analytics";
 import { convertCurrency, estimateMoneyMap } from "@/src/services/currency";
 import { findDuplicateWarnings } from "@/src/services/duplicates";
@@ -1659,7 +1661,7 @@ const styles = StyleSheet.create({
   },
   heroLabel: {
     color: palette.muted,
-    fontSize: 12,
+    fontSize: typography.size.sm,
     fontFamily: typefaces.bodyStrong,
     textTransform: "uppercase",
     letterSpacing: 0.4,
@@ -1674,7 +1676,7 @@ const styles = StyleSheet.create({
   },
   label: {
     color: palette.brandDark,
-    fontSize: 12,
+    fontSize: typography.size.sm,
     fontFamily: typefaces.bodyHeavy,
     textTransform: "uppercase",
     letterSpacing: 0.4,
@@ -1701,12 +1703,12 @@ const styles = StyleSheet.create({
   },
   badgeNumber: {
     color: palette.brandDark,
-    fontSize: 24,
+    fontSize: typography.size.h1,
     fontFamily: typefaces.bodyHeavy,
   },
   badgeLabel: {
     color: palette.brandDark,
-    fontSize: 12,
+    fontSize: typography.size.sm,
     fontFamily: typefaces.bodyStrong,
   },
   actionRow: {
@@ -1740,12 +1742,12 @@ const styles = StyleSheet.create({
   },
   memberChipText: {
     color: palette.muted,
-    fontSize: 13,
+    fontSize: typography.size.md,
     fontFamily: typefaces.bodyStrong,
   },
   memberChipSelectedText: {
     color: "#FFFFFF",
-    fontSize: 13,
+    fontSize: typography.size.md,
     fontFamily: typefaces.bodyHeavy,
   },
   memberRow: {
@@ -1762,13 +1764,13 @@ const styles = StyleSheet.create({
   },
   body: {
     color: palette.muted,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: typography.size.base,
+    lineHeight: typography.line.xl,
     fontFamily: typefaces.body,
   },
   rowTitle: {
     color: palette.ink,
-    fontSize: 16,
+    fontSize: typography.size.xl,
     fontFamily: typefaces.bodyHeavy,
   },
   settlementRow: {
@@ -1782,12 +1784,12 @@ const styles = StyleSheet.create({
   settlementText: {
     flex: 1,
     color: palette.ink,
-    fontSize: 15,
+    fontSize: typography.size.lg,
     fontFamily: typefaces.bodyHeavy,
   },
   money: {
     color: palette.brandDark,
-    fontSize: 15,
+    fontSize: typography.size.lg,
     fontFamily: typefaces.bodyHeavy,
   },
   infoRow: {
@@ -1800,12 +1802,12 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     color: palette.muted,
-    fontSize: 13,
+    fontSize: typography.size.md,
     fontFamily: typefaces.bodyStrong,
   },
   infoValue: {
     color: palette.ink,
-    fontSize: 13,
+    fontSize: typography.size.md,
     fontFamily: typefaces.bodyHeavy,
     flex: 1,
     textAlign: "right",

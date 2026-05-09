@@ -13,6 +13,7 @@ import {
     shadows,
     spacing,
     typefaces,
+    typography,
 } from "@/src/constants/design";
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -231,13 +232,13 @@ const styles = StyleSheet.create({
   },
   menuTitle: {
     color: palette.textPrimary,
-    fontSize: 20,
+    fontSize: typography.size.h3,
     fontFamily: typefaces.displayMedium,
   },
   menuSubtitle: {
     color: palette.muted,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: typography.size.md,
+    lineHeight: typography.line.lg,
     fontFamily: typefaces.body,
   },
   menuGrid: {
@@ -265,7 +266,7 @@ const styles = StyleSheet.create({
   },
   menuItemText: {
     color: palette.textPrimary,
-    fontSize: 13,
+    fontSize: typography.size.md,
     fontFamily: typefaces.bodyStrong,
   },
   barWrap: {
@@ -311,7 +312,7 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     color: palette.muted,
-    fontSize: 11,
+    fontSize: typography.size.xs,
     fontFamily: typefaces.bodyStrong,
   },
   tabLabelActive: {

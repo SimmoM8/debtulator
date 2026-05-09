@@ -12,7 +12,9 @@ import {
 
 import { GlassCard, StatusPill } from "@/src/components/ui/Finance";
 import { IconButton } from "@/src/components/ui/Primitives";
-import { palette, spacing, typefaces } from "@/src/constants/design";
+import { palette, spacing, typefaces,
+typography,
+} from "@/src/constants/design";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -295,13 +297,13 @@ const styles = StyleSheet.create({
   },
   title: {
     color: palette.textPrimary,
-    fontSize: 24,
+    fontSize: typography.size.h1,
     fontFamily: typefaces.displayMedium,
   },
   subtitle: {
     color: palette.muted,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: typography.size.md,
+    lineHeight: typography.line.lg,
     fontFamily: typefaces.body,
   },
   sectionList: {
@@ -313,7 +315,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: palette.primary,
-    fontSize: 12,
+    fontSize: typography.size.sm,
     fontFamily: typefaces.bodyStrong,
     letterSpacing: 0.3,
   },
@@ -353,7 +355,7 @@ const styles = StyleSheet.create({
   },
   itemLabel: {
     color: palette.textPrimary,
-    fontSize: 15,
+    fontSize: typography.size.lg,
     fontFamily: typefaces.bodyStrong,
   },
   itemLabelActive: {
@@ -361,8 +363,8 @@ const styles = StyleSheet.create({
   },
   itemSubtitle: {
     color: palette.textTertiary,
-    fontSize: 12,
-    lineHeight: 17,
+    fontSize: typography.size.sm,
+    lineHeight: typography.line.basePlus,
     fontFamily: typefaces.body,
   },
   itemSubtitleActive: {

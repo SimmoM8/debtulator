@@ -19,7 +19,9 @@ import {
     Screen,
     SectionTitle,
 } from "@/src/components/ui/Primitives";
-import { palette, spacing, typefaces } from "@/src/constants/design";
+import { palette, spacing, typefaces,
+typography,
+} from "@/src/constants/design";
 import {
     respondRemoteDebtVerification,
     updateRemoteLinkRequest,
@@ -643,13 +645,13 @@ const styles = StyleSheet.create({
   },
   requestTitle: {
     color: palette.textPrimary,
-    fontSize: 15,
+    fontSize: typography.size.lg,
     fontFamily: typefaces.bodyStrong,
   },
   requestBody: {
     color: palette.muted,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: typography.size.md,
+    lineHeight: typography.line.lg,
     fontFamily: typefaces.body,
   },
   requestMeta: {
@@ -658,7 +660,7 @@ const styles = StyleSheet.create({
   },
   requestAmount: {
     color: palette.primaryDeep,
-    fontSize: 14,
+    fontSize: typography.size.base,
     fontFamily: typefaces.bodyHeavy,
   },
   buttonRow: {
@@ -668,13 +670,13 @@ const styles = StyleSheet.create({
   },
   disputeTitle: {
     color: palette.textPrimary,
-    fontSize: 18,
+    fontSize: typography.size.xxl,
     fontFamily: typefaces.displayMedium,
   },
   disputeBody: {
     color: palette.muted,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: typography.size.base,
+    lineHeight: typography.line.xl,
     fontFamily: typefaces.body,
   },
 });

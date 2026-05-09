@@ -18,7 +18,12 @@ import {
   SectionActionLink,
   SectionTitle,
 } from "@/src/components/ui/Primitives";
-import { palette, spacing, typefaces } from "@/src/constants/design";
+import {
+  palette,
+  spacing,
+  typefaces,
+  typography,
+} from "@/src/constants/design";
 import { estimateMoneyMap } from "@/src/services/currency";
 import {
   calculatePersonalTotals,
@@ -45,6 +50,7 @@ export function DashboardScreen() {
 
   const displayName = auth.identity.displayName?.trim() || "there";
   const firstName = displayName.split(" ")[0] || displayName;
+  const greetingPeriod = new Date().getHours() < 17 ? "morning" : "evening";
   const today = new Date().toISOString().slice(0, 10);
 
   const scopedEntries = useMemo(() => {
@@ -164,10 +170,12 @@ export function DashboardScreen() {
     <Screen>
       <View style={styles.headerRow}>
         <View style={styles.identityCopy}>
-          <Text style={styles.greeting}>Good morning, {firstName}</Text>
-          <Text style={styles.subGreeting}>
-            The essentials are here. Everything else stays tucked away.
+          <Text style={styles.greeting}>
+            Good {greetingPeriod}, {firstName}
           </Text>
+          <Text
+            style={styles.subGreeting}
+          >{`Here's your ${greetingPeriod} snapshot`}</Text>
         </View>
         <AppMenuButton />
       </View>
@@ -575,13 +583,14 @@ const styles = StyleSheet.create({
   },
   greeting: {
     color: palette.textPrimary,
-    fontSize: 24,
-    fontFamily: typefaces.display,
+    fontSize: typography.size.xl,
+    lineHeight: typography.line.xl,
+    fontFamily: typefaces.displayMedium,
   },
   subGreeting: {
     color: palette.muted,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: typography.size.sm,
+    lineHeight: typography.line.sm,
     fontFamily: typefaces.body,
   },
   heroCard: {
@@ -603,8 +612,8 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     color: palette.primaryDeep,
-    fontSize: 28,
-    lineHeight: 32,
+    fontSize: typography.size.displaySm,
+    lineHeight: typography.line.displayMd,
     fontFamily: typefaces.display,
   },
   brandSparkle: {
@@ -626,7 +635,7 @@ const styles = StyleSheet.create({
   },
   heroControlText: {
     color: palette.primaryDeep,
-    fontSize: 12,
+    fontSize: typography.size.sm,
     fontFamily: typefaces.bodyStrong,
   },
   snapshotRow: {
@@ -645,15 +654,15 @@ const styles = StyleSheet.create({
   },
   netSpotlightLabel: {
     color: palette.textSecondary,
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: typography.size.xs,
+    lineHeight: typography.line.sm,
     fontFamily: typefaces.body,
     textAlign: "left",
   },
   netSpotlightValue: {
     color: palette.primaryDeep,
-    fontSize: 34,
-    lineHeight: 38,
+    fontSize: typography.size.displayXl,
+    lineHeight: typography.line.displayXl,
     fontFamily: typefaces.display,
     textAlign: "left",
   },
@@ -667,8 +676,8 @@ const styles = StyleSheet.create({
     marginTop: 0.5,
   },
   netSpotlightMeta: {
-    fontSize: 12,
-    lineHeight: 15,
+    fontSize: typography.size.sm,
+    lineHeight: typography.line.md,
     fontFamily: typefaces.bodyStrong,
     textAlign: "left",
   },
@@ -717,7 +726,7 @@ const styles = StyleSheet.create({
   },
   modeMenuItemLabel: {
     color: palette.textPrimary,
-    fontSize: 13,
+    fontSize: typography.size.md,
     fontFamily: typefaces.bodyStrong,
   },
   modeMenuItemLabelActive: {
@@ -725,8 +734,8 @@ const styles = StyleSheet.create({
   },
   modeMenuItemHint: {
     color: palette.textTertiary,
-    fontSize: 11,
-    lineHeight: 15,
+    fontSize: typography.size.xs,
+    lineHeight: typography.line.md,
     fontFamily: typefaces.body,
   },
   inboxCard: {
@@ -741,13 +750,13 @@ const styles = StyleSheet.create({
   },
   inboxTitle: {
     color: palette.textPrimary,
-    fontSize: 16,
+    fontSize: typography.size.xl,
     fontFamily: typefaces.bodyStrong,
   },
   inboxBody: {
     color: palette.muted,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: typography.size.md,
+    lineHeight: typography.line.lg,
     fontFamily: typefaces.body,
   },
   statsRow: {

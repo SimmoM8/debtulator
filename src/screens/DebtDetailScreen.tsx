@@ -26,7 +26,9 @@ import {
     SectionTitle,
     SelectChips,
 } from "@/src/components/ui/Primitives";
-import { palette, spacing, typefaces } from "@/src/constants/design";
+import { palette, spacing, typefaces,
+typography,
+} from "@/src/constants/design";
 import {
     activeAttachmentsForTarget,
     attachmentBadges,
@@ -651,21 +653,21 @@ const styles = StyleSheet.create({
   },
   label: {
     color: palette.brandDark,
-    fontSize: 12,
+    fontSize: typography.size.sm,
     fontFamily: typefaces.bodyStrong,
     textTransform: "uppercase",
     letterSpacing: 0.4,
   },
   body: {
     color: palette.ink,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: typography.size.lg,
+    lineHeight: typography.line.h3,
     fontFamily: typefaces.body,
   },
   bodyMuted: {
     color: palette.muted,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: typography.size.base,
+    lineHeight: typography.line.xl,
     fontFamily: typefaces.body,
   },
   actionRow: {
@@ -707,12 +709,12 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     color: palette.muted,
-    fontSize: 13,
+    fontSize: typography.size.md,
     fontFamily: typefaces.bodyStrong,
   },
   infoValue: {
     color: palette.ink,
-    fontSize: 13,
+    fontSize: typography.size.md,
     fontFamily: typefaces.body,
     flex: 1,
     textAlign: "right",

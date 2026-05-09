@@ -17,7 +17,9 @@ import {
     SectionTitle,
     TextField,
 } from "@/src/components/ui/Primitives";
-import { palette, spacing, typefaces } from "@/src/constants/design";
+import { palette, spacing, typefaces,
+typography,
+} from "@/src/constants/design";
 import {
     debtByMember,
     debtByTag,
@@ -386,21 +388,21 @@ const styles = StyleSheet.create({
   },
   heroLabel: {
     color: palette.muted,
-    fontSize: 12,
+    fontSize: typography.size.sm,
     fontFamily: typefaces.bodyStrong,
     textTransform: "uppercase",
     letterSpacing: 0.4,
   },
   heroTitle: {
     color: palette.ink,
-    fontSize: 24,
-    lineHeight: 32,
+    fontSize: typography.size.h1,
+    lineHeight: typography.line.displayMd,
     fontFamily: typefaces.displayMedium,
   },
   heroBody: {
     color: palette.muted,
-    fontSize: 14,
-    lineHeight: 21,
+    fontSize: typography.size.base,
+    lineHeight: typography.line.xlPlus,
     fontFamily: typefaces.body,
     maxWidth: 360,
   },
@@ -431,12 +433,12 @@ const styles = StyleSheet.create({
   },
   heroStatLabel: {
     color: palette.muted,
-    fontSize: 12,
+    fontSize: typography.size.sm,
     fontFamily: typefaces.bodyStrong,
   },
   heroStatValue: {
     color: palette.ink,
-    fontSize: 22,
+    fontSize: typography.size.h2,
     fontFamily: typefaces.bodyHeavy,
   },
   twoColumn: {
@@ -463,13 +465,13 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     color: palette.muted,
-    fontSize: 13,
+    fontSize: typography.size.md,
     fontFamily: typefaces.bodyStrong,
   },
   summaryValue: {
     flex: 1,
     color: palette.ink,
-    fontSize: 13,
+    fontSize: typography.size.md,
     fontFamily: typefaces.bodyHeavy,
     textAlign: "right",
   },

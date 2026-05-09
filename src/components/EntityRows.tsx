@@ -18,6 +18,7 @@ import {
     shadows,
     spacing,
     typefaces,
+    typography,
 } from "@/src/constants/design";
 import { entryDirectionText } from "@/src/services/ledger";
 import type {
@@ -298,7 +299,7 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     color: palette.brandDark,
-    fontSize: 15,
+    fontSize: typography.size.lg,
     fontFamily: typefaces.bodyHeavy,
   },
   eventMark: {
@@ -343,18 +344,18 @@ const styles = StyleSheet.create({
   },
   rowTitle: {
     color: palette.ink,
-    fontSize: 17,
+    fontSize: typography.size.xlPlus,
     fontFamily: typefaces.bodyHeavy,
   },
   rowSubtitle: {
     color: palette.muted,
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: typography.size.sm,
+    lineHeight: typography.line.lg,
     fontFamily: typefaces.body,
   },
   rowMeta: {
     color: palette.brandDark,
-    fontSize: 12,
+    fontSize: typography.size.sm,
     fontFamily: typefaces.bodyStrong,
   },
   badgeLine: {
@@ -371,21 +372,21 @@ const styles = StyleSheet.create({
   },
   amountText: {
     color: palette.ink,
-    fontSize: 18,
+    fontSize: typography.size.xxl,
     fontFamily: typefaces.bodyHeavy,
     fontVariant: ["tabular-nums"],
     textAlign: "right",
   },
   kindText: {
     color: palette.muted,
-    fontSize: 11,
+    fontSize: typography.size.xs,
     fontFamily: typefaces.bodyStrong,
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
   dateText: {
     color: palette.faint,
-    fontSize: 12,
+    fontSize: typography.size.sm,
     fontFamily: typefaces.bodyStrong,
     paddingTop: 3,
   },

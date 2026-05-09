@@ -632,19 +632,19 @@ const textVariants = StyleSheet.create({
   body: {
     color: palette.textPrimary,
     fontSize: typography.body,
-    lineHeight: 24,
+    lineHeight: typography.line.h2,
     fontFamily: typefaces.body,
   },
   muted: {
     color: palette.muted,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: typography.size.base,
+    lineHeight: typography.line.xl,
     fontFamily: typefaces.body,
   },
   small: {
     color: palette.muted,
     fontSize: typography.micro,
-    lineHeight: 17,
+    lineHeight: typography.line.basePlus,
     fontFamily: typefaces.body,
   },
   label: {
@@ -657,13 +657,13 @@ const textVariants = StyleSheet.create({
     color: palette.textPrimary,
     fontSize: typography.subtitle,
     fontFamily: typefaces.display,
-    lineHeight: 30,
+    lineHeight: typography.line.displaySm,
   },
   subtitle: {
     color: palette.textPrimary,
-    fontSize: 17,
+    fontSize: typography.size.xlPlus,
     fontFamily: typefaces.displayMedium,
-    lineHeight: 24,
+    lineHeight: typography.line.h2,
   },
 });
 
@@ -750,7 +750,7 @@ const styles = StyleSheet.create({
   },
   loadingTitle: {
     color: palette.textPrimary,
-    fontSize: 18,
+    fontSize: typography.size.xxl,
     fontFamily: typefaces.displayMedium,
   },
   pageHeader: {
@@ -798,21 +798,21 @@ const styles = StyleSheet.create({
   },
   pageEyebrowDetail: {
     color: palette.primary,
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: typography.size.xs,
+    lineHeight: typography.line.sm,
     fontFamily: typefaces.bodyStrong,
     letterSpacing: 0.2,
   },
   pageTitleRoot: {
     color: palette.textPrimary,
-    fontSize: 18,
-    lineHeight: 22,
+    fontSize: typography.size.h2,
+    lineHeight: typography.line.h2,
     fontFamily: typefaces.displayMedium,
   },
   pageTitleDetail: {
     color: palette.textPrimary,
-    fontSize: 14,
-    lineHeight: 18,
+    fontSize: typography.size.base,
+    lineHeight: typography.line.lg,
     fontFamily: typefaces.bodyStrong,
     textAlign: "center",
   },
@@ -826,8 +826,8 @@ const styles = StyleSheet.create({
   },
   sectionHeading: {
     color: palette.textPrimary,
-    fontSize: 20,
-    lineHeight: 24,
+    fontSize: typography.size.xl,
+    lineHeight: typography.line.xl,
     fontFamily: typefaces.displayMedium,
   },
   sectionActionLink: {
@@ -839,20 +839,20 @@ const styles = StyleSheet.create({
   },
   sectionActionText: {
     color: palette.primary,
-    fontSize: 13,
-    lineHeight: 16,
+    fontSize: typography.size.md,
+    lineHeight: typography.line.base,
     fontFamily: typefaces.bodyStrong,
   },
   muted: {
     color: palette.muted,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: typography.size.base,
+    lineHeight: typography.line.xl,
     fontFamily: typefaces.body,
   },
   mutedCenter: {
     color: palette.muted,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: typography.size.base,
+    lineHeight: typography.line.xl,
     textAlign: "center",
     fontFamily: typefaces.body,
   },
@@ -879,7 +879,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: palette.primary,
-    fontSize: 14,
+    fontSize: typography.size.base,
     fontFamily: typefaces.bodyStrong,
   },
   buttonTextLight: {
@@ -919,7 +919,7 @@ const styles = StyleSheet.create({
   },
   label: {
     color: palette.muted,
-    fontSize: 12,
+    fontSize: typography.size.sm,
     fontFamily: typefaces.bodyStrong,
     letterSpacing: 0.2,
   },
@@ -937,7 +937,7 @@ const styles = StyleSheet.create({
   },
   input: {
     color: palette.textPrimary,
-    fontSize: 16,
+    fontSize: typography.size.xl,
     fontFamily: typefaces.body,
   },
   inputMultiline: {
@@ -967,7 +967,7 @@ const styles = StyleSheet.create({
   },
   segmentText: {
     color: palette.muted,
-    fontSize: 13,
+    fontSize: typography.size.md,
     fontFamily: typefaces.bodyStrong,
   },
   segmentTextActive: {
@@ -1022,13 +1022,13 @@ const styles = StyleSheet.create({
   },
   sheetTitle: {
     color: palette.textPrimary,
-    fontSize: 20,
+    fontSize: typography.size.h3,
     fontFamily: typefaces.displayMedium,
   },
   sheetSubtitle: {
     color: palette.muted,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: typography.size.md,
+    lineHeight: typography.line.lg,
     marginTop: 4,
     fontFamily: typefaces.body,
   },

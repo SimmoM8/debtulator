@@ -11,7 +11,9 @@ import {
     Screen,
     SectionTitle,
 } from "@/src/components/ui/Primitives";
-import { palette, spacing, typefaces } from "@/src/constants/design";
+import { palette, spacing, typefaces,
+typography,
+} from "@/src/constants/design";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
 
@@ -209,19 +211,19 @@ export function SettingsScreen() {
 const styles = StyleSheet.create({
   accountLabel: {
     color: palette.primary,
-    fontSize: 12,
+    fontSize: typography.size.sm,
     fontFamily: typefaces.bodyStrong,
   },
   accountTitle: {
     color: palette.textPrimary,
-    fontSize: 24,
-    lineHeight: 30,
+    fontSize: typography.size.h1,
+    lineHeight: typography.line.displaySm,
     fontFamily: typefaces.displayMedium,
   },
   accountBody: {
     color: palette.muted,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: typography.size.base,
+    lineHeight: typography.line.xl,
     fontFamily: typefaces.body,
   },
   statsRow: {
@@ -232,13 +234,13 @@ const styles = StyleSheet.create({
   },
   dangerTitle: {
     color: palette.textPrimary,
-    fontSize: 18,
+    fontSize: typography.size.xxl,
     fontFamily: typefaces.displayMedium,
   },
   dangerBody: {
     color: palette.muted,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: typography.size.base,
+    lineHeight: typography.line.xl,
     fontFamily: typefaces.body,
   },
   buttonRow: {
