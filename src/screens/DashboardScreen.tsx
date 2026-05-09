@@ -23,6 +23,7 @@ import {
 } from "@/src/components/ui/Primitives";
 import { palette, spacing, typefaces } from "@/src/constants/design";
 import { paidVsUnpaidSummary } from "@/src/services/analytics";
+import { estimateMoneyMap } from "@/src/services/currency";
 import {
   calculatePersonalTotals,
   entryDirectionText,
@@ -30,12 +31,13 @@ import {
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
 import type {
-  CurrencyCode,
+  AppSettings,
+  CurrencyRate,
   LedgerEntry,
   Member,
   SharedEventMember,
 } from "@/src/types/models";
-import { formatMoney, sumMoneyMap } from "@/src/utils/money";
+import { formatMoney } from "@/src/utils/money";
 
 type LedgerMode = "personal" | "shared" | "all";
 
@@ -98,6 +100,11 @@ export function DashboardScreen() {
   const settledCount =
     paymentSummary.counts.paid + paymentSummary.counts.overpaid;
   const progress = settledCount / Math.max(scopedEntries.length, 1);
+  const netEstimatedInBase = estimateMoneyMap(
+    totals.net,
+    data.settings,
+    data.currencyRates,
+  );
 
   if (data.loading || auth.loading) {
     return <LoadingState />;
@@ -175,7 +182,7 @@ export function DashboardScreen() {
         <View style={styles.statsRow}>
           <StatCard
             label="You owe"
-            value={moneyLabel(totals.iOwe)}
+            value={moneyLabel(totals.iOwe, data.settings, data.currencyRates)}
             subtitle={
               nextActionEntries.filter((item) => !item.overdue).length
                 ? `${nextActionEntries.filter((item) => !item.overdue).length} due soon`
@@ -185,7 +192,11 @@ export function DashboardScreen() {
           />
           <StatCard
             label="Owed to you"
-            value={moneyLabel(totals.owedToMe)}
+            value={moneyLabel(
+              totals.owedToMe,
+              data.settings,
+              data.currencyRates,
+            )}
             subtitle={
               activeSharedEvents.length
                 ? `${activeSharedEvents.length} active groups`
@@ -195,9 +206,13 @@ export function DashboardScreen() {
           />
           <StatCard
             label="Net position"
-            value={signedMoneyLabel(totals.net)}
+            value={signedMoneyLabel(
+              totals.net,
+              data.settings,
+              data.currencyRates,
+            )}
             subtitle={
-              sumMoneyMap(totals.net) > 0
+              netEstimatedInBase > 0
                 ? "Your current balance"
                 : "No active balance"
             }
@@ -410,34 +425,27 @@ function activityTone(entry: LedgerEntry) {
   return "indigo" as const;
 }
 
-function moneyLabel(map: Record<string, number>) {
-  const entries = Object.entries(map).filter(
-    ([, amount]) => Math.abs(amount ?? 0) > 0.005,
+function moneyLabel(
+  map: Record<string, number>,
+  settings: AppSettings,
+  currencyRates: CurrencyRate[],
+) {
+  return formatMoney(
+    estimateMoneyMap(map, settings, currencyRates),
+    settings.baseCurrency,
   );
-  if (!entries.length) {
-    return "$0";
-  }
-
-  return entries
-    .map(([currency, amount]) =>
-      formatMoney(amount ?? 0, currency as CurrencyCode),
-    )
-    .join(" · ");
 }
 
-function signedMoneyLabel(map: Record<string, number>) {
-  const entries = Object.entries(map).filter(
-    ([, amount]) => Math.abs(amount ?? 0) > 0.005,
+function signedMoneyLabel(
+  map: Record<string, number>,
+  settings: AppSettings,
+  currencyRates: CurrencyRate[],
+) {
+  return formatMoney(
+    estimateMoneyMap(map, settings, currencyRates),
+    settings.baseCurrency,
+    { signed: true },
   );
-  if (!entries.length) {
-    return "$0";
-  }
-
-  return entries
-    .map(([currency, amount]) =>
-      formatMoney(amount ?? 0, currency as CurrencyCode, { signed: true }),
-    )
-    .join(" · ");
 }
 
 const styles = StyleSheet.create({
