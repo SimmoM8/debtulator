@@ -178,7 +178,7 @@ export function SettlementDetailScreen() {
                   data.currencyRates,
                 ),
                 data.settings.baseCurrency,
-              )} in {data.settings.baseCurrency}{" "}
+              )}{" "}
               using rate {settlement.exchangeRateUsed} from{" "}
               {settlement.exchangeRateDate ?? "the local table"}.
             </Text>
@@ -287,7 +287,15 @@ export function SettlementDetailScreen() {
                     data.settings.baseCurrency,
                   )}
                   {entry
-                    ? `, remaining ${formatMoney(entry.remainingAmount, entry.currency)}`
+                    ? `, remaining ${formatMoney(
+                        convertCurrency(
+                          entry.remainingAmount,
+                          entry.currency,
+                          data.settings.baseCurrency,
+                          data.currencyRates,
+                        ),
+                        data.settings.baseCurrency,
+                      )}`
                     : ""}
                 </Text>
               </View>

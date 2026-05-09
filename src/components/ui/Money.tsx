@@ -11,6 +11,8 @@ import type {
 } from "@/src/types/models";
 import { formatMoney, formatMoneyMap } from "@/src/utils/money";
 
+const MINIMUM_BALANCE_THRESHOLD = 0.005;
+
 export function Amount({
   amount,
   currency,
@@ -45,7 +47,7 @@ export function BalanceStack({
   empty?: string;
 }) {
   const estimated = estimateMoneyMap(balances, settings, currencyRates);
-  const hasBalance = Math.abs(estimated) > 0.005;
+  const hasBalance = Math.abs(estimated) > MINIMUM_BALANCE_THRESHOLD;
 
   return (
     <View style={[styles.stack, align === "right" && styles.stackRight]}>
