@@ -2,6 +2,7 @@ import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
 import {
     GlassCard,
     SearchBar,
@@ -11,7 +12,6 @@ import {
 import {
     Button,
     EmptyState,
-    IconButton,
     LoadingState,
     PageHeader,
     Screen,
@@ -106,13 +106,7 @@ export function MembersScreen() {
         title="Members"
         subtitle="People, balances, and who’s already linked."
         showBackButton={false}
-        action={
-          <IconButton
-            icon="add"
-            label="Add member"
-            onPress={() => router.push("/member/form")}
-          />
-        }
+        action={<AppMenuButton />}
       />
 
       <GlassCard tone="lavender">

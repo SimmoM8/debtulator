@@ -105,14 +105,10 @@ export function GlassCard({
     >
       <BlurView
         tint="light"
-        intensity={18}
+        intensity={12}
         experimentalBlurMethod="dimezisBlurView"
         pointerEvents="none"
         style={StyleSheet.absoluteFill}
-      />
-      <View
-        pointerEvents="none"
-        style={[styles.cardGlow, { backgroundColor: toneStyle.chip }]}
       />
       {children}
     </View>
@@ -426,7 +422,6 @@ export function ProgressCard({
         <Text style={styles.progressValue}>{value}</Text>
         {helper ? <Text style={styles.progressHelper}>{helper}</Text> : null}
       </View>
-      <View style={styles.progressMountain} />
     </GlassCard>
   );
 }
@@ -493,14 +488,6 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.md,
     ...shadows.card,
-  },
-  cardGlow: {
-    position: "absolute",
-    top: -44,
-    right: -18,
-    width: 150,
-    height: 150,
-    borderRadius: 75,
   },
   pill: {
     minHeight: 30,
@@ -743,18 +730,6 @@ const styles = StyleSheet.create({
     color: palette.textTertiary,
     fontSize: 12,
     fontFamily: typefaces.body,
-  },
-  progressMountain: {
-    position: "absolute",
-    right: -12,
-    bottom: -24,
-    width: 120,
-    height: 76,
-    borderTopLeftRadius: 48,
-    borderTopRightRadius: 64,
-    backgroundColor: gradients.lavenderGlow,
-    opacity: 0.42,
-    transform: [{ rotate: "-6deg" }],
   },
   settingsRow: {
     minHeight: 68,

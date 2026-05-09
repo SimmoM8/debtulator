@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
 import {
     ActivityIndicator,
@@ -27,13 +28,12 @@ import {
     SearchBar,
 } from "@/src/components/ui/Finance";
 import {
-    gradients,
     palette,
     radii,
     shadows,
     spacing,
     typefaces,
-    typography,
+    typography
 } from "@/src/constants/design";
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -60,11 +60,28 @@ export function Screen({
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
-      <View style={styles.backdropCanvas} />
-      <View style={styles.backdropLavender} />
-      <View style={styles.backdropIndigo} />
-      <View style={styles.backdropPeach} />
-      <View style={styles.backdropSoft} />
+      <LinearGradient
+        colors={["#F6F3FF", "#FBF8FF", "#FFF9F7"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.backdropCanvas}
+      />
+      <LinearGradient
+        colors={[
+          "rgba(221,214,254,0.32)",
+          "rgba(221,214,254,0.06)",
+          "rgba(255,255,255,0)",
+        ]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.backdropSheenTop}
+      />
+      <LinearGradient
+        colors={["rgba(253,186,155,0.12)", "rgba(255,255,255,0)"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.backdropSheenBottom}
+      />
       {scroll ? (
         <ScrollView
           contentContainerStyle={[
@@ -630,43 +647,24 @@ const styles = StyleSheet.create({
   },
   backdropCanvas: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: palette.background,
   },
-  backdropLavender: {
+  backdropSheenTop: {
     position: "absolute",
-    top: -120,
-    right: -140,
-    width: 320,
-    height: 320,
-    borderRadius: 160,
-    backgroundColor: gradients.lavenderGlow,
+    top: -48,
+    right: -24,
+    width: 280,
+    height: 200,
+    borderRadius: 40,
+    transform: [{ rotate: "-8deg" }],
   },
-  backdropIndigo: {
+  backdropSheenBottom: {
     position: "absolute",
-    top: 120,
-    right: -34,
-    width: 180,
+    bottom: 84,
+    left: -12,
+    width: 260,
     height: 180,
-    borderRadius: 90,
-    backgroundColor: "rgba(55,48,163,0.1)",
-  },
-  backdropPeach: {
-    position: "absolute",
-    top: 340,
-    left: -80,
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: gradients.peachGlow,
-  },
-  backdropSoft: {
-    position: "absolute",
-    bottom: 120,
-    right: 24,
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: "rgba(255,255,255,0.56)",
+    borderRadius: 40,
+    transform: [{ rotate: "6deg" }],
   },
   scrollContent: {
     alignItems: "center",

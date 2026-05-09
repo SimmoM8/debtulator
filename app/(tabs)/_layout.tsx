@@ -21,7 +21,6 @@ export default function TabLayout() {
         name="members"
         options={{
           title: "Members",
-          href: null,
         }}
       />
       <Tabs.Screen
@@ -48,6 +47,7 @@ export default function TabLayout() {
         name="settings"
         options={{
           title: "Settings",
+          href: null,
         }}
       />
     </Tabs>

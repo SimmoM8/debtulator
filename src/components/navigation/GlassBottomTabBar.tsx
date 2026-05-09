@@ -33,16 +33,16 @@ const visibleTabs: TabConfig[] = [
     activeIcon: "wallet",
   },
   {
+    name: "members",
+    label: "Members",
+    icon: "people-outline",
+    activeIcon: "people",
+  },
+  {
     name: "events",
     label: "Events",
     icon: "calendar-outline",
     activeIcon: "calendar",
-  },
-  {
-    name: "settings",
-    label: "Settings",
-    icon: "settings-outline",
-    activeIcon: "settings",
   },
 ];
 

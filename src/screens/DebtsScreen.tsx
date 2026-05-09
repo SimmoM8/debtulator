@@ -2,6 +2,7 @@ import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 
+import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
 import {
     FilterChip,
     GlassCard,
@@ -119,6 +120,7 @@ export function DebtsScreen() {
         title="Debts"
         subtitle="See what you owe, what is owed to you, what is due soon, and what is already settled."
         showBackButton={false}
+        action={<AppMenuButton />}
       />
 
       <GlassCard tone="lavender">

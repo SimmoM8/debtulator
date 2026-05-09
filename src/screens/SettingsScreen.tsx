@@ -2,6 +2,7 @@ import { router } from "expo-router";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
+import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
 import { GlassCard, SettingsRow, StatCard } from "@/src/components/ui/Finance";
 import {
     Button,
@@ -28,6 +29,7 @@ export function SettingsScreen() {
         title="Settings"
         subtitle="Calm preferences, privacy-first defaults, and clear data safety controls."
         showBackButton={false}
+        action={<AppMenuButton />}
       />
 
       <GlassCard tone="lavender">
