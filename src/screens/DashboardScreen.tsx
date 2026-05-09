@@ -11,8 +11,8 @@ import {
   StatCard,
 } from "@/src/components/ui/Finance";
 import {
-  Button,
   EmptyState,
+  IconButton,
   LoadingState,
   Screen,
   SectionActionLink,
@@ -169,6 +169,11 @@ export function DashboardScreen() {
   return (
     <Screen>
       <View style={styles.headerRow}>
+        <IconButton
+          icon="notifications-outline"
+          label={pendingRequests ? "Open notifications" : "View notifications"}
+          onPress={() => router.push("/requests")}
+        />
         <View style={styles.identityCopy}>
           <Text style={styles.greeting}>
             Good {greetingPeriod}, {firstName}
@@ -313,59 +318,6 @@ export function DashboardScreen() {
         </View>
       </Modal>
 
-      <GlassCard
-        tone={pendingRequests ? "peach" : "lavender"}
-        style={styles.inboxCard}
-      >
-        <View style={styles.inboxCopy}>
-          <Text style={styles.inboxTitle}>Requests and notifications</Text>
-          <Text style={styles.inboxBody}>
-            {pendingRequests
-              ? `${pendingRequests} item${pendingRequests === 1 ? "" : "s"} waiting for your response.`
-              : "Nothing needs your answer right now, but your inbox stays one tap away."}
-          </Text>
-        </View>
-        <Button
-          title={pendingRequests ? "Open inbox" : "View inbox"}
-          variant={pendingRequests ? "primary" : "ghost"}
-          onPress={() => router.push("/requests")}
-        />
-      </GlassCard>
-
-      <SectionTitle
-        title="Quick actions"
-        subtitle="Common tasks stay visible without taking over the screen."
-      />
-      <View style={styles.actionGrid}>
-        <ActionTile
-          icon="receipt-outline"
-          title="Add debt"
-          subtitle="Track who owes what"
-          onPress={() => router.push("/debt/form")}
-        />
-        <ActionTile
-          icon="card-outline"
-          title="Record payment"
-          subtitle="Log money that moved"
-          tone="teal"
-          onPress={() => router.push("/payment/form")}
-        />
-        <ActionTile
-          icon="pie-chart-outline"
-          title="Split expense"
-          subtitle="Create shared shares"
-          tone="peach"
-          onPress={() => router.push("/expense/form")}
-        />
-        <ActionTile
-          icon="person-add-outline"
-          title="Invite member"
-          subtitle="Add someone once"
-          tone="lavender"
-          onPress={() => router.push("/member/form")}
-        />
-      </View>
-
       <SectionTitle
         title="Due soon"
         subtitle="What needs attention next, without extra noise."
@@ -413,6 +365,40 @@ export function DashboardScreen() {
           />
         )}
       </GlassCard>
+
+      <SectionTitle
+        title="Quick actions"
+        subtitle="Common tasks stay visible without taking over the screen."
+      />
+      <View style={styles.actionGrid}>
+        <ActionTile
+          icon="receipt-outline"
+          title="Add debt"
+          subtitle="Track who owes what"
+          onPress={() => router.push("/debt/form")}
+        />
+        <ActionTile
+          icon="card-outline"
+          title="Record payment"
+          subtitle="Log money that moved"
+          tone="teal"
+          onPress={() => router.push("/payment/form")}
+        />
+        <ActionTile
+          icon="pie-chart-outline"
+          title="Split expense"
+          subtitle="Create shared shares"
+          tone="peach"
+          onPress={() => router.push("/expense/form")}
+        />
+        <ActionTile
+          icon="person-add-outline"
+          title="Invite member"
+          subtitle="Add someone once"
+          tone="lavender"
+          onPress={() => router.push("/member/form")}
+        />
+      </View>
 
       <SectionTitle
         title="Recent activity"
