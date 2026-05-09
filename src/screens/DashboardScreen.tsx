@@ -1,23 +1,16 @@
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
-import {
-  ActionTile,
-  GlassCard,
-  ListRow,
-  StatCard,
-  StatusPill,
-} from "@/src/components/ui/Finance";
-import { BalanceStack } from "@/src/components/ui/Money";
+import { ActionTile, GlassCard, ListRow } from "@/src/components/ui/Finance";
 import {
   Button,
   EmptyState,
   LoadingState,
   Screen,
   SectionTitle,
-  SegmentedControl,
 } from "@/src/components/ui/Primitives";
 import { palette, spacing, typefaces } from "@/src/constants/design";
 import { estimateMoneyMap } from "@/src/services/currency";
@@ -42,9 +35,11 @@ export function DashboardScreen() {
   const data = useAppData();
   const auth = useAuth();
   const [mode, setMode] = useState<LedgerMode>("personal");
+  const [modeMenuOpen, setModeMenuOpen] = useState(false);
 
   const displayName = auth.identity.displayName?.trim() || "there";
   const firstName = displayName.split(" ")[0] || displayName;
+  const today = new Date().toISOString().slice(0, 10);
 
   const scopedEntries = useMemo(() => {
     if (mode === "all") {
@@ -61,9 +56,17 @@ export function DashboardScreen() {
     () => calculatePersonalTotals(scopedEntries),
     [scopedEntries],
   );
+  const dueSoonEntries = useMemo(
+    () =>
+      scopedEntries.filter(
+        (entry) =>
+          entry.remainingAmount > 0.005 &&
+          entry.dueDate &&
+          entry.dueDate >= today,
+      ),
+    [scopedEntries, today],
+  );
   const nextActionEntries = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
-
     return scopedEntries
       .filter((entry) => entry.remainingAmount > 0.005 && entry.dueDate)
       .sort((first, second) =>
@@ -74,7 +77,7 @@ export function DashboardScreen() {
         entry,
         overdue: entry.dueDate ? entry.dueDate < today : false,
       }));
-  }, [scopedEntries]);
+  }, [scopedEntries, today]);
   const recentActivity = useMemo(
     () => scopedEntries.slice(0, 4),
     [scopedEntries],
@@ -95,6 +98,39 @@ export function DashboardScreen() {
     data.settings,
     data.currencyRates,
   );
+  const dueSoonIOwe = useMemo(
+    () =>
+      dueSoonEntries
+        .filter((entry) => entry.fromId === "me")
+        .reduce(
+          (sum, entry) =>
+            sum +
+            estimateMoneyMap(
+              { [entry.currency]: entry.remainingAmount },
+              data.settings,
+              data.currencyRates,
+            ),
+          0,
+        ),
+    [data.currencyRates, data.settings, dueSoonEntries],
+  );
+  const dueSoonOwedToMe = useMemo(
+    () =>
+      dueSoonEntries
+        .filter((entry) => entry.toId === "me")
+        .reduce(
+          (sum, entry) =>
+            sum +
+            estimateMoneyMap(
+              { [entry.currency]: entry.remainingAmount },
+              data.settings,
+              data.currencyRates,
+            ),
+          0,
+        ),
+    [data.currencyRates, data.settings, dueSoonEntries],
+  );
+  const modeLabel = MODE_LABELS[mode];
 
   if (data.loading || auth.loading) {
     return <LoadingState />;
@@ -114,59 +150,43 @@ export function DashboardScreen() {
 
       <GlassCard tone="lavender" style={styles.heroCard}>
         <View style={styles.heroTopRow}>
-          <View style={styles.heroTitleBlock}>
-            <StatusPill label="Overview" tone="indigo" />
-            <Text style={styles.heroTitle}>Your balance snapshot</Text>
-            <Text style={styles.heroSubtitle}>
-              Clear totals first, then the actions that matter now.
-            </Text>
+          <View style={styles.brandRow}>
+            <Text style={styles.heroTitle}>Debtulator</Text>
+            <Ionicons
+              name="sparkles"
+              size={14}
+              color={palette.primary}
+              style={styles.brandSparkle}
+            />
           </View>
-          <StatusPill
-            label={data.syncSummary.statusLabel}
-            tone={data.syncSummary.hasBlockingProblems ? "amber" : "teal"}
-          />
+          <Pressable
+            onPress={() => setModeMenuOpen(true)}
+            style={({ pressed }) => [
+              styles.heroControl,
+              pressed && styles.heroControlPressed,
+            ]}
+          >
+            <Text style={styles.heroControlText}>{modeLabel}</Text>
+            <Ionicons
+              name="chevron-down"
+              size={14}
+              color={palette.primaryDeep}
+            />
+          </Pressable>
         </View>
 
-        <BalanceStack
-          balances={totals.net}
-          settings={data.settings}
-          currencyRates={data.currencyRates}
-          empty="You’re all settled"
-        />
-
-        <View style={styles.heroStatusRow}>
-          <StatusPill
-            label={
-              pendingRequests
-                ? `${pendingRequests} need action`
-                : "Nothing waiting"
-            }
-            tone={pendingRequests ? "coral" : "lavender"}
-          />
-        </View>
-
-        <SegmentedControl
-          value={mode}
-          options={[
-            { label: "Personal", value: "personal" },
-            { label: "Shared", value: "shared" },
-            { label: "All", value: "all" },
-          ]}
-          onChange={setMode}
-        />
-
-        <View style={styles.statsRow}>
-          <StatCard
+        <View style={styles.snapshotRow}>
+          <SnapshotMetric
             label="You owe"
             value={moneyLabel(totals.iOwe, data.settings, data.currencyRates)}
             subtitle={
-              nextActionEntries.filter((item) => !item.overdue).length
-                ? `${nextActionEntries.filter((item) => !item.overdue).length} due soon`
+              dueSoonIOwe > 0
+                ? `Due soon ${formatMoney(dueSoonIOwe, data.settings.baseCurrency)}`
                 : "Nothing urgent"
             }
             tone="coral"
           />
-          <StatCard
+          <SnapshotMetric
             label="Owed to you"
             value={moneyLabel(
               totals.owedToMe,
@@ -174,13 +194,16 @@ export function DashboardScreen() {
               data.currencyRates,
             )}
             subtitle={
-              activeSharedEvents.length
-                ? `${activeSharedEvents.length} active groups`
-                : "No active groups"
+              dueSoonOwedToMe > 0
+                ? `Due soon ${formatMoney(dueSoonOwedToMe, data.settings.baseCurrency)}`
+                : activeSharedEvents.length
+                  ? `${activeSharedEvents.length} active groups`
+                  : "Nothing pending"
             }
-            tone="teal"
+            tone="indigo"
+            withDivider
           />
-          <StatCard
+          <SnapshotMetric
             label="Net position"
             value={signedMoneyLabel(
               totals.net,
@@ -189,13 +212,77 @@ export function DashboardScreen() {
             )}
             subtitle={
               netEstimatedInBase > 0
-                ? "Your current balance"
-                : "No active balance"
+                ? "You're ahead"
+                : netEstimatedInBase < 0
+                  ? "You’re behind"
+                  : "All square"
             }
             tone="indigo"
+            subtitleIcon={
+              netEstimatedInBase > 0
+                ? "arrow-up-circle"
+                : netEstimatedInBase < 0
+                  ? "arrow-down-circle"
+                  : "remove-circle"
+            }
+            withDivider
+            align="right"
           />
         </View>
       </GlassCard>
+
+      <Modal
+        visible={modeMenuOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModeMenuOpen(false)}
+      >
+        <View style={styles.modeMenuOverlay}>
+          <Pressable
+            style={styles.modeMenuBackdrop}
+            onPress={() => setModeMenuOpen(false)}
+          />
+          <View style={styles.modeMenuCard}>
+            {MODE_OPTIONS.map((option, index) => {
+              const active = option.value === mode;
+              return (
+                <Pressable
+                  key={option.value}
+                  onPress={() => {
+                    setMode(option.value);
+                    setModeMenuOpen(false);
+                  }}
+                  style={({ pressed }) => [
+                    styles.modeMenuItem,
+                    index > 0 && styles.modeMenuItemDivider,
+                    active && styles.modeMenuItemActive,
+                    pressed && styles.heroControlPressed,
+                  ]}
+                >
+                  <View style={styles.modeMenuItemCopy}>
+                    <Text
+                      style={[
+                        styles.modeMenuItemLabel,
+                        active && styles.modeMenuItemLabelActive,
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                    <Text style={styles.modeMenuItemHint}>{option.hint}</Text>
+                  </View>
+                  {active ? (
+                    <Ionicons
+                      name="checkmark"
+                      size={16}
+                      color={palette.primary}
+                    />
+                  ) : null}
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      </Modal>
 
       <GlassCard
         tone={pendingRequests ? "peach" : "lavender"}
@@ -335,6 +422,83 @@ export function DashboardScreen() {
   );
 }
 
+function SnapshotMetric({
+  label,
+  value,
+  subtitle,
+  tone,
+  subtitleIcon,
+  withDivider,
+  align = "left",
+}: {
+  label: string;
+  value: string;
+  subtitle: string;
+  tone: "coral" | "indigo";
+  subtitleIcon?: keyof typeof Ionicons.glyphMap;
+  withDivider?: boolean;
+  align?: "left" | "right";
+}) {
+  const subtitleTone =
+    tone === "coral"
+      ? styles.snapshotSubtitleCoral
+      : styles.snapshotSubtitleIndigo;
+
+  return (
+    <View
+      style={[
+        styles.snapshotMetric,
+        withDivider && styles.snapshotMetricDivider,
+        align === "right" && styles.snapshotMetricRight,
+      ]}
+    >
+      <Text
+        style={[
+          styles.snapshotLabel,
+          align === "right" && styles.snapshotTextRight,
+        ]}
+      >
+        {label}
+      </Text>
+      <Text
+        style={[
+          styles.snapshotValue,
+          tone === "coral"
+            ? styles.snapshotValueCoral
+            : styles.snapshotValueIndigo,
+          align === "right" && styles.snapshotTextRight,
+        ]}
+      >
+        {value}
+      </Text>
+      <View
+        style={[
+          styles.snapshotSubtitleRow,
+          align === "right" && styles.snapshotSubtitleRowRight,
+        ]}
+      >
+        <Text
+          style={[
+            styles.snapshotSubtitle,
+            subtitleTone,
+            align === "right" && styles.snapshotTextRight,
+          ]}
+        >
+          {subtitle}
+        </Text>
+        {subtitleIcon ? (
+          <Ionicons
+            name={subtitleIcon}
+            size={12}
+            style={styles.snapshotSubtitleIcon}
+            color={tone === "coral" ? palette.danger : palette.primary}
+          />
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
 function openEntry(
   entry: Pick<LedgerEntry, "kind" | "sourceId" | "expenseId" | "eventId">,
 ) {
@@ -431,6 +595,30 @@ function signedMoneyLabel(
   );
 }
 
+const MODE_LABELS: Record<LedgerMode, string> = {
+  personal: "Personal",
+  shared: "Shared",
+  all: "All entries",
+};
+
+const MODE_OPTIONS: { value: LedgerMode; label: string; hint: string }[] = [
+  {
+    value: "personal",
+    label: "Personal",
+    hint: "Only your direct balances",
+  },
+  {
+    value: "shared",
+    label: "Shared",
+    hint: "Only group and shared items",
+  },
+  {
+    value: "all",
+    label: "All entries",
+    hint: "Everything in one summary",
+  },
+];
+
 const styles = StyleSheet.create({
   headerRow: {
     flexDirection: "row",
@@ -454,34 +642,170 @@ const styles = StyleSheet.create({
     fontFamily: typefaces.body,
   },
   heroCard: {
-    gap: spacing.lg,
+    gap: 14,
+    paddingTop: 18,
+    paddingBottom: 14,
+    backgroundColor: "rgba(255,255,255,0.78)",
   },
   heroTopRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
     gap: spacing.md,
   },
-  heroTitleBlock: {
-    flex: 1,
-    gap: 8,
+  brandRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 4,
   },
   heroTitle: {
     color: palette.primaryDeep,
     fontSize: 28,
     lineHeight: 32,
-    fontFamily: typefaces.displayMedium,
+    fontFamily: typefaces.display,
   },
-  heroSubtitle: {
-    color: palette.muted,
-    fontSize: 15,
-    lineHeight: 21,
+  brandSparkle: {
+    marginTop: 2,
+  },
+  heroControl: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    minHeight: 38,
+    paddingHorizontal: 13,
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderStrong,
+    backgroundColor: "rgba(255,255,255,0.94)",
+  },
+  heroControlPressed: {
+    opacity: 0.82,
+  },
+  heroControlText: {
+    color: palette.primaryDeep,
+    fontSize: 12,
+    fontFamily: typefaces.bodyStrong,
+  },
+  snapshotRow: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    borderRadius: 20,
+    overflow: "hidden",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.line,
+    backgroundColor: "rgba(255,255,255,0.42)",
+  },
+  snapshotMetric: {
+    flex: 1,
+    gap: 5,
+    paddingHorizontal: 15,
+    paddingVertical: 13,
+  },
+  snapshotMetricDivider: {
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderLeftColor: palette.lineStrong,
+  },
+  snapshotMetricRight: {
+    alignItems: "flex-end",
+  },
+  snapshotLabel: {
+    color: palette.textSecondary,
+    fontSize: 11,
+    lineHeight: 14,
     fontFamily: typefaces.body,
   },
-  heroStatusRow: {
+  snapshotValue: {
+    fontSize: 16,
+    lineHeight: 19,
+    fontFamily: typefaces.displayMedium,
+  },
+  snapshotValueCoral: {
+    color: palette.primaryDeep,
+  },
+  snapshotValueIndigo: {
+    color: palette.primaryDeep,
+  },
+  snapshotSubtitle: {
+    fontSize: 11,
+    lineHeight: 14,
+    fontFamily: typefaces.bodyStrong,
+  },
+  snapshotSubtitleRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 4,
+  },
+  snapshotSubtitleRowRight: {
+    justifyContent: "flex-end",
+  },
+  snapshotSubtitleCoral: {
+    color: palette.danger,
+  },
+  snapshotSubtitleIndigo: {
+    color: palette.primary,
+  },
+  snapshotSubtitleIcon: {
+    marginTop: 0.5,
+  },
+  snapshotTextRight: {
+    textAlign: "right",
+  },
+  modeMenuOverlay: {
+    flex: 1,
+    paddingTop: 140,
+    paddingRight: spacing.screen,
+    alignItems: "flex-end",
+  },
+  modeMenuBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(17,24,39,0.08)",
+  },
+  modeMenuCard: {
+    width: 198,
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderStrong,
+    backgroundColor: "rgba(255,255,255,0.98)",
+    overflow: "hidden",
+    shadowColor: palette.shadow,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    elevation: 4,
+  },
+  modeMenuItem: {
+    minHeight: 58,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: spacing.sm,
+  },
+  modeMenuItemDivider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: palette.line,
+  },
+  modeMenuItemActive: {
+    backgroundColor: "rgba(246,243,255,0.95)",
+  },
+  modeMenuItemCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  modeMenuItemLabel: {
+    color: palette.textPrimary,
+    fontSize: 13,
+    fontFamily: typefaces.bodyStrong,
+  },
+  modeMenuItemLabelActive: {
+    color: palette.primaryDeep,
+  },
+  modeMenuItemHint: {
+    color: palette.textTertiary,
+    fontSize: 11,
+    lineHeight: 15,
+    fontFamily: typefaces.body,
   },
   inboxCard: {
     flexDirection: "row",
