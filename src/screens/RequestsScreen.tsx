@@ -2,6 +2,7 @@ import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
+import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
 import {
     FilterChip,
     GlassCard,
@@ -106,6 +107,7 @@ export function RequestsScreen() {
           title="Requests"
           subtitle="Sign in to receive verification requests, invites, and shared confirmations."
           showBackButton={false}
+          action={<AppMenuButton />}
         />
         <GlassCard tone="amber">
           <EmptyState
@@ -126,6 +128,7 @@ export function RequestsScreen() {
         title="Requests"
         subtitle="A simple inbox for approvals, invites, and anything that needs your answer."
         showBackButton={false}
+        action={<AppMenuButton />}
       />
 
       <GlassCard tone="lavender">

@@ -2,12 +2,11 @@ import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-import { DebtulatorOrbitIllustration } from "@/src/components/illustrations/DebtulatorOrbitIllustration";
+import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
 import {
   ActionTile,
   GlassCard,
   ListRow,
-  ProgressCard,
   StatCard,
   StatusPill,
 } from "@/src/components/ui/Finance";
@@ -15,7 +14,6 @@ import { BalanceStack } from "@/src/components/ui/Money";
 import {
   Button,
   EmptyState,
-  IconButton,
   LoadingState,
   Screen,
   SectionTitle,
@@ -64,10 +62,6 @@ export function DashboardScreen() {
     () => calculatePersonalTotals(scopedEntries),
     [scopedEntries],
   );
-  const paymentSummary = useMemo(
-    () => paidVsUnpaidSummary(scopedEntries),
-    [scopedEntries],
-  );
   const nextActionEntries = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
 
@@ -113,38 +107,28 @@ export function DashboardScreen() {
   return (
     <Screen>
       <View style={styles.headerRow}>
-        <View style={styles.identityRow}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {firstName.slice(0, 1).toUpperCase()}
-            </Text>
-          </View>
-          <View style={styles.identityCopy}>
-            <Text style={styles.greeting}>Good morning, {firstName}</Text>
-            <Text style={styles.subGreeting}>Here’s your money snapshot.</Text>
-          </View>
+        <View style={styles.identityCopy}>
+          <Text style={styles.greeting}>Good morning, {firstName}</Text>
+          <Text style={styles.subGreeting}>
+            The essentials are here. Everything else stays tucked away.
+          </Text>
         </View>
-        <View style={styles.noticeWrap}>
-          <IconButton
-            icon="notifications-outline"
-            label="Open requests"
-            onPress={() => router.push("/requests")}
-          />
-          {pendingRequests > 0 ? <View style={styles.noticeDot} /> : null}
-        </View>
+        <AppMenuButton />
       </View>
 
       <GlassCard tone="lavender" style={styles.heroCard}>
-        <View style={styles.heroGlow} />
         <View style={styles.heroTopRow}>
           <View style={styles.heroTitleBlock}>
-            <StatusPill label="This month" tone="indigo" />
-            <Text style={styles.heroTitle}>Debtulator</Text>
-            <Text style={styles.heroSubtitle}>Simple, fair, remembered.</Text>
+            <StatusPill label="Overview" tone="indigo" />
+            <Text style={styles.heroTitle}>Your balance snapshot</Text>
+            <Text style={styles.heroSubtitle}>
+              Clear totals first, then the actions that matter now.
+            </Text>
           </View>
-          <View style={styles.heroIllustrationWrap}>
-            <DebtulatorOrbitIllustration width={126} height={98} compact />
-          </View>
+          <StatusPill
+            label={data.syncSummary.statusLabel}
+            tone={data.syncSummary.hasBlockingProblems ? "amber" : "teal"}
+          />
         </View>
 
         <BalanceStack
@@ -155,10 +139,6 @@ export function DashboardScreen() {
         />
 
         <View style={styles.heroStatusRow}>
-          <StatusPill
-            label={data.syncSummary.statusLabel}
-            tone={data.syncSummary.hasBlockingProblems ? "amber" : "teal"}
-          />
           <StatusPill
             label={
               pendingRequests
@@ -221,9 +201,28 @@ export function DashboardScreen() {
         </View>
       </GlassCard>
 
+      <GlassCard
+        tone={pendingRequests ? "peach" : "lavender"}
+        style={styles.inboxCard}
+      >
+        <View style={styles.inboxCopy}>
+          <Text style={styles.inboxTitle}>Requests and notifications</Text>
+          <Text style={styles.inboxBody}>
+            {pendingRequests
+              ? `${pendingRequests} item${pendingRequests === 1 ? "" : "s"} waiting for your response.`
+              : "Nothing needs your answer right now, but your inbox stays one tap away."}
+          </Text>
+        </View>
+        <Button
+          title={pendingRequests ? "Open inbox" : "View inbox"}
+          variant={pendingRequests ? "primary" : "ghost"}
+          onPress={() => router.push("/requests")}
+        />
+      </GlassCard>
+
       <SectionTitle
         title="Quick actions"
-        subtitle="The things you need first stay one tap away."
+        subtitle="Common tasks stay visible without taking over the screen."
       />
       <View style={styles.actionGrid}>
         <ActionTile
@@ -255,21 +254,9 @@ export function DashboardScreen() {
         />
       </View>
 
-      <ProgressCard
-        title="Repayment progress"
-        subtitle="A calmer view of what’s already closed out."
-        progress={progress}
-        value={`${settledCount} of ${scopedEntries.length} items settled`}
-        helper={
-          paymentSummary.counts.unpaid + paymentSummary.counts.partiallyPaid > 0
-            ? `${paymentSummary.counts.unpaid + paymentSummary.counts.partiallyPaid} still open`
-            : "Everything in this view is closed out"
-        }
-      />
-
       <SectionTitle
         title="Due soon"
-        subtitle="Plain-language reminders for what needs attention next."
+        subtitle="What needs attention next, without extra noise."
         action={
           <Button
             title="All debts"
@@ -451,70 +438,27 @@ function signedMoneyLabel(
 const styles = StyleSheet.create({
   headerRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
     gap: spacing.md,
   },
-  identityRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    flex: 1,
-  },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.82)",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderIndigoSoft,
-  },
-  avatarText: {
-    color: palette.primaryDeep,
-    fontSize: 16,
-    fontFamily: typefaces.bodyHeavy,
-  },
   identityCopy: {
     flex: 1,
-    gap: 2,
+    gap: 6,
   },
   greeting: {
     color: palette.textPrimary,
-    fontSize: 20,
-    fontFamily: typefaces.displayMedium,
+    fontSize: 24,
+    fontFamily: typefaces.display,
   },
   subGreeting: {
     color: palette.muted,
-    fontSize: 13,
+    fontSize: 14,
+    lineHeight: 20,
     fontFamily: typefaces.body,
-  },
-  noticeWrap: {
-    position: "relative",
-  },
-  noticeDot: {
-    position: "absolute",
-    top: 2,
-    right: 2,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: palette.danger,
-    borderWidth: 2,
-    borderColor: palette.surface,
   },
   heroCard: {
     gap: spacing.lg,
-  },
-  heroGlow: {
-    position: "absolute",
-    top: -36,
-    right: -12,
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: "rgba(221,214,254,0.34)",
   },
   heroTopRow: {
     flexDirection: "row",
@@ -528,29 +472,41 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     color: palette.primaryDeep,
-    fontSize: 32,
-    lineHeight: 36,
-    fontFamily: typefaces.display,
+    fontSize: 28,
+    lineHeight: 32,
+    fontFamily: typefaces.displayMedium,
   },
   heroSubtitle: {
     color: palette.muted,
     fontSize: 15,
+    lineHeight: 21,
     fontFamily: typefaces.body,
-  },
-  heroIllustrationWrap: {
-    width: 122,
-    height: 94,
-    borderRadius: 24,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.52)",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderGlass,
   },
   heroStatusRow: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.sm,
+  },
+  inboxCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.md,
+  },
+  inboxCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  inboxTitle: {
+    color: palette.textPrimary,
+    fontSize: 16,
+    fontFamily: typefaces.bodyStrong,
+  },
+  inboxBody: {
+    color: palette.muted,
+    fontSize: 13,
+    lineHeight: 18,
+    fontFamily: typefaces.body,
   },
   statsRow: {
     gap: spacing.sm,

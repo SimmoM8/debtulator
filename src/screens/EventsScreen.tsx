@@ -2,7 +2,7 @@ import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { DebtulatorOrbitIllustration } from "@/src/components/illustrations/DebtulatorOrbitIllustration";
+import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
 import {
     AvatarStack,
     FilterChip,
@@ -13,7 +13,6 @@ import {
 } from "@/src/components/ui/Finance";
 import {
     EmptyState,
-    IconButton,
     LoadingState,
     PageHeader,
     Screen,
@@ -78,13 +77,7 @@ export function EventsScreen() {
         title="Events"
         subtitle="Trips, households, and group expenses that feel social instead of stressful."
         showBackButton={false}
-        action={
-          <IconButton
-            icon="add"
-            label="Add event"
-            onPress={() => router.push("/event/form")}
-          />
-        }
+        action={<AppMenuButton />}
       />
 
       <GlassCard tone="peach">
@@ -171,12 +164,7 @@ export function EventsScreen() {
                 ]}
               >
                 <GlassCard tone="peach" style={styles.eventCard}>
-                  <View style={styles.eventArt}>
-                    <DebtulatorOrbitIllustration
-                      width={108}
-                      height={84}
-                      compact
-                    />
+                  <View style={styles.eventAccentRow}>
                     <StatusPill
                       label={
                         event.status === "finalising"
@@ -190,6 +178,12 @@ export function EventsScreen() {
                             ? "peach"
                             : "indigo"
                       }
+                    />
+                    <StatusPill
+                      label={
+                        event.visibility === "shared" ? "Shared" : "Private"
+                      }
+                      tone={event.visibility === "shared" ? "teal" : "lavender"}
                     />
                   </View>
                   <View style={styles.eventBody}>
@@ -275,13 +269,13 @@ const styles = StyleSheet.create({
     padding: 0,
     overflow: "hidden",
   },
-  eventArt: {
-    minHeight: 124,
-    padding: spacing.lg,
-    backgroundColor: "rgba(253,186,155,0.18)",
+  eventAccentRow: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
+    gap: spacing.sm,
   },
   eventBody: {
     padding: spacing.lg,
