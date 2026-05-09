@@ -356,7 +356,8 @@ function moneyLabel(
   settings: ReturnType<typeof useAppData>["settings"],
   currencyRates: ReturnType<typeof useAppData>["currencyRates"],
 ) {
-  return formatMoney(estimateMoneyMap(map, settings, currencyRates), settings.baseCurrency);
+  const estimated = estimateMoneyMap(map, settings, currencyRates);
+  return formatMoney(estimated, settings.baseCurrency);
 }
 
 const styles = StyleSheet.create({

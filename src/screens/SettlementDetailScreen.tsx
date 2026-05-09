@@ -170,6 +170,7 @@ export function SettlementDetailScreen() {
           <View style={styles.estimateBox}>
             <Badge label="Estimated converted settlement" tone="amber" />
             <Text style={styles.body}>
+              Estimated settlement amount:{" "}
               {formatMoney(
                 convertCurrency(
                   settlement.settlementAmount ?? settlement.totalAmount,
