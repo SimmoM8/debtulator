@@ -24,6 +24,7 @@ import type { AppSettings, CurrencyRate, Member } from "@/src/types/models";
 import { formatMoney } from "@/src/utils/money";
 
 type MemberFilter = "all" | "linked" | "shared" | "owed-to-you" | "you-owe";
+const MINIMUM_BALANCE_THRESHOLD = 0.005;
 
 export function MembersScreen() {
   const data = useAppData();
@@ -40,8 +41,12 @@ export function MembersScreen() {
 
       const balance = data.memberBalances[member.id] ?? {};
       const values = Object.values(balance);
-      const hasPositive = values.some((value) => (value ?? 0) > 0.005);
-      const hasNegative = values.some((value) => (value ?? 0) < -0.005);
+      const hasPositive = values.some(
+        (value) => (value ?? 0) > MINIMUM_BALANCE_THRESHOLD,
+      );
+      const hasNegative = values.some(
+        (value) => (value ?? 0) < -MINIMUM_BALANCE_THRESHOLD,
+      );
       const hasSharedActivity =
         data.debts.some(
           (debt) => debt.memberId === member.id && debt.eventId,
@@ -88,12 +93,12 @@ export function MembersScreen() {
   ).length;
   const owingYouCount = members.filter((member) =>
     Object.values(data.memberBalances[member.id] ?? {}).some(
-      (value) => (value ?? 0) > 0.005,
+      (value) => (value ?? 0) > MINIMUM_BALANCE_THRESHOLD,
     ),
   ).length;
   const youOweCount = members.filter((member) =>
     Object.values(data.memberBalances[member.id] ?? {}).some(
-      (value) => (value ?? 0) < -0.005,
+      (value) => (value ?? 0) < -MINIMUM_BALANCE_THRESHOLD,
     ),
   ).length;
 
@@ -218,7 +223,7 @@ function MemberRow({
   currencyRates: CurrencyRate[];
 }) {
   const estimated = estimateMoneyMap(balance, settings, currencyRates);
-  const status = Math.abs(estimated) <= 0.005
+  const status = Math.abs(estimated) <= MINIMUM_BALANCE_THRESHOLD
     ? { label: "Settled", tone: "lavender" as const }
     : estimated > 0
       ? { label: "Owes you", tone: "teal" as const }

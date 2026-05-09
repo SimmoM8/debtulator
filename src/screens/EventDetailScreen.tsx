@@ -84,6 +84,7 @@ type EventTab =
   | "payments"
   | "members"
   | "activity";
+const MINIMUM_BALANCE_THRESHOLD = 0.005;
 
 export function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -803,7 +804,7 @@ export function EventDetailScreen() {
                 ),
                 currency: data.settings.baseCurrency,
               }))
-              .filter((row) => row.value > 0.005)
+              .filter((row) => row.value > MINIMUM_BALANCE_THRESHOLD)
               .slice(0, 6)}
           />
         </>
@@ -1585,10 +1586,10 @@ function buildConvertedEstimate(
     },
   );
   const creditors = convertedNets
-    .filter((item) => item.amount > 0.005)
+    .filter((item) => item.amount > MINIMUM_BALANCE_THRESHOLD)
     .sort((a, b) => b.amount - a.amount);
   const debtors = convertedNets
-    .filter((item) => item.amount < -0.005)
+    .filter((item) => item.amount < -MINIMUM_BALANCE_THRESHOLD)
     .map((item) => ({ ...item, amount: Math.abs(item.amount) }))
     .sort((a, b) => b.amount - a.amount);
   const suggestions: { fromId: string; toId: string; amount: number }[] = [];
@@ -1599,7 +1600,7 @@ function buildConvertedEstimate(
     const debtor = debtors[debtorIndex];
     const amount =
       Math.round(Math.min(creditor.amount, debtor.amount) * 100) / 100;
-    if (amount > 0.005) {
+    if (amount > MINIMUM_BALANCE_THRESHOLD) {
       suggestions.push({
         fromId: debtor.participantId,
         toId: creditor.participantId,
@@ -1608,10 +1609,10 @@ function buildConvertedEstimate(
     }
     creditor.amount -= amount;
     debtor.amount -= amount;
-    if (creditor.amount <= 0.005) {
+    if (creditor.amount <= MINIMUM_BALANCE_THRESHOLD) {
       creditorIndex += 1;
     }
-    if (debtor.amount <= 0.005) {
+    if (debtor.amount <= MINIMUM_BALANCE_THRESHOLD) {
       debtorIndex += 1;
     }
   }
