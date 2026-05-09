@@ -2,7 +2,6 @@ import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
 import {
     AvatarStack,
     GlassCard,
@@ -14,6 +13,7 @@ import {
 import {
     EmptyState,
     FilterSheet,
+    IconButton,
     LoadingState,
     PageHeader,
     Screen,
@@ -79,7 +79,13 @@ export function EventsScreen() {
         title="Events"
         subtitle="Trips, households, and group expenses that feel social instead of stressful."
         showBackButton={false}
-        action={<AppMenuButton />}
+        action={
+          <IconButton
+            icon="add"
+            label="Add event"
+            onPress={() => router.push("/event/form")}
+          />
+        }
       />
 
       <SearchFilterBar

@@ -2,7 +2,6 @@ import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 
-import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
 import {
   GlassCard,
   ListRow,
@@ -13,6 +12,7 @@ import {
 import {
   EmptyState,
   FilterSheet,
+  IconButton,
   LoadingState,
   PageHeader,
   Screen,
@@ -122,7 +122,13 @@ export function DebtsScreen() {
         title="Debts"
         subtitle="See what you owe, what is owed to you, what is due soon, and what is already settled."
         showBackButton={false}
-        action={<AppMenuButton />}
+        action={
+          <IconButton
+            icon="add"
+            label="Add debt"
+            onPress={() => router.push("/debt/form")}
+          />
+        }
       />
 
       <SearchFilterBar
