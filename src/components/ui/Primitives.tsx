@@ -61,15 +61,15 @@ export function Screen({
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
       <LinearGradient
-        colors={["#F6F3FF", "#FBF8FF", "#FFF9F7"]}
+        colors={["#FCFDFF", "#FEFEFF", "#FFFFFF"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.backdropCanvas}
       />
       <LinearGradient
         colors={[
-          "rgba(221,214,254,0.32)",
-          "rgba(221,214,254,0.06)",
+          "rgba(222,228,248,0.14)",
+          "rgba(222,228,248,0.03)",
           "rgba(255,255,255,0)",
         ]}
         start={{ x: 0, y: 0 }}
@@ -77,7 +77,7 @@ export function Screen({
         style={styles.backdropSheenTop}
       />
       <LinearGradient
-        colors={["rgba(253,186,155,0.12)", "rgba(255,255,255,0)"]}
+        colors={["rgba(214,224,247,0.07)", "rgba(255,255,255,0)"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.backdropSheenBottom}
