@@ -98,6 +98,9 @@ Detailed docs:
 - [`docs/permission-model.md`](/Users/benjaminsimmons/Documents/CODING/debtulator/docs/permission-model.md)
 - [`docs/backup-restore.md`](/Users/benjaminsimmons/Documents/CODING/debtulator/docs/backup-restore.md)
 - [`docs/release-checklist.md`](/Users/benjaminsimmons/Documents/CODING/debtulator/docs/release-checklist.md)
+- [`docs/app-sitemap.md`](/Users/benjaminsimmons/Documents/CODING/debtulator/docs/app-sitemap.md)
+- [`docs/user-flow.md`](/Users/benjaminsimmons/Documents/CODING/debtulator/docs/user-flow.md)
+- [`docs/navigation-map.md`](/Users/benjaminsimmons/Documents/CODING/debtulator/docs/navigation-map.md)
 
 ## QA Checklist
 
