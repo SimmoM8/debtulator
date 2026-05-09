@@ -2,6 +2,20 @@
 
 This document is the full beta-launch backlog for Debtulator, not just the store-submission checklist. It includes engineering, feature work, compliance, design, assets, marketing, QA, and rollout tasks.
 
+Companion planning docs:
+
+- `docs/beta-implementation-roadmap.md` for sequencing and priority.
+- `docs/beta-engineering-issue-backlog.md` for ticket-ready engineering issues.
+
+Use this file as the full backlog, the roadmap as execution order, and the issue backlog as implementation handoff.
+
+## Planning Outputs
+
+- [ ] Review and accept the implementation roadmap.
+- [ ] Review and accept the engineering issue backlog.
+- [ ] Convert accepted issue drafts into GitHub issues.
+- [ ] Assign owners, milestones, and target beta build numbers.
+
 ## Repo-Grounded Snapshot
 
 Already present in the repo:
