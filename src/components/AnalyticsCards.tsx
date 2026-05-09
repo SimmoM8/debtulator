@@ -5,8 +5,9 @@ import { Badge } from '@/src/components/ui/Badges';
 import { Card, EmptyState, SectionTitle } from '@/src/components/ui/Primitives';
 import { palette, radii, spacing } from '@/src/constants/design';
 import type { ChartDatum } from '@/src/services/analytics';
-import type { CurrencyCode, MoneyMap } from '@/src/types/models';
-import { formatMoney, formatMoneyMap } from '@/src/utils/money';
+import { estimateMoneyMap } from '@/src/services/currency';
+import type { AppSettings, CurrencyCode, CurrencyRate, MoneyMap } from '@/src/types/models';
+import { formatMoney } from '@/src/utils/money';
 
 export function BarChartCard({
   title,
@@ -63,10 +64,14 @@ export function MoneyMapListCard({
   title,
   subtitle,
   rows,
+  settings,
+  currencyRates,
 }: {
   title: string;
   subtitle: string;
   rows: { label: string; totals: MoneyMap; tone?: 'positive' | 'negative' | 'neutral' | 'amber' | 'blue' }[];
+  settings: AppSettings;
+  currencyRates: CurrencyRate[];
 }) {
   return (
     <Card>
@@ -75,7 +80,13 @@ export function MoneyMapListCard({
         rows.map((row) => (
           <View key={row.label} style={styles.listRow}>
             <Badge label={row.label} tone={row.tone ?? 'neutral'} />
-            <Text style={styles.listValue}>{formatMoneyMap(row.totals, 'None')}</Text>
+            <Text style={styles.listValue}>
+              {formatMoney(
+                estimateMoneyMap(row.totals, settings, currencyRates),
+                settings.baseCurrency,
+                { signed: true },
+              )}
+            </Text>
           </View>
         ))
       ) : (

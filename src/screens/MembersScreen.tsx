@@ -18,11 +18,13 @@ import {
     SectionTitle,
 } from "@/src/components/ui/Primitives";
 import { palette, spacing, typefaces } from "@/src/constants/design";
+import { estimateMoneyMap } from "@/src/services/currency";
 import { useAppData } from "@/src/state/AppDataProvider";
-import type { Member } from "@/src/types/models";
+import type { AppSettings, CurrencyRate, Member } from "@/src/types/models";
 import { formatMoney } from "@/src/utils/money";
 
 type MemberFilter = "all" | "linked" | "shared" | "owed-to-you" | "you-owe";
+const MINIMUM_BALANCE_THRESHOLD = 0.005;
 
 export function MembersScreen() {
   const data = useAppData();
@@ -39,8 +41,12 @@ export function MembersScreen() {
 
       const balance = data.memberBalances[member.id] ?? {};
       const values = Object.values(balance);
-      const hasPositive = values.some((value) => (value ?? 0) > 0.005);
-      const hasNegative = values.some((value) => (value ?? 0) < -0.005);
+      const hasPositive = values.some(
+        (value) => (value ?? 0) > MINIMUM_BALANCE_THRESHOLD,
+      );
+      const hasNegative = values.some(
+        (value) => (value ?? 0) < -MINIMUM_BALANCE_THRESHOLD,
+      );
       const hasSharedActivity =
         data.debts.some(
           (debt) => debt.memberId === member.id && debt.eventId,
@@ -87,12 +93,12 @@ export function MembersScreen() {
   ).length;
   const owingYouCount = members.filter((member) =>
     Object.values(data.memberBalances[member.id] ?? {}).some(
-      (value) => (value ?? 0) > 0.005,
+      (value) => (value ?? 0) > MINIMUM_BALANCE_THRESHOLD,
     ),
   ).length;
   const youOweCount = members.filter((member) =>
     Object.values(data.memberBalances[member.id] ?? {}).some(
-      (value) => (value ?? 0) < -0.005,
+      (value) => (value ?? 0) < -MINIMUM_BALANCE_THRESHOLD,
     ),
   ).length;
 
@@ -167,6 +173,8 @@ export function MembersScreen() {
                 key={member.id}
                 member={member}
                 balance={data.memberBalances[member.id] ?? {}}
+                settings={data.settings}
+                currencyRates={data.currencyRates}
               />
             ))}
           </View>
@@ -200,17 +208,18 @@ export function MembersScreen() {
 function MemberRow({
   member,
   balance,
+  settings,
+  currencyRates,
 }: {
   member: Member;
   balance: Record<string, number>;
+  settings: AppSettings;
+  currencyRates: CurrencyRate[];
 }) {
-  const entries = Object.entries(balance).filter(
-    ([, value]) => Math.abs(value ?? 0) > 0.005,
-  );
-  const primary = entries[0];
-  const status = !primary
+  const estimated = estimateMoneyMap(balance, settings, currencyRates);
+  const status = Math.abs(estimated) <= MINIMUM_BALANCE_THRESHOLD
     ? { label: "Settled", tone: "lavender" as const }
-    : primary[1] > 0
+    : estimated > 0
       ? { label: "Owes you", tone: "teal" as const }
       : { label: "You owe", tone: "coral" as const };
 
@@ -245,9 +254,7 @@ function MemberRow({
       <View style={styles.memberBalance}>
         <StatusPill label={status.label} tone={status.tone} />
         <Text style={styles.memberAmount}>
-          {primary
-            ? formatMoney(Math.abs(primary[1] ?? 0), primary[0] as never)
-            : "$0"}
+          {formatMoney(Math.abs(estimated), settings.baseCurrency)}
         </Text>
       </View>
     </Pressable>

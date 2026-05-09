@@ -26,6 +26,7 @@ import {
     shareExport,
     writePdfExport,
 } from "@/src/services/export";
+import { convertCurrency } from "@/src/services/currency";
 import { participantName } from "@/src/services/ledger";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
@@ -132,8 +133,13 @@ export function PaymentDetailScreen() {
           <View>
             <Text style={styles.label}>Amount paid</Text>
             <Amount
-              amount={payment.amount}
-              currency={payment.currency}
+              amount={convertCurrency(
+                payment.amount,
+                payment.currency,
+                data.settings.baseCurrency,
+                data.currencyRates,
+              )}
+              currency={data.settings.baseCurrency}
               size="lg"
             />
           </View>
@@ -212,7 +218,15 @@ export function PaymentDetailScreen() {
                   </Text>
                 </View>
                 <Text style={styles.money}>
-                  {formatMoney(line.appliedAmount, line.currency)}
+                  {formatMoney(
+                    convertCurrency(
+                      line.appliedAmount,
+                      line.currency,
+                      data.settings.baseCurrency,
+                      data.currencyRates,
+                    ),
+                    data.settings.baseCurrency,
+                  )}
                 </Text>
               </View>
             );
@@ -233,7 +247,15 @@ export function PaymentDetailScreen() {
           <InfoRow label="Settlement" value={settlement.id} />
           <InfoRow
             label="Total amount"
-            value={formatMoney(settlement.totalAmount, settlement.currency)}
+            value={formatMoney(
+              convertCurrency(
+                settlement.totalAmount,
+                settlement.currency,
+                data.settings.baseCurrency,
+                data.currencyRates,
+              ),
+              data.settings.baseCurrency,
+            )}
           />
           <InfoRow
             label="Status"

@@ -11,6 +11,8 @@ import type {
 } from "@/src/types/models";
 import { formatMoney, formatMoneyMap } from "@/src/utils/money";
 
+const MINIMUM_BALANCE_THRESHOLD = 0.005;
+
 export function Amount({
   amount,
   currency,
@@ -44,31 +46,16 @@ export function BalanceStack({
   align?: "left" | "right";
   empty?: string;
 }) {
-  const entries = Object.entries(balances).filter(
-    ([, amount]) => Math.abs(amount ?? 0) > 0.005,
-  );
   const estimated = estimateMoneyMap(balances, settings, currencyRates);
+  const hasBalance = Math.abs(estimated) > MINIMUM_BALANCE_THRESHOLD;
 
   return (
     <View style={[styles.stack, align === "right" && styles.stackRight]}>
-      {entries.length === 0 ? (
+      {!hasBalance ? (
         <Text style={styles.empty}>{empty}</Text>
       ) : (
-        entries.map(([currency, amount]) => (
-          <Amount
-            key={currency}
-            amount={amount ?? 0}
-            currency={currency as CurrencyCode}
-            signed
-          />
-        ))
+        <Amount amount={estimated} currency={settings.baseCurrency} signed />
       )}
-      {settings.showEstimatedBase && entries.length > 0 ? (
-        <Text style={styles.estimate}>
-          Approx.{" "}
-          {formatMoney(estimated, settings.baseCurrency, { signed: true })}
-        </Text>
-      ) : null}
     </View>
   );
 }
@@ -97,12 +84,6 @@ const styles = StyleSheet.create({
   },
   lg: {
     fontSize: 30,
-  },
-  estimate: {
-    color: palette.muted,
-    fontSize: 12,
-    fontFamily: typefaces.bodyStrong,
-    letterSpacing: 0.2,
   },
   empty: {
     color: palette.faint,
