@@ -13,8 +13,11 @@ import {
     Screen,
     SectionTitle,
 } from "@/src/components/ui/Primitives";
-import { palette, spacing, typefaces,
-typography,
+import {
+    palette,
+    spacing,
+    typefaces,
+    typography,
 } from "@/src/constants/design";
 import {
     ATTACHMENT_KIND_LABELS,
@@ -50,9 +53,7 @@ export function AttachmentDetailScreen() {
 
   return (
     <Screen>
-      <PageHeader
-        title="Attachment details"
-      />
+      <PageHeader title="Attachment details" />
 
       <Card tone="lavender" style={styles.heroCard}>
         <View style={styles.heroGlow} />

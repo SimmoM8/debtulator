@@ -31,8 +31,12 @@ import {
     SelectChips,
     TextField,
 } from "@/src/components/ui/Primitives";
-import { palette, radii, spacing, typefaces,
-typography,
+import {
+    palette,
+    radii,
+    spacing,
+    typefaces,
+    typography,
 } from "@/src/constants/design";
 import { eventSpendingBreakdown } from "@/src/services/analytics";
 import { convertCurrency, estimateMoneyMap } from "@/src/services/currency";

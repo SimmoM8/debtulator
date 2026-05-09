@@ -3,30 +3,34 @@ import React from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 
 import { DebtulatorOrbitIllustration } from "@/src/components/illustrations/DebtulatorOrbitIllustration";
-import { Badge, StatusBadge, VerificationBadge } from "@/src/components/ui/Badges";
+import {
+    Badge,
+    StatusBadge,
+    VerificationBadge,
+} from "@/src/components/ui/Badges";
 import { AvatarStack } from "@/src/components/ui/Finance";
 import { Amount } from "@/src/components/ui/Money";
 import {
-  Button,
-  Card,
-  EmptyState,
-  IconButton,
-  LoadingState,
-  PageHeader,
-  Screen,
-  SectionTitle,
+    Button,
+    Card,
+    EmptyState,
+    IconButton,
+    LoadingState,
+    PageHeader,
+    Screen,
+    SectionTitle,
 } from "@/src/components/ui/Primitives";
 import {
-  palette,
-  shadows,
-  spacing,
-  typefaces,
-  typography,
+    palette,
+    shadows,
+    spacing,
+    typefaces,
+    typography,
 } from "@/src/constants/design";
 import {
-  debtPdfLines,
-  shareExport,
-  writePdfExport,
+    debtPdfLines,
+    shareExport,
+    writePdfExport,
 } from "@/src/services/export";
 import { buildLedgerEntries, entryDirectionText } from "@/src/services/ledger";
 import { createRemoteDebtVerification } from "@/src/services/stage2Sync";
@@ -93,7 +97,11 @@ export function DebtDetailScreen() {
     : [];
 
   const participantLabels = Array.from(
-    new Set(["You", member?.displayName ?? "Unknown member", ...eventParticipants]),
+    new Set([
+      "You",
+      member?.displayName ?? "Unknown member",
+      ...eventParticipants,
+    ]),
   );
 
   const activityItems: ActivityItem[] = [
@@ -106,7 +114,8 @@ export function DebtDetailScreen() {
     ...data.activityLogs
       .filter(
         (activity) =>
-          activity.entityKind === "debt" && activity.entityId === currentDebt.id,
+          activity.entityKind === "debt" &&
+          activity.entityId === currentDebt.id,
       )
       .map((activity) => ({
         id: activity.id,
@@ -123,7 +132,9 @@ export function DebtDetailScreen() {
   ].sort((a, b) => {
     const aTime = new Date(a.createdAt).getTime();
     const bTime = new Date(b.createdAt).getTime();
-    return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime);
+    return (
+      (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime)
+    );
   });
 
   async function updateStatus(status: DebtStatus) {
@@ -204,7 +215,10 @@ export function DebtDetailScreen() {
       {
         text: "Edit debt",
         onPress: () =>
-          router.push({ pathname: "/debt/form", params: { id: currentDebt.id } }),
+          router.push({
+            pathname: "/debt/form",
+            params: { id: currentDebt.id },
+          }),
       },
       {
         text: "Export PDF",
@@ -243,7 +257,9 @@ export function DebtDetailScreen() {
     : "No due date";
 
   const signedAmount =
-    currentDebt.direction === "they_owe_me" ? currentDebt.amount : -currentDebt.amount;
+    currentDebt.direction === "they_owe_me"
+      ? currentDebt.amount
+      : -currentDebt.amount;
 
   return (
     <Screen
@@ -291,13 +307,17 @@ export function DebtDetailScreen() {
           </View>
           <View style={styles.overviewCopy}>
             <Text style={styles.debtTitle}>{currentDebt.title}</Text>
-            <Text style={styles.subtext}>{entryDirectionText(entry, data.members)}</Text>
+            <Text style={styles.subtext}>
+              {entryDirectionText(entry, data.members)}
+            </Text>
           </View>
           <Badge
             label={
               currentDebt.direction === "they_owe_me" ? "owes you" : "you owe"
             }
-            tone={currentDebt.direction === "they_owe_me" ? "positive" : "amber"}
+            tone={
+              currentDebt.direction === "they_owe_me" ? "positive" : "amber"
+            }
           />
         </View>
         <View style={styles.amountBlock}>
@@ -343,7 +363,10 @@ export function DebtDetailScreen() {
             </View>
           }
         />
-        <SummaryRow label="Split type" value={event ? "Event debt" : "Direct debt"} />
+        <SummaryRow
+          label="Split type"
+          value={event ? "Event debt" : "Direct debt"}
+        />
         <SummaryRow
           label={
             currentDebt.direction === "they_owe_me"
@@ -356,7 +379,10 @@ export function DebtDetailScreen() {
           label="Total amount"
           value={`${currentDebt.amount} ${currentDebt.currency}`}
         />
-        <SummaryRow label="Related member" value={member?.displayName ?? "Unknown"} />
+        <SummaryRow
+          label="Related member"
+          value={member?.displayName ?? "Unknown"}
+        />
         <SummaryRow label="Event" value={event?.name ?? "Standalone"} />
         {currentDebt.notes ? (
           <View style={styles.notesBlock}>
@@ -384,7 +410,9 @@ export function DebtDetailScreen() {
                 <Text style={styles.activityTitle}>{activity.title}</Text>
                 <Text style={styles.activityDetail}>{activity.detail}</Text>
               </View>
-              <Text style={styles.activityDate}>{formatDate(activity.createdAt)}</Text>
+              <Text style={styles.activityDate}>
+                {formatDate(activity.createdAt)}
+              </Text>
             </View>
           ))
         ) : (

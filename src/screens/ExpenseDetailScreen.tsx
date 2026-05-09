@@ -23,8 +23,11 @@ import {
     SectionTitle,
     SelectChips,
 } from "@/src/components/ui/Primitives";
-import { palette, spacing, typefaces,
-typography,
+import {
+    palette,
+    spacing,
+    typefaces,
+    typography,
 } from "@/src/constants/design";
 import {
     activeAttachmentsForTarget,

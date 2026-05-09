@@ -8,26 +8,29 @@ import { DebtulatorOrbitIllustration } from "@/src/components/illustrations/Debt
 import { Badge } from "@/src/components/ui/Badges";
 import { Amount } from "@/src/components/ui/Money";
 import {
-    Button,
-    Card,
-    EmptyState,
-    LoadingState,
-    PageHeader,
-    Screen,
-    SectionTitle,
+  Button,
+  Card,
+  EmptyState,
+  LoadingState,
+  PageHeader,
+  Screen,
+  SectionTitle,
 } from "@/src/components/ui/Primitives";
-import { palette, spacing, typefaces,
-typography,
+import {
+  palette,
+  spacing,
+  typefaces,
+  typography,
 } from "@/src/constants/design";
 import {
-    activeAttachmentsForTarget,
-    attachmentBadges,
+  activeAttachmentsForTarget,
+  attachmentBadges,
 } from "@/src/services/attachments";
 import { convertCurrency } from "@/src/services/currency";
 import {
-    debtPdfLines,
-    shareExport,
-    writePdfExport,
+  debtPdfLines,
+  shareExport,
+  writePdfExport,
 } from "@/src/services/export";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
@@ -101,9 +104,7 @@ export function PaymentDetailScreen() {
 
   return (
     <Screen>
-      <PageHeader
-        title="Payment details"
-      />
+      <PageHeader title="Payment details" />
 
       <Card tone="lavender" style={styles.heroCard}>
         <View style={styles.heroGlow} />
