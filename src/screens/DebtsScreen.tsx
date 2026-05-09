@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 import {
   GlassCard,
@@ -18,11 +18,14 @@ import {
   Screen,
   SectionTitle,
 } from "@/src/components/ui/Primitives";
-import { spacing } from "@/src/constants/design";
+import { palette, spacing, typefaces } from "@/src/constants/design";
+import { estimateMoneyMap } from "@/src/services/currency";
 import { entryDirectionText } from "@/src/services/ledger";
 import { useAppData } from "@/src/state/AppDataProvider";
 import type {
+  AppSettings,
   CurrencyCode,
+  CurrencyRate,
   LedgerEntry,
   Member,
   SharedEventMember,
@@ -191,6 +194,12 @@ export function DebtsScreen() {
         title="You owe"
         subtitle="Things you still need to pay."
         entries={youOwe}
+        summaryAmount={sectionTotalLabel(
+          youOwe,
+          data.settings,
+          data.currencyRates,
+        )}
+        summaryTone="negative"
         members={data.members}
         sharedEventMembers={data.sharedEventMembers}
       />
@@ -198,6 +207,12 @@ export function DebtsScreen() {
         title="Owed to you"
         subtitle="Things other people still owe you."
         entries={owedToYou}
+        summaryAmount={sectionTotalLabel(
+          owedToYou,
+          data.settings,
+          data.currencyRates,
+        )}
+        summaryTone="positive"
         members={data.members}
         sharedEventMembers={data.sharedEventMembers}
       />
@@ -205,6 +220,12 @@ export function DebtsScreen() {
         title="Settled"
         subtitle="Finished and paid items."
         entries={settled}
+        summaryAmount={sectionTotalLabel(
+          settled,
+          data.settings,
+          data.currencyRates,
+        )}
+        summaryTone="neutral"
         members={data.members}
         sharedEventMembers={data.sharedEventMembers}
       />
@@ -225,12 +246,16 @@ function LedgerSection({
   title,
   subtitle,
   entries,
+  summaryAmount,
+  summaryTone,
   members,
   sharedEventMembers,
 }: {
   title: string;
   subtitle: string;
   entries: LedgerEntry[];
+  summaryAmount: string;
+  summaryTone: "positive" | "negative" | "neutral";
   members: Member[];
   sharedEventMembers: SharedEventMember[];
 }) {
@@ -240,7 +265,24 @@ function LedgerSection({
 
   return (
     <>
-      <SectionTitle title={title} subtitle={subtitle} />
+      <SectionTitle
+        title={title}
+        subtitle={subtitle}
+        action={
+          <Text
+            style={[
+              styles.sectionAmount,
+              summaryTone === "positive"
+                ? styles.sectionAmountPositive
+                : summaryTone === "negative"
+                  ? styles.sectionAmountNegative
+                  : styles.sectionAmountNeutral,
+            ]}
+          >
+            {summaryAmount}
+          </Text>
+        }
+      />
       <GlassCard
         tone={
           title === "You owe"
@@ -345,6 +387,30 @@ function debtDueTone(
   return days <= 2 ? "coral" : "indigo";
 }
 
+function sectionTotalLabel(
+  entries: LedgerEntry[],
+  settings: AppSettings,
+  currencyRates: CurrencyRate[],
+) {
+  const totalsByCurrency = entries.reduce<Record<string, number>>(
+    (acc, entry) => {
+      const amount =
+        entry.remainingAmount <= 0.005
+          ? entry.originalAmount
+          : entry.remainingAmount;
+
+      acc[entry.currency] = (acc[entry.currency] ?? 0) + amount;
+      return acc;
+    },
+    {},
+  );
+
+  return formatMoney(
+    estimateMoneyMap(totalsByCurrency, settings, currencyRates),
+    settings.baseCurrency,
+  );
+}
+
 const FILTERS: { label: string; value: DebtFilter; description: string }[] = [
   {
     label: "All",
@@ -381,5 +447,19 @@ const styles = StyleSheet.create({
   },
   listColumn: {
     gap: spacing.sm,
+  },
+  sectionAmount: {
+    fontSize: 30,
+    lineHeight: 34,
+    fontFamily: typefaces.display,
+  },
+  sectionAmountPositive: {
+    color: palette.success,
+  },
+  sectionAmountNegative: {
+    color: palette.danger,
+  },
+  sectionAmountNeutral: {
+    color: palette.textSecondary,
   },
 });

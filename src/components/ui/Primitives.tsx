@@ -233,7 +233,7 @@ export function Card({
 
 export function SectionTitle({
   title,
-  subtitle,
+  subtitle: _subtitle,
   action,
 }: {
   title: string;
@@ -244,10 +244,32 @@ export function SectionTitle({
     <View style={styles.sectionTitle}>
       <View style={styles.flexOne}>
         <Text style={styles.sectionHeading}>{title}</Text>
-        {subtitle ? <Text style={styles.muted}>{subtitle}</Text> : null}
       </View>
       {action}
     </View>
+  );
+}
+
+export function SectionActionLink({
+  label = "View all",
+  onPress,
+}: {
+  label?: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.sectionActionLink,
+        pressed && styles.pressed,
+      ]}
+    >
+      <Text style={styles.sectionActionText}>{label}</Text>
+      <Ionicons name="chevron-forward" size={14} color={palette.primary} />
+    </Pressable>
   );
 }
 
@@ -807,6 +829,19 @@ const styles = StyleSheet.create({
     fontSize: 20,
     lineHeight: 24,
     fontFamily: typefaces.displayMedium,
+  },
+  sectionActionLink: {
+    minHeight: 30,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    paddingHorizontal: 2,
+  },
+  sectionActionText: {
+    color: palette.primary,
+    fontSize: 13,
+    lineHeight: 16,
+    fontFamily: typefaces.bodyStrong,
   },
   muted: {
     color: palette.muted,

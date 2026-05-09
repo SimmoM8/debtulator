@@ -15,6 +15,7 @@ import {
   EmptyState,
   LoadingState,
   Screen,
+  SectionActionLink,
   SectionTitle,
 } from "@/src/components/ui/Primitives";
 import { palette, spacing, typefaces } from "@/src/constants/design";
@@ -361,9 +362,8 @@ export function DashboardScreen() {
         title="Due soon"
         subtitle="What needs attention next, without extra noise."
         action={
-          <Button
-            title="All debts"
-            variant="ghost"
+          <SectionActionLink
+            label="View all"
             onPress={() => router.push("/debts")}
           />
         }
