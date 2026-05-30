@@ -7,12 +7,17 @@ const { spawnSync } = require("node:child_process");
 
 const SCRIPT_PATH = path.resolve(__dirname, "../scripts/release-preflight.js");
 
-function makeFixture({ appVersion = "1.0.0", iosBuildNumber = "1", androidVersionCode = 1 } = {}) {
+function makeFixture({
+  packageVersion = "1.0.0",
+  appVersion = packageVersion,
+  iosBuildNumber = "1",
+  androidVersionCode = 1,
+} = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "release-preflight-"));
 
   fs.writeFileSync(
     path.join(root, "package.json"),
-    JSON.stringify({ version: "1.0.0" }, null, 2)
+    JSON.stringify({ version: packageVersion }, null, 2)
   );
   fs.writeFileSync(
     path.join(root, "app.json"),
@@ -78,7 +83,7 @@ test("preflight fails when a required env var is missing", () => {
 });
 
 test("preflight fails when app and package versions drift", () => {
-  const fixture = makeFixture({ appVersion: "1.0.1" });
+  const fixture = makeFixture({ packageVersion: "1.0.0", appVersion: "1.0.1" });
   const result = runPreflight(fixture);
 
   assert.equal(result.status, 1);

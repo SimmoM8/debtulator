@@ -70,13 +70,19 @@ function validate(rootDir, profile) {
     );
   }
 
-  const iosBuildNumber = Number.parseInt(appConfig.ios?.buildNumber, 10);
-  if (!Number.isInteger(iosBuildNumber) || iosBuildNumber <= 0) {
+  const iosBuildNumberRaw = appConfig.ios?.buildNumber;
+  const iosBuildNumber = Number.parseInt(iosBuildNumberRaw, 10);
+  if (!/^[1-9]\d*$/.test(String(iosBuildNumberRaw))) {
     errors.push("iOS buildNumber must be a positive integer string in app.json.");
   }
 
-  const androidVersionCode = appConfig.android?.versionCode;
-  if (!Number.isInteger(androidVersionCode) || androidVersionCode <= 0) {
+  const androidVersionCodeRaw = appConfig.android?.versionCode;
+  const androidVersionCode = Number.parseInt(androidVersionCodeRaw, 10);
+  if (
+    !Number.isInteger(androidVersionCodeRaw) ||
+    !Number.isInteger(androidVersionCode) ||
+    androidVersionCode <= 0
+  ) {
     errors.push("Android versionCode must be a positive integer in app.json.");
   }
 
