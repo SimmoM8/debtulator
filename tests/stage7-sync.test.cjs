@@ -6,23 +6,18 @@ const ts = require('typescript');
 
 const projectRoot = path.resolve(__dirname, '..');
 const originalResolve = Module._resolveFilename;
-const originalLoad = Module._load;
 
 Module._resolveFilename = function resolveAlias(request, parent, isMain, options) {
+  if (request === 'react-native') {
+    return originalResolve.call(this, path.join(projectRoot, 'tests/mocks/react-native.cjs'), parent, isMain, options);
+  }
+  if (request === 'expo-file-system/legacy') {
+    return originalResolve.call(this, path.join(projectRoot, 'tests/mocks/expo-file-system-legacy.cjs'), parent, isMain, options);
+  }
   if (request.startsWith('@/')) {
     return originalResolve.call(this, path.join(projectRoot, request.slice(2)), parent, isMain, options);
   }
   return originalResolve.call(this, request, parent, isMain, options);
-};
-
-Module._load = function loadStubbed(request, parent, isMain) {
-  if (request === 'expo-file-system/legacy') {
-    return { documentDirectory: null, cacheDirectory: '/tmp/' };
-  }
-  if (request === 'react-native') {
-    return { Share: { share: async () => ({ action: 'sharedAction' }) } };
-  }
-  return originalLoad.call(this, request, parent, isMain);
 };
 
 require.extensions['.ts'] = function compileTypeScript(module, filename) {
