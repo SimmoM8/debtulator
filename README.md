@@ -67,9 +67,27 @@ npm run lint
 
 The app is configured with bundle/package identifiers, icons, splash screen, deep link scheme, notification permission metadata, and EAS profiles.
 
+Run this preflight sequence before beta builds:
+
+```bash
+APP_ENV=staging \
+EXPO_PUBLIC_SUPABASE_URL=... \
+EXPO_PUBLIC_SUPABASE_ANON_KEY=... \
+npm run preflight:beta
+npm run lint
+npm run test
+```
+
+Beta build commands:
+
 ```bash
 npx eas build --profile staging --platform ios
 npx eas build --profile staging --platform android
+```
+
+Production release command:
+
+```bash
 npx eas build --profile production --platform all
 ```
 
