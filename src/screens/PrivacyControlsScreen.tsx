@@ -126,27 +126,23 @@ export function PrivacyControlsScreen() {
       <Card>
         <SectionTitle
           title="External notifications"
-          subtitle="The in-app notification center still works when these are off."
+          subtitle="Beta currently supports the in-app notification center only."
         />
         <ToggleRow
           title="Push notifications"
-          body="Expo-compatible token registration is enabled only after permission."
-          value={data.settings.pushNotificationsEnabled}
-          onValueChange={(pushNotificationsEnabled) =>
-            data.updateSettings({ pushNotificationsEnabled })
-          }
+          body="Not available in beta. No device push token is collected or registered."
+          value={false}
+          disabled
         />
         <ToggleRow
           title="Email notifications"
-          body="Backend-ready preferences for important account and shared ledger events."
-          value={data.settings.emailNotificationsEnabled}
-          onValueChange={(emailNotificationsEnabled) =>
-            data.updateSettings({ emailNotificationsEnabled })
-          }
+          body="Not available in beta. Use the in-app notification center for updates."
+          value={false}
+          disabled
         />
         <ToggleRow
           title="Quiet hours"
-          body={`${data.settings.quietHoursStart} to ${data.settings.quietHoursEnd}`}
+          body={`Saved for future external alerts: ${data.settings.quietHoursStart} to ${data.settings.quietHoursEnd}`}
           value={data.settings.quietHoursEnabled}
           onValueChange={(quietHoursEnabled) =>
             data.updateSettings({ quietHoursEnabled })
@@ -235,11 +231,13 @@ function ToggleRow({
   body,
   value,
   onValueChange,
+  disabled = false,
 }: {
   title: string;
   body: string;
   value: boolean;
-  onValueChange: (value: boolean) => void;
+  onValueChange?: (value: boolean) => void;
+  disabled?: boolean;
 }) {
   return (
     <View style={styles.switchRow}>
@@ -249,7 +247,8 @@ function ToggleRow({
       </View>
       <Switch
         value={value}
-        onValueChange={onValueChange}
+        onValueChange={onValueChange ?? (() => undefined)}
+        disabled={disabled}
         trackColor={{ false: palette.lineStrong, true: palette.brandSoft }}
         thumbColor={value ? palette.brand : "#FFFFFF"}
       />

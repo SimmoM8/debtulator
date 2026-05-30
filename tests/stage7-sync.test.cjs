@@ -39,6 +39,13 @@ const {
 } = require('../src/services/sync/mappers.ts');
 const { buildLedgerEntries } = require('../src/services/ledger.ts');
 const { canRetrySyncEntry } = require('../src/services/stage6Sync.ts');
+const {
+  BETA_PUSH_NOTIFICATIONS_ENABLED,
+  canDeliverPushNotification,
+  isInsideQuietHours,
+  notificationEnabled,
+  privacySafeNotificationBody,
+} = require('../src/services/notifications.ts');
 
 function snapshot(overrides = {}) {
   return {
@@ -337,3 +344,99 @@ test('missing local to remote relationship fails loudly instead of producing mix
   );
 });
 
+function notificationSettings(overrides = {}) {
+  return {
+    showSensitiveDetailsInNotifications: false,
+    pushNotificationsEnabled: true,
+    emailNotificationsEnabled: false,
+    notificationVerificationEnabled: true,
+    notificationEventEnabled: true,
+    notificationPaymentSettlementEnabled: true,
+    notificationReminderEnabled: true,
+    notificationCommentEnabled: false,
+    quietHoursEnabled: false,
+    quietHoursStart: '22:00',
+    quietHoursEnd: '07:00',
+    ...overrides,
+  };
+}
+
+test('notification category toggles gate delivery categories', () => {
+  const settings = notificationSettings({
+    notificationVerificationEnabled: false,
+    notificationEventEnabled: false,
+    notificationPaymentSettlementEnabled: false,
+    notificationReminderEnabled: false,
+    notificationCommentEnabled: true,
+  });
+
+  assert.equal(notificationEnabled('verification_request', settings), false);
+  assert.equal(notificationEnabled('event_update', settings), false);
+  assert.equal(notificationEnabled('payment', settings), false);
+  assert.equal(notificationEnabled('reminder', settings), false);
+  assert.equal(notificationEnabled('comment', settings), true);
+  assert.equal(notificationEnabled('sync_problem', settings), true);
+});
+
+test('quiet hours correctly apply for overnight windows', () => {
+  const settings = notificationSettings({ quietHoursEnabled: true, quietHoursStart: '22:00', quietHoursEnd: '07:00' });
+
+  assert.equal(isInsideQuietHours(settings, new Date(2026, 0, 1, 23, 30)), true);
+  assert.equal(isInsideQuietHours(settings, new Date(2026, 0, 1, 6, 59)), true);
+  assert.equal(isInsideQuietHours(settings, new Date(2026, 0, 1, 12, 0)), false);
+});
+
+test('privacy-safe notification bodies redact sensitive financial details', () => {
+  const redacted = privacySafeNotificationBody(
+    { type: 'payment', body: 'Alice paid Bob 250 SEK' },
+    notificationSettings({ showSensitiveDetailsInNotifications: false }),
+  );
+  const unchanged = privacySafeNotificationBody(
+    { type: 'comment', body: 'Bob left a comment' },
+    notificationSettings({ showSensitiveDetailsInNotifications: false }),
+  );
+
+  assert.equal(redacted, 'Open Debtulator to review the financial update.');
+  assert.equal(unchanged, 'Bob left a comment');
+});
+
+test('push delivery stays disabled in beta and enforces sign-in/permission when enabled', () => {
+  const notification = { type: 'payment', userId: 'user_a' };
+  const settings = notificationSettings();
+  assert.equal(BETA_PUSH_NOTIFICATIONS_ENABLED, false);
+  assert.equal(
+    canDeliverPushNotification(notification, settings, {
+      currentUserId: 'user_a',
+      permission: 'granted',
+      date: new Date('2026-01-01T12:00:00.000Z'),
+    }),
+    false,
+  );
+  assert.equal(
+    canDeliverPushNotification(notification, settings, {
+      currentUserId: null,
+      permission: 'granted',
+      betaPushEnabled: true,
+      date: new Date('2026-01-01T12:00:00.000Z'),
+    }),
+    false,
+  );
+  assert.equal(
+    canDeliverPushNotification(notification, settings, {
+      currentUserId: 'user_a',
+      permission: 'denied',
+      betaPushEnabled: true,
+      date: new Date('2026-01-01T12:00:00.000Z'),
+    }),
+    false,
+  );
+  assert.equal(
+    canDeliverPushNotification(notification, settings, {
+      currentUserId: 'user_a',
+      permission: 'granted',
+      betaPushEnabled: true,
+      date: new Date('2026-01-01T12:00:00.000Z'),
+    }),
+    true,
+  );
+});
