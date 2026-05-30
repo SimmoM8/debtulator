@@ -780,6 +780,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "stretch",
     gap: spacing.sm,
+    paddingLeft: spacing.xs,
     paddingRight: spacing.xs,
   },
   quickActionTile: {
