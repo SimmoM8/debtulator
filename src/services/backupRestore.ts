@@ -213,7 +213,7 @@ export function previewRestore(rawJson: string): RestorePreview {
     if (parsed.schemaVersion !== BACKUP_SCHEMA_VERSION) {
       warnings.push(schemaWarning(parsed.schemaVersion));
     }
-    if (parsed.privacy?.restoredRecordsDefaultPrivate !== true) {
+    if (valid && parsed.privacy?.restoredRecordsDefaultPrivate !== true) {
       warnings.push('Shared metadata will be restored as private unless explicitly confirmed.');
     }
     if (!data) {
@@ -234,17 +234,8 @@ export function previewRestore(rawJson: string): RestorePreview {
       settlementCount: countArray(data?.settlements),
       warnings,
     };
-  } catch (error) {
-    return {
-      valid: false,
-      schemaVersion: null,
-      memberCount: 0,
-      debtCount: 0,
-      eventCount: 0,
-      paymentCount: 0,
-      settlementCount: 0,
-      warnings: [error instanceof Error ? error.message : 'Backup file is not valid JSON.'],
-    };
+  } catch {
+    return invalidPreview('Backup file is not valid JSON.');
   }
 }
 
