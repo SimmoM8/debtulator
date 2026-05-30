@@ -1,5 +1,10 @@
 import type { Attachment, AttachmentKind, AttachmentTargetType, AttachmentVisibility } from '@/src/types/models';
 
+export const MAX_ATTACHMENT_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+
+const SUPPORTED_ATTACHMENT_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.pdf', '.heic', '.heif', '.webp'];
+const SUPPORTED_CSV_MIME_TYPES = ['text/csv', 'text/comma-separated-values', 'application/csv', 'application/vnd.ms-excel'];
+
 export const ATTACHMENT_KIND_LABELS: Record<AttachmentKind, string> = {
   receipt: 'Receipt',
   proof: 'Proof',
@@ -67,6 +72,24 @@ export function inferAttachmentVisibility(parentVisibility: string | null | unde
     parentVisibility === 'shared_with_involved_member'
     ? 'shared'
     : 'private';
+}
+
+export function isSupportedAttachmentFile(input: { fileName?: string | null; mimeType?: string | null }) {
+  const lowerName = input.fileName?.toLowerCase() ?? '';
+  const lowerMime = input.mimeType?.toLowerCase() ?? '';
+  if (lowerMime === 'application/pdf' || lowerMime.startsWith('image/')) {
+    return true;
+  }
+  return SUPPORTED_ATTACHMENT_EXTENSIONS.some((extension) => lowerName.endsWith(extension));
+}
+
+export function isSupportedCsvFile(input: { fileName?: string | null; mimeType?: string | null }) {
+  const lowerName = input.fileName?.toLowerCase() ?? '';
+  const lowerMime = input.mimeType?.toLowerCase() ?? '';
+  if (lowerName.endsWith('.csv')) {
+    return true;
+  }
+  return SUPPORTED_CSV_MIME_TYPES.includes(lowerMime);
 }
 
 export function storagePathForAttachment(input: {

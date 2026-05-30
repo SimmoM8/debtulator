@@ -1,5 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -15,6 +17,8 @@ import {
   fileNameFromUri,
   formatFileSize,
   inferAttachmentVisibility,
+  isSupportedAttachmentFile,
+  MAX_ATTACHMENT_FILE_SIZE_BYTES,
   storagePathForAttachment,
 } from '@/src/services/attachments';
 import { uploadSharedAttachment } from '@/src/services/stage5Sync';
@@ -46,13 +50,89 @@ export function AttachmentsSection({
   const defaultVisibility = inferAttachmentVisibility(parentVisibility);
   const [uri, setUri] = useState('');
   const [fileName, setFileName] = useState('');
+  const [mimeType, setMimeType] = useState<string | null>(null);
+  const [fileSize, setFileSize] = useState(0);
   const [kind, setKind] = useState<AttachmentKind>(preferredKind);
   const [visibility, setVisibility] = useState(defaultVisibility);
+
+  function setSelectedFile(next: { uri: string; fileName: string; mimeType?: string | null; fileSize?: number | null }) {
+    setUri(next.uri);
+    setFileName(next.fileName);
+    setMimeType(next.mimeType ?? null);
+    setFileSize(next.fileSize ?? 0);
+  }
+
+  async function pickDocument() {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['image/*', 'application/pdf'],
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled) {
+        return;
+      }
+      const asset = result.assets[0];
+      if (!asset) {
+        Alert.alert('No file selected', 'Choose an image or PDF attachment to continue.');
+        return;
+      }
+      if (!isSupportedAttachmentFile({ fileName: asset.name, mimeType: asset.mimeType })) {
+        Alert.alert('Unsupported file type', 'Only images and PDF files are supported for attachments.');
+        return;
+      }
+      setSelectedFile({
+        uri: asset.uri,
+        fileName: asset.name || fileNameFromUri(asset.uri, `${kind}-attachment`),
+        mimeType: asset.mimeType,
+        fileSize: asset.size,
+      });
+    } catch {
+      Alert.alert('Could not open picker', 'Please try selecting an attachment again.');
+    }
+  }
+
+  async function pickImage() {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission required', 'Allow photo library access to pick an image attachment.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 1,
+      });
+      if (result.canceled) {
+        return;
+      }
+      const asset = result.assets[0];
+      if (!asset) {
+        Alert.alert('No image selected', 'Choose an image attachment to continue.');
+        return;
+      }
+      if (!isSupportedAttachmentFile({ fileName: asset.fileName, mimeType: asset.mimeType })) {
+        Alert.alert('Unsupported file type', 'Only images and PDF files are supported for attachments.');
+        return;
+      }
+      setSelectedFile({
+        uri: asset.uri,
+        fileName: asset.fileName || fileNameFromUri(asset.uri, `${kind}-attachment`),
+        mimeType: asset.mimeType,
+        fileSize: asset.fileSize,
+      });
+    } catch {
+      Alert.alert('Could not open image picker', 'Please try selecting an image again.');
+    }
+  }
 
   async function addAttachment() {
     const cleanUri = uri.trim();
     const cleanName = fileName.trim() || fileNameFromUri(cleanUri, `${kind}-attachment`);
-    if (!cleanUri && !cleanName) {
+    if (!cleanUri) {
+      return;
+    }
+    if (!isSupportedAttachmentFile({ fileName: cleanName, mimeType })) {
+      Alert.alert('Unsupported file type', 'Only images and PDF files are supported for attachments.');
       return;
     }
     if (visibility === 'shared' && !auth.identity.authenticatedUserId) {
@@ -60,6 +140,15 @@ export function AttachmentsSection({
       return;
     }
     const info = cleanUri ? await fileInfo(cleanUri) : { exists: false, size: 0 };
+    if (!info.exists) {
+      Alert.alert('File unavailable', 'The selected file is no longer available. Please pick it again.');
+      return;
+    }
+    const resolvedSize = fileSize || ('size' in info ? info.size ?? 0 : 0);
+    if (resolvedSize > MAX_ATTACHMENT_FILE_SIZE_BYTES) {
+      Alert.alert('Attachment too large', 'Please choose an attachment smaller than 10 MB.');
+      return;
+    }
     const storagePath =
       visibility === 'shared'
         ? storagePathForAttachment({ eventId, targetType, targetId, fileName: cleanName })
@@ -71,8 +160,8 @@ export function AttachmentsSection({
       createdByUserId: auth.identity.authenticatedUserId,
       localUri: cleanUri || null,
       fileName: cleanName,
-      mimeType: mimeFromName(cleanName),
-      fileSize: 'size' in info ? info.size ?? 0 : 0,
+      mimeType: mimeType || mimeFromName(cleanName),
+      fileSize: resolvedSize,
       attachmentKind: kind,
       visibility,
       storagePath,
@@ -90,11 +179,13 @@ export function AttachmentsSection({
     }
     setUri('');
     setFileName('');
+    setMimeType(null);
+    setFileSize(0);
   }
 
   return (
     <Card>
-      <SectionTitle title={title} subtitle="Optional receipt, proof, screenshot, invoice, or supporting file references." />
+      <SectionTitle title={title} subtitle="Optional receipt, proof, screenshot, invoice, or supporting files from your device." />
       <View style={styles.badgeLine}>
         <Badge label={`${attachments.length} files`} tone={attachments.length ? 'blue' : 'neutral'} />
         {attachments.some((attachment) => attachment.attachmentKind === 'receipt') ? <Badge label="Receipt attached" tone="positive" /> : null}
@@ -118,7 +209,10 @@ export function AttachmentsSection({
       )}
 
       <View style={styles.addBox}>
-        <TextField label="File URI" value={uri} onChangeText={setUri} placeholder="file:///... or image URI" />
+        <View style={styles.buttonRow}>
+          <Button title="Pick file" icon="document-attach" variant="secondary" onPress={pickDocument} />
+          <Button title="Pick image" icon="image" variant="secondary" onPress={pickImage} />
+        </View>
         <TextField label="File name" value={fileName} onChangeText={setFileName} placeholder="receipt.jpg" />
         <SelectChips
           label="Attachment type"
@@ -141,7 +235,7 @@ export function AttachmentsSection({
           ]}
           onChange={setVisibility}
         />
-        <Button title="Add attachment" icon="attach" onPress={addAttachment} disabled={!uri.trim() && !fileName.trim()} />
+        <Button title="Add attachment" icon="attach" onPress={addAttachment} disabled={!uri.trim()} />
       </View>
     </Card>
   );
@@ -255,5 +349,10 @@ const styles = StyleSheet.create({
   addBox: {
     gap: spacing.md,
     paddingTop: spacing.sm,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
 });
