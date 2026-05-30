@@ -124,6 +124,9 @@ export function MembersScreen() {
             icon="add"
             label="Add member"
             onPress={() => router.push("/member/form")}
+            tone="primary"
+            size={24}
+            style={styles.headerAddButton}
           />
         }
       />
@@ -320,6 +323,13 @@ const styles = StyleSheet.create({
   },
   listColumn: {
     gap: 0,
+  },
+  headerAddButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignSelf: "flex-start",
+    marginTop: 2,
   },
   inviteCard: {
     borderRadius: 20,

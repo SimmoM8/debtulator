@@ -28,13 +28,13 @@ export function DeleteAccountScreen() {
     if (!canRequest) {
       Alert.alert(
         "Confirmation required",
-        "Type DELETE to record this deletion request.",
+        "Type DELETE to request account deletion.",
       );
       return;
     }
     Alert.alert(
-      "Record account deletion request?",
-      "This action records your request and applies the local-data option below. Actual remote deletion is not performed from this screen.",
+      "Request account deletion?",
+      "Remote personal data, push tokens, and future notifications should be revoked. Shared financial history may be anonymized instead of destroyed.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -63,7 +63,7 @@ export function DeleteAccountScreen() {
       <PageHeader
         eyebrow="Destructive action"
         title="Delete account"
-        subtitle="Record a deletion request and choose what happens to local device data."
+        subtitle="Deletion is deliberate and preserves shared ledger integrity where required."
       />
 
       <Card tone="lavender" style={styles.heroCard}>
@@ -89,12 +89,13 @@ export function DeleteAccountScreen() {
       <Card tone="amber">
         <SectionTitle
           title="Before deletion"
-          subtitle="Export your data first if you need a copy of this device ledger."
+          subtitle="Export your data first if you need a copy."
         />
         <Text style={styles.body}>
-          Use this flow to capture your deletion request and optionally clear
-          local data on this device. Shared records for other participants are
-          not edited by this request screen.
+          Personal profile data, push tokens, notification schedules, and
+          account backup records should be removed or anonymized. Shared event
+          financial records used by other participants are preserved in a
+          privacy-conscious form so ledgers do not break.
         </Text>
       </Card>
 
@@ -116,7 +117,7 @@ export function DeleteAccountScreen() {
           onChangeText={setConfirmation}
         />
         <Button
-          title="Record deletion request"
+          title="Request account deletion"
           icon="trash"
           variant="danger"
           disabled={!canRequest}

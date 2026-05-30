@@ -135,6 +135,9 @@ export function DebtsScreen() {
             icon="add"
             label="Add debt"
             onPress={() => router.push("/debt/form")}
+            tone="primary"
+            size={24}
+            style={styles.headerAddButton}
           />
         }
       />
@@ -452,6 +455,13 @@ const styles = StyleSheet.create({
   },
   listColumn: {
     gap: spacing.sm,
+  },
+  headerAddButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignSelf: "flex-start",
+    marginTop: 2,
   },
   sectionAmount: {
     fontSize: typography.size.xl,
