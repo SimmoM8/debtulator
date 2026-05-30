@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useMemo, useState } from "react";
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useMemo } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
 import { GlassCard, ListRow, StatCard } from "@/src/components/ui/Finance";
@@ -36,46 +36,31 @@ import type {
 } from "@/src/types/models";
 import { formatMoney } from "@/src/utils/money";
 
-type LedgerMode = "personal" | "shared" | "all";
-
 export function DashboardScreen() {
   const data = useAppData();
   const auth = useAuth();
-  const [mode, setMode] = useState<LedgerMode>("personal");
-  const [modeMenuOpen, setModeMenuOpen] = useState(false);
 
   const displayName = auth.identity.displayName?.trim() || "there";
   const firstName = displayName.split(" ")[0] || displayName;
   const greetingPeriod = new Date().getHours() < 17 ? "morning" : "evening";
   const today = new Date().toISOString().slice(0, 10);
 
-  const scopedEntries = useMemo(() => {
-    if (mode === "all") {
-      return data.ledgerEntries;
-    }
-
-    return data.ledgerEntries.filter((entry) => {
-      const shared = entry.visibility.includes("shared");
-      return mode === "shared" ? shared : !shared;
-    });
-  }, [data.ledgerEntries, mode]);
-
   const totals = useMemo(
-    () => calculatePersonalTotals(scopedEntries),
-    [scopedEntries],
+    () => calculatePersonalTotals(data.ledgerEntries),
+    [data.ledgerEntries],
   );
   const dueSoonEntries = useMemo(
     () =>
-      scopedEntries.filter(
+      data.ledgerEntries.filter(
         (entry) =>
           entry.remainingAmount > 0.005 &&
           entry.dueDate &&
           entry.dueDate >= today,
       ),
-    [scopedEntries, today],
+    [data.ledgerEntries, today],
   );
   const nextActionEntries = useMemo(() => {
-    return scopedEntries
+    return data.ledgerEntries
       .filter((entry) => entry.remainingAmount > 0.005 && entry.dueDate)
       .sort((first, second) =>
         String(first.dueDate).localeCompare(String(second.dueDate)),
@@ -85,10 +70,10 @@ export function DashboardScreen() {
         entry,
         overdue: entry.dueDate ? entry.dueDate < today : false,
       }));
-  }, [scopedEntries, today]);
+  }, [data.ledgerEntries, today]);
   const recentActivity = useMemo(
-    () => scopedEntries.slice(0, 4),
-    [scopedEntries],
+    () => data.ledgerEntries.slice(0, 4),
+    [data.ledgerEntries],
   );
   const activeSharedEvents = useMemo(
     () =>
@@ -138,7 +123,6 @@ export function DashboardScreen() {
         ),
     [data.currencyRates, data.settings, dueSoonEntries],
   );
-  const modeLabel = MODE_LABELS[mode];
   const netSummaryLabel =
     netEstimatedInBase > 0
       ? "You're ahead"
@@ -192,20 +176,6 @@ export function DashboardScreen() {
               style={styles.brandSparkle}
             />
           </View>
-          <Pressable
-            onPress={() => setModeMenuOpen(true)}
-            style={({ pressed }) => [
-              styles.heroControl,
-              pressed && styles.heroControlPressed,
-            ]}
-          >
-            <Text style={styles.heroControlText}>{modeLabel}</Text>
-            <Ionicons
-              name="chevron-down"
-              size={14}
-              color={palette.primaryDeep}
-            />
-          </Pressable>
         </View>
 
         <View style={styles.netSpotlight}>
@@ -260,59 +230,6 @@ export function DashboardScreen() {
           />
         </View>
       </GlassCard>
-
-      <Modal
-        visible={modeMenuOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setModeMenuOpen(false)}
-      >
-        <View style={styles.modeMenuOverlay}>
-          <Pressable
-            style={styles.modeMenuBackdrop}
-            onPress={() => setModeMenuOpen(false)}
-          />
-          <View style={styles.modeMenuCard}>
-            {MODE_OPTIONS.map((option, index) => {
-              const active = option.value === mode;
-              return (
-                <Pressable
-                  key={option.value}
-                  onPress={() => {
-                    setMode(option.value);
-                    setModeMenuOpen(false);
-                  }}
-                  style={({ pressed }) => [
-                    styles.modeMenuItem,
-                    index > 0 && styles.modeMenuItemDivider,
-                    active && styles.modeMenuItemActive,
-                    pressed && styles.heroControlPressed,
-                  ]}
-                >
-                  <View style={styles.modeMenuItemCopy}>
-                    <Text
-                      style={[
-                        styles.modeMenuItemLabel,
-                        active && styles.modeMenuItemLabelActive,
-                      ]}
-                    >
-                      {option.label}
-                    </Text>
-                    <Text style={styles.modeMenuItemHint}>{option.hint}</Text>
-                  </View>
-                  {active ? (
-                    <Ionicons
-                      name="checkmark"
-                      size={16}
-                      color={palette.primary}
-                    />
-                  ) : null}
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-      </Modal>
 
       <SectionTitle
         title="Due soon"
@@ -549,30 +466,6 @@ function signedMoneyLabel(
   );
 }
 
-const MODE_LABELS: Record<LedgerMode, string> = {
-  personal: "Personal",
-  shared: "Shared",
-  all: "All entries",
-};
-
-const MODE_OPTIONS: { value: LedgerMode; label: string; hint: string }[] = [
-  {
-    value: "personal",
-    label: "Personal",
-    hint: "Only your direct balances",
-  },
-  {
-    value: "shared",
-    label: "Shared",
-    hint: "Only group and shared items",
-  },
-  {
-    value: "all",
-    label: "All entries",
-    hint: "Everything in one summary",
-  },
-];
-
 const styles = StyleSheet.create({
   headerRow: {
     flexDirection: "row",
@@ -622,25 +515,6 @@ const styles = StyleSheet.create({
   brandSparkle: {
     marginTop: 2,
   },
-  heroControl: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    minHeight: 38,
-    paddingHorizontal: 13,
-    borderRadius: 18,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderStrong,
-    backgroundColor: "rgba(255,255,255,0.94)",
-  },
-  heroControlPressed: {
-    opacity: 0.82,
-  },
-  heroControlText: {
-    color: palette.primaryDeep,
-    fontSize: typography.size.sm,
-    fontFamily: typefaces.bodyStrong,
-  },
   snapshotRow: {
     flexDirection: "row",
     alignItems: "stretch",
@@ -683,63 +557,6 @@ const styles = StyleSheet.create({
     lineHeight: typography.line.md,
     fontFamily: typefaces.bodyStrong,
     textAlign: "left",
-  },
-  modeMenuOverlay: {
-    flex: 1,
-    paddingTop: 140,
-    paddingRight: spacing.screen,
-    alignItems: "flex-end",
-  },
-  modeMenuBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(17,24,39,0.08)",
-  },
-  modeMenuCard: {
-    width: 198,
-    borderRadius: 20,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderStrong,
-    backgroundColor: "rgba(255,255,255,0.98)",
-    overflow: "hidden",
-    shadowColor: palette.shadow,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.08,
-    shadowRadius: 20,
-    elevation: 4,
-  },
-  modeMenuItem: {
-    minHeight: 58,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.sm,
-  },
-  modeMenuItemDivider: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: palette.line,
-  },
-  modeMenuItemActive: {
-    backgroundColor: "rgba(246,243,255,0.95)",
-  },
-  modeMenuItemCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  modeMenuItemLabel: {
-    color: palette.textPrimary,
-    fontSize: typography.size.md,
-    fontFamily: typefaces.bodyStrong,
-  },
-  modeMenuItemLabelActive: {
-    color: palette.primaryDeep,
-  },
-  modeMenuItemHint: {
-    color: palette.textTertiary,
-    fontSize: typography.size.xs,
-    lineHeight: typography.line.md,
-    fontFamily: typefaces.body,
   },
   inboxCard: {
     flexDirection: "row",
