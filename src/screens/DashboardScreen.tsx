@@ -584,6 +584,8 @@ const MODE_OPTIONS: { value: LedgerMode; label: string; hint: string }[] = [
   },
 ];
 
+const QUICK_ACTION_TILE_WIDTH = 104;
+
 const styles = StyleSheet.create({
   headerRow: {
     flexDirection: "row",
@@ -783,7 +785,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xs,
   },
   quickActionTile: {
-    width: 104,
+    width: QUICK_ACTION_TILE_WIDTH,
     minHeight: 78,
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
