@@ -141,6 +141,23 @@ export function DebtDetailScreen() {
     await data.updateDebt(currentDebt.id, { status });
   }
 
+  function confirmArchiveDebt() {
+    Alert.alert(
+      "Archive debt?",
+      "This removes the debt from active debt views while keeping its ledger history.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Archive",
+          style: "destructive",
+          onPress: () => {
+            void updateStatus("archived");
+          },
+        },
+      ],
+    );
+  }
+
   async function requestVerification() {
     if (!auth.identity.authenticatedUserId) {
       Alert.alert(
@@ -242,9 +259,7 @@ export function DebtDetailScreen() {
             {
               text: "Archive",
               style: "destructive" as const,
-              onPress: () => {
-                void updateStatus("archived");
-              },
+              onPress: confirmArchiveDebt,
             },
           ]
         : []),

@@ -66,7 +66,7 @@ export function NotificationCenterScreen() {
       <PageHeader
         eyebrow="Notifications"
         title="Notification center"
-        subtitle="In-app notifications work even when push or email are disabled."
+        subtitle="This build shows in-app notifications here; it does not send push or email."
         action={
           <Button
             title="Mark all read"
@@ -88,8 +88,8 @@ export function NotificationCenterScreen() {
               stream.
             </Text>
             <Text style={styles.body}>
-              In-app delivery remains available even when push and email are
-              off, so important state changes stay inspectable.
+              Push and email settings are saved as preferences only. Important
+              state changes stay inspectable here in the app.
             </Text>
           </View>
           <View style={styles.heroArtWrap}>
@@ -101,7 +101,7 @@ export function NotificationCenterScreen() {
       <Card>
         <SectionTitle
           title={`${unread} unread`}
-          subtitle="Push/email preferences only control external delivery."
+          subtitle="Filters apply to the local in-app notification history."
         />
         <SegmentedControl
           value={filter}
@@ -157,7 +157,7 @@ export function NotificationCenterScreen() {
         ) : (
           <EmptyState
             title="No notifications"
-            body="Verification, event, payment, reminder, and sync notices will appear here."
+            body="Verification, event, payment, reminder, export, and sync notices will appear here in the app."
           />
         )}
       </Card>

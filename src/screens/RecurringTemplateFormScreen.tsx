@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Alert, StyleSheet, Text, View } from "react-native";
 
 import { DebtulatorOrbitIllustration } from "@/src/components/illustrations/DebtulatorOrbitIllustration";
 import {
@@ -101,6 +101,27 @@ export function RecurringTemplateFormScreen() {
       });
     }
     router.back();
+  }
+
+  function confirmEndRecurring() {
+    if (!template) {
+      return;
+    }
+
+    Alert.alert(
+      "End recurring template?",
+      "This stops future generated records for this recurring template.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "End recurring",
+          style: "destructive",
+          onPress: () => {
+            void data.updateRecurringTemplate(template.id, { status: "ended" });
+          },
+        },
+      ],
+    );
   }
 
   return (
@@ -236,9 +257,7 @@ export function RecurringTemplateFormScreen() {
             title="End recurring"
             icon="stop"
             variant="danger"
-            onPress={() =>
-              data.updateRecurringTemplate(template.id, { status: "ended" })
-            }
+            onPress={confirmEndRecurring}
           />
         </Card>
       ) : null}
