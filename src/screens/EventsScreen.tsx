@@ -86,6 +86,9 @@ export function EventsScreen() {
             icon="add"
             label="Add event"
             onPress={() => router.push("/event/form")}
+            tone="primary"
+            size={24}
+            style={styles.headerAddButton}
           />
         }
       />
@@ -302,6 +305,13 @@ const styles = StyleSheet.create({
   },
   eventColumn: {
     gap: spacing.md,
+  },
+  headerAddButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignSelf: "flex-start",
+    marginTop: 2,
   },
   eventPressable: {
     borderRadius: 28,
