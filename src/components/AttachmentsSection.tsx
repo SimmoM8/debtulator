@@ -26,6 +26,8 @@ import { useAppData } from '@/src/state/AppDataProvider';
 import { useAuth } from '@/src/state/AuthProvider';
 import type { Attachment, AttachmentKind, AttachmentTargetType } from '@/src/types/models';
 
+const UNSUPPORTED_ATTACHMENT_MESSAGE = 'Only images and PDF files are supported for attachments.';
+
 export function AttachmentsSection({
   targetType,
   targetId,
@@ -77,7 +79,7 @@ export function AttachmentsSection({
         return;
       }
       if (!isSupportedAttachmentFile({ fileName: asset.name, mimeType: asset.mimeType })) {
-        Alert.alert('Unsupported file type', 'Only images and PDF files are supported for attachments.');
+        Alert.alert('Unsupported file type', UNSUPPORTED_ATTACHMENT_MESSAGE);
         return;
       }
       setSelectedFile({
@@ -111,7 +113,7 @@ export function AttachmentsSection({
         return;
       }
       if (!isSupportedAttachmentFile({ fileName: asset.fileName, mimeType: asset.mimeType })) {
-        Alert.alert('Unsupported file type', 'Only images and PDF files are supported for attachments.');
+        Alert.alert('Unsupported file type', UNSUPPORTED_ATTACHMENT_MESSAGE);
         return;
       }
       setSelectedFile({
@@ -129,10 +131,11 @@ export function AttachmentsSection({
     const cleanUri = uri.trim();
     const cleanName = fileName.trim() || fileNameFromUri(cleanUri, `${kind}-attachment`);
     if (!cleanUri) {
+      Alert.alert('Select a file', 'Pick an image or PDF attachment before adding.');
       return;
     }
     if (!isSupportedAttachmentFile({ fileName: cleanName, mimeType })) {
-      Alert.alert('Unsupported file type', 'Only images and PDF files are supported for attachments.');
+      Alert.alert('Unsupported file type', UNSUPPORTED_ATTACHMENT_MESSAGE);
       return;
     }
     if (visibility === 'shared' && !auth.identity.authenticatedUserId) {
@@ -144,7 +147,10 @@ export function AttachmentsSection({
       Alert.alert('File unavailable', 'The selected file is no longer available. Please pick it again.');
       return;
     }
-    const resolvedSize = fileSize || ('size' in info ? info.size ?? 0 : 0);
+    let resolvedSize = fileSize;
+    if (!resolvedSize && 'size' in info) {
+      resolvedSize = info.size ?? 0;
+    }
     if (resolvedSize > MAX_ATTACHMENT_FILE_SIZE_BYTES) {
       Alert.alert('Attachment too large', 'Please choose an attachment smaller than 10 MB.');
       return;

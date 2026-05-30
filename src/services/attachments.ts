@@ -3,6 +3,7 @@ import type { Attachment, AttachmentKind, AttachmentTargetType, AttachmentVisibi
 export const MAX_ATTACHMENT_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 
 const SUPPORTED_ATTACHMENT_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.pdf', '.heic', '.heif', '.webp'];
+// Keep an extension fallback for picker sources that do not provide reliable MIME metadata.
 const SUPPORTED_CSV_MIME_TYPES = ['text/csv', 'text/comma-separated-values', 'application/csv', 'application/vnd.ms-excel'];
 
 export const ATTACHMENT_KIND_LABELS: Record<AttachmentKind, string> = {
