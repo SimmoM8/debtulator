@@ -76,6 +76,21 @@ export function ConflictDetailScreen() {
     action();
   }
 
+  function confirmCancelLocalChange() {
+    Alert.alert(
+      "Cancel local change?",
+      "This discards the queued local change for this conflict and keeps the remote version.",
+      [
+        { text: "Keep reviewing", style: "cancel" },
+        {
+          text: "Cancel local",
+          style: "destructive",
+          onPress: () => resolve("cancel_local_change"),
+        },
+      ],
+    );
+  }
+
   return (
     <Screen>
       <PageHeader
@@ -162,7 +177,7 @@ export function ConflictDetailScreen() {
               title="Cancel local"
               icon="close"
               variant="ghost"
-              onPress={() => resolve("cancel_local_change")}
+              onPress={confirmCancelLocalChange}
             />
           ) : null}
           {Object.values(availability).some(Boolean) ? null : (

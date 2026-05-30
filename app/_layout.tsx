@@ -123,7 +123,13 @@ function AppDataGate({ children }: { children: React.ReactNode }) {
         <Text style={styles.gateEyebrow}>Local data unavailable</Text>
         <Text style={styles.gateTitle}>Debtulator could not open its local database.</Text>
         <Text style={styles.gateBody}>{data.error}</Text>
-        <Pressable accessibilityRole="button" onPress={data.retryBoot} style={styles.gateButton}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Retry startup"
+          accessibilityHint="Attempts to load local Debtulator data again"
+          onPress={data.retryBoot}
+          style={styles.gateButton}
+        >
           <Text style={styles.gateButtonText}>Try again</Text>
         </Pressable>
       </View>

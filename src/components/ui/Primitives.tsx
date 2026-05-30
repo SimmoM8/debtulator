@@ -300,6 +300,8 @@ export function Button({
   variant = "primary",
   disabled,
   style,
+  accessibilityHint,
+  accessibilityState,
 }: {
   title: string;
   onPress: () => void;
@@ -307,10 +309,18 @@ export function Button({
   variant?: "primary" | "secondary" | "ghost" | "danger";
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
+  accessibilityHint?: string;
+  accessibilityState?: React.ComponentProps<typeof Pressable>["accessibilityState"];
 }) {
   return (
     <Pressable
+      accessibilityLabel={title}
       accessibilityRole="button"
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{
+        ...accessibilityState,
+        disabled: Boolean(disabled) || accessibilityState?.disabled,
+      }}
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
@@ -475,6 +485,7 @@ export function SegmentedControl<T extends string>({
             <Pressable
               key={option.value}
               accessibilityRole="button"
+              accessibilityLabel={option.label}
               accessibilityState={{ selected: active }}
               onPress={() => onChange(option.value)}
               style={({ pressed }) => [

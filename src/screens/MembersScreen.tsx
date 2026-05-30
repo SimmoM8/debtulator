@@ -218,6 +218,7 @@ export function MembersScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Invite"
+            accessibilityHint="Opens the member invite form"
             onPress={() => router.push("/member/form")}
             style={({ pressed }) => [
               styles.inviteButton,

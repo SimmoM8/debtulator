@@ -238,6 +238,10 @@ function ToggleRow({
         <Text style={styles.body}>{body}</Text>
       </View>
       <Switch
+        accessibilityRole="switch"
+        accessibilityLabel={title}
+        accessibilityHint={body}
+        accessibilityState={{ checked: value }}
         value={value}
         onValueChange={onValueChange}
         trackColor={{ false: palette.lineStrong, true: palette.brandSoft }}

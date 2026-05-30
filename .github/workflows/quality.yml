@@ -25,6 +25,9 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: Release config preflight
+        run: npm run release:preflight:config -- --env=staging
+
       - name: Typecheck
         run: npm run typecheck
 
