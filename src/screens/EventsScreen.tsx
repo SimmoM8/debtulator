@@ -8,7 +8,6 @@ import {
     SearchFilterBar,
     SingleSelectFilterList,
     StatCard,
-    StatusPill,
 } from "@/src/components/ui/Finance";
 import {
     Button,
@@ -216,28 +215,6 @@ export function EventsScreen() {
                 ]}
               >
                 <GlassCard tone="peach" style={styles.eventCard}>
-                  <View style={styles.eventAccentRow}>
-                    <StatusPill
-                      label={
-                        event.status === "finalising"
-                          ? "Active"
-                          : capitalize(event.status)
-                      }
-                      tone={
-                        event.status === "settled"
-                          ? "teal"
-                          : event.status === "planning"
-                            ? "peach"
-                            : "indigo"
-                      }
-                    />
-                    <StatusPill
-                      label={
-                        event.visibility === "shared" ? "Shared" : "Private"
-                      }
-                      tone={event.visibility === "shared" ? "teal" : "lavender"}
-                    />
-                  </View>
                   <View style={styles.eventBody}>
                     <View style={styles.eventHeader}>
                       <View style={styles.eventCopy}>
@@ -314,10 +291,6 @@ const FILTERS: { label: string; value: EventFilter; description: string }[] = [
   },
 ];
 
-function capitalize(value: string) {
-  return value.charAt(0).toUpperCase() + value.slice(1);
-}
-
 const styles = StyleSheet.create({
   statsRow: {
     flexDirection: "row",
@@ -333,14 +306,6 @@ const styles = StyleSheet.create({
   eventCard: {
     padding: 0,
     overflow: "hidden",
-  },
-  eventAccentRow: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: spacing.sm,
   },
   eventBody: {
     padding: spacing.lg,
