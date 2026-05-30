@@ -892,8 +892,6 @@ export type AppSettings = {
   language: 'system' | 'en' | 'sv';
   backupIncludeAttachments: boolean;
   backupIncludePrivateNotes: boolean;
-  betaTelemetryEnabled: boolean;
-  betaCrashReportingEnabled: boolean;
   lastBackupAt: string | null;
 };
 

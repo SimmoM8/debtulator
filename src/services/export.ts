@@ -18,7 +18,6 @@ import type {
 } from '@/src/types/models';
 import { estimateMoneyMap } from '@/src/services/currency';
 import { participantName } from '@/src/services/ledger';
-import { addTelemetryBreadcrumb, captureTelemetryException, trackFirstSuccess, trackTelemetryEvent } from '@/src/services/telemetry';
 import { formatMoney, formatMoneyMap } from '@/src/utils/money';
 
 export type PrivacyExportOptions = {
@@ -225,43 +224,18 @@ export function debtPdfLines(input: {
 
 export async function writeTextExport(fileName: string, text: string) {
   const uri = `${FileSystem.documentDirectory ?? ''}${safeFileName(fileName)}`;
-  try {
-    await FileSystem.writeAsStringAsync(uri, text, { encoding: FileSystem.EncodingType.UTF8 });
-    addTelemetryBreadcrumb('export', 'text_file_written', { result: 'success' });
-    trackTelemetryEvent('export_text_generated', { result: 'success' });
-    return uri;
-  } catch (error) {
-    addTelemetryBreadcrumb('export', 'text_file_write_failed', { result: 'failure' });
-    captureTelemetryException(error, 'export_write_text', {});
-    throw error;
-  }
+  await FileSystem.writeAsStringAsync(uri, text, { encoding: FileSystem.EncodingType.UTF8 });
+  return uri;
 }
 
 export async function writePdfExport(fileName: string, lines: string[]) {
   const uri = `${FileSystem.documentDirectory ?? ''}${safeFileName(fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`)}`;
-  try {
-    await FileSystem.writeAsStringAsync(uri, buildSimplePdf(lines), { encoding: FileSystem.EncodingType.UTF8 });
-    addTelemetryBreadcrumb('export', 'pdf_file_written', { result: 'success' });
-    trackTelemetryEvent('export_pdf_generated', { result: 'success' });
-    return uri;
-  } catch (error) {
-    addTelemetryBreadcrumb('export', 'pdf_file_write_failed', { result: 'failure' });
-    captureTelemetryException(error, 'export_write_pdf', {});
-    throw error;
-  }
+  await FileSystem.writeAsStringAsync(uri, buildSimplePdf(lines), { encoding: FileSystem.EncodingType.UTF8 });
+  return uri;
 }
 
 export async function shareExport(uri: string, title: string, message?: string) {
-  try {
-    await Share.share({ title, message: message ?? title, url: uri });
-    addTelemetryBreadcrumb('export', 'share_completed', { result: 'success' });
-    trackTelemetryEvent('export_share_completed', { result: 'success' });
-    trackFirstSuccess('export', { source: 'share' });
-  } catch (error) {
-    addTelemetryBreadcrumb('export', 'share_failed', { result: 'failure' });
-    captureTelemetryException(error, 'export_share', {});
-    throw error;
-  }
+  await Share.share({ title, message: message ?? title, url: uri });
 }
 
 function recordLine(entry: LedgerEntry, snapshot: ExportSnapshot, options: PrivacyExportOptions) {

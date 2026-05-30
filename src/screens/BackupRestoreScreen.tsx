@@ -21,12 +21,6 @@ import {
     restoreModeDescription,
     shareBackupFile,
 } from "@/src/services/backupRestore";
-import {
-  addTelemetryBreadcrumb,
-  captureTelemetryException,
-  trackFirstSuccess,
-  trackTelemetryEvent,
-} from "@/src/services/telemetry";
 import { useAppData } from "@/src/state/AppDataProvider";
 import type { BackupMode } from "@/src/types/models";
 
@@ -46,32 +40,24 @@ export function BackupRestoreScreen() {
   );
 
   async function createBackup() {
-    try {
-      const backup = buildBackup(data, {
-        includeAttachments,
-        includePrivateNotes,
-      });
-      await shareBackupFile(backup);
-      await data.updateSettings({
-        backupIncludeAttachments: includeAttachments,
-        backupIncludePrivateNotes: includePrivateNotes,
-        lastBackupAt: backup.exportedAt,
-      });
-      await data.createAuditLog({
-        actorUserId: null,
-        action: "backup_exported",
-        targetType: "backup",
-        targetId: null,
-        eventId: null,
-        metadata: { includeAttachments, includePrivateNotes },
-      });
-      addTelemetryBreadcrumb("backup", "audit_logged", { result: "success" });
-      trackTelemetryEvent("backup_audit_logged", { result: "success" });
-    } catch (error) {
-      addTelemetryBreadcrumb("backup", "create_failed", { result: "failure" });
-      captureTelemetryException(error, "backup_create", {});
-      throw error;
-    }
+    const backup = buildBackup(data, {
+      includeAttachments,
+      includePrivateNotes,
+    });
+    const uri = await shareBackupFile(backup);
+    await data.updateSettings({
+      backupIncludeAttachments: includeAttachments,
+      backupIncludePrivateNotes: includePrivateNotes,
+      lastBackupAt: backup.exportedAt,
+    });
+    await data.createAuditLog({
+      actorUserId: null,
+      action: "backup_exported",
+      targetType: "backup",
+      targetId: uri,
+      eventId: null,
+      metadata: { includeAttachments, includePrivateNotes },
+    });
   }
 
   function confirmRestore() {
@@ -83,31 +69,21 @@ export function BackupRestoreScreen() {
       return;
     }
     Alert.alert(
-      "Restore backup?",
-      `${restoreModeDescription(restoreMode)} Restored synced records default to private/local unless explicitly re-shared.`,
+      "Record restore preference?",
+      `${restoreModeDescription(restoreMode)} This screen currently validates backups and records your choice only.`,
       [
         { text: "Cancel", style: "cancel" },
         {
           text: "Record restore",
-          onPress: () => {
-            addTelemetryBreadcrumb("restore", "decision_recorded", {
-              mode: restoreMode,
-              valid: preview.valid,
-            });
-            trackTelemetryEvent("restore_decision_recorded", {
-              mode: restoreMode,
-              valid: preview.valid,
-            });
-            trackFirstSuccess("restore", { mode: restoreMode, result: "success" });
-            void data.createAuditLog({
+          onPress: () =>
+            data.createAuditLog({
               actorUserId: null,
               action: "restore_performed",
               targetType: "backup",
               targetId: null,
               eventId: null,
               metadata: { restoreMode, preview },
-            });
-          },
+            }),
         },
       ],
     );
@@ -118,7 +94,7 @@ export function BackupRestoreScreen() {
       <PageHeader
         eyebrow="Data safety"
         title="Backup and restore"
-        subtitle="Backups default restored records to private/local copies."
+        subtitle="Backups are available now; restore imports remain disabled in this beta build."
       />
 
       <Card tone="lavender" style={styles.heroCard}>
@@ -180,8 +156,8 @@ export function BackupRestoreScreen() {
 
       <Card>
         <SectionTitle
-          title="Restore preview"
-          subtitle="Paste backup JSON to validate before choosing a restore mode."
+          title="Restore validation"
+          subtitle="Paste backup JSON to validate it and record your preferred restore mode."
         />
         <TextField
           label="Backup JSON"

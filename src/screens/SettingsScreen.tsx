@@ -188,8 +188,8 @@ export function SettingsScreen() {
       <GlassCard tone="coral">
         <Text style={styles.dangerTitle}>Sensitive actions</Text>
         <Text style={styles.dangerBody}>
-          Deleting an account or comparing conflicting changes should never be
-          hidden inside normal preferences.
+          Conflict review and account deletion requests should never be hidden
+          inside normal preferences.
         </Text>
         <View style={styles.buttonRow}>
           <Button
@@ -198,7 +198,7 @@ export function SettingsScreen() {
             onPress={() => router.push("/conflicts")}
           />
           <Button
-            title="Delete account"
+            title="Deletion request"
             variant="danger"
             onPress={() => router.push("/delete-account")}
           />

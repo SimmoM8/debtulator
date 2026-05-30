@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect } from "react";
+import React from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 
 import { DebtulatorShieldIllustration } from "@/src/components/illustrations/DebtulatorShieldIllustration";
@@ -16,7 +16,6 @@ import { palette, spacing, typefaces,
 typography,
 } from "@/src/constants/design";
 import { isFinancialConflict } from "@/src/services/stage6Sync";
-import { addTelemetryBreadcrumb, trackTelemetryEvent } from "@/src/services/telemetry";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
 import type { ConflictResolution } from "@/src/types/models";
@@ -26,20 +25,6 @@ export function ConflictDetailScreen() {
   const data = useAppData();
   const auth = useAuth();
   const conflict = data.syncConflicts.find((item) => item.id === id);
-
-  useEffect(() => {
-    if (!conflict) {
-      return;
-    }
-    addTelemetryBreadcrumb("conflict", "review_opened", {
-      entityType: conflict.entityType,
-      conflictType: conflict.conflictType,
-    });
-    trackTelemetryEvent("conflict_review_opened", {
-      entityType: conflict.entityType,
-      conflictType: conflict.conflictType,
-    });
-  }, [conflict]);
 
   if (!conflict) {
     return (
@@ -56,16 +41,6 @@ export function ConflictDetailScreen() {
   const financial = isFinancialConflict(currentConflict);
 
   function resolve(resolution: ConflictResolution) {
-    addTelemetryBreadcrumb("conflict", "resolution_selected", {
-      resolution,
-      entityType: currentConflict.entityType,
-      conflictType: currentConflict.conflictType,
-    });
-    trackTelemetryEvent("conflict_resolution_selected", {
-      resolution,
-      entityType: currentConflict.entityType,
-      conflictType: currentConflict.conflictType,
-    });
     const action = () =>
       data
         .resolveSyncConflict(
