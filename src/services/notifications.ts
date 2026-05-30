@@ -1,5 +1,7 @@
 import type { AppNotification, AppSettings, NotificationType } from '@/src/types/models';
 
+export const BETA_PUSH_NOTIFICATIONS_ENABLED = false;
+
 export function notificationEnabled(type: NotificationType, settings: AppSettings) {
   if (type === 'sync_problem' || type === 'export_ready') {
     return true;
@@ -45,6 +47,40 @@ export function isInsideQuietHours(settings: AppSettings, date = new Date()) {
   const start = parseClock(settings.quietHoursStart);
   const end = parseClock(settings.quietHoursEnd);
   return start <= end ? minutes >= start && minutes < end : minutes >= start || minutes < end;
+}
+
+export type PushPermissionState = 'granted' | 'denied' | 'undetermined';
+
+export function canDeliverPushNotification(
+  notification: Pick<AppNotification, 'type' | 'userId'>,
+  settings: AppSettings,
+  options: {
+    currentUserId: string | null;
+    permission: PushPermissionState;
+    date?: Date;
+    betaPushEnabled?: boolean;
+  },
+) {
+  const pushEnabledInBeta = options.betaPushEnabled ?? BETA_PUSH_NOTIFICATIONS_ENABLED;
+  if (!pushEnabledInBeta) {
+    return false;
+  }
+  if (!options.currentUserId) {
+    return false;
+  }
+  if (notification.userId && notification.userId !== options.currentUserId) {
+    return false;
+  }
+  if (!settings.pushNotificationsEnabled) {
+    return false;
+  }
+  if (!notificationEnabled(notification.type, settings)) {
+    return false;
+  }
+  if (isInsideQuietHours(settings, options.date)) {
+    return false;
+  }
+  return options.permission === 'granted';
 }
 
 function parseClock(value: string) {

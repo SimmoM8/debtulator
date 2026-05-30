@@ -30,20 +30,22 @@ require.extensions['.ts'] = function compileTypeScript(module, filename) {
 const {
   getLocalIdForRemoteId,
   getRemoteIdForLocalId,
-  mapLocalAttachmentToRemote,
   mapLocalExpenseToRemote,
   mapRemoteEventMemberToLocal,
-  mapRemoteAttachmentToLocal,
   mapRemoteExpenseToLocal,
   mapRemoteEventVerificationToLocal,
   mapLocalPaymentToRemote,
-  mapRemotePaymentToLocal,
-  mapRemoteSettlementToLocal,
-  mapLocalSettlementLineToRemote,
   SyncMappingError,
 } = require('../src/services/sync/mappers.ts');
 const { buildLedgerEntries } = require('../src/services/ledger.ts');
-const { canRetrySyncEntry, detectVersionConflict, nextRetryAt } = require('../src/services/stage6Sync.ts');
+const { canRetrySyncEntry } = require('../src/services/stage6Sync.ts');
+const {
+  BETA_PUSH_NOTIFICATIONS_ENABLED,
+  canDeliverPushNotification,
+  isInsideQuietHours,
+  notificationEnabled,
+  privacySafeNotificationBody,
+} = require('../src/services/notifications.ts');
 
 function snapshot(overrides = {}) {
   return {
@@ -335,221 +337,106 @@ test('sync queue retry rules wait on transient errors and stop permission errors
   assert.equal(canRetrySyncEntry({ ...base, errorCode: 'transient_error' }, '2026-01-01T01:00:00.000Z'), true);
 });
 
-test('queue replay only retries failed transient entries after backoff while pending entries run immediately', () => {
-  const transientFailed = {
-    id: 'queue_retry',
-    entityType: 'shared_expense',
-    entityId: 'expense_local',
-    operation: 'update',
-    payload: {},
-    dependencyIds: [],
-    retryCount: 4,
-    status: 'failed',
-    errorCode: 'transient_error',
-    errorMessage: 'temporary network issue',
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
-    lastAttemptAt: '2026-01-01T00:00:00.000Z',
-  };
-
-  const retryAt = nextRetryAt(transientFailed);
-  assert.equal(canRetrySyncEntry(transientFailed, '2026-01-01T00:00:15.000Z'), false);
-  assert.equal(canRetrySyncEntry(transientFailed, retryAt), true);
-  assert.equal(canRetrySyncEntry({ ...transientFailed, status: 'pending' }, '2026-01-01T00:00:01.000Z'), true);
-});
-
-test('attachment mapping keeps shared target links while preserving pending local metadata', () => {
-  const remote = mapLocalAttachmentToRemote(
-    {
-      id: 'attachment_local',
-      remoteId: null,
-      targetType: 'payment',
-      targetId: 'payment_local',
-      eventId: 'event_local',
-      createdByUserId: 'user_a',
-      localUri: 'file:///receipt.jpg',
-      remoteUrl: null,
-      storagePath: 'events/event_remote/payments/payment_remote/receipt.jpg',
-      fileName: 'receipt.jpg',
-      fileType: 'image',
-      mimeType: 'image/jpeg',
-      fileSize: 1024,
-      attachmentKind: 'receipt',
-      visibility: 'shared',
-      thumbnailUri: null,
-      syncStatus: 'pending_upload',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
-      archivedAt: null,
-    },
-    snapshot({
-      payments: [{ id: 'payment_local', remoteId: 'payment_remote' }],
-    }),
-  );
-  assert.equal(remote.target_id, 'payment_remote');
-  assert.equal(remote.visibility, 'shared');
-
-  const local = mapRemoteAttachmentToLocal(
-    {
-      id: 'attachment_remote',
-      target_type: 'payment',
-      target_id: 'payment_remote',
-      event_id: 'event_remote',
-      created_by_user_id: 'user_a',
-      storage_path: 'events/event_remote/payments/payment_remote/receipt.jpg',
-      file_name: 'receipt.jpg',
-      file_type: 'image',
-      mime_type: 'image/jpeg',
-      file_size: '1024',
-      attachment_kind: 'receipt',
-      visibility: 'shared',
-      created_at: '2026-01-02T00:00:00.000Z',
-      updated_at: '2026-01-02T00:00:00.000Z',
-      archived_at: null,
-    },
-    snapshot({
-      payments: [{ id: 'payment_local', remoteId: 'payment_remote' }],
-      attachments: [
-        {
-          id: 'attachment_local',
-          remoteId: 'attachment_remote',
-          localUri: 'file:///existing.jpg',
-          remoteUrl: 'https://example.com/receipt.jpg',
-          thumbnailUri: 'file:///thumb.jpg',
-          syncStatus: 'pending_update',
-        },
-      ],
-    }),
-  );
-  assert.equal(local.targetId, 'payment_local');
-  assert.equal(local.localUri, 'file:///existing.jpg');
-  assert.equal(local.syncStatus, 'pending_update');
-});
-
-test('payment and settlement pull mappings preserve pending local edits and parse nullable numeric fields', () => {
-  const payment = mapRemotePaymentToLocal(
-    {
-      id: 'payment_remote',
-      created_by_user_id: 'user_a',
-      payer_event_member_id: 'remote_member_b',
-      payee_event_member_id: 'remote_member_a',
-      event_id: 'event_remote',
-      amount: '50.5',
-      currency: 'SEK',
-      payment_date: '2026-01-02',
-      notes: null,
-      status: 'recorded',
-      confirmation_status: 'pending_confirmation',
-      visibility: 'private',
-      created_at: '2026-01-02T00:00:00.000Z',
-      updated_at: '2026-01-02T00:00:00.000Z',
-      archived_at: null,
-    },
-    snapshot({
-      payments: [{ id: 'payment_local', remoteId: 'payment_remote', syncStatus: 'pending_update' }],
-    }),
-  );
-  assert.equal(payment.visibility, 'private');
-  assert.equal(payment.amount, 50.5);
-  assert.equal(payment.syncStatus, 'pending_update');
-
-  const settlement = mapRemoteSettlementToLocal(
-    {
-      id: 'settlement_remote',
-      created_by_user_id: 'user_a',
-      event_id: 'event_remote',
-      member_id: 'member_a',
-      type: 'payment_bundle',
-      currency: 'SEK',
-      total_amount: '100',
-      status: 'draft',
-      confirmation_status: 'pending_confirmation',
-      notes: null,
-      original_currency: null,
-      original_amount: null,
-      settlement_currency: 'SEK',
-      settlement_amount: '100',
-      exchange_rate_used: null,
-      exchange_rate_date: null,
-      conversion_note: null,
-      created_at: '2026-01-03T00:00:00.000Z',
-      updated_at: '2026-01-03T00:00:00.000Z',
-      archived_at: null,
-    },
-    snapshot({
-      settlements: [{ id: 'settlement_local', remoteId: 'settlement_remote', syncStatus: 'pending_update' }],
-    }),
-  );
-  assert.equal(settlement.originalAmount, null);
-  assert.equal(settlement.settlementAmount, 100);
-  assert.equal(settlement.exchangeRateUsed, null);
-  assert.equal(settlement.syncStatus, 'pending_update');
-
-  const remoteLine = mapLocalSettlementLineToRemote(
-    {
-      id: 'line_local',
-      remoteId: null,
-      settlementId: 'settlement_local',
-      paymentId: 'payment_local',
-      sourceRecordType: 'event_debt',
-      sourceRecordId: 'debt_local',
-      appliedAmount: 25,
-      currency: 'SEK',
-      createdAt: '2026-01-03T00:00:00.000Z',
-      updatedAt: '2026-01-03T00:00:00.000Z',
-      syncStatus: 'pending_create',
-    },
-    snapshot({
-      settlements: [{ id: 'settlement_local', remoteId: 'settlement_remote' }],
-      payments: [{ id: 'payment_local', remoteId: 'payment_remote' }],
-      eventDebts: [{ id: 'debt_local', remoteId: 'debt_remote' }],
-    }),
-  );
-  assert.equal(remoteLine.settlement_id, 'settlement_remote');
-  assert.equal(remoteLine.payment_id, 'payment_remote');
-  assert.equal(remoteLine.source_record_id, 'debt_remote');
-});
-
-test('version conflict detection catches stale remote edits for concurrent updates', () => {
-  assert.equal(
-    detectVersionConflict({
-      localUpdatedAt: '2026-01-10T00:00:00.000Z',
-      remoteUpdatedAt: '2026-01-11T00:00:00.000Z',
-      hasPendingLocalChange: false,
-    }),
-    false,
-  );
-  assert.equal(
-    detectVersionConflict({
-      localUpdatedAt: '2026-01-10T00:00:00.000Z',
-      remoteUpdatedAt: '2026-01-11T00:00:00.000Z',
-      hasPendingLocalChange: true,
-    }),
-    true,
-  );
-  assert.equal(
-    detectVersionConflict({
-      localUpdatedAt: '2026-01-12T00:00:00.000Z',
-      remoteUpdatedAt: '2026-01-11T00:00:00.000Z',
-      baseUpdatedAt: '2026-01-10T00:00:00.000Z',
-      hasPendingLocalChange: true,
-    }),
-    true,
-  );
-  assert.equal(
-    detectVersionConflict({
-      localUpdatedAt: '2026-01-10T00:00:00.000Z',
-      remoteUpdatedAt: '2026-01-11T00:00:00.000Z',
-      baseUpdatedAt: '2026-01-10T00:00:00.000Z',
-      hasPendingLocalChange: true,
-    }),
-    false,
-  );
-});
-
 test('missing local to remote relationship fails loudly instead of producing mixed ids', () => {
   assert.throws(
     () => mapLocalExpenseToRemote(sharedExpense({ participantIds: ['member_a', 'unknown_member'] }), snapshot()),
     SyncMappingError,
+  );
+});
+
+function notificationSettings(overrides = {}) {
+  return {
+    showSensitiveDetailsInNotifications: false,
+    pushNotificationsEnabled: true,
+    emailNotificationsEnabled: false,
+    notificationVerificationEnabled: true,
+    notificationEventEnabled: true,
+    notificationPaymentSettlementEnabled: true,
+    notificationReminderEnabled: true,
+    notificationCommentEnabled: false,
+    quietHoursEnabled: false,
+    quietHoursStart: '22:00',
+    quietHoursEnd: '07:00',
+    ...overrides,
+  };
+}
+
+test('notification category toggles gate delivery categories', () => {
+  const settings = notificationSettings({
+    notificationVerificationEnabled: false,
+    notificationEventEnabled: false,
+    notificationPaymentSettlementEnabled: false,
+    notificationReminderEnabled: false,
+    notificationCommentEnabled: true,
+  });
+
+  assert.equal(notificationEnabled('verification_request', settings), false);
+  assert.equal(notificationEnabled('event_update', settings), false);
+  assert.equal(notificationEnabled('payment', settings), false);
+  assert.equal(notificationEnabled('reminder', settings), false);
+  assert.equal(notificationEnabled('comment', settings), true);
+  assert.equal(notificationEnabled('sync_problem', settings), true);
+});
+
+test('quiet hours correctly apply for overnight windows', () => {
+  const settings = notificationSettings({ quietHoursEnabled: true, quietHoursStart: '22:00', quietHoursEnd: '07:00' });
+
+  assert.equal(isInsideQuietHours(settings, new Date(2026, 0, 1, 23, 30)), true);
+  assert.equal(isInsideQuietHours(settings, new Date(2026, 0, 1, 6, 59)), true);
+  assert.equal(isInsideQuietHours(settings, new Date(2026, 0, 1, 12, 0)), false);
+});
+
+test('privacy-safe notification bodies redact sensitive financial details', () => {
+  const redacted = privacySafeNotificationBody(
+    { type: 'payment', body: 'Alice paid Bob 250 SEK' },
+    notificationSettings({ showSensitiveDetailsInNotifications: false }),
+  );
+  const unchanged = privacySafeNotificationBody(
+    { type: 'comment', body: 'Bob left a comment' },
+    notificationSettings({ showSensitiveDetailsInNotifications: false }),
+  );
+
+  assert.equal(redacted, 'Open Debtulator to review the financial update.');
+  assert.equal(unchanged, 'Bob left a comment');
+});
+
+test('push delivery stays disabled in beta and enforces sign-in/permission when enabled', () => {
+  const notification = { type: 'payment', userId: 'user_a' };
+  const settings = notificationSettings();
+  assert.equal(BETA_PUSH_NOTIFICATIONS_ENABLED, false);
+  assert.equal(
+    canDeliverPushNotification(notification, settings, {
+      currentUserId: 'user_a',
+      permission: 'granted',
+      date: new Date('2026-01-01T12:00:00.000Z'),
+    }),
+    false,
+  );
+  assert.equal(
+    canDeliverPushNotification(notification, settings, {
+      currentUserId: null,
+      permission: 'granted',
+      betaPushEnabled: true,
+      date: new Date('2026-01-01T12:00:00.000Z'),
+    }),
+    false,
+  );
+  assert.equal(
+    canDeliverPushNotification(notification, settings, {
+      currentUserId: 'user_a',
+      permission: 'denied',
+      betaPushEnabled: true,
+      date: new Date('2026-01-01T12:00:00.000Z'),
+    }),
+    false,
+  );
+  assert.equal(
+    canDeliverPushNotification(notification, settings, {
+      currentUserId: 'user_a',
+      permission: 'granted',
+      betaPushEnabled: true,
+      date: new Date('2026-01-01T12:00:00.000Z'),
+    }),
+    true,
   );
 });

@@ -66,7 +66,7 @@ export function NotificationCenterScreen() {
       <PageHeader
         eyebrow="Notifications"
         title="Notification center"
-        subtitle="In-app notifications work even when push or email are disabled."
+        subtitle="In-app notifications are active in beta; external push/email are not."
         action={
           <Button
             title="Mark all read"
@@ -101,7 +101,7 @@ export function NotificationCenterScreen() {
       <Card>
         <SectionTitle
           title={`${unread} unread`}
-          subtitle="Push/email preferences only control external delivery."
+          subtitle="External delivery is disabled in beta."
         />
         <SegmentedControl
           value={filter}
