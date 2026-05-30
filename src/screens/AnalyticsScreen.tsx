@@ -174,12 +174,14 @@ export function AnalyticsScreen() {
           <Button
             title="Rejected/disputed"
             icon={includeRejected ? "checkbox" : "square-outline"}
+            accessibilityState={{ selected: includeRejected }}
             variant={includeRejected ? "secondary" : "ghost"}
             onPress={() => setIncludeRejected((current) => !current)}
           />
           <Button
             title="Archived"
             icon={includeArchived ? "checkbox" : "square-outline"}
+            accessibilityState={{ selected: includeArchived }}
             variant={includeArchived ? "secondary" : "ghost"}
             onPress={() => setIncludeArchived((current) => !current)}
           />
