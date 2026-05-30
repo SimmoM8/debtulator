@@ -40,24 +40,31 @@ export function BackupRestoreScreen() {
   );
 
   async function createBackup() {
-    const backup = buildBackup(data, {
-      includeAttachments,
-      includePrivateNotes,
-    });
-    const uri = await shareBackupFile(backup);
-    await data.updateSettings({
-      backupIncludeAttachments: includeAttachments,
-      backupIncludePrivateNotes: includePrivateNotes,
-      lastBackupAt: backup.exportedAt,
-    });
-    await data.createAuditLog({
-      actorUserId: null,
-      action: "backup_exported",
-      targetType: "backup",
-      targetId: uri,
-      eventId: null,
-      metadata: { includeAttachments, includePrivateNotes },
-    });
+    try {
+      const backup = buildBackup(data, {
+        includeAttachments,
+        includePrivateNotes,
+      });
+      const uri = await shareBackupFile(backup);
+      await data.updateSettings({
+        backupIncludeAttachments: includeAttachments,
+        backupIncludePrivateNotes: includePrivateNotes,
+        lastBackupAt: backup.exportedAt,
+      });
+      await data.createAuditLog({
+        actorUserId: null,
+        action: "backup_exported",
+        targetType: "backup",
+        targetId: uri,
+        eventId: null,
+        metadata: { includeAttachments, includePrivateNotes },
+      });
+    } catch (error) {
+      Alert.alert(
+        "Backup failed",
+        error instanceof Error ? error.message : "Backup export failed due to an unexpected error.",
+      );
+    }
   }
 
   function confirmRestore() {

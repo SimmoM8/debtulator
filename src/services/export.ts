@@ -41,6 +41,28 @@ export type ExportSnapshot = {
   currencyRates: CurrencyRate[];
 };
 
+export const PORTABLE_ATTACHMENT_MAX_BYTES = 25 * 1024 * 1024;
+
+const PORTABLE_ATTACHMENT_MIME_TYPES = new Set([
+  'application/pdf',
+  'text/csv',
+  'text/plain',
+]);
+
+export function sanitizeAttachmentsForPortableExport(attachments: Attachment[]) {
+  const unsafeAttachment = attachments.find((attachment) => !isPortableAttachmentSafe(attachment));
+  if (unsafeAttachment) {
+    throw new Error(unsafeAttachmentReason(unsafeAttachment));
+  }
+  return attachments.map((attachment) => ({
+    ...attachment,
+    localUri: null,
+    remoteUrl: null,
+    storagePath: null,
+    thumbnailUri: null,
+  }));
+}
+
 export function eventTextSummary(input: {
   event: Event;
   explanation: EventSettlementExplanation;
@@ -342,4 +364,29 @@ function safeFileName(fileName: string) {
 
 function ascii(value: string) {
   return value.replace(/[^\x20-\x7E]/g, '-');
+}
+
+function isPortableAttachmentSafe(attachment: Attachment) {
+  return !unsafeAttachmentReason(attachment);
+}
+
+function unsafeAttachmentReason(attachment: Attachment) {
+  const label = attachment.fileName?.trim() || attachment.id;
+  if (!attachment.fileName?.trim()) {
+    return `Attachment ${label} has no file name and cannot be exported.`;
+  }
+  if (/[/\\]/.test(attachment.fileName) || attachment.fileName.includes('..')) {
+    return `Attachment ${label} has an unsafe file name.`;
+  }
+  if (!Number.isFinite(attachment.fileSize) || attachment.fileSize < 0) {
+    return `Attachment ${label} has an invalid file size.`;
+  }
+  if (attachment.fileSize > PORTABLE_ATTACHMENT_MAX_BYTES) {
+    return `Attachment ${label} is larger than the ${Math.round(PORTABLE_ATTACHMENT_MAX_BYTES / 1024 / 1024)} MB export limit.`;
+  }
+  const mime = attachment.mimeType?.trim().toLowerCase();
+  if (!mime || (!mime.startsWith('image/') && !PORTABLE_ATTACHMENT_MIME_TYPES.has(mime))) {
+    return `Attachment ${label} has unsupported MIME type "${attachment.mimeType || 'unknown'}".`;
+  }
+  return null;
 }

@@ -1,5 +1,4 @@
 import * as FileSystem from "expo-file-system/legacy";
-import * as DocumentPicker from "expo-document-picker";
 import React, { useMemo, useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 
@@ -19,7 +18,6 @@ import { palette, spacing, typefaces,
 typography,
 } from "@/src/constants/design";
 import { previewCsvImport, type ImportPreviewRow } from "@/src/services/csv";
-import { fileNameFromUri, isSupportedCsvFile } from "@/src/services/attachments";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
 import { todayIsoDate } from "@/src/utils/id";
@@ -28,6 +26,7 @@ export function ImportCsvScreen() {
   const data = useAppData();
   const auth = useAuth();
   const [sourceName, setSourceName] = useState("");
+  const [fileUri, setFileUri] = useState("");
   const [csvText, setCsvText] = useState("");
   const [importing, setImporting] = useState(false);
   const previewRows = useMemo(
@@ -44,38 +43,20 @@ export function ImportCsvScreen() {
     return <LoadingState />;
   }
 
-  async function pickCsvFile() {
+  async function loadFromUri() {
+    if (!fileUri.trim()) {
+      return;
+    }
     try {
-      const selection = await DocumentPicker.getDocumentAsync({
-        type: ["text/csv", "text/comma-separated-values", "application/csv"],
-        copyToCacheDirectory: true,
-      });
-      if (selection.canceled) {
-        return;
-      }
-      const asset = selection.assets[0];
-      if (!asset) {
-        Alert.alert("Could not read CSV", "No file was selected. Please pick a CSV file and try again.");
-        return;
-      }
-      if (!isSupportedCsvFile({ fileName: asset.name, mimeType: asset.mimeType })) {
-        Alert.alert("Unsupported file type", "Please choose a .csv file.");
-        return;
-      }
-      const info = await FileSystem.getInfoAsync(asset.uri);
-      if (!info.exists) {
-        Alert.alert("File unavailable", "The selected file is no longer available. Please pick it again.");
-        return;
-      }
-      const text = await FileSystem.readAsStringAsync(asset.uri, {
+      const text = await FileSystem.readAsStringAsync(fileUri.trim(), {
         encoding: FileSystem.EncodingType.UTF8,
       });
       setCsvText(text);
-      setSourceName(asset.name || fileNameFromUri(asset.uri, "CSV file"));
+      setSourceName(fileUri.split("/").pop() ?? "CSV file");
     } catch {
       Alert.alert(
         "Could not read CSV",
-        "The selected file could not be opened. Try another CSV file or paste CSV text directly.",
+        "Check the file URI or paste CSV text directly.",
       );
     }
   }
@@ -202,7 +183,7 @@ export function ImportCsvScreen() {
       <Card tone="lavender">
         <SectionTitle
           title="Choose CSV"
-          subtitle="Pick a CSV file from your device, or paste CSV content directly."
+          subtitle="Use a file URI when available, or paste CSV content directly."
         />
         <TextField
           label="Source name"
@@ -210,11 +191,18 @@ export function ImportCsvScreen() {
           onChangeText={setSourceName}
           placeholder="debts.csv"
         />
+        <TextField
+          label="File URI"
+          value={fileUri}
+          onChangeText={setFileUri}
+          placeholder="file:///.../debts.csv"
+        />
         <Button
-          title="Choose CSV file"
+          title="Load from URI"
           icon="cloud-upload"
           variant="secondary"
-          onPress={pickCsvFile}
+          onPress={loadFromUri}
+          disabled={!fileUri.trim()}
         />
         <TextField
           label="CSV text"
@@ -245,7 +233,7 @@ export function ImportCsvScreen() {
         ) : (
           <EmptyState
             title="No rows parsed"
-            body="Paste CSV text or choose a CSV file to preview the import."
+            body="Paste CSV text or load a file URI to preview the import."
           />
         )}
         <Button

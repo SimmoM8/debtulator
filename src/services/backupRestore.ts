@@ -2,6 +2,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { Share } from 'react-native';
 
 import type { DatabaseSnapshot } from '@/src/data/database';
+import { sanitizeAttachmentsForPortableExport } from '@/src/services/export';
 import type { BackupMode } from '@/src/types/models';
 
 export type BackupOptions = {
@@ -32,7 +33,10 @@ export type RestorePreview = {
   warnings: string[];
 };
 
+export const RESTORE_PREVIEW_MAX_BYTES = 5 * 1024 * 1024;
+
 export function buildBackup(snapshot: DatabaseSnapshot, options: BackupOptions): DebtulatorBackup {
+  const attachments = options.includeAttachments ? sanitizeAttachmentsForPortableExport(snapshot.attachments) : [];
   return {
     app: 'Debtulator',
     schemaVersion: 6,
@@ -59,7 +63,7 @@ export function buildBackup(snapshot: DatabaseSnapshot, options: BackupOptions):
       expensePayers: snapshot.expensePayers,
       tags: snapshot.tags,
       comments: options.includePrivateNotes ? snapshot.comments.map((comment) => ({ ...comment, visibility: 'private', syncStatus: 'local_only' })) : [],
-      attachments: options.includeAttachments ? snapshot.attachments.map((attachment) => ({ ...attachment, remoteUrl: null, storagePath: null })) : [],
+      attachments,
       recurringTemplates: snapshot.recurringTemplates,
       reminders: snapshot.reminders,
       softReminders: snapshot.softReminders,
@@ -84,21 +88,40 @@ export async function shareBackupFile(backup: DebtulatorBackup) {
 }
 
 export function previewRestore(rawJson: string): RestorePreview {
+  const trimmed = rawJson.trim();
+  if (!trimmed) {
+    return invalidPreview('Backup payload is empty.');
+  }
+  if (trimmed.length > RESTORE_PREVIEW_MAX_BYTES) {
+    return invalidPreview(`Backup payload exceeds ${Math.round(RESTORE_PREVIEW_MAX_BYTES / 1024 / 1024)} MB preview limit.`);
+  }
   try {
     const parsed = JSON.parse(rawJson) as Partial<DebtulatorBackup>;
-    const data = parsed.data as Record<string, unknown> | undefined;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return invalidPreview('Backup JSON must be an object payload.');
+    }
+    const data = isRecord(parsed.data) ? parsed.data : null;
     const warnings: string[] = [];
+    const valid = parsed.app === 'Debtulator' && Boolean(data);
     if (parsed.app !== 'Debtulator') {
       warnings.push('This does not look like a Debtulator backup.');
     }
     if (parsed.schemaVersion !== 6) {
-      warnings.push('Backup schema differs from this app version.');
+      warnings.push(schemaWarning(parsed.schemaVersion));
     }
     if (parsed.privacy?.restoredRecordsDefaultPrivate !== true) {
       warnings.push('Shared metadata will be restored as private unless explicitly confirmed.');
     }
+    if (!data) {
+      warnings.push('Backup payload is missing a valid data object.');
+    }
+    pushNonArrayWarning(data, 'members', warnings);
+    pushNonArrayWarning(data, 'debts', warnings);
+    pushNonArrayWarning(data, 'events', warnings);
+    pushNonArrayWarning(data, 'payments', warnings);
+    pushNonArrayWarning(data, 'settlements', warnings);
     return {
-      valid: Boolean(data),
+      valid,
       schemaVersion: typeof parsed.schemaVersion === 'number' ? parsed.schemaVersion : null,
       memberCount: countArray(data?.members),
       debtCount: countArray(data?.debts),
@@ -108,16 +131,7 @@ export function previewRestore(rawJson: string): RestorePreview {
       warnings,
     };
   } catch {
-    return {
-      valid: false,
-      schemaVersion: null,
-      memberCount: 0,
-      debtCount: 0,
-      eventCount: 0,
-      paymentCount: 0,
-      settlementCount: 0,
-      warnings: ['Backup file is not valid JSON.'],
-    };
+    return invalidPreview('Backup file is not valid JSON.');
   }
 }
 
@@ -134,6 +148,40 @@ export function restoreModeDescription(mode: BackupMode) {
 
 function countArray(value: unknown) {
   return Array.isArray(value) ? value.length : 0;
+}
+
+function invalidPreview(warning: string): RestorePreview {
+  return {
+    valid: false,
+    schemaVersion: null,
+    memberCount: 0,
+    debtCount: 0,
+    eventCount: 0,
+    paymentCount: 0,
+    settlementCount: 0,
+    warnings: [warning],
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function pushNonArrayWarning(data: Record<string, unknown> | null, key: string, warnings: string[]) {
+  if (!data || !(key in data) || Array.isArray(data[key])) {
+    return;
+  }
+  warnings.push(`Backup data field "${key}" is malformed and will be treated as empty.`);
+}
+
+function schemaWarning(schemaVersion: unknown) {
+  if (typeof schemaVersion !== 'number') {
+    return 'Backup schema is missing or invalid.';
+  }
+  if (schemaVersion < 6) {
+    return 'Backup schema is older than this app version.';
+  }
+  return 'Backup schema is newer than this app version.';
 }
 
 function scrubNotes<T extends { notes?: string | null; sharedNotes?: string | null }>(record: T, includePrivateNotes: boolean) {
