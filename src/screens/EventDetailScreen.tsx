@@ -270,6 +270,23 @@ export function EventDetailScreen() {
     });
   }
 
+  function confirmArchiveEvent() {
+    Alert.alert(
+      "Archive event?",
+      "This hides the event from active event lists and keeps existing ledger history available where needed.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Archive event",
+          style: "destructive",
+          onPress: () => {
+            void updateStatus("archived");
+          },
+        },
+      ],
+    );
+  }
+
   async function addUnlinkedEventMember() {
     if (!newMemberName.trim() || !currentUserId) {
       return;
@@ -602,7 +619,7 @@ export function EventDetailScreen() {
                   title="Archive event"
                   icon="archive"
                   variant="danger"
-                  onPress={() => updateStatus("archived")}
+                  onPress={confirmArchiveEvent}
                 />
               ) : null}
             </View>
@@ -1527,6 +1544,9 @@ function PrivateMembersPanel({
               return (
                 <Pressable
                   key={member.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={member.displayName}
+                  accessibilityState={{ selected }}
                   onPress={() => toggleMember(member.id)}
                   style={[
                     styles.memberChip,

@@ -67,13 +67,39 @@ npm run lint
 
 The app is configured with bundle/package identifiers, icons, splash screen, deep link scheme, notification permission metadata, and EAS profiles.
 
+Run automated quality and release configuration checks before creating a release build:
+
+```bash
+npm run quality
+npm run release:preflight:config -- --env=staging
+npm run release:preflight -- --env=staging
+```
+
+Production submission must use strict checks with real store and backend environment values:
+
+```bash
+APP_ENV=production \
+EXPO_PUBLIC_SUPABASE_URL=... \
+EXPO_PUBLIC_SUPABASE_ANON_KEY=... \
+APP_PRIVACY_POLICY_URL=https://... \
+APP_SUPPORT_URL=https://... \
+npm run release:preflight -- --env=production --strict-env
+```
+
 ```bash
 npx eas build --profile staging --platform ios
 npx eas build --profile staging --platform android
 npx eas build --profile production --platform all
 ```
 
-Use separate Supabase projects or environment variables for dev/staging/prod. Never commit production secrets.
+Use separate Supabase projects and EAS environment variables for dev/staging/prod. Staging should use internal distribution and resettable staging data; production should use store distribution and production-only credentials. Never commit production secrets, service-role keys, `.env` files, or credential exports.
+
+Store readiness requires real HTTPS privacy and support URLs before production submission. Until those pages exist, track placeholders as release blockers:
+
+```bash
+APP_PRIVACY_POLICY_URL=https://...
+APP_SUPPORT_URL=https://...
+```
 
 ## Stage 6 Model
 
@@ -98,6 +124,7 @@ Detailed docs:
 - [`docs/permission-model.md`](/Users/benjaminsimmons/Documents/CODING/debtulator/docs/permission-model.md)
 - [`docs/backup-restore.md`](/Users/benjaminsimmons/Documents/CODING/debtulator/docs/backup-restore.md)
 - [`docs/release-checklist.md`](/Users/benjaminsimmons/Documents/CODING/debtulator/docs/release-checklist.md)
+- [`docs/manual-qa-scripts.md`](/Users/benjaminsimmons/Documents/CODING/debtulator/docs/manual-qa-scripts.md)
 - [`docs/app-sitemap.md`](/Users/benjaminsimmons/Documents/CODING/debtulator/docs/app-sitemap.md)
 - [`docs/user-flow.md`](/Users/benjaminsimmons/Documents/CODING/debtulator/docs/user-flow.md)
 - [`docs/navigation-map.md`](/Users/benjaminsimmons/Documents/CODING/debtulator/docs/navigation-map.md)
@@ -113,4 +140,4 @@ Detailed docs:
 - Full data export labels shared/private and estimated values.
 - Delete account flow records a deliberate audit event.
 - Notification center works even when push/email are disabled.
-- `npm run lint` passes before release.
+- `npm run quality` and release preflight pass before release.
