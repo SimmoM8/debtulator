@@ -151,30 +151,35 @@ function AttachmentRow({ attachment, onArchive }: { attachment: Attachment; onAr
   const previewUri = attachment.thumbnailUri ?? attachment.localUri ?? attachment.remoteUrl;
   const isImage = attachment.mimeType.startsWith('image/') && previewUri;
   return (
-    <Pressable
-      onPress={() => router.push({ pathname: '/attachment/[id]', params: { id: attachment.id } })}
-      style={styles.attachmentRow}>
-      {isImage ? (
-        <Image source={{ uri: previewUri }} style={styles.thumbnail} />
-      ) : (
-        <View style={styles.fileIcon}>
-          <Ionicons name="document-attach" size={20} color={palette.brand} />
+    <View style={styles.attachmentRow}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Open attachment ${attachment.fileName}`}
+        onPress={() => router.push({ pathname: '/attachment/[id]', params: { id: attachment.id } })}
+        style={({ pressed }) => [styles.attachmentMain, pressed && styles.pressed]}
+      >
+        {isImage ? (
+          <Image source={{ uri: previewUri }} style={styles.thumbnail} />
+        ) : (
+          <View style={styles.fileIcon}>
+            <Ionicons name="document-attach" size={20} color={palette.brand} />
+          </View>
+        )}
+        <View style={styles.flexOne}>
+          <View style={styles.badgeLine}>
+            <Text style={styles.fileName}>{attachment.fileName}</Text>
+            <Badge label={ATTACHMENT_KIND_LABELS[attachment.attachmentKind]} tone={attachment.attachmentKind === 'receipt' ? 'positive' : 'blue'} />
+            <Badge label={attachment.visibility} tone={attachment.visibility === 'shared' ? 'amber' : 'neutral'} />
+          </View>
+          <Text style={styles.meta}>
+            {attachment.mimeType} · {formatFileSize(attachment.fileSize)} · {attachment.syncStatus.replaceAll('_', ' ')}
+          </Text>
         </View>
-      )}
-      <View style={styles.flexOne}>
-        <View style={styles.badgeLine}>
-          <Text style={styles.fileName}>{attachment.fileName}</Text>
-          <Badge label={ATTACHMENT_KIND_LABELS[attachment.attachmentKind]} tone={attachment.attachmentKind === 'receipt' ? 'positive' : 'blue'} />
-          <Badge label={attachment.visibility} tone={attachment.visibility === 'shared' ? 'amber' : 'neutral'} />
-        </View>
-        <Text style={styles.meta}>
-          {attachment.mimeType} · {formatFileSize(attachment.fileSize)} · {attachment.syncStatus.replaceAll('_', ' ')}
-        </Text>
-      </View>
+      </Pressable>
       <Pressable accessibilityRole="button" accessibilityLabel="Remove attachment" onPress={onArchive} style={styles.removeButton}>
         <Ionicons name="trash-outline" size={18} color={palette.negative} />
       </Pressable>
-    </Pressable>
+    </View>
   );
 }
 
@@ -214,6 +219,17 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: palette.line,
+  },
+  attachmentMain: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    borderRadius: radii.md,
+  },
+  pressed: {
+    opacity: 0.72,
   },
   thumbnail: {
     width: 54,

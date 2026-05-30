@@ -75,7 +75,7 @@ export async function createRemoteDebtVerification(input: {
     .insert({
       creator_user_id: input.requesterUserId,
       involved_user_id: input.responderUserId,
-      local_member_reference: input.member.id,
+      local_member_reference: input.member.remoteId ?? input.member.id,
       amount: input.debt.amount,
       currency: input.debt.currency,
       title: input.debt.title,

@@ -533,11 +533,85 @@ export function ActionTile({
 
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={title}
       onPress={onPress}
       style={({ pressed }) => [styles.actionTile, pressed && styles.pressed]}
     >
       {content}
     </Pressable>
+  );
+}
+
+export function RequestCard({
+  title,
+  body,
+  amount,
+  status,
+  tone = "amber",
+  actions,
+}: {
+  title: string;
+  body: string;
+  amount?: string;
+  status: string;
+  tone?: Extract<Tone, "amber" | "teal" | "coral" | "muted">;
+  actions?: {
+    label: string;
+    onPress: () => void;
+    variant?: "primary" | "secondary";
+  }[];
+}) {
+  return (
+    <View style={styles.requestCard}>
+      <View style={styles.requestHeader}>
+        <View style={styles.requestCopy}>
+          <Text style={styles.requestTitle} numberOfLines={2}>
+            {title}
+          </Text>
+          <Text style={styles.requestBody}>{body}</Text>
+        </View>
+        <View style={styles.requestMeta}>
+          <StatusPill label={status} tone={tone} />
+          {amount ? (
+            <Text style={styles.requestAmount} numberOfLines={1}>
+              {amount}
+            </Text>
+          ) : null}
+        </View>
+      </View>
+      {actions?.length ? (
+        <View style={styles.requestActions}>
+          {actions.map((action) => {
+            const primary = action.variant !== "secondary";
+            return (
+              <Pressable
+                key={action.label}
+                accessibilityRole="button"
+                accessibilityLabel={action.label}
+                onPress={action.onPress}
+                style={({ pressed }) => [
+                  styles.requestAction,
+                  primary
+                    ? styles.requestActionPrimary
+                    : styles.requestActionSecondary,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.requestActionText,
+                    primary && styles.requestActionTextPrimary,
+                  ]}
+                >
+                  {action.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -1163,7 +1237,7 @@ const styles = StyleSheet.create({
   listAmount: {
     color: palette.textPrimary,
     fontSize: typography.size.base,
-    fontFamily: typefaces.bodyHeavy,
+    fontFamily: typefaces.numeric,
     fontVariant: ["tabular-nums"],
     textAlign: "right",
   },
