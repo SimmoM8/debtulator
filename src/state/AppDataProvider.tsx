@@ -11,6 +11,7 @@ import { buildSyncSummary } from '@/src/services/stage6Sync';
 import { buildLedgerEntries, calculateMemberBalances, calculatePersonalTotals } from '@/src/services/ledger';
 import type {
   AppSettings,
+  AccountDeletionState,
   AppNotification,
   Attachment,
   AttachmentKind,
@@ -444,6 +445,11 @@ type AppDataContextValue = DatabaseSnapshot & {
   markNotificationRead: (notificationId: string) => Promise<AppNotification>;
   markAllNotificationsRead: () => Promise<void>;
   createAuditLog: (input: Omit<AuditLog, 'id' | 'createdAt' | 'deviceId'> & { deviceId?: string | null }) => Promise<AuditLog>;
+  submitAccountDeletionRequest: (input: {
+    userId: string;
+    deleteLocalData: boolean;
+    keepLocalArchive: boolean;
+  }) => Promise<AccountDeletionState>;
   respondToEventVerification: (input: {
     eventId: string;
     targetType: EventVerificationResponse['targetType'];
@@ -931,6 +937,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         });
       },
       createAuditLog: (input) => runAndRefresh((repo) => repo.createAuditLog(input)),
+      submitAccountDeletionRequest: (input) => runAndRefresh((repo) => repo.submitAccountDeletionRequest(input)),
       respondToEventVerification: (input) => runAndRefresh((repo) => repo.respondToEventVerification(input)),
       updateSettings: async (settings) => {
         await runAndRefresh((repo) => repo.updateSettings(settings));
