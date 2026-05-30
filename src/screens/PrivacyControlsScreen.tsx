@@ -37,8 +37,8 @@ export function PrivacyControlsScreen() {
             </Text>
             <Text style={styles.body}>
               These settings control what remains private, how external
-              notification preferences are stored, and when shared data is
-              allowed to leave the device.
+              notifications behave, and when shared data is allowed to leave the
+              device.
             </Text>
           </View>
           <View style={styles.heroArtWrap}>
@@ -126,19 +126,19 @@ export function PrivacyControlsScreen() {
       <Card>
         <SectionTitle
           title="External notifications"
-          subtitle="In-app notifications work today. Push and email are saved as preferences for a future delivery service."
+          subtitle="The in-app notification center still works when these are off."
         />
         <ToggleRow
-          title="Push preference"
-          body="Saved locally for future push reminders; this build does not register a push token or send push."
+          title="Push notifications"
+          body="Expo-compatible token registration is enabled only after permission."
           value={data.settings.pushNotificationsEnabled}
           onValueChange={(pushNotificationsEnabled) =>
             data.updateSettings({ pushNotificationsEnabled })
           }
         />
         <ToggleRow
-          title="Email preference"
-          body="Saved locally for future email reminders and shared ledger updates; no email is sent by this build."
+          title="Email notifications"
+          body="Backend-ready preferences for important account and shared ledger events."
           value={data.settings.emailNotificationsEnabled}
           onValueChange={(emailNotificationsEnabled) =>
             data.updateSettings({ emailNotificationsEnabled })
@@ -146,7 +146,7 @@ export function PrivacyControlsScreen() {
         />
         <ToggleRow
           title="Quiet hours"
-          body={`Applies to future external delivery preferences: ${data.settings.quietHoursStart} to ${data.settings.quietHoursEnd}.`}
+          body={`${data.settings.quietHoursStart} to ${data.settings.quietHoursEnd}`}
           value={data.settings.quietHoursEnabled}
           onValueChange={(quietHoursEnabled) =>
             data.updateSettings({ quietHoursEnabled })
@@ -156,9 +156,6 @@ export function PrivacyControlsScreen() {
           <Button
             title="Verification"
             icon="shield-checkmark"
-            accessibilityState={{
-              selected: data.settings.notificationVerificationEnabled,
-            }}
             variant={
               data.settings.notificationVerificationEnabled
                 ? "primary"
@@ -174,9 +171,6 @@ export function PrivacyControlsScreen() {
           <Button
             title="Events"
             icon="people"
-            accessibilityState={{
-              selected: data.settings.notificationEventEnabled,
-            }}
             variant={
               data.settings.notificationEventEnabled ? "primary" : "secondary"
             }
@@ -190,9 +184,6 @@ export function PrivacyControlsScreen() {
           <Button
             title="Payments"
             icon="card"
-            accessibilityState={{
-              selected: data.settings.notificationPaymentSettlementEnabled,
-            }}
             variant={
               data.settings.notificationPaymentSettlementEnabled
                 ? "primary"
@@ -208,9 +199,6 @@ export function PrivacyControlsScreen() {
           <Button
             title="Reminders"
             icon="alarm"
-            accessibilityState={{
-              selected: data.settings.notificationReminderEnabled,
-            }}
             variant={
               data.settings.notificationReminderEnabled
                 ? "primary"
@@ -226,9 +214,6 @@ export function PrivacyControlsScreen() {
           <Button
             title="Comments"
             icon="chatbubble"
-            accessibilityState={{
-              selected: data.settings.notificationCommentEnabled,
-            }}
             variant={
               data.settings.notificationCommentEnabled ? "primary" : "secondary"
             }
@@ -263,10 +248,6 @@ function ToggleRow({
         <Text style={styles.body}>{body}</Text>
       </View>
       <Switch
-        accessibilityRole="switch"
-        accessibilityLabel={title}
-        accessibilityHint={body}
-        accessibilityState={{ checked: value }}
         value={value}
         onValueChange={onValueChange}
         trackColor={{ false: palette.lineStrong, true: palette.brandSoft }}

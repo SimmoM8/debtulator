@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import React from "react";
-import { Alert, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 import { DebtulatorShieldIllustration } from "@/src/components/illustrations/DebtulatorShieldIllustration";
 import { Badge } from "@/src/components/ui/Badges";
@@ -23,25 +23,6 @@ export function SyncStatusScreen() {
   const pending = data.syncQueue.filter((entry) =>
     ["pending", "running", "failed", "conflict"].includes(entry.status),
   );
-
-  function confirmCancelSyncEntry(entryId: string) {
-    Alert.alert(
-      "Cancel sync work?",
-      "This marks the local sync queue item as cancelled and it will not retry automatically.",
-      [
-        { text: "Keep pending", style: "cancel" },
-        {
-          text: "Cancel work",
-          style: "destructive",
-          onPress: () => {
-            void data.updateSyncQueueEntry(entryId, {
-              status: "cancelled",
-            });
-          },
-        },
-      ],
-    );
-  }
 
   return (
     <Screen>
@@ -147,7 +128,11 @@ export function SyncStatusScreen() {
                     title="Cancel"
                     icon="close"
                     variant="ghost"
-                    onPress={() => confirmCancelSyncEntry(entry.id)}
+                    onPress={() =>
+                      data.updateSyncQueueEntry(entry.id, {
+                        status: "cancelled",
+                      })
+                    }
                   />
                 ) : null}
               </View>

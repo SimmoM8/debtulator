@@ -94,12 +94,6 @@ const sections: MenuSection[] = [
         icon: "download-outline",
       },
       {
-        label: "Full export",
-        subtitle: "Complete local account data as JSON",
-        href: "/full-export",
-        icon: "document-text-outline",
-      },
-      {
         label: "Import CSV",
         subtitle: "Bring in older records carefully",
         href: "/import-csv",
@@ -178,11 +172,7 @@ export function AppMenuButton() {
         onRequestClose={() => setOpen(false)}
       >
         <View style={styles.overlay}>
-          <Pressable
-            accessible={false}
-            style={styles.backdrop}
-            onPress={() => setOpen(false)}
-          />
+          <Pressable style={styles.backdrop} onPress={() => setOpen(false)} />
           <GlassCard tone="lavender" style={styles.menuCard}>
             <View style={styles.headerRow}>
               <View style={styles.headerCopy}>
@@ -213,10 +203,6 @@ export function AppMenuButton() {
                       return (
                         <Pressable
                           key={item.label}
-                          accessibilityRole="button"
-                          accessibilityLabel={item.label}
-                          accessibilityHint={item.subtitle}
-                          accessibilityState={{ selected: active }}
                           onPress={() => {
                             setOpen(false);
                             if (!active) {

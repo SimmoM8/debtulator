@@ -144,10 +144,10 @@ export function LoadingState({
 }
 
 export function PageHeader({
-  eyebrow,
+  eyebrow: _eyebrow,
   detailLabel,
   title,
-  subtitle,
+  subtitle: _subtitle,
   action,
   showBackButton = true,
 }: {
@@ -185,11 +185,6 @@ export function PageHeader({
             <Text numberOfLines={1} style={styles.pageTitleDetail}>
               {title}
             </Text>
-            {subtitle ? (
-              <Text numberOfLines={2} style={styles.pageSubtitleDetail}>
-                {subtitle}
-              </Text>
-            ) : null}
           </View>
           <View style={[styles.pageHeaderEdge, styles.pageHeaderEdgeRight]}>
             {action ? action : <View style={styles.pageHeaderActionSpacer} />}
@@ -199,9 +194,7 @@ export function PageHeader({
         <>
           <View style={styles.pageHeaderMain}>
             <View style={styles.pageHeaderCopy}>
-              {eyebrow ? <Text style={styles.pageEyebrowRoot}>{eyebrow}</Text> : null}
               <Text style={styles.pageTitleRoot}>{title}</Text>
-              {subtitle ? <Text style={styles.pageSubtitleRoot}>{subtitle}</Text> : null}
             </View>
           </View>
           {action ? (
@@ -240,7 +233,7 @@ export function Card({
 
 export function SectionTitle({
   title,
-  subtitle,
+  subtitle: _subtitle,
   action,
 }: {
   title: string;
@@ -251,7 +244,6 @@ export function SectionTitle({
     <View style={styles.sectionTitle}>
       <View style={styles.flexOne}>
         <Text style={styles.sectionHeading}>{title}</Text>
-        {subtitle ? <Text style={styles.sectionSubtitle}>{subtitle}</Text> : null}
       </View>
       {action}
     </View>
@@ -300,8 +292,6 @@ export function Button({
   variant = "primary",
   disabled,
   style,
-  accessibilityHint,
-  accessibilityState,
 }: {
   title: string;
   onPress: () => void;
@@ -309,18 +299,10 @@ export function Button({
   variant?: "primary" | "secondary" | "ghost" | "danger";
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
-  accessibilityHint?: string;
-  accessibilityState?: React.ComponentProps<typeof Pressable>["accessibilityState"];
 }) {
   return (
     <Pressable
-      accessibilityLabel={title}
       accessibilityRole="button"
-      accessibilityHint={accessibilityHint}
-      accessibilityState={{
-        ...accessibilityState,
-        disabled: Boolean(disabled) || accessibilityState?.disabled,
-      }}
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
@@ -477,34 +459,28 @@ export function SegmentedControl<T extends string>({
   onChange: (value: T) => void;
 }) {
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-      <View style={styles.segmented}>
-        {options.map((option) => {
-          const active = option.value === value;
-          return (
-            <Pressable
-              key={option.value}
-              accessibilityRole="button"
-              accessibilityLabel={option.label}
-              accessibilityState={{ selected: active }}
-              onPress={() => onChange(option.value)}
-              style={({ pressed }) => [
-                styles.segment,
-                active && styles.segmentActive,
-                pressed && styles.pressed,
-              ]}
+    <View style={styles.segmented}>
+      {options.map((option) => {
+        const active = option.value === value;
+        return (
+          <Pressable
+            key={option.value}
+            onPress={() => onChange(option.value)}
+            style={({ pressed }) => [
+              styles.segment,
+              active && styles.segmentActive,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text
+              style={[styles.segmentText, active && styles.segmentTextActive]}
             >
-              <Text
-                numberOfLines={1}
-                style={[styles.segmentText, active && styles.segmentTextActive]}
-              >
-                {option.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-    </ScrollView>
+              {option.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
 
@@ -833,35 +809,12 @@ const styles = StyleSheet.create({
     lineHeight: typography.line.h2,
     fontFamily: typefaces.displayMedium,
   },
-  pageEyebrowRoot: {
-    color: palette.primary,
-    fontSize: typography.size.xs,
-    lineHeight: typography.line.sm,
-    fontFamily: typefaces.bodyStrong,
-    textTransform: "uppercase",
-  },
-  pageSubtitleRoot: {
-    color: palette.muted,
-    fontSize: typography.size.base,
-    lineHeight: typography.line.lg,
-    fontFamily: typefaces.body,
-    marginTop: 4,
-    maxWidth: 620,
-  },
   pageTitleDetail: {
     color: palette.textPrimary,
     fontSize: typography.size.base,
     lineHeight: typography.line.lg,
     fontFamily: typefaces.bodyStrong,
     textAlign: "center",
-  },
-  pageSubtitleDetail: {
-    color: palette.muted,
-    fontSize: typography.size.xs,
-    lineHeight: typography.line.sm,
-    fontFamily: typefaces.body,
-    textAlign: "center",
-    maxWidth: 520,
   },
   flexOne: {
     flex: 1,
@@ -876,13 +829,6 @@ const styles = StyleSheet.create({
     fontSize: typography.size.xl,
     lineHeight: typography.line.xl,
     fontFamily: typefaces.displayMedium,
-  },
-  sectionSubtitle: {
-    color: palette.muted,
-    fontSize: typography.size.md,
-    lineHeight: typography.line.lg,
-    fontFamily: typefaces.body,
-    marginTop: 2,
   },
   sectionActionLink: {
     minHeight: 30,
@@ -1008,7 +954,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   segment: {
-    minWidth: 92,
+    flex: 1,
     minHeight: 40,
     alignItems: "center",
     justifyContent: "center",

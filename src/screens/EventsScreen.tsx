@@ -180,13 +180,6 @@ export function EventsScreen() {
             return (
               <Pressable
                 key={event.id}
-                accessibilityRole="button"
-                accessibilityLabel={`${event.name}, ${event.visibility} event, ${event.status}, ${amountLabel}`}
-                accessibilityHint={
-                  explanation.suggestions.length
-                    ? `${explanation.suggestions.length} settlement ideas. Opens event details.`
-                    : "Balanced. Opens event details."
-                }
                 onPress={() =>
                   router.push({
                     pathname: "/event/[id]",
