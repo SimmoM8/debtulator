@@ -1,7 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
 import { GlassCard, ListRow, StatCard } from "@/src/components/ui/Finance";
@@ -366,7 +373,11 @@ export function DashboardScreen() {
         title="Quick actions"
         subtitle="Common tasks stay visible without taking over the screen."
       />
-      <View style={styles.actionGrid}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.actionGrid}
+      >
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Add debt"
@@ -415,7 +426,7 @@ export function DashboardScreen() {
           <Ionicons name="person-add" size={20} color={palette.primary} />
           <Text style={styles.quickActionLabel}>Add member</Text>
         </Pressable>
-      </View>
+      </ScrollView>
 
       <SectionTitle
         title="Recent activity"
@@ -769,9 +780,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "stretch",
     gap: spacing.sm,
+    paddingRight: spacing.xs,
   },
   quickActionTile: {
-    flex: 1,
+    width: 104,
     minHeight: 78,
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
