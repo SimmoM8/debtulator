@@ -92,14 +92,14 @@ export async function runSyncEngine(input: {
     .sort((first, second) => dependencyWeight(first) - dependencyWeight(second) || first.createdAt.localeCompare(second.createdAt))
     .slice(0, input.maxItems ?? 25);
 
-  addTelemetryBreadcrumb('sync', 'run_started', { syncQueueSize: entries.length });
-  trackTelemetryEvent('sync_run_started', { syncQueueSize: entries.length });
-
   let succeeded = 0;
   let failed = 0;
   let conflicts = 0;
 
   try {
+    addTelemetryBreadcrumb('sync', 'run_started', { syncQueueSize: entries.length });
+    trackTelemetryEvent('sync_run_started', { syncQueueSize: entries.length });
+
     for (const entry of entries) {
       const dependenciesReady = entry.dependencyIds.every((id) => hasRemoteIdForLocalId(snapshot, id));
       if (!dependenciesReady) {

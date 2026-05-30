@@ -144,8 +144,8 @@ export function previewRestore(rawJson: string): RestorePreview {
     });
     return preview;
   } catch {
-    addTelemetryBreadcrumb('restore', 'preview_invalid', { valid: false, warningsCount: 1 });
-    trackTelemetryEvent('restore_preview_invalid', { valid: false, warningsCount: 1 });
+    addTelemetryBreadcrumb('restore', 'preview_invalid', { valid: false, warningsCount: 0 });
+    trackTelemetryEvent('restore_preview_invalid', { valid: false, warningsCount: 0 });
     return {
       valid: false,
       schemaVersion: null,
