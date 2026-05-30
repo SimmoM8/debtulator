@@ -177,9 +177,6 @@ export function AppMenuButton() {
             <View style={styles.headerRow}>
               <View style={styles.headerCopy}>
                 <Text style={styles.title}>Navigate</Text>
-                <Text style={styles.subtitle}>
-                  Everything organized in one calm list.
-                </Text>
               </View>
               <View style={styles.headerMeta}>
                 <StatusPill label={currentLabel} tone="indigo" />
@@ -299,12 +296,6 @@ const styles = StyleSheet.create({
     color: palette.textPrimary,
     fontSize: typography.size.h1,
     fontFamily: typefaces.displayMedium,
-  },
-  subtitle: {
-    color: palette.muted,
-    fontSize: typography.size.md,
-    lineHeight: typography.line.lg,
-    fontFamily: typefaces.body,
   },
   sectionList: {
     gap: spacing.lg,
