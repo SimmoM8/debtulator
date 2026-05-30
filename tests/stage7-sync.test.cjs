@@ -39,6 +39,7 @@ const {
 } = require('../src/services/sync/mappers.ts');
 const { buildLedgerEntries } = require('../src/services/ledger.ts');
 const { canRetrySyncEntry } = require('../src/services/stage6Sync.ts');
+const { buildAccountDeletionPlan } = require('../src/services/accountDeletion.ts');
 
 function snapshot(overrides = {}) {
   return {
@@ -337,3 +338,68 @@ test('missing local to remote relationship fails loudly instead of producing mix
   );
 });
 
+test('account deletion plan blocks when unresolved owned conflicts exist', () => {
+  const plan = buildAccountDeletionPlan(
+    snapshot({
+      syncConflicts: [
+        {
+          id: 'conflict_1',
+          entityType: 'event',
+          localEntityId: 'event_local',
+          remoteEntityId: 'event_remote',
+          conflictType: 'both_edited',
+          localSnapshot: {},
+          remoteSnapshot: {},
+          baseSnapshot: null,
+          detectedAt: '2026-01-01T00:00:00.000Z',
+          status: 'unresolved',
+          resolution: null,
+          resolvedAt: null,
+          resolvedByUserId: null,
+        },
+      ],
+    }),
+    'user_a',
+  );
+
+  assert.deepEqual(plan.blockers, ['unresolved_owned_conflicts']);
+});
+
+test('account deletion plan flags owned events for anonymization', () => {
+  const plan = buildAccountDeletionPlan(snapshot(), 'user_a');
+  assert.equal(plan.ownedEventCount, 1);
+});
+
+test('account deletion plan counts owned attachments for anonymization', () => {
+  const plan = buildAccountDeletionPlan(
+    snapshot({
+      attachments: [
+        {
+          id: 'attachment_1',
+          remoteId: null,
+          targetType: 'event',
+          targetId: 'event_local',
+          eventId: 'event_local',
+          createdByUserId: 'user_a',
+          localUri: '/tmp/file.jpg',
+          remoteUrl: 'https://example.com/file.jpg',
+          storagePath: 'attachments/file.jpg',
+          fileName: 'file.jpg',
+          fileType: 'jpg',
+          mimeType: 'image/jpeg',
+          fileSize: 100,
+          attachmentKind: 'receipt',
+          visibility: 'shared',
+          thumbnailUri: null,
+          syncStatus: 'synced',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+          archivedAt: null,
+        },
+      ],
+    }),
+    'user_a',
+  );
+
+  assert.equal(plan.ownedAttachmentCount, 1);
+});
