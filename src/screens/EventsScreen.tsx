@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
     AvatarStack,
@@ -11,6 +11,7 @@ import {
     StatusPill,
 } from "@/src/components/ui/Finance";
 import {
+    Button,
     EmptyState,
     FilterSheet,
     IconButton,
@@ -36,6 +37,16 @@ export function EventsScreen() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<EventFilter>("all");
   const [filterOpen, setFilterOpen] = useState(false);
+
+  function openOptions() {
+    Alert.alert("Event options", "Choose an action", [
+      {
+        text: "Open filters",
+        onPress: () => setFilterOpen(true),
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  }
 
   const events = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -83,11 +94,17 @@ export function EventsScreen() {
         showBackButton={false}
         action={
           <IconButton
-            icon="add"
-            label="Add event"
-            onPress={() => router.push("/event/form")}
+            icon="ellipsis-horizontal"
+            label="Event options"
+            onPress={openOptions}
           />
         }
+      />
+
+      <Button
+        title="Add event"
+        icon="add"
+        onPress={() => router.push("/event/form")}
       />
 
       <SearchFilterBar
