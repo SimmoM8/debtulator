@@ -331,9 +331,6 @@ function PrivacySwitch({
     <View style={styles.switchRow}>
       <Text style={styles.switchLabel}>{label}</Text>
       <Switch
-        accessibilityRole="switch"
-        accessibilityLabel={label}
-        accessibilityState={{ checked: value }}
         value={value}
         onValueChange={onValueChange}
         trackColor={{ false: palette.lineStrong, true: palette.brandSoft }}

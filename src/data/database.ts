@@ -684,8 +684,6 @@ type AuditLogRow = {
 };
 
 const DB_NAME = 'debtulator-stage1.db';
-const DEMO_SEEDING_SETTING_KEY = '__demoSeeding';
-const DEMO_SEEDING_DISABLED = 'disabled';
 
 export async function openDebtulatorDatabase() {
   const db = await SQLite.openDatabaseAsync(DB_NAME);
@@ -1494,12 +1492,10 @@ export async function resetDatabase(db: SQLite.SQLiteDatabase, seed = true) {
     DELETE FROM app_settings;
   `);
 
-  await seedDefaults(db);
-
   if (seed) {
     await seedDemoData(db);
   } else {
-    await disableDemoSeeding(db);
+    await seedDefaults(db);
   }
 }
 
@@ -1513,23 +1509,9 @@ export async function seedIfEmpty(db: SQLite.SQLiteDatabase) {
       (SELECT COUNT(*) FROM shared_expenses) AS count`,
   );
 
-  if ((row?.count ?? 0) === 0 && !(await isDemoSeedingDisabled(db))) {
+  if ((row?.count ?? 0) === 0) {
     await seedDemoData(db);
   }
-}
-
-async function disableDemoSeeding(db: SQLite.SQLiteDatabase) {
-  await db.runAsync(`INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)`, [
-    DEMO_SEEDING_SETTING_KEY,
-    DEMO_SEEDING_DISABLED,
-  ]);
-}
-
-async function isDemoSeedingDisabled(db: SQLite.SQLiteDatabase) {
-  const row = await db.getFirstAsync<{ value: string }>(`SELECT value FROM app_settings WHERE key = ?`, [
-    DEMO_SEEDING_SETTING_KEY,
-  ]);
-  return row?.value === DEMO_SEEDING_DISABLED;
 }
 
 export async function seedDefaults(db: SQLite.SQLiteDatabase) {
