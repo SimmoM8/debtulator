@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { Alert, StyleSheet, Switch, Text, View } from "react-native";
 
 import { DebtulatorShieldIllustration } from "@/src/components/illustrations/DebtulatorShieldIllustration";
@@ -13,7 +13,6 @@ import {
 import { palette, spacing, typefaces,
 typography,
 } from "@/src/constants/design";
-import { getLatestAccountDeletionState } from "@/src/services/accountDeletion";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
 
@@ -23,13 +22,7 @@ export function DeleteAccountScreen() {
   const [confirmation, setConfirmation] = useState("");
   const [deleteLocalData, setDeleteLocalData] = useState(false);
   const [keepLocalArchive, setKeepLocalArchive] = useState(true);
-  const [requestPending, setRequestPending] = useState(false);
   const canRequest = confirmation.trim().toUpperCase() === "DELETE";
-  const latestState = useMemo(() => {
-    const userId = auth.identity.authenticatedUserId;
-    if (!userId) return null;
-    return getLatestAccountDeletionState(data.auditLogs, userId);
-  }, [auth.identity.authenticatedUserId, data.auditLogs]);
 
   function requestDeletion() {
     if (!canRequest) {
@@ -48,33 +41,16 @@ export function DeleteAccountScreen() {
           text: "Record request",
           style: "destructive",
           onPress: async () => {
-            const userId = auth.identity.authenticatedUserId;
-            if (!userId) {
-              Alert.alert("Sign in required", "Sign in before requesting account deletion.");
-              return;
-            }
-            try {
-              setRequestPending(true);
-              const result = await data.submitAccountDeletionRequest({
-                userId,
-                deleteLocalData,
-                keepLocalArchive,
-              });
-              if (result.status === "failed") {
-                Alert.alert(
-                  "Deletion blocked",
-                  result.failureReason === "unresolved_owned_conflicts"
-                    ? "Resolve owned sync conflicts before deleting your account."
-                    : "Account deletion failed. Please try again.",
-                );
-                return;
-              }
-              if (deleteLocalData && !keepLocalArchive) {
-                await data.resetLocalData(false);
-              }
-              Alert.alert("Deletion completed", "Your account data cleanup request was fulfilled.");
-            } finally {
-              setRequestPending(false);
+            await data.createAuditLog({
+              actorUserId: auth.identity.authenticatedUserId,
+              action: "account_deletion_requested",
+              targetType: "account",
+              targetId: auth.identity.authenticatedUserId,
+              eventId: null,
+              metadata: { deleteLocalData, keepLocalArchive },
+            });
+            if (deleteLocalData && !keepLocalArchive) {
+              await data.resetLocalData(false);
             }
           },
         },
@@ -144,19 +120,9 @@ export function DeleteAccountScreen() {
           title="Request account deletion"
           icon="trash"
           variant="danger"
-          disabled={!canRequest || requestPending}
+          disabled={!canRequest}
           onPress={requestDeletion}
         />
-        {requestPending ? (
-          <Text style={styles.statusText}>Deletion status: pending fulfillment…</Text>
-        ) : latestState ? (
-          <Text style={styles.statusText}>
-            Deletion status: {latestState.status}
-            {latestState.status === "failed" && latestState.failureReason
-              ? ` (${latestState.failureReason.replaceAll("_", " ")})`
-              : ""}
-          </Text>
-        ) : null}
       </Card>
     </Screen>
   );
@@ -247,10 +213,5 @@ const styles = StyleSheet.create({
     color: palette.ink,
     fontSize: typography.size.lg,
     fontFamily: typefaces.bodyHeavy,
-  },
-  statusText: {
-    color: palette.muted,
-    fontSize: typography.size.sm,
-    fontFamily: typefaces.body,
   },
 });

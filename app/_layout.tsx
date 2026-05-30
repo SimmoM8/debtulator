@@ -19,7 +19,8 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/src/components/ErrorBoundary";
 import { palette } from "@/src/constants/design";
-import { AppDataProvider } from "@/src/state/AppDataProvider";
+import { addTelemetryBreadcrumb, configureTelemetry, installGlobalCrashHandler } from "@/src/services/telemetry";
+import { AppDataProvider, useAppData } from "@/src/state/AppDataProvider";
 import { AuthProvider } from "@/src/state/AuthProvider";
 
 export const unstable_settings = {
@@ -55,8 +56,14 @@ export default function RootLayout() {
   const fontsLoaded = manropeLoaded && soraLoaded;
 
   useEffect(() => {
+    installGlobalCrashHandler();
+    addTelemetryBreadcrumb("app", "bootstrap_started");
+  }, []);
+
+  useEffect(() => {
     if (fontsLoaded) {
       void SplashScreen.hideAsync();
+      addTelemetryBreadcrumb("app", "bootstrap_ready", { result: "fonts_loaded" });
     }
   }, [fontsLoaded]);
 
@@ -67,6 +74,7 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AppDataProvider>
+        <TelemetrySettingsBridge />
         <AuthProvider>
           <ThemeProvider value={DebtulatorTheme}>
             <ErrorBoundary>
@@ -109,4 +117,17 @@ export default function RootLayout() {
       </AppDataProvider>
     </SafeAreaProvider>
   );
+}
+
+function TelemetrySettingsBridge() {
+  const data = useAppData();
+
+  useEffect(() => {
+    configureTelemetry({
+      telemetryEnabled: data.settings.betaTelemetryEnabled,
+      crashReportingEnabled: data.settings.betaCrashReportingEnabled,
+    });
+  }, [data.settings.betaCrashReportingEnabled, data.settings.betaTelemetryEnabled]);
+
+  return null;
 }

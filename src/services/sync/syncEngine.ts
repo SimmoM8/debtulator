@@ -1,6 +1,7 @@
 import type { DatabaseSnapshot } from '@/src/data/database';
 import { supabase } from '@/src/services/supabase';
 import { canRetrySyncEntry } from '@/src/services/stage6Sync';
+import { addTelemetryBreadcrumb, captureTelemetryException, trackFirstSuccess, trackTelemetryEvent } from '@/src/services/telemetry';
 import {
   mapLocalAttachmentToRemote,
   mapLocalCommentToRemote,
@@ -91,59 +92,89 @@ export async function runSyncEngine(input: {
     .sort((first, second) => dependencyWeight(first) - dependencyWeight(second) || first.createdAt.localeCompare(second.createdAt))
     .slice(0, input.maxItems ?? 25);
 
+  addTelemetryBreadcrumb('sync', 'run_started', { syncQueueSize: entries.length });
+  trackTelemetryEvent('sync_run_started', { syncQueueSize: entries.length });
+
   let succeeded = 0;
   let failed = 0;
   let conflicts = 0;
 
-  for (const entry of entries) {
-    const dependenciesReady = entry.dependencyIds.every((id) => hasRemoteIdForLocalId(snapshot, id));
-    if (!dependenciesReady) {
-      continue;
-    }
-
-    await input.store.updateSyncQueueEntry(entry.id, {
-      status: 'running',
-      lastAttemptAt: nowIso(),
-      errorCode: null,
-      errorMessage: null,
-    });
-
-    try {
-      const nextSnapshot = await processEntry(entry, snapshot, input.store, input.userId);
-      snapshot = nextSnapshot;
-      await input.store.updateSyncQueueEntry(entry.id, { status: 'succeeded' });
-      succeeded += 1;
-    } catch (error) {
-      if (error instanceof ConflictDetectedError) {
-        await input.store.updateSyncQueueEntry(entry.id, { status: 'conflict', errorCode: 'conflict', errorMessage: error.message });
-        conflicts += 1;
+  try {
+    for (const entry of entries) {
+      const dependenciesReady = entry.dependencyIds.every((id) => hasRemoteIdForLocalId(snapshot, id));
+      if (!dependenciesReady) {
         continue;
       }
-      const mapped = normaliseSyncError(error);
-      if (mapped.errorCode === 'permission_denied') {
-        snapshot = await markEntitySyncStatus(snapshot, input.store, entry.entityType, entry.entityId, 'permission_error');
-      } else if (mapped.errorCode === 'mapping_error') {
-        snapshot = await markEntitySyncStatus(snapshot, input.store, entry.entityType, entry.entityId, 'sync_error');
-      }
+
       await input.store.updateSyncQueueEntry(entry.id, {
-        status: mapped.status,
-        retryCount: entry.retryCount + 1,
-        errorCode: mapped.errorCode,
-        errorMessage: mapped.message,
+        status: 'running',
+        lastAttemptAt: nowIso(),
+        errorCode: null,
+        errorMessage: null,
       });
-      failed += 1;
+
+      try {
+        const nextSnapshot = await processEntry(entry, snapshot, input.store, input.userId);
+        snapshot = nextSnapshot;
+        await input.store.updateSyncQueueEntry(entry.id, { status: 'succeeded' });
+        succeeded += 1;
+        addTelemetryBreadcrumb('sync', 'entry_succeeded', {
+          entityType: entry.entityType,
+          operation: entry.operation,
+        });
+      } catch (error) {
+        if (error instanceof ConflictDetectedError) {
+          await input.store.updateSyncQueueEntry(entry.id, { status: 'conflict', errorCode: 'conflict', errorMessage: error.message });
+          conflicts += 1;
+          addTelemetryBreadcrumb('sync', 'entry_conflict', {
+            entityType: entry.entityType,
+            operation: entry.operation,
+            result: 'conflict',
+          });
+          continue;
+        }
+        const mapped = normaliseSyncError(error);
+        if (mapped.errorCode === 'permission_denied') {
+          snapshot = await markEntitySyncStatus(snapshot, input.store, entry.entityType, entry.entityId, 'permission_error');
+        } else if (mapped.errorCode === 'mapping_error') {
+          snapshot = await markEntitySyncStatus(snapshot, input.store, entry.entityType, entry.entityId, 'sync_error');
+        }
+        await input.store.updateSyncQueueEntry(entry.id, {
+          status: mapped.status,
+          retryCount: entry.retryCount + 1,
+          errorCode: mapped.errorCode,
+          errorMessage: mapped.message,
+        });
+        failed += 1;
+        addTelemetryBreadcrumb('sync', 'entry_failed', {
+          entityType: entry.entityType,
+          operation: entry.operation,
+          errorCode: mapped.errorCode,
+          result: 'failure',
+        });
+      }
     }
+
+    const pull = await pullRemoteData({ store: input.store, userId: input.userId, email: input.email });
+    const result: SyncEngineResult = {
+      processed: entries.length,
+      succeeded,
+      failed,
+      conflicts,
+      pulled: pull.pulledCount,
+    };
+
+    addTelemetryBreadcrumb('sync', 'run_completed', result);
+    trackTelemetryEvent('sync_run_completed', result);
+    if (result.succeeded > 0 || result.pulled > 0) {
+      trackFirstSuccess('sync', { source: 'sync_engine', result: 'success' });
+    }
+    return result;
+  } catch (error) {
+    addTelemetryBreadcrumb('sync', 'run_failed', { processed: entries.length, result: 'failure' });
+    captureTelemetryException(error, 'sync_engine_run', { processed: entries.length });
+    throw error;
   }
-
-  const pull = await pullRemoteData({ store: input.store, userId: input.userId, email: input.email });
-
-  return {
-    processed: entries.length,
-    succeeded,
-    failed,
-    conflicts,
-    pulled: pull.pulledCount,
-  };
 }
 
 async function processEntry(
@@ -677,6 +708,12 @@ async function createConflict(
     targetId: conflict.id,
     metadata: { conflictType },
   });
+  addTelemetryBreadcrumb('sync', 'conflict_detected', {
+    entityType,
+    conflictType,
+    result: 'conflict',
+  });
+  trackTelemetryEvent('sync_conflict_detected', { entityType, conflictType, result: 'conflict' });
   return conflict;
 }
 

@@ -21,6 +21,12 @@ import {
     restoreModeDescription,
     shareBackupFile,
 } from "@/src/services/backupRestore";
+import {
+  addTelemetryBreadcrumb,
+  captureTelemetryException,
+  trackFirstSuccess,
+  trackTelemetryEvent,
+} from "@/src/services/telemetry";
 import { useAppData } from "@/src/state/AppDataProvider";
 import type { BackupMode } from "@/src/types/models";
 
@@ -40,24 +46,32 @@ export function BackupRestoreScreen() {
   );
 
   async function createBackup() {
-    const backup = buildBackup(data, {
-      includeAttachments,
-      includePrivateNotes,
-    });
-    const uri = await shareBackupFile(backup);
-    await data.updateSettings({
-      backupIncludeAttachments: includeAttachments,
-      backupIncludePrivateNotes: includePrivateNotes,
-      lastBackupAt: backup.exportedAt,
-    });
-    await data.createAuditLog({
-      actorUserId: null,
-      action: "backup_exported",
-      targetType: "backup",
-      targetId: uri,
-      eventId: null,
-      metadata: { includeAttachments, includePrivateNotes },
-    });
+    try {
+      const backup = buildBackup(data, {
+        includeAttachments,
+        includePrivateNotes,
+      });
+      await shareBackupFile(backup);
+      await data.updateSettings({
+        backupIncludeAttachments: includeAttachments,
+        backupIncludePrivateNotes: includePrivateNotes,
+        lastBackupAt: backup.exportedAt,
+      });
+      await data.createAuditLog({
+        actorUserId: null,
+        action: "backup_exported",
+        targetType: "backup",
+        targetId: null,
+        eventId: null,
+        metadata: { includeAttachments, includePrivateNotes },
+      });
+      addTelemetryBreadcrumb("backup", "audit_logged", { result: "success" });
+      trackTelemetryEvent("backup_audit_logged", { result: "success" });
+    } catch (error) {
+      addTelemetryBreadcrumb("backup", "create_failed", { result: "failure" });
+      captureTelemetryException(error, "backup_create", {});
+      throw error;
+    }
   }
 
   function confirmRestore() {
@@ -75,15 +89,25 @@ export function BackupRestoreScreen() {
         { text: "Cancel", style: "cancel" },
         {
           text: "Record restore",
-          onPress: () =>
-            data.createAuditLog({
+          onPress: () => {
+            addTelemetryBreadcrumb("restore", "decision_recorded", {
+              mode: restoreMode,
+              valid: preview.valid,
+            });
+            trackTelemetryEvent("restore_decision_recorded", {
+              mode: restoreMode,
+              valid: preview.valid,
+            });
+            trackFirstSuccess("restore", { mode: restoreMode, result: "success" });
+            void data.createAuditLog({
               actorUserId: null,
               action: "restore_performed",
               targetType: "backup",
               targetId: null,
               eventId: null,
               metadata: { restoreMode, preview },
-            }),
+            });
+          },
         },
       ],
     );
