@@ -1,7 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
 import {
@@ -754,9 +760,34 @@ const styles = StyleSheet.create({
   },
   actionGrid: {
     flexDirection: "row",
-    flexWrap: "wrap",
+    flexWrap: "nowrap",
     alignItems: "stretch",
     gap: spacing.sm,
+    paddingHorizontal: spacing.xs,
+  },
+  quickActionTile: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 78,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderGlass,
+    backgroundColor: palette.surfaceGlassElevated,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    paddingHorizontal: 6,
+    ...shadows.card,
+  },
+  quickActionTilePressed: {
+    opacity: 0.75,
+  },
+  quickActionLabel: {
+    color: palette.primary,
+    fontSize: typography.size.xs,
+    lineHeight: typography.line.xs,
+    fontFamily: typefaces.bodyStrong,
+    textAlign: "center",
   },
   listColumn: {
     gap: 0,
