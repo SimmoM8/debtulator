@@ -34,12 +34,13 @@ export type RestorePreview = {
 };
 
 export const RESTORE_PREVIEW_MAX_BYTES = 5 * 1024 * 1024;
+export const BACKUP_SCHEMA_VERSION = 6;
 
 export function buildBackup(snapshot: DatabaseSnapshot, options: BackupOptions): DebtulatorBackup {
   const attachments = options.includeAttachments ? sanitizeAttachmentsForPortableExport(snapshot.attachments) : [];
   return {
     app: 'Debtulator',
-    schemaVersion: 6,
+    schemaVersion: BACKUP_SCHEMA_VERSION,
     exportedAt: new Date().toISOString(),
     privacy: {
       includesAttachments: options.includeAttachments,
@@ -106,7 +107,7 @@ export function previewRestore(rawJson: string): RestorePreview {
     if (parsed.app !== 'Debtulator') {
       warnings.push('This does not look like a Debtulator backup.');
     }
-    if (parsed.schemaVersion !== 6) {
+    if (parsed.schemaVersion !== BACKUP_SCHEMA_VERSION) {
       warnings.push(schemaWarning(parsed.schemaVersion));
     }
     if (parsed.privacy?.restoredRecordsDefaultPrivate !== true) {
@@ -178,7 +179,7 @@ function schemaWarning(schemaVersion: unknown) {
   if (typeof schemaVersion !== 'number') {
     return 'Backup schema is missing or invalid.';
   }
-  if (schemaVersion < 6) {
+  if (schemaVersion < BACKUP_SCHEMA_VERSION) {
     return 'Backup schema is older than this app version.';
   }
   return 'Backup schema is newer than this app version.';

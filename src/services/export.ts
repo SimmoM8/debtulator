@@ -385,8 +385,12 @@ function unsafeAttachmentReason(attachment: Attachment) {
     return `Attachment ${label} is larger than the ${Math.round(PORTABLE_ATTACHMENT_MAX_BYTES / 1024 / 1024)} MB export limit.`;
   }
   const mime = attachment.mimeType?.trim().toLowerCase();
-  if (!mime || (!mime.startsWith('image/') && !PORTABLE_ATTACHMENT_MIME_TYPES.has(mime))) {
+  if (!isAllowedPortableMimeType(mime)) {
     return `Attachment ${label} has unsupported MIME type "${attachment.mimeType || 'unknown'}".`;
   }
   return null;
+}
+
+function isAllowedPortableMimeType(mime: string | undefined) {
+  return Boolean(mime) && (mime.startsWith('image/') || PORTABLE_ATTACHMENT_MIME_TYPES.has(mime));
 }
