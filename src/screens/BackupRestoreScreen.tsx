@@ -69,8 +69,8 @@ export function BackupRestoreScreen() {
       return;
     }
     Alert.alert(
-      "Restore backup?",
-      `${restoreModeDescription(restoreMode)} Restored synced records default to private/local unless explicitly re-shared.`,
+      "Record restore preference?",
+      `${restoreModeDescription(restoreMode)} This screen currently validates backups and records your choice only.`,
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -94,7 +94,7 @@ export function BackupRestoreScreen() {
       <PageHeader
         eyebrow="Data safety"
         title="Backup and restore"
-        subtitle="Backups default restored records to private/local copies."
+        subtitle="Backups are available now; restore imports remain disabled in this beta build."
       />
 
       <Card tone="lavender" style={styles.heroCard}>
@@ -156,8 +156,8 @@ export function BackupRestoreScreen() {
 
       <Card>
         <SectionTitle
-          title="Restore preview"
-          subtitle="Paste backup JSON to validate before choosing a restore mode."
+          title="Restore validation"
+          subtitle="Paste backup JSON to validate it and record your preferred restore mode."
         />
         <TextField
           label="Backup JSON"
