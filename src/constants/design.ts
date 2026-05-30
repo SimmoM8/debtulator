@@ -19,11 +19,14 @@ export const palette = {
   surfaceGlass: "rgba(255,255,255,0.68)",
   surfaceGlassElevated: "rgba(255,255,255,0.94)",
   surfaceGlassStrong: "rgba(255,255,255,0.98)",
+  surfaceRow: "rgba(255,255,255,0.72)",
+  surfaceRowPressed: "rgba(247,249,255,0.92)",
   surfaceLavender: "#F7F9FF",
   surfaceAlt: "rgba(255,255,255,0.86)",
   border: "#E2E6F2",
   borderStrong: "#D5DBEA",
   borderGlass: "rgba(226,230,242,0.9)",
+  borderRow: "rgba(226,230,242,0.72)",
   borderIndigoSoft: "rgba(55,48,163,0.08)",
   borderIndigo: "rgba(55,48,163,0.14)",
   canvasLine: "rgba(36,24,95,0.06)",
@@ -128,6 +131,7 @@ export const typefaces = {
   body: "Manrope_500Medium",
   bodyStrong: "Manrope_700Bold",
   bodyHeavy: "Manrope_800ExtraBold",
+  numeric: "Manrope_800ExtraBold",
 };
 
 export const shadows = {

@@ -9,18 +9,15 @@ import {
     PageHeader,
     Screen,
     SectionTitle,
-    SelectChips,
 } from "@/src/components/ui/Primitives";
 import { palette, spacing, typefaces,
 typography,
 } from "@/src/constants/design";
 import { sanitizeAttachmentsForPortableExport } from "@/src/services/export";
 import { useAppData } from "@/src/state/AppDataProvider";
-import type { DataExportFormat } from "@/src/types/models";
 
 export function FullDataExportScreen() {
   const data = useAppData();
-  const [format, setFormat] = useState<DataExportFormat>("json");
   const [includeAttachments, setIncludeAttachments] = useState(
     data.settings.includeAttachmentsInExports,
   );
@@ -29,20 +26,13 @@ export function FullDataExportScreen() {
   );
 
   async function exportData() {
-    if (format !== "json") {
-      Alert.alert(
-        "Format unavailable in beta",
-        "CSV package and PDF summary exports are not yet supported in beta. Please use JSON export.",
-      );
-      return;
-    }
     try {
       const exportedAt = new Date().toISOString();
       const payload = {
         app: "Debtulator",
         schemaVersion: 6,
         exportedAt,
-        format,
+        format: "json",
         labels: {
           sharedRecords:
             "Records marked shared were visible according to current local permission cache.",
@@ -88,7 +78,7 @@ export function FullDataExportScreen() {
         exportType: "text_summary",
         targetType: "ledger",
         targetId: null,
-        metadata: { includeAttachments, includePrivateNotes, format, fullExport: true },
+        metadata: { includeAttachments, includePrivateNotes, fullExport: true },
       });
       await data.createAuditLog({
         actorUserId: null,
@@ -96,7 +86,7 @@ export function FullDataExportScreen() {
         targetType: "backup",
         targetId: uri,
         eventId: null,
-        metadata: { format, includeAttachments, includePrivateNotes },
+        metadata: { format: "json", includeAttachments, includePrivateNotes },
       });
       await Share.share({ url: uri, message: "Debtulator full data export" });
     } catch (error) {
@@ -138,18 +128,13 @@ export function FullDataExportScreen() {
       <Card>
         <SectionTitle
           title="Export options"
-          subtitle="Beta currently supports JSON only. CSV package and PDF summary are deferred."
+          subtitle="JSON is the complete production-grade export format."
         />
-        <SelectChips
-          label="Format"
-          value={format}
-          onChange={setFormat}
-          options={[
-            { label: "JSON", value: "json" },
-            { label: "CSV package", value: "csv_package" },
-            { label: "PDF summary", value: "pdf_summary" },
-          ]}
-        />
+        <Text style={styles.body}>
+          Full account export is generated as JSON. CSV and PDF exports remain
+          available from the scoped export screen for specific ledgers, members,
+          events, payments, and settlements.
+        </Text>
         <ToggleRow
           title="Include attachment metadata"
           value={includeAttachments}
@@ -183,6 +168,9 @@ function ToggleRow({
     <View style={styles.switchRow}>
       <Text style={styles.title}>{title}</Text>
       <Switch
+        accessibilityRole="switch"
+        accessibilityLabel={title}
+        accessibilityState={{ checked: value }}
         value={value}
         onValueChange={onValueChange}
         trackColor={{ false: palette.lineStrong, true: palette.brandSoft }}
