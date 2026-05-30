@@ -4,7 +4,6 @@ import React, { useMemo, useState } from "react";
 import {
   Modal,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -373,11 +372,7 @@ export function DashboardScreen() {
         title="Quick actions"
         subtitle="Common tasks stay visible without taking over the screen."
       />
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.actionGrid}
-      >
+      <View style={styles.actionGrid}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Add debt"
@@ -426,7 +421,7 @@ export function DashboardScreen() {
           <Ionicons name="person-add" size={20} color={palette.primary} />
           <Text style={styles.quickActionLabel}>Add member</Text>
         </Pressable>
-      </ScrollView>
+      </View>
 
       <SectionTitle
         title="Recent activity"
@@ -583,8 +578,6 @@ const MODE_OPTIONS: { value: LedgerMode; label: string; hint: string }[] = [
     hint: "Everything in one summary",
   },
 ];
-
-const QUICK_ACTION_TILE_WIDTH = 104;
 
 const styles = StyleSheet.create({
   headerRow: {
@@ -780,12 +773,14 @@ const styles = StyleSheet.create({
   },
   actionGrid: {
     flexDirection: "row",
+    flexWrap: "nowrap",
     alignItems: "stretch",
     gap: spacing.sm,
     paddingHorizontal: spacing.xs,
   },
   quickActionTile: {
-    width: QUICK_ACTION_TILE_WIDTH,
+    flex: 1,
+    minWidth: 0,
     minHeight: 78,
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
