@@ -94,6 +94,12 @@ const sections: MenuSection[] = [
         icon: "download-outline",
       },
       {
+        label: "Full export",
+        subtitle: "Complete local account data as JSON",
+        href: "/full-export",
+        icon: "document-text-outline",
+      },
+      {
         label: "Import CSV",
         subtitle: "Bring in older records carefully",
         href: "/import-csv",

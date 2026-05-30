@@ -130,7 +130,7 @@ export function PrivacyControlsScreen() {
         />
         <ToggleRow
           title="Push notifications"
-          body="Expo-compatible token registration is enabled only after permission."
+          body="Stores your preference for future push reminders. In-app notifications work today."
           value={data.settings.pushNotificationsEnabled}
           onValueChange={(pushNotificationsEnabled) =>
             data.updateSettings({ pushNotificationsEnabled })
@@ -138,7 +138,7 @@ export function PrivacyControlsScreen() {
         />
         <ToggleRow
           title="Email notifications"
-          body="Backend-ready preferences for important account and shared ledger events."
+          body="Stores your preference for future email reminders and shared ledger updates."
           value={data.settings.emailNotificationsEnabled}
           onValueChange={(emailNotificationsEnabled) =>
             data.updateSettings({ emailNotificationsEnabled })
