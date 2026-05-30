@@ -6,6 +6,7 @@ import { isSupabaseConfigured, supabase } from '@/src/services/supabase';
 import { fetchRemoteStage2Records } from '@/src/services/stage2Sync';
 import { canRetrySyncEntry } from '@/src/services/stage6Sync';
 import { runSyncEngine } from '@/src/services/sync/syncEngine';
+import { addTelemetryBreadcrumb, captureTelemetryException, trackFirstSuccess, trackTelemetryEvent } from '@/src/services/telemetry';
 import { useAppData } from '@/src/state/AppDataProvider';
 import type {
   CurrencyCode,
@@ -254,8 +255,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) {
       return;
     }
-    await runSyncEngine({ store: data, userId: user.id, email: user.email ?? null });
-    await data.refresh();
+    addTelemetryBreadcrumb('sync', 'auth_bootstrap_sync_started', { hasUser: true });
+    trackTelemetryEvent('auth_bootstrap_sync_started', { hasUser: true });
+    try {
+      const result = await runSyncEngine({ store: data, userId: user.id, email: user.email ?? null });
+      await data.refresh();
+      addTelemetryBreadcrumb('sync', 'auth_bootstrap_sync_completed', {
+        processed: result.processed,
+        succeeded: result.succeeded,
+        failed: result.failed,
+        conflicts: result.conflicts,
+        pulled: result.pulled,
+      });
+      trackFirstSuccess('sync', { source: 'auth_bootstrap', result: 'success' });
+    } catch (error) {
+      addTelemetryBreadcrumb('sync', 'auth_bootstrap_sync_failed', { result: 'failure' });
+      captureTelemetryException(error, 'auth_bootstrap_sync', { source: 'auth_bootstrap' });
+      throw error;
+    }
   }, [data, user]);
 
   const refreshProfileRef = useRef(refreshProfile);
@@ -345,37 +362,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Supabase is not configured. Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY.');
       }
 
-      const { data: authData, error } = await supabase.auth.signUp({
-        email: email.trim(),
-        password,
-        options: { data: { display_name: displayName.trim() } },
-      });
-      if (error) {
-        throw error;
-      }
-
-      const signedUpUser = authData.user;
-      if (signedUpUser) {
-        if (authData.session) {
-          await upsertLocalAndRemoteProfile({
-            userId: signedUpUser.id,
-            displayName,
-            email: signedUpUser.email ?? email,
-            baseCurrency: data.settings.baseCurrency,
-          });
-        } else {
-          const timestamp = nowIso();
-          await data.upsertProfile({
-            id: signedUpUser.id,
-            displayName: displayName.trim(),
-            email: signedUpUser.email ?? email,
-            phone: null,
-            avatarUrl: null,
-            baseCurrency: data.settings.baseCurrency,
-            createdAt: timestamp,
-            updatedAt: timestamp,
-          });
+      addTelemetryBreadcrumb('auth', 'sign_up_started', { method: 'password' });
+      trackTelemetryEvent('onboarding_sign_up_started', { method: 'password' });
+      try {
+        const { data: authData, error } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: { data: { display_name: displayName.trim() } },
+        });
+        if (error) {
+          throw error;
         }
+
+        const signedUpUser = authData.user;
+        if (signedUpUser) {
+          if (authData.session) {
+            await upsertLocalAndRemoteProfile({
+              userId: signedUpUser.id,
+              displayName,
+              email: signedUpUser.email ?? email,
+              baseCurrency: data.settings.baseCurrency,
+            });
+          } else {
+            const timestamp = nowIso();
+            await data.upsertProfile({
+              id: signedUpUser.id,
+              displayName: displayName.trim(),
+              email: signedUpUser.email ?? email,
+              phone: null,
+              avatarUrl: null,
+              baseCurrency: data.settings.baseCurrency,
+              createdAt: timestamp,
+              updatedAt: timestamp,
+            });
+          }
+          addTelemetryBreadcrumb('auth', 'sign_up_succeeded', { method: 'password', hasSession: Boolean(authData.session) });
+          trackTelemetryEvent('onboarding_sign_up_completed', { method: 'password', hasSession: Boolean(authData.session) });
+          trackFirstSuccess('auth', { method: 'sign_up' });
+        } else {
+          addTelemetryBreadcrumb('auth', 'sign_up_succeeded', { method: 'password', hasSession: false });
+          trackTelemetryEvent('onboarding_sign_up_completed', { method: 'password', hasSession: false });
+        }
+      } catch (error) {
+        addTelemetryBreadcrumb('auth', 'sign_up_failed', { method: 'password', result: 'failure' });
+        captureTelemetryException(error, 'auth_sign_up', { method: 'password' });
+        throw error;
       }
     },
     [data, upsertLocalAndRemoteProfile],
@@ -386,8 +417,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error('Supabase is not configured. Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY.');
     }
 
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-    if (error) {
+    addTelemetryBreadcrumb('auth', 'sign_in_started', { method: 'password' });
+    trackTelemetryEvent('auth_sign_in_started', { method: 'password' });
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      if (error) {
+        throw error;
+      }
+      addTelemetryBreadcrumb('auth', 'sign_in_succeeded', { method: 'password' });
+      trackTelemetryEvent('auth_sign_in_succeeded', { method: 'password' });
+      trackFirstSuccess('auth', { method: 'sign_in' });
+    } catch (error) {
+      addTelemetryBreadcrumb('auth', 'sign_in_failed', { method: 'password', result: 'failure' });
+      captureTelemetryException(error, 'auth_sign_in', { method: 'password' });
       throw error;
     }
   }, []);
@@ -397,8 +439,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const { error } = await supabase.auth.signOut();
-    if (error) {
+    addTelemetryBreadcrumb('auth', 'sign_out_started', {});
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        throw error;
+      }
+      addTelemetryBreadcrumb('auth', 'sign_out_succeeded', {});
+      trackTelemetryEvent('auth_sign_out_succeeded', {});
+    } catch (error) {
+      addTelemetryBreadcrumb('auth', 'sign_out_failed', { result: 'failure' });
+      captureTelemetryException(error, 'auth_sign_out', {});
       throw error;
     }
     setSession(null);
@@ -409,8 +460,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error('Supabase is not configured. Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY.');
     }
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
-    if (error) {
+    addTelemetryBreadcrumb('auth', 'reset_password_started', { method: 'email' });
+    trackTelemetryEvent('auth_reset_password_started', { method: 'email' });
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
+      if (error) {
+        throw error;
+      }
+      addTelemetryBreadcrumb('auth', 'reset_password_succeeded', { method: 'email' });
+      trackTelemetryEvent('auth_reset_password_succeeded', { method: 'email' });
+    } catch (error) {
+      addTelemetryBreadcrumb('auth', 'reset_password_failed', { method: 'email', result: 'failure' });
+      captureTelemetryException(error, 'auth_reset_password', { method: 'email' });
       throw error;
     }
   }, []);
