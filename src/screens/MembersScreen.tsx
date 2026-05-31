@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
     GlassCard,
@@ -11,7 +11,6 @@ import {
     StatCard,
 } from "@/src/components/ui/Finance";
 import {
-    Button,
     EmptyState,
     FilterSheet,
     IconButton,
@@ -38,16 +37,6 @@ export function MembersScreen() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<MemberFilter>("all");
   const [filterOpen, setFilterOpen] = useState(false);
-
-  function openOptions() {
-    Alert.alert("Member options", "Choose an action", [
-      {
-        text: "Open filters",
-        onPress: () => setFilterOpen(true),
-      },
-      { text: "Cancel", style: "cancel" },
-    ]);
-  }
 
   const members = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -132,17 +121,11 @@ export function MembersScreen() {
         showBackButton={false}
         action={
           <IconButton
-            icon="ellipsis-horizontal"
-            label="Member options"
-            onPress={openOptions}
+            icon="add"
+            label="Add member"
+            onPress={() => router.push("/member/form")}
           />
         }
-      />
-
-      <Button
-        title="Add member"
-        icon="add"
-        onPress={() => router.push("/member/form")}
       />
 
       <SearchFilterBar
@@ -235,7 +218,6 @@ export function MembersScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Invite"
-            accessibilityHint="Opens the member invite form"
             onPress={() => router.push("/member/form")}
             style={({ pressed }) => [
               styles.inviteButton,
