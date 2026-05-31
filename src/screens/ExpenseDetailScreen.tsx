@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Alert, StyleSheet, Text, View } from "react-native";
 
 import { AttachmentsSection } from "@/src/components/AttachmentsSection";
 import { CommentsSection } from "@/src/components/CommentsSection";
@@ -83,6 +83,23 @@ export function ExpenseDetailScreen() {
 
   async function updateStatus(status: DebtStatus) {
     await data.updateSharedExpense(currentExpense.id, { status });
+  }
+
+  function confirmArchiveExpense() {
+    Alert.alert(
+      "Archive expense?",
+      "This removes the expense from active shared settlement views.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Archive",
+          style: "destructive",
+          onPress: () => {
+            void updateStatus("archived");
+          },
+        },
+      ],
+    );
   }
 
   async function updateVerification(verificationStatus: VerificationStatus) {
@@ -252,7 +269,7 @@ export function ExpenseDetailScreen() {
               title="Archive"
               icon="archive"
               variant="danger"
-              onPress={() => updateStatus("archived")}
+              onPress={confirmArchiveExpense}
             />
           </View>
         </Card>

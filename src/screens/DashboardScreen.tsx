@@ -4,7 +4,12 @@ import React, { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
-import { GlassCard, ListRow, StatCard } from "@/src/components/ui/Finance";
+import {
+    ActionTile,
+    GlassCard,
+    ListRow,
+    StatCard,
+} from "@/src/components/ui/Finance";
 import {
     EmptyState,
     IconButton,
@@ -15,7 +20,6 @@ import {
 } from "@/src/components/ui/Primitives";
 import {
     palette,
-    shadows,
     spacing,
     typefaces,
     typography,
@@ -244,7 +248,7 @@ export function DashboardScreen() {
       <GlassCard tone="lavender">
         {nextActionEntries.length ? (
           <View style={styles.listColumn}>
-            {nextActionEntries.map(({ entry, overdue }) => (
+            {nextActionEntries.map(({ entry, overdue }, index) => (
               <ListRow
                 key={entry.id}
                 title={entry.title}
@@ -267,6 +271,7 @@ export function DashboardScreen() {
                   data.members,
                   data.sharedEventMembers,
                 )}
+                showDivider={index < nextActionEntries.length - 1}
                 onPress={() => openEntry(entry)}
               />
             ))}
@@ -284,54 +289,26 @@ export function DashboardScreen() {
         subtitle="Common tasks stay visible without taking over the screen."
       />
       <View style={styles.actionGrid}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Add debt"
+        <ActionTile
+          icon="add-circle"
+          title="Add debt"
           onPress={() => router.push("/debt/form")}
-          style={({ pressed }) => [
-            styles.quickActionTile,
-            pressed && styles.quickActionTilePressed,
-          ]}
-        >
-          <Ionicons name="add-circle" size={20} color={palette.primary} />
-          <Text style={styles.quickActionLabel}>Add debt</Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Record payment"
+        />
+        <ActionTile
+          icon="card"
+          title="Record payment"
           onPress={() => router.push("/payment/form")}
-          style={({ pressed }) => [
-            styles.quickActionTile,
-            pressed && styles.quickActionTilePressed,
-          ]}
-        >
-          <Ionicons name="card" size={20} color={palette.primary} />
-          <Text style={styles.quickActionLabel}>Record payment</Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Split bill"
+        />
+        <ActionTile
+          icon="people"
+          title="Split bill"
           onPress={() => router.push("/expense/form")}
-          style={({ pressed }) => [
-            styles.quickActionTile,
-            pressed && styles.quickActionTilePressed,
-          ]}
-        >
-          <Ionicons name="people" size={20} color={palette.primary} />
-          <Text style={styles.quickActionLabel}>Split bill</Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Add member"
+        />
+        <ActionTile
+          icon="person-add"
+          title="Add member"
           onPress={() => router.push("/member/form")}
-          style={({ pressed }) => [
-            styles.quickActionTile,
-            pressed && styles.quickActionTilePressed,
-          ]}
-        >
-          <Ionicons name="person-add" size={20} color={palette.primary} />
-          <Text style={styles.quickActionLabel}>Add member</Text>
-        </Pressable>
+        />
       </View>
 
       <SectionTitle
@@ -341,7 +318,7 @@ export function DashboardScreen() {
       <GlassCard tone="peach">
         {recentActivity.length ? (
           <View style={styles.listColumn}>
-            {recentActivity.map((entry) => (
+            {recentActivity.map((entry, index) => (
               <ListRow
                 key={entry.id}
                 title={entry.title}
@@ -355,6 +332,7 @@ export function DashboardScreen() {
                 statusTone={activityTone(entry)}
                 meta={entry.date}
                 icon={entry.eventId ? "people-outline" : "wallet-outline"}
+                showDivider={index < recentActivity.length - 1}
                 onPress={() => openEntry(entry)}
               />
             ))}
@@ -584,11 +562,14 @@ const styles = StyleSheet.create({
   },
   actionGrid: {
     flexDirection: "row",
+    flexWrap: "nowrap",
     alignItems: "stretch",
     gap: spacing.sm,
+    paddingHorizontal: spacing.xs,
   },
   quickActionTile: {
     flex: 1,
+    minWidth: 0,
     minHeight: 78,
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
@@ -611,6 +592,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   listColumn: {
-    gap: spacing.sm,
+    gap: 0,
   },
 });
