@@ -33,9 +33,13 @@ const {
   mapLocalDebtToRemote,
   mapLocalExpenseToRemote,
   mapRemoteEventMemberToLocal,
+  mapRemoteAttachmentToLocal,
   mapRemoteExpenseToLocal,
   mapRemoteEventVerificationToLocal,
   mapLocalPaymentToRemote,
+  mapRemotePaymentToLocal,
+  mapRemoteSettlementToLocal,
+  mapLocalSettlementLineToRemote,
   SyncMappingError,
 } = require('../src/services/sync/mappers.ts');
 const { buildLedgerEntries } = require('../src/services/ledger.ts');
