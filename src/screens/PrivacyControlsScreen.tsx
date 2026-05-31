@@ -250,11 +250,13 @@ function ToggleRow({
   body,
   value,
   onValueChange,
+  disabled = false,
 }: {
   title: string;
   body: string;
   value: boolean;
-  onValueChange: (value: boolean) => void;
+  onValueChange?: (value: boolean) => void;
+  disabled?: boolean;
 }) {
   return (
     <View style={styles.switchRow}>
@@ -268,7 +270,8 @@ function ToggleRow({
         accessibilityHint={body}
         accessibilityState={{ checked: value }}
         value={value}
-        onValueChange={onValueChange}
+        onValueChange={onValueChange ?? (() => undefined)}
+        disabled={disabled}
         trackColor={{ false: palette.lineStrong, true: palette.brandSoft }}
         thumbColor={value ? palette.brand : "#FFFFFF"}
       />
