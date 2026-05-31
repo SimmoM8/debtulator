@@ -1,6 +1,6 @@
 import { useLocalSearchParams } from "expo-router";
 import React from "react";
-import { Image, StyleSheet, Text, View } from "react-native";
+import { Alert, Image, StyleSheet, Text, View } from "react-native";
 
 import { DebtulatorShieldIllustration } from "@/src/components/illustrations/DebtulatorShieldIllustration";
 import { Badge } from "@/src/components/ui/Badges";
@@ -31,6 +31,30 @@ export function AttachmentDetailScreen() {
   const data = useAppData();
   const auth = useAuth();
   const attachment = data.attachments.find((item) => item.id === id);
+
+  function confirmRemoveAttachment() {
+    if (!attachment) {
+      return;
+    }
+
+    Alert.alert(
+      "Remove attachment?",
+      "This archives the attachment record so it is no longer shown on the active ledger item.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: () => {
+            void data.archiveAttachment(
+              attachment.id,
+              auth.identity.authenticatedUserId,
+            );
+          },
+        },
+      ],
+    );
+  }
 
   if (data.loading) {
     return <LoadingState />;
@@ -154,12 +178,7 @@ export function AttachmentDetailScreen() {
             title="Remove attachment"
             icon="trash"
             variant="danger"
-            onPress={() =>
-              data.archiveAttachment(
-                attachment.id,
-                auth.identity.authenticatedUserId,
-              )
-            }
+            onPress={confirmRemoveAttachment}
           />
         ) : null}
       </Card>

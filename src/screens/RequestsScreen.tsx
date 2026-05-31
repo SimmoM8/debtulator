@@ -5,10 +5,10 @@ import { StyleSheet, Text, View } from "react-native";
 import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
 import {
     GlassCard,
+    RequestCard,
     SearchFilterBar,
     SingleSelectFilterList,
     StatCard,
-    StatusPill,
 } from "@/src/components/ui/Finance";
 import {
     Button,
@@ -19,8 +19,11 @@ import {
     Screen,
     SectionTitle,
 } from "@/src/components/ui/Primitives";
-import { palette, spacing, typefaces,
-typography,
+import {
+    palette,
+    spacing,
+    typefaces,
+    typography,
 } from "@/src/constants/design";
 import {
     respondRemoteDebtVerification,
@@ -521,53 +524,6 @@ function RequestSection({
   );
 }
 
-function RequestCard({
-  title,
-  body,
-  amount,
-  status,
-  tone,
-  actions,
-}: {
-  title: string;
-  body: string;
-  amount?: string;
-  status: string;
-  tone: "amber" | "teal" | "coral";
-  actions?: {
-    label: string;
-    onPress: () => void;
-    variant?: "primary" | "secondary";
-  }[];
-}) {
-  return (
-    <View style={styles.requestCard}>
-      <View style={styles.requestHeader}>
-        <View style={styles.requestCopy}>
-          <Text style={styles.requestTitle}>{title}</Text>
-          <Text style={styles.requestBody}>{body}</Text>
-        </View>
-        <View style={styles.requestMeta}>
-          <StatusPill label={status} tone={tone} />
-          {amount ? <Text style={styles.requestAmount}>{amount}</Text> : null}
-        </View>
-      </View>
-      {actions?.length ? (
-        <View style={styles.buttonRow}>
-          {actions.map((action) => (
-            <Button
-              key={action.label}
-              title={action.label}
-              variant={action.variant ?? "primary"}
-              onPress={action.onPress}
-            />
-          ))}
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
 const FILTERS: { label: string; value: InboxFilter; description: string }[] = [
   {
     label: "All",
@@ -623,49 +579,6 @@ const styles = StyleSheet.create({
     gap: 0,
   },
   sectionColumn: {
-    gap: spacing.sm,
-  },
-  requestCard: {
-    borderRadius: 22,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderIndigoSoft,
-    backgroundColor: palette.surfaceGlassElevated,
-    padding: spacing.md,
-    gap: spacing.md,
-  },
-  requestHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: spacing.md,
-  },
-  requestCopy: {
-    flex: 1,
-    gap: 4,
-  },
-  requestTitle: {
-    color: palette.textPrimary,
-    fontSize: typography.size.lg,
-    fontFamily: typefaces.bodyStrong,
-  },
-  requestBody: {
-    color: palette.muted,
-    fontSize: typography.size.md,
-    lineHeight: typography.line.lg,
-    fontFamily: typefaces.body,
-  },
-  requestMeta: {
-    alignItems: "flex-end",
-    gap: 8,
-  },
-  requestAmount: {
-    color: palette.primaryDeep,
-    fontSize: typography.size.base,
-    fontFamily: typefaces.bodyHeavy,
-  },
-  buttonRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
     gap: spacing.sm,
   },
   disputeTitle: {
