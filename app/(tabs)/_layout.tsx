@@ -40,7 +40,6 @@ export default function TabLayout() {
         options={{
           title: "Requests",
           href: null,
-          tabBarBadge: 1,
         }}
       />
       <Tabs.Screen

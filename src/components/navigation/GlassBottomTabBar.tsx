@@ -88,7 +88,11 @@ export function GlassBottomTabBar({
   return (
     <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
       {menuOpen ? (
-        <Pressable style={styles.overlay} onPress={() => setMenuOpen(false)} />
+        <Pressable
+          accessible={false}
+          style={styles.overlay}
+          onPress={() => setMenuOpen(false)}
+        />
       ) : null}
       {menuOpen ? (
         <View
@@ -104,6 +108,9 @@ export function GlassBottomTabBar({
               {quickActions.map((action) => (
                 <Pressable
                   key={action.label}
+                  accessibilityRole="button"
+                  accessibilityLabel={action.label}
+                  accessibilityHint="Opens this quick action form"
                   onPress={() => {
                     setMenuOpen(false);
                     router.push(action.href);
@@ -175,6 +182,10 @@ export function GlassBottomTabBar({
         </View>
         <View style={[styles.addButtonWrap, { bottom: insets.bottom + 34 }]}>
           <FloatingAddButton
+            accessibilityLabel={
+              menuOpen ? "Close quick actions" : "Open quick actions"
+            }
+            accessibilityState={{ expanded: menuOpen }}
             onPress={() => setMenuOpen((current) => !current)}
           />
         </View>
@@ -196,6 +207,9 @@ function TabItem({
 }) {
   return (
     <Pressable
+      accessibilityRole="tab"
+      accessibilityLabel={badge ? `${config.label}, has updates` : config.label}
+      accessibilityState={{ selected: active }}
       onPress={onPress}
       style={({ pressed }) => [styles.tabItem, pressed && styles.pressed]}
     >

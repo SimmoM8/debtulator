@@ -94,6 +94,12 @@ const sections: MenuSection[] = [
         icon: "download-outline",
       },
       {
+        label: "Full export",
+        subtitle: "Complete local account data as JSON",
+        href: "/full-export",
+        icon: "document-text-outline",
+      },
+      {
         label: "Import CSV",
         subtitle: "Bring in older records carefully",
         href: "/import-csv",
@@ -172,14 +178,15 @@ export function AppMenuButton() {
         onRequestClose={() => setOpen(false)}
       >
         <View style={styles.overlay}>
-          <Pressable style={styles.backdrop} onPress={() => setOpen(false)} />
+          <Pressable
+            accessible={false}
+            style={styles.backdrop}
+            onPress={() => setOpen(false)}
+          />
           <GlassCard tone="lavender" style={styles.menuCard}>
             <View style={styles.headerRow}>
               <View style={styles.headerCopy}>
                 <Text style={styles.title}>Navigate</Text>
-                <Text style={styles.subtitle}>
-                  Everything organized in one calm list.
-                </Text>
               </View>
               <View style={styles.headerMeta}>
                 <StatusPill label={currentLabel} tone="indigo" />
@@ -203,6 +210,10 @@ export function AppMenuButton() {
                       return (
                         <Pressable
                           key={item.label}
+                          accessibilityRole="button"
+                          accessibilityLabel={item.label}
+                          accessibilityHint={item.subtitle}
+                          accessibilityState={{ selected: active }}
                           onPress={() => {
                             setOpen(false);
                             if (!active) {
@@ -299,12 +310,6 @@ const styles = StyleSheet.create({
     color: palette.textPrimary,
     fontSize: typography.size.h1,
     fontFamily: typefaces.displayMedium,
-  },
-  subtitle: {
-    color: palette.muted,
-    fontSize: typography.size.md,
-    lineHeight: typography.line.lg,
-    fontFamily: typefaces.body,
   },
   sectionList: {
     gap: spacing.lg,
