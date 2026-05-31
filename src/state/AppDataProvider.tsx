@@ -7,10 +7,12 @@ import {
   openDebtulatorDatabase,
 } from '@/src/data/database';
 import { DebtulatorRepository } from '@/src/data/repositories';
+import type { RestoreResult } from '@/src/services/backupRestore';
 import { buildSyncSummary } from '@/src/services/stage6Sync';
 import { buildLedgerEntries, calculateMemberBalances, calculatePersonalTotals } from '@/src/services/ledger';
 import type {
   AppSettings,
+  BackupMode,
   AppNotification,
   Attachment,
   AttachmentKind,
@@ -37,6 +39,7 @@ import type {
   EventVerificationResponse,
   ExportLog,
   ExportType,
+  ConflictResolution,
   LedgerEntry,
   LinkRequest,
   Member,
@@ -298,6 +301,7 @@ type AppDataContextValue = DatabaseSnapshot & {
   personalTotals: ReturnType<typeof calculatePersonalTotals>;
   syncSummary: ReturnType<typeof buildSyncSummary>;
   refresh: () => Promise<void>;
+  retryBoot: () => void;
   resetLocalData: (seed?: boolean) => Promise<void>;
   upsertProfile: (profile: UserProfile) => Promise<UserProfile>;
   upsertLinkRequest: (linkRequest: LinkRequest) => Promise<LinkRequest>;
@@ -437,13 +441,14 @@ type AppDataContextValue = DatabaseSnapshot & {
   upsertSyncConflict: (conflict: SyncConflict) => Promise<SyncConflict>;
   resolveSyncConflict: (
     conflictId: string,
-    resolution: SyncConflict['resolution'],
+    resolution: ConflictResolution,
     actorUserId?: string | null,
   ) => Promise<SyncConflict>;
   createNotification: (input: Omit<AppNotification, 'id' | 'createdAt' | 'readAt'> & { readAt?: string | null }) => Promise<AppNotification>;
   markNotificationRead: (notificationId: string) => Promise<AppNotification>;
   markAllNotificationsRead: () => Promise<void>;
   createAuditLog: (input: Omit<AuditLog, 'id' | 'createdAt' | 'deviceId'> & { deviceId?: string | null }) => Promise<AuditLog>;
+  restoreBackup: (rawJson: string, mode: BackupMode) => Promise<RestoreResult>;
   respondToEventVerification: (input: {
     eventId: string;
     targetType: EventVerificationResponse['targetType'];
@@ -543,12 +548,15 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [repository, setRepository] = useState<DebtulatorRepository | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [bootAttempt, setBootAttempt] = useState(0);
 
   useEffect(() => {
     let mounted = true;
 
     async function boot() {
       try {
+        setLoading(true);
+        setError(null);
         const { repo, loaded } = await withBootTimeout(
           (async () => {
             const db = await openDebtulatorDatabase();
@@ -573,6 +581,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (bootError) {
         if (mounted) {
+          setRepository(null);
           setError(bootError instanceof Error ? bootError.message : 'Unable to open local database');
         }
       } finally {
@@ -587,6 +596,10 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     return () => {
       mounted = false;
     };
+  }, [bootAttempt]);
+
+  const retryBoot = useCallback(() => {
+    setBootAttempt((attempt) => attempt + 1);
   }, []);
 
   const refresh = useCallback(async () => {
@@ -644,6 +657,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       personalTotals,
       syncSummary,
       refresh,
+      retryBoot,
       resetLocalData: async (seed = true) => {
         await runAndRefresh((repo) => repo.reset(seed));
       },
@@ -931,6 +945,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         });
       },
       createAuditLog: (input) => runAndRefresh((repo) => repo.createAuditLog(input)),
+      restoreBackup: (rawJson, mode) => runAndRefresh((repo) => repo.restoreBackup(rawJson, mode)),
       respondToEventVerification: (input) => runAndRefresh((repo) => repo.respondToEventVerification(input)),
       updateSettings: async (settings) => {
         await runAndRefresh((repo) => repo.updateSettings(settings));
@@ -946,6 +961,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       memberBalances,
       personalTotals,
       refresh,
+      retryBoot,
       repository,
       runAndRefresh,
       snapshot,

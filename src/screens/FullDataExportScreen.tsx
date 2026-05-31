@@ -9,17 +9,14 @@ import {
     PageHeader,
     Screen,
     SectionTitle,
-    SelectChips,
 } from "@/src/components/ui/Primitives";
 import { palette, spacing, typefaces,
 typography,
 } from "@/src/constants/design";
 import { useAppData } from "@/src/state/AppDataProvider";
-import type { DataExportFormat } from "@/src/types/models";
 
 export function FullDataExportScreen() {
   const data = useAppData();
-  const [format, setFormat] = useState<DataExportFormat>("json");
   const [includeAttachments, setIncludeAttachments] = useState(
     data.settings.includeAttachmentsInExports,
   );
@@ -33,7 +30,7 @@ export function FullDataExportScreen() {
       app: "Debtulator",
       schemaVersion: 6,
       exportedAt,
-      format,
+      format: "json",
       labels: {
         sharedRecords:
           "Records marked shared were visible according to current local permission cache.",
@@ -80,7 +77,7 @@ export function FullDataExportScreen() {
     await FileSystem.writeAsStringAsync(uri, JSON.stringify(payload, null, 2));
     await data.createExportLog({
       userId: null,
-      exportType: format === "json" ? "text_summary" : "csv",
+      exportType: "text_summary",
       targetType: "ledger",
       targetId: null,
       metadata: { includeAttachments, includePrivateNotes, fullExport: true },
@@ -91,7 +88,7 @@ export function FullDataExportScreen() {
       targetType: "backup",
       targetId: uri,
       eventId: null,
-      metadata: { format, includeAttachments, includePrivateNotes },
+      metadata: { format: "json", includeAttachments, includePrivateNotes },
     });
     await Share.share({ url: uri, message: "Debtulator full data export" });
   }
@@ -129,16 +126,11 @@ export function FullDataExportScreen() {
           title="Export options"
           subtitle="JSON is the complete production-grade export format."
         />
-        <SelectChips
-          label="Format"
-          value={format}
-          onChange={setFormat}
-          options={[
-            { label: "JSON", value: "json" },
-            { label: "CSV package", value: "csv_package" },
-            { label: "PDF summary", value: "pdf_summary" },
-          ]}
-        />
+        <Text style={styles.body}>
+          Full account export is generated as JSON. CSV and PDF exports remain
+          available from the scoped export screen for specific ledgers, members,
+          events, payments, and settlements.
+        </Text>
         <ToggleRow
           title="Include attachment metadata"
           value={includeAttachments}
@@ -172,6 +164,9 @@ function ToggleRow({
     <View style={styles.switchRow}>
       <Text style={styles.title}>{title}</Text>
       <Switch
+        accessibilityRole="switch"
+        accessibilityLabel={title}
+        accessibilityState={{ checked: value }}
         value={value}
         onValueChange={onValueChange}
         trackColor={{ false: palette.lineStrong, true: palette.brandSoft }}
