@@ -44,7 +44,7 @@ import {
   canApplyRemoteSnapshot,
   getConflictResolutionAvailability,
   getRelatedSyncQueueEntries,
-} from './conflictResolution';
+} from '@/src/data/conflictResolution';
 import { buildRestorePlan, type RestoreResult } from '@/src/services/backupRestore';
 import { withGeneratedObligations } from '@/src/services/splits';
 import {
