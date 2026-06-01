@@ -2,7 +2,6 @@ import { router, useLocalSearchParams } from "expo-router";
 import React, { useMemo, useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 
-import { DebtulatorOrbitIllustration } from "@/src/components/illustrations/DebtulatorOrbitIllustration";
 import { Badge } from "@/src/components/ui/Badges";
 import {
     Button,
@@ -167,11 +166,7 @@ export function PaymentFormScreen() {
   if (candidateEntries.length === 0 && !focusedEntry) {
     return (
       <Screen>
-        <PageHeader
-          eyebrow="Record payment"
-          title="Record payment"
-          subtitle="Payments document real money movement."
-        />
+        <PageHeader eyebrow="Record payment" title="Record payment" />
         <EmptyState
           title="No open obligations"
           body="There are no unpaid records available for this payment context."
@@ -191,31 +186,7 @@ export function PaymentFormScreen() {
         />
       }
     >
-      <PageHeader
-        eyebrow="Record payment"
-        title="Record payment"
-        subtitle="Payments are separate from debts. Settlement lines explain what the payment clears."
-      />
-
-      <Card tone="lavender" style={styles.heroCard}>
-        <View style={styles.heroGlow} />
-        <View style={styles.heroTop}>
-          <View style={styles.heroCopy}>
-            <Text style={styles.heroLabel}>Settlement first</Text>
-            <Text style={styles.heroTitle}>
-              Record the cash movement, then review exactly which open
-              obligations it reduces.
-            </Text>
-            <Text style={styles.body}>
-              Auto-apply is only a preview here. The saved settlement record
-              remains explicit about what was cleared and what stays open.
-            </Text>
-          </View>
-          <View style={styles.heroArtWrap}>
-            <DebtulatorOrbitIllustration width={132} height={104} compact />
-          </View>
-        </View>
-      </Card>
+      <PageHeader eyebrow="Record payment" title="Record payment" />
 
       <Card tone="lavender">
         <SelectChips
@@ -370,52 +341,6 @@ function buildParticipantOptions(
 }
 
 const styles = StyleSheet.create({
-  heroCard: {
-    overflow: "hidden",
-  },
-  heroGlow: {
-    position: "absolute",
-    top: -24,
-    right: -10,
-    width: 170,
-    height: 170,
-    borderRadius: 85,
-    backgroundColor: "rgba(221,214,254,0.24)",
-  },
-  heroTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: spacing.lg,
-    flexWrap: "wrap",
-  },
-  heroCopy: {
-    flex: 1,
-    minWidth: 220,
-    gap: spacing.sm,
-  },
-  heroLabel: {
-    color: palette.muted,
-    fontSize: typography.size.sm,
-    fontFamily: typefaces.bodyStrong,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-  },
-  heroTitle: {
-    color: palette.ink,
-    fontSize: typography.size.h1,
-    lineHeight: typography.line.displayMd,
-    fontFamily: typefaces.displayMedium,
-  },
-  heroArtWrap: {
-    width: 142,
-    height: 112,
-    borderRadius: 24,
-    backgroundColor: "rgba(255,255,255,0.38)",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderGlass,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",

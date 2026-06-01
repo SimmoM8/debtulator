@@ -2,7 +2,6 @@ import { router, useLocalSearchParams } from "expo-router";
 import React, { useMemo, useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 
-import { DebtulatorOrbitIllustration } from "@/src/components/illustrations/DebtulatorOrbitIllustration";
 import {
     Button,
     Card,
@@ -225,33 +224,7 @@ export function DebtFormScreen() {
       <PageHeader
         eyebrow={isSharedEventDebt ? "Shared event debt" : "Simple debt"}
         title={debt ? "Edit debt" : "Add debt"}
-        subtitle={
-          isSharedEventDebt
-            ? "Choose who owes whom, then review before saving."
-            : "Choose who it is with, whether you owe or they owe you, then review before saving."
-        }
       />
-
-      <Card tone="lavender" style={styles.heroCard}>
-        <View style={styles.heroGlow} />
-        <View style={styles.heroTop}>
-          <View style={styles.heroCopy}>
-            <Text style={styles.reviewEyebrow}>Draft</Text>
-            <Text style={styles.heroTitle}>
-              {debt
-                ? "Refine the details, keep the context."
-                : "Add a debt with enough context to settle it later."}
-            </Text>
-            <Text style={styles.heroBody}>
-              Capture the amount, direction, visibility, and review state now so
-              later verification and follow-up stay straightforward.
-            </Text>
-          </View>
-          <View style={styles.heroArtWrap}>
-            <DebtulatorOrbitIllustration width={132} height={104} compact />
-          </View>
-        </View>
-      </Card>
 
       <Card tone="lavender">
         {isSharedEventDebt ? (
@@ -449,51 +422,6 @@ function mergeTagText(current: string, tag: string) {
 }
 
 const styles = StyleSheet.create({
-  heroCard: {
-    overflow: "hidden",
-  },
-  heroGlow: {
-    position: "absolute",
-    top: -24,
-    right: -10,
-    width: 170,
-    height: 170,
-    borderRadius: 85,
-    backgroundColor: "rgba(221,214,254,0.24)",
-  },
-  heroTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: spacing.lg,
-    flexWrap: "wrap",
-  },
-  heroCopy: {
-    flex: 1,
-    minWidth: 220,
-    gap: spacing.sm,
-  },
-  heroTitle: {
-    color: palette.ink,
-    fontSize: typography.size.h1,
-    lineHeight: typography.line.displayMd,
-    fontFamily: typefaces.displayMedium,
-  },
-  heroBody: {
-    color: palette.muted,
-    fontSize: typography.size.base,
-    lineHeight: typography.line.xlPlus,
-    fontFamily: typefaces.body,
-  },
-  heroArtWrap: {
-    width: 142,
-    height: 112,
-    borderRadius: 24,
-    backgroundColor: "rgba(255,255,255,0.38)",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderGlass,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   reviewEyebrow: {
     color: palette.brand,
     fontSize: typography.size.sm,
