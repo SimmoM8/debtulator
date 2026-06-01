@@ -1,6 +1,6 @@
 import * as FileSystem from "expo-file-system/legacy";
 import React, { useState } from "react";
-import { Share, StyleSheet, Switch, Text, View } from "react-native";
+import { Alert, Share, StyleSheet, Switch, Text, View } from "react-native";
 
 import { DebtulatorOrbitIllustration } from "@/src/components/illustrations/DebtulatorOrbitIllustration";
 import {
@@ -13,6 +13,7 @@ import {
 import { palette, spacing, typefaces,
 typography,
 } from "@/src/constants/design";
+import { sanitizeAttachmentsForPortableExport } from "@/src/services/export";
 import { useAppData } from "@/src/state/AppDataProvider";
 
 export function FullDataExportScreen() {
@@ -25,72 +26,75 @@ export function FullDataExportScreen() {
   );
 
   async function exportData() {
-    const exportedAt = new Date().toISOString();
-    const payload = {
-      app: "Debtulator",
-      schemaVersion: 6,
-      exportedAt,
-      format: "json",
-      labels: {
-        sharedRecords:
-          "Records marked shared were visible according to current local permission cache.",
-        estimatedCurrency: "Estimated converted values are approximate.",
-      },
-      data: {
-        profiles: data.profiles,
-        settings: data.settings,
-        members: data.members,
-        debts: data.debts,
-        expenses: data.sharedExpenses,
-        events: data.events,
-        eventMembers: data.sharedEventMembers,
-        eventParticipants: data.eventParticipants,
-        payments: data.payments,
-        settlements: data.settlements,
-        tags: data.tags,
-        comments: includePrivateNotes
-          ? data.comments
-          : data.comments.filter((comment) => comment.visibility === "shared"),
-        attachments: includeAttachments
-          ? data.attachments
-          : data.attachments.map((attachment) => ({
-              ...attachment,
-              localUri: null,
-              remoteUrl: null,
-            })),
-        recurringTemplates: data.recurringTemplates,
-        reminders: data.reminders,
-        activityLogs: data.activityLogs,
-        auditLogs: data.auditLogs,
-        smartSuggestions: data.smartSuggestions,
-        notificationPreferences: {
-          push: data.settings.pushNotificationsEnabled,
-          email: data.settings.emailNotificationsEnabled,
+    try {
+      const exportedAt = new Date().toISOString();
+      const payload = {
+        app: "Debtulator",
+        schemaVersion: 6,
+        exportedAt,
+        format: "json",
+        labels: {
+          sharedRecords:
+            "Records marked shared were visible according to current local permission cache.",
+          estimatedCurrency: "Estimated converted values are approximate.",
         },
-      },
-    };
-    const directory = FileSystem.documentDirectory ?? FileSystem.cacheDirectory;
-    if (!directory) {
-      throw new Error("No writable export directory is available.");
+        data: {
+          profiles: data.profiles,
+          settings: data.settings,
+          members: data.members,
+          debts: data.debts,
+          expenses: data.sharedExpenses,
+          events: data.events,
+          eventMembers: data.sharedEventMembers,
+          eventParticipants: data.eventParticipants,
+          payments: data.payments,
+          settlements: data.settlements,
+          tags: data.tags,
+          comments: includePrivateNotes
+            ? data.comments
+            : data.comments.filter((comment) => comment.visibility === "shared"),
+          attachments: includeAttachments
+            ? sanitizeAttachmentsForPortableExport(data.attachments)
+            : [],
+          recurringTemplates: data.recurringTemplates,
+          reminders: data.reminders,
+          activityLogs: data.activityLogs,
+          auditLogs: data.auditLogs,
+          smartSuggestions: data.smartSuggestions,
+          notificationPreferences: {
+            push: data.settings.pushNotificationsEnabled,
+            email: data.settings.emailNotificationsEnabled,
+          },
+        },
+      };
+      const directory = FileSystem.documentDirectory ?? FileSystem.cacheDirectory;
+      if (!directory) {
+        throw new Error("No writable export directory is available.");
+      }
+      const uri = `${directory}debtulator-full-export-${exportedAt.slice(0, 10)}.json`;
+      await FileSystem.writeAsStringAsync(uri, JSON.stringify(payload, null, 2));
+      await data.createExportLog({
+        userId: null,
+        exportType: "text_summary",
+        targetType: "ledger",
+        targetId: null,
+        metadata: { includeAttachments, includePrivateNotes, fullExport: true },
+      });
+      await data.createAuditLog({
+        actorUserId: null,
+        action: "export_generated",
+        targetType: "backup",
+        targetId: uri,
+        eventId: null,
+        metadata: { format: "json", includeAttachments, includePrivateNotes },
+      });
+      await Share.share({ url: uri, message: "Debtulator full data export" });
+    } catch (error) {
+      Alert.alert(
+        "Export failed",
+        error instanceof Error ? error.message : "Export failed due to an unexpected error.",
+      );
     }
-    const uri = `${directory}debtulator-full-export-${exportedAt.slice(0, 10)}.json`;
-    await FileSystem.writeAsStringAsync(uri, JSON.stringify(payload, null, 2));
-    await data.createExportLog({
-      userId: null,
-      exportType: "text_summary",
-      targetType: "ledger",
-      targetId: null,
-      metadata: { includeAttachments, includePrivateNotes, fullExport: true },
-    });
-    await data.createAuditLog({
-      actorUserId: null,
-      action: "export_generated",
-      targetType: "backup",
-      targetId: uri,
-      eventId: null,
-      metadata: { format: "json", includeAttachments, includePrivateNotes },
-    });
-    await Share.share({ url: uri, message: "Debtulator full data export" });
   }
 
   return (
