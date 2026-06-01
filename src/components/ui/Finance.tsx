@@ -502,56 +502,6 @@ export function StatCard({
   );
 }
 
-export function ActionTile({
-  icon,
-  title,
-  subtitle,
-  tone = "indigo",
-  onPress,
-}: {
-  icon: IconName;
-  title: string;
-  subtitle?: string;
-  tone?: Tone;
-  onPress?: () => void;
-}) {
-  const content = (
-    <>
-      <View
-        style={[
-          styles.actionIcon,
-          {
-            backgroundColor: toneStyles[tone].chip,
-            borderColor: toneStyles[tone].border,
-          },
-        ]}
-      >
-        <Ionicons name={icon} size={20} color={toneStyles[tone].text} />
-      </View>
-      <Text style={styles.actionTitle} numberOfLines={2}>
-        {title}
-      </Text>
-      {subtitle ? <Text style={styles.actionSubtitle}>{subtitle}</Text> : null}
-    </>
-  );
-
-  if (!onPress) {
-    return <View style={styles.actionTile}>{content}</View>;
-  }
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={title}
-      accessibilityHint={subtitle}
-      onPress={onPress}
-      style={({ pressed }) => [styles.actionTile, pressed && styles.pressed]}
-    >
-      {content}
-    </Pressable>
-  );
-}
-
 export function RequestCard({
   title,
   body,
@@ -1167,41 +1117,6 @@ const styles = StyleSheet.create({
     fontSize: typography.size.xxs,
     lineHeight: typography.line.xs,
     fontFamily: typefaces.bodyStrong,
-  },
-  actionTile: {
-    minWidth: 132,
-    flex: 1,
-    minHeight: 78,
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderRow,
-    backgroundColor: palette.surfaceRow,
-    padding: 12,
-    gap: 7,
-    alignItems: "center",
-    justifyContent: "center",
-    ...shadows.soft,
-  },
-  actionIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  actionTitle: {
-    color: palette.primary,
-    fontSize: typography.size.md,
-    fontFamily: typefaces.bodyStrong,
-    textAlign: "center",
-  },
-  actionSubtitle: {
-    color: palette.muted,
-    fontSize: typography.size.sm,
-    lineHeight: typography.line.base,
-    fontFamily: typefaces.body,
-    textAlign: "center",
   },
   requestCard: {
     borderRadius: 16,

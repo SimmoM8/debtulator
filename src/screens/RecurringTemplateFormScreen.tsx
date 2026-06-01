@@ -1,8 +1,7 @@
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useState } from "react";
-import { Alert, StyleSheet, Text, View } from "react-native";
+import { Alert } from "react-native";
 
-import { DebtulatorOrbitIllustration } from "@/src/components/illustrations/DebtulatorOrbitIllustration";
 import {
     Button,
     Card,
@@ -13,9 +12,6 @@ import {
     TextField,
 } from "@/src/components/ui/Primitives";
 import { CURRENCIES } from "@/src/constants/currencies";
-import { palette, spacing, typefaces,
-typography,
-} from "@/src/constants/design";
 import { useAppData } from "@/src/state/AppDataProvider";
 import type {
     CurrencyCode,
@@ -138,28 +134,7 @@ export function RecurringTemplateFormScreen() {
       <PageHeader
         eyebrow="Recurring"
         title={template ? "Edit recurring template" : "Add recurring template"}
-        subtitle="Due records reference this template and are never generated twice for the same date."
       />
-
-      <Card tone="lavender" style={styles.heroCard}>
-        <View style={styles.heroGlow} />
-        <View style={styles.heroTop}>
-          <View style={styles.heroCopy}>
-            <Text style={styles.heroLabel}>Repeatable patterns</Text>
-            <Text style={styles.heroTitle}>
-              Describe the recurring rule once, then keep future generated
-              records traceable back to this source template.
-            </Text>
-            <Text style={styles.body}>
-              Templates help automate predictable debt or expense creation
-              without losing the ability to pause, end, or inspect the cadence.
-            </Text>
-          </View>
-          <View style={styles.heroArtWrap}>
-            <DebtulatorOrbitIllustration width={132} height={104} compact />
-          </View>
-        </View>
-      </Card>
 
       <Card>
         <SelectChips
@@ -264,58 +239,3 @@ export function RecurringTemplateFormScreen() {
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  heroCard: {
-    overflow: "hidden",
-  },
-  heroGlow: {
-    position: "absolute",
-    top: -24,
-    right: -10,
-    width: 170,
-    height: 170,
-    borderRadius: 85,
-    backgroundColor: "rgba(221,214,254,0.24)",
-  },
-  heroTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: spacing.lg,
-    flexWrap: "wrap",
-  },
-  heroCopy: {
-    flex: 1,
-    minWidth: 220,
-    gap: spacing.sm,
-  },
-  heroLabel: {
-    color: palette.muted,
-    fontSize: typography.size.sm,
-    fontFamily: typefaces.bodyStrong,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-  },
-  heroTitle: {
-    color: palette.ink,
-    fontSize: typography.size.h1,
-    lineHeight: typography.line.displayMd,
-    fontFamily: typefaces.displayMedium,
-  },
-  body: {
-    color: palette.muted,
-    fontSize: typography.size.base,
-    lineHeight: typography.line.xl,
-    fontFamily: typefaces.body,
-  },
-  heroArtWrap: {
-    width: 142,
-    height: 112,
-    borderRadius: 24,
-    backgroundColor: "rgba(255,255,255,0.38)",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderGlass,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-});

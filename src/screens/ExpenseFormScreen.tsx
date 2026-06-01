@@ -2,7 +2,6 @@ import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-import { DebtulatorOrbitIllustration } from "@/src/components/illustrations/DebtulatorOrbitIllustration";
 import {
     Button,
     Card,
@@ -290,7 +289,6 @@ export function ExpenseFormScreen() {
         <PageHeader
           eyebrow="Shared expense"
           title="Add expense"
-          subtitle="Shared expenses live inside events."
         />
         <EmptyState
           title="Create an event first"
@@ -327,28 +325,7 @@ export function ExpenseFormScreen() {
       <PageHeader
         eyebrow="Shared expense"
         title={expense ? "Edit expense" : "Add expense"}
-        subtitle="Choose who paid, who shared it, and review the split before saving."
       />
-
-      <Card tone="lavender" style={styles.heroCard}>
-        <View style={styles.heroGlow} />
-        <View style={styles.heroTop}>
-          <View style={styles.heroCopy}>
-            <Text style={styles.heroLabel}>Split planning</Text>
-            <Text style={styles.heroTitle}>
-              Model the payer mix and participant shares before any obligations
-              are written.
-            </Text>
-            <Text style={styles.heroBody}>
-              The split preview keeps the event math readable so shared expenses
-              feel deliberate rather than opaque.
-            </Text>
-          </View>
-          <View style={styles.heroArtWrap}>
-            <DebtulatorOrbitIllustration width={132} height={104} compact />
-          </View>
-        </View>
-      </Card>
 
       <Card tone="peach">
         <SelectChips
@@ -570,58 +547,6 @@ function mergeTagText(current: string, tag: string) {
 }
 
 const styles = StyleSheet.create({
-  heroCard: {
-    overflow: "hidden",
-  },
-  heroGlow: {
-    position: "absolute",
-    top: -24,
-    right: -10,
-    width: 170,
-    height: 170,
-    borderRadius: 85,
-    backgroundColor: "rgba(221,214,254,0.24)",
-  },
-  heroTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: spacing.lg,
-    flexWrap: "wrap",
-  },
-  heroCopy: {
-    flex: 1,
-    minWidth: 220,
-    gap: spacing.sm,
-  },
-  heroLabel: {
-    color: palette.muted,
-    fontSize: typography.size.sm,
-    fontFamily: typefaces.bodyStrong,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-  },
-  heroTitle: {
-    color: palette.ink,
-    fontSize: typography.size.h1,
-    lineHeight: typography.line.displayMd,
-    fontFamily: typefaces.displayMedium,
-  },
-  heroBody: {
-    color: palette.muted,
-    fontSize: typography.size.base,
-    lineHeight: typography.line.xl,
-    fontFamily: typefaces.body,
-  },
-  heroArtWrap: {
-    width: 142,
-    height: 112,
-    borderRadius: 24,
-    backgroundColor: "rgba(255,255,255,0.38)",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderGlass,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   label: {
     color: palette.brandDark,
     fontSize: typography.size.sm,

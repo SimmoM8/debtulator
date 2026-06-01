@@ -5,7 +5,6 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
 import {
-    ActionTile,
     GlassCard,
     ListRow,
     StatCard,
@@ -40,6 +39,19 @@ import type {
     SharedEventMember,
 } from "@/src/types/models";
 import { formatMoney } from "@/src/utils/money";
+
+type QuickAction = {
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  href: Parameters<typeof router.push>[0];
+};
+
+const QUICK_ACTIONS: QuickAction[] = [
+  { label: "Add debt", icon: "add-circle", href: "/debt/form" },
+  { label: "Record payment", icon: "card", href: "/payment/form" },
+  { label: "Split bill", icon: "people", href: "/expense/form" },
+  { label: "Add member", icon: "person-add", href: "/member/form" },
+];
 
 export function DashboardScreen() {
   const data = useAppData();
@@ -290,26 +302,21 @@ export function DashboardScreen() {
         subtitle="Common tasks stay visible without taking over the screen."
       />
       <View style={styles.actionGrid}>
-        <ActionTile
-          icon="add-circle"
-          title="Add debt"
-          onPress={() => router.push("/debt/form")}
-        />
-        <ActionTile
-          icon="card"
-          title="Record payment"
-          onPress={() => router.push("/payment/form")}
-        />
-        <ActionTile
-          icon="people"
-          title="Split bill"
-          onPress={() => router.push("/expense/form")}
-        />
-        <ActionTile
-          icon="person-add"
-          title="Add member"
-          onPress={() => router.push("/member/form")}
-        />
+        {QUICK_ACTIONS.map((action) => (
+          <Pressable
+            key={action.label}
+            accessibilityRole="button"
+            accessibilityLabel={action.label}
+            onPress={() => router.push(action.href)}
+            style={({ pressed }) => [
+              styles.quickActionTile,
+              pressed && styles.quickActionTilePressed,
+            ]}
+          >
+            <Ionicons name={action.icon} size={20} color={palette.primary} />
+            <Text style={styles.quickActionLabel}>{action.label}</Text>
+          </Pressable>
+        ))}
       </View>
 
       <SectionTitle
