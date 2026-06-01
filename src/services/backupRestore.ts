@@ -1,4 +1,5 @@
 import type { DatabaseSnapshot } from '@/src/data/database';
+import { sanitizeAttachmentsForPortableExport } from '@/src/services/export';
 import type {
   AppSettings,
   Attachment,
@@ -53,6 +54,9 @@ export type RestorePreview = {
   settlementCount: number;
   warnings: string[];
 };
+
+export const RESTORE_PREVIEW_MAX_BYTES = 5 * 1024 * 1024;
+export const BACKUP_SCHEMA_VERSION = 6;
 
 export type RestoreResult = {
   mode: BackupMode;
@@ -134,9 +138,10 @@ type BackupData = {
 };
 
 export function buildBackup(snapshot: DatabaseSnapshot, options: BackupOptions): DebtulatorBackup {
+  const attachments = options.includeAttachments ? sanitizeAttachmentsForPortableExport(snapshot.attachments) : [];
   return {
     app: 'Debtulator',
-    schemaVersion: 6,
+    schemaVersion: BACKUP_SCHEMA_VERSION,
     exportedAt: new Date().toISOString(),
     privacy: {
       includesAttachments: options.includeAttachments,
@@ -160,7 +165,7 @@ export function buildBackup(snapshot: DatabaseSnapshot, options: BackupOptions):
       expensePayers: snapshot.expensePayers,
       tags: snapshot.tags,
       comments: options.includePrivateNotes ? snapshot.comments.map((comment) => ({ ...comment, visibility: 'private', syncStatus: 'local_only' })) : [],
-      attachments: options.includeAttachments ? snapshot.attachments.map((attachment) => ({ ...attachment, remoteUrl: null, storagePath: null })) : [],
+      attachments,
       recurringTemplates: snapshot.recurringTemplates,
       reminders: snapshot.reminders,
       softReminders: snapshot.softReminders,
@@ -187,17 +192,41 @@ export async function shareBackupFile(backup: DebtulatorBackup) {
 }
 
 export function previewRestore(rawJson: string): RestorePreview {
+  const trimmed = rawJson.trim();
+  if (!trimmed) {
+    return invalidPreview('Backup payload is empty.');
+  }
+  if (trimmed.length > RESTORE_PREVIEW_MAX_BYTES) {
+    return invalidPreview(`Backup payload exceeds ${Math.round(RESTORE_PREVIEW_MAX_BYTES / 1024 / 1024)} MB preview limit.`);
+  }
   try {
-    const parsed = parseBackup(rawJson);
-    const data = parsed.data as Record<string, unknown>;
+    const parsed = JSON.parse(rawJson) as Partial<DebtulatorBackup>;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return invalidPreview('Backup JSON must be an object payload.');
+    }
+    const data = isRecord(parsed.data) ? parsed.data : null;
     const warnings: string[] = [];
-    if (parsed.privacy?.restoredRecordsDefaultPrivate !== true) {
+    const valid = parsed.app === 'Debtulator' && Boolean(data);
+    if (parsed.app !== 'Debtulator') {
+      warnings.push('This does not look like a Debtulator backup.');
+    }
+    if (parsed.schemaVersion !== BACKUP_SCHEMA_VERSION) {
+      warnings.push(schemaWarning(parsed.schemaVersion));
+    }
+    if (valid && parsed.privacy?.restoredRecordsDefaultPrivate !== true) {
       warnings.push('Shared metadata will be restored as private unless explicitly confirmed.');
     }
-    warnings.push(...validateBackupData(data));
+    if (!data) {
+      warnings.push('Backup payload is missing a valid data object.');
+    }
+    pushNonArrayWarning(data, 'members', warnings);
+    pushNonArrayWarning(data, 'debts', warnings);
+    pushNonArrayWarning(data, 'events', warnings);
+    pushNonArrayWarning(data, 'payments', warnings);
+    pushNonArrayWarning(data, 'settlements', warnings);
     return {
-      valid: true,
-      schemaVersion: parsed.schemaVersion,
+      valid,
+      schemaVersion: typeof parsed.schemaVersion === 'number' ? parsed.schemaVersion : null,
       memberCount: countArray(data?.members),
       debtCount: countArray(data?.debts),
       eventCount: countArray(data?.events),
@@ -205,17 +234,8 @@ export function previewRestore(rawJson: string): RestorePreview {
       settlementCount: countArray(data?.settlements),
       warnings,
     };
-  } catch (error) {
-    return {
-      valid: false,
-      schemaVersion: null,
-      memberCount: 0,
-      debtCount: 0,
-      eventCount: 0,
-      paymentCount: 0,
-      settlementCount: 0,
-      warnings: [error instanceof Error ? error.message : 'Backup file is not valid JSON.'],
-    };
+  } catch {
+    return invalidPreview('Backup file is not valid JSON.');
   }
 }
 
@@ -719,6 +739,36 @@ function countArray(value: unknown) {
   return Array.isArray(value) ? value.length : 0;
 }
 
+function invalidPreview(warning: string): RestorePreview {
+  return {
+    valid: false,
+    schemaVersion: null,
+    memberCount: 0,
+    debtCount: 0,
+    eventCount: 0,
+    paymentCount: 0,
+    settlementCount: 0,
+    warnings: [warning],
+  };
+}
+
+function pushNonArrayWarning(data: Record<string, unknown> | null, key: string, warnings: string[]) {
+  if (!data || !(key in data) || Array.isArray(data[key])) {
+    return;
+  }
+  warnings.push(`Backup data field "${key}" is malformed and will be treated as empty.`);
+}
+
+function schemaWarning(schemaVersion: unknown) {
+  if (typeof schemaVersion !== 'number') {
+    return 'Backup schema is missing or invalid.';
+  }
+  if (schemaVersion < BACKUP_SCHEMA_VERSION) {
+    return 'Backup schema is older than this app version.';
+  }
+  return 'Backup schema is newer than this app version.';
+}
+
 function parseBackup(rawJson: string): DebtulatorBackup {
   let parsed: Partial<DebtulatorBackup>;
   try {
@@ -729,7 +779,7 @@ function parseBackup(rawJson: string): DebtulatorBackup {
   if (parsed.app !== 'Debtulator') {
     throw new Error('This does not look like a Debtulator backup.');
   }
-  if (parsed.schemaVersion !== 6) {
+  if (parsed.schemaVersion !== BACKUP_SCHEMA_VERSION) {
     throw new Error('Backup schema differs from this app version.');
   }
   if (!isRecord(parsed.data)) {
