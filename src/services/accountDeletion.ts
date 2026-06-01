@@ -1,6 +1,5 @@
 import type { DatabaseSnapshot } from '@/src/data/database';
 import type { AccountDeletionState, AuditLog, SyncConflict } from '@/src/types/models';
-import { supabase } from '@/src/services/supabase';
 
 type AccountDeletionPlan = {
   blockers: string[];
@@ -166,6 +165,7 @@ type AccountDeletionRow = {
 };
 
 export async function fetchLatestAccountDeletionRequest(userId: string) {
+  const supabase = await getSupabaseClient();
   if (!supabase) {
     return null;
   }
@@ -192,6 +192,7 @@ export async function requestRemoteAccountDeletion(input: {
   keepLocalArchive: boolean;
   metadata?: Record<string, unknown>;
 }) {
+  const supabase = await getSupabaseClient();
   if (!supabase) {
     return null;
   }
@@ -227,4 +228,9 @@ function mapAccountDeletionRequest(row: AccountDeletionRow): AccountDeletionRequ
     failedAt: row.failed_at,
     updatedAt: row.updated_at,
   };
+}
+
+async function getSupabaseClient() {
+  const module = await import('@/src/services/supabase');
+  return module.supabase;
 }
