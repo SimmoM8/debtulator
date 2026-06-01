@@ -4,6 +4,7 @@ import type {
   Attachment,
   Comment,
   CurrencyCode,
+  Debt,
   EntityKind,
   Event,
   EventActivityLog,
@@ -294,6 +295,35 @@ export function mapRemoteExpensePayerToLocal(row: RemoteExpensePayer, snapshot: 
     currency: row.currency,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+export function mapLocalDebtToRemote(debt: Debt, snapshot: DatabaseSnapshot, creatorUserId: string) {
+  const member = snapshot.members.find((item) => item.id === debt.memberId);
+  if (!member) {
+    throw new SyncMappingError('Missing local member for shared debt.', { debtId: debt.id, memberId: debt.memberId });
+  }
+  if (!member.linkedUserId) {
+    throw new SyncMappingError('Cannot sync shared debt before the involved member is linked to a user.', {
+      debtId: debt.id,
+      memberId: member.id,
+    });
+  }
+
+  return {
+    creator_user_id: creatorUserId,
+    involved_user_id: member.linkedUserId,
+    local_member_reference: member.remoteId ?? member.id,
+    amount: debt.amount,
+    currency: debt.currency,
+    title: debt.title,
+    notes_visible_to_other_user: debt.sharedNotes ?? debt.notes,
+    debt_date: debt.debtDate,
+    due_date: debt.dueDate,
+    direction: debt.direction,
+    visibility: 'shared_with_involved_member',
+    verification_status: debt.verificationStatus === 'partially_verified' ? 'pending' : debt.verificationStatus,
+    settlement_status: debt.status,
   };
 }
 

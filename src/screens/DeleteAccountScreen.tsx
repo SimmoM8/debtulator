@@ -1,18 +1,22 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, StyleSheet, Switch, Text, View } from "react-native";
 
 import { DebtulatorShieldIllustration } from "@/src/components/illustrations/DebtulatorShieldIllustration";
 import {
-    Button,
-    Card,
-    PageHeader,
-    Screen,
-    SectionTitle,
-    TextField,
+  Button,
+  Card,
+  PageHeader,
+  Screen,
+  SectionTitle,
+  TextField,
 } from "@/src/components/ui/Primitives";
-import { palette, spacing, typefaces,
-typography,
-} from "@/src/constants/design";
+import { palette, spacing, typefaces, typography } from "@/src/constants/design";
+import {
+  type AccountDeletionRequest,
+  fetchLatestAccountDeletionRequest,
+  getLatestAccountDeletionState,
+  requestRemoteAccountDeletion,
+} from "@/src/services/accountDeletion";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
 
@@ -22,7 +26,34 @@ export function DeleteAccountScreen() {
   const [confirmation, setConfirmation] = useState("");
   const [deleteLocalData, setDeleteLocalData] = useState(false);
   const [keepLocalArchive, setKeepLocalArchive] = useState(true);
+  const [remoteRequest, setRemoteRequest] = useState<AccountDeletionRequest | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const canRequest = confirmation.trim().toUpperCase() === "DELETE";
+  const authenticatedUserId = auth.identity.authenticatedUserId;
+  const latestLocalState = useMemo(() => {
+    if (!authenticatedUserId) return null;
+    return getLatestAccountDeletionState(data.auditLogs, authenticatedUserId);
+  }, [authenticatedUserId, data.auditLogs]);
+
+  const refreshRemoteStatus = useCallback(async () => {
+    if (!authenticatedUserId) {
+      setRemoteRequest(null);
+      setStatusError(null);
+      return;
+    }
+
+    try {
+      setStatusError(null);
+      setRemoteRequest(await fetchLatestAccountDeletionRequest(authenticatedUserId));
+    } catch (error) {
+      setStatusError(error instanceof Error ? error.message : "Unable to load deletion status.");
+    }
+  }, [authenticatedUserId]);
+
+  useEffect(() => {
+    void refreshRemoteStatus();
+  }, [refreshRemoteStatus]);
 
   function requestDeletion() {
     if (!canRequest) {
@@ -38,19 +69,63 @@ export function DeleteAccountScreen() {
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: "Record request",
+          text: "Submit request",
           style: "destructive",
           onPress: async () => {
-            await data.createAuditLog({
-              actorUserId: auth.identity.authenticatedUserId,
-              action: "account_deletion_requested",
-              targetType: "account",
-              targetId: auth.identity.authenticatedUserId,
-              eventId: null,
-              metadata: { deleteLocalData, keepLocalArchive },
-            });
-            if (deleteLocalData && !keepLocalArchive) {
-              await data.resetLocalData(false);
+            if (!authenticatedUserId) {
+              Alert.alert("Sign in required", "Sign in before requesting account deletion.");
+              return;
+            }
+
+            setSubmitting(true);
+            try {
+              const remote = await requestRemoteAccountDeletion({
+                deleteLocalData,
+                keepLocalArchive,
+                metadata: { source: "delete-account-screen" },
+              });
+              const result = await data.submitAccountDeletionRequest({
+                userId: authenticatedUserId,
+                deleteLocalData,
+                keepLocalArchive,
+              });
+
+              if (remote) {
+                setRemoteRequest(remote);
+              }
+
+              if (result.status === "failed") {
+                Alert.alert(
+                  "Deletion blocked",
+                  [
+                    remote ? `Backend status: ${formatStatus(remote.status)}.` : null,
+                    result.failureReason === "unresolved_owned_conflicts"
+                      ? "Resolve owned sync conflicts before deleting your account."
+                      : "Account deletion failed. Please try again.",
+                  ]
+                    .filter(Boolean)
+                    .join(" "),
+                );
+                return;
+              }
+
+              if (deleteLocalData && !keepLocalArchive) {
+                await data.resetLocalData(false);
+              }
+
+              Alert.alert(
+                "Deletion request recorded",
+                remote
+                  ? `Remote status: ${formatStatus(remote.status)}. Local cleanup completed.`
+                  : "Local cleanup completed on this device.",
+              );
+            } catch (error) {
+              Alert.alert(
+                "Could not submit request",
+                error instanceof Error ? error.message : "The deletion request could not be submitted.",
+              );
+            } finally {
+              setSubmitting(false);
             }
           },
         },
@@ -100,6 +175,26 @@ export function DeleteAccountScreen() {
       </Card>
 
       <Card>
+        <SectionTitle title="Backend request status" />
+        <Text style={styles.body}>
+          {authenticatedUserId
+            ? remoteRequest
+              ? `Status: ${formatStatus(remoteRequest.status)}. Anonymization: ${formatStatus(remoteRequest.anonymizationStatus)}. Requested ${formatDate(remoteRequest.requestedAt)}.`
+              : "No remote deletion request has been submitted for this signed-in account."
+            : "Sign in to submit and track a backend account deletion request."}
+        </Text>
+        {statusError ? <Text style={styles.errorText}>{statusError}</Text> : null}
+        {authenticatedUserId ? (
+          <Button
+            title="Refresh status"
+            icon="refresh"
+            variant="secondary"
+            onPress={refreshRemoteStatus}
+          />
+        ) : null}
+      </Card>
+
+      <Card>
         <SectionTitle title="Local data choice" />
         <ToggleRow
           title="Keep local-only archive on this device"
@@ -117,12 +212,22 @@ export function DeleteAccountScreen() {
           onChangeText={setConfirmation}
         />
         <Button
-          title="Request account deletion"
+          title={submitting ? "Submitting request" : "Request account deletion"}
           icon="trash"
           variant="danger"
-          disabled={!canRequest}
+          disabled={!canRequest || submitting}
           onPress={requestDeletion}
         />
+        {submitting ? (
+          <Text style={styles.statusText}>Deletion status: submitting…</Text>
+        ) : latestLocalState ? (
+          <Text style={styles.statusText}>
+            Deletion status: {latestLocalState.status}
+            {latestLocalState.status === "failed" && latestLocalState.failureReason
+              ? ` (${latestLocalState.failureReason.replaceAll("_", " ")})`
+              : ""}
+          </Text>
+        ) : null}
       </Card>
     </Screen>
   );
@@ -141,6 +246,9 @@ function ToggleRow({
     <View style={styles.switchRow}>
       <Text style={styles.title}>{title}</Text>
       <Switch
+        accessibilityRole="switch"
+        accessibilityLabel={title}
+        accessibilityState={{ checked: value }}
         value={value}
         onValueChange={onValueChange}
         trackColor={{ false: palette.lineStrong, true: palette.brandSoft }}
@@ -148,6 +256,14 @@ function ToggleRow({
       />
     </View>
   );
+}
+
+function formatStatus(status: string) {
+  return status.replaceAll("_", " ");
+}
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString();
 }
 
 const styles = StyleSheet.create({
@@ -213,5 +329,16 @@ const styles = StyleSheet.create({
     color: palette.ink,
     fontSize: typography.size.lg,
     fontFamily: typefaces.bodyHeavy,
+  },
+  statusText: {
+    color: palette.muted,
+    fontSize: typography.size.sm,
+    fontFamily: typefaces.body,
+  },
+  errorText: {
+    color: palette.danger,
+    fontSize: typography.size.sm,
+    lineHeight: typography.line.md,
+    fontFamily: typefaces.bodyStrong,
   },
 });
