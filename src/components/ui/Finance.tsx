@@ -170,9 +170,6 @@ export function FilterChip({
 }) {
   return (
     <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ selected: active }}
       onPress={onPress}
       style={({ pressed }) => [
         styles.filterChip,
@@ -249,7 +246,6 @@ export function SearchFilterBar({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={filterLabel}
-        accessibilityState={{ selected: filterActive }}
         onPress={onPressFilter}
         style={({ pressed }) => [
           styles.searchToolbarButton,
@@ -285,8 +281,6 @@ export function SingleSelectFilterList({
           <Pressable
             key={option.value}
             accessibilityRole="button"
-            accessibilityLabel={option.label}
-            accessibilityHint={option.description}
             accessibilityState={{ selected: active }}
             onPress={() => onChange(option.value)}
             style={({ pressed }) => [
@@ -528,9 +522,7 @@ export function ActionTile({
       >
         <Ionicons name={icon} size={20} color={toneStyles[tone].text} />
       </View>
-      <Text style={styles.actionTitle} numberOfLines={2}>
-        {title}
-      </Text>
+      <Text style={styles.actionTitle}>{title}</Text>
       {subtitle ? <Text style={styles.actionSubtitle}>{subtitle}</Text> : null}
     </>
   );
@@ -541,86 +533,11 @@ export function ActionTile({
 
   return (
     <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={title}
-      accessibilityHint={subtitle}
       onPress={onPress}
       style={({ pressed }) => [styles.actionTile, pressed && styles.pressed]}
     >
       {content}
     </Pressable>
-  );
-}
-
-export function RequestCard({
-  title,
-  body,
-  amount,
-  status,
-  tone = "amber",
-  actions,
-}: {
-  title: string;
-  body: string;
-  amount?: string;
-  status: string;
-  tone?: Extract<Tone, "amber" | "teal" | "coral" | "muted">;
-  actions?: {
-    label: string;
-    onPress: () => void;
-    variant?: "primary" | "secondary";
-  }[];
-}) {
-  return (
-    <View style={styles.requestCard}>
-      <View style={styles.requestHeader}>
-        <View style={styles.requestCopy}>
-          <Text style={styles.requestTitle} numberOfLines={2}>
-            {title}
-          </Text>
-          <Text style={styles.requestBody}>{body}</Text>
-        </View>
-        <View style={styles.requestMeta}>
-          <StatusPill label={status} tone={tone} />
-          {amount ? (
-            <Text style={styles.requestAmount} numberOfLines={1}>
-              {amount}
-            </Text>
-          ) : null}
-        </View>
-      </View>
-      {actions?.length ? (
-        <View style={styles.requestActions}>
-          {actions.map((action) => {
-            const primary = action.variant !== "secondary";
-            return (
-              <Pressable
-                key={action.label}
-                accessibilityRole="button"
-                accessibilityLabel={action.label}
-                onPress={action.onPress}
-                style={({ pressed }) => [
-                  styles.requestAction,
-                  primary
-                    ? styles.requestActionPrimary
-                    : styles.requestActionSecondary,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.requestActionText,
-                    primary && styles.requestActionTextPrimary,
-                  ]}
-                >
-                  {action.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      ) : null}
-    </View>
   );
 }
 
@@ -757,10 +674,6 @@ export function ListRow({
 
   return (
     <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={[title, subtitle, amount, supportingLabel]
-        .filter(Boolean)
-        .join(", ")}
       onPress={onPress}
       style={({ pressed }) => [styles.rowShell, pressed && styles.pressed]}
     >
@@ -848,8 +761,6 @@ export function SettingsRow({
 }) {
   return (
     <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={[title, value, subtitle].filter(Boolean).join(", ")}
       onPress={onPress}
       style={({ pressed }) => [styles.settingsRow, pressed && styles.pressed]}
     >
@@ -876,20 +787,9 @@ export function SettingsRow({
   );
 }
 
-export function FloatingAddButton({
-  onPress,
-  accessibilityLabel = "Open quick actions",
-  accessibilityState,
-}: {
-  onPress: () => void;
-  accessibilityLabel?: string;
-  accessibilityState?: React.ComponentProps<typeof Pressable>["accessibilityState"];
-}) {
+export function FloatingAddButton({ onPress }: { onPress: () => void }) {
   return (
     <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
-      accessibilityState={accessibilityState}
       onPress={onPress}
       style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
     >
@@ -1169,111 +1069,34 @@ const styles = StyleSheet.create({
     fontFamily: typefaces.bodyStrong,
   },
   actionTile: {
-    minWidth: 132,
+    minWidth: 100,
     flex: 1,
-    minHeight: 78,
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderRow,
-    backgroundColor: palette.surfaceRow,
+    borderColor: palette.borderGlass,
+    backgroundColor: palette.surfaceGlassElevated,
     padding: 12,
-    gap: 7,
-    alignItems: "center",
-    justifyContent: "center",
-    ...shadows.soft,
+    gap: 8,
+    ...shadows.card,
   },
   actionIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: "center",
     justifyContent: "center",
   },
   actionTitle: {
-    color: palette.primary,
+    color: palette.textPrimary,
     fontSize: typography.size.md,
     fontFamily: typefaces.bodyStrong,
-    textAlign: "center",
   },
   actionSubtitle: {
     color: palette.muted,
     fontSize: typography.size.sm,
     lineHeight: typography.line.base,
     fontFamily: typefaces.body,
-    textAlign: "center",
-  },
-  requestCard: {
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderRow,
-    backgroundColor: palette.surfaceRow,
-    padding: spacing.md,
-    gap: spacing.md,
-  },
-  requestHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: spacing.md,
-  },
-  requestCopy: {
-    flex: 1,
-    minWidth: 0,
-    gap: 4,
-  },
-  requestTitle: {
-    color: palette.textPrimary,
-    fontSize: typography.size.lg,
-    lineHeight: typography.line.lgPlus,
-    fontFamily: typefaces.bodyStrong,
-  },
-  requestBody: {
-    color: palette.muted,
-    fontSize: typography.size.md,
-    lineHeight: typography.line.lg,
-    fontFamily: typefaces.body,
-  },
-  requestMeta: {
-    alignItems: "flex-end",
-    gap: 8,
-    maxWidth: 132,
-  },
-  requestAmount: {
-    color: palette.primaryDeep,
-    fontSize: typography.size.base,
-    fontFamily: typefaces.numeric,
-    fontVariant: ["tabular-nums"],
-  },
-  requestActions: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-  },
-  requestAction: {
-    minHeight: 42,
-    minWidth: 96,
-    borderRadius: radii.pill,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: spacing.md,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  requestActionPrimary: {
-    backgroundColor: palette.primary,
-    borderColor: palette.primary,
-  },
-  requestActionSecondary: {
-    backgroundColor: palette.surfaceGlassStrong,
-    borderColor: palette.borderIndigoSoft,
-  },
-  requestActionText: {
-    color: palette.primary,
-    fontSize: typography.size.base,
-    fontFamily: typefaces.bodyStrong,
-  },
-  requestActionTextPrimary: {
-    color: palette.surface,
   },
   avatarStack: {
     flexDirection: "row",
@@ -1312,18 +1135,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    minHeight: 66,
+    minHeight: 70,
     paddingHorizontal: spacing.md,
-    paddingVertical: 11,
+    paddingVertical: 12,
   },
   listRowDivider: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: palette.borderRow,
+    borderBottomColor: palette.line,
   },
   listIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1340,7 +1163,7 @@ const styles = StyleSheet.create({
   listAmount: {
     color: palette.textPrimary,
     fontSize: typography.size.base,
-    fontFamily: typefaces.numeric,
+    fontFamily: typefaces.bodyHeavy,
     fontVariant: ["tabular-nums"],
     textAlign: "right",
   },

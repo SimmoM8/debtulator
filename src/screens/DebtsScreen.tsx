@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { Alert, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 import {
   GlassCard,
@@ -10,7 +10,6 @@ import {
   StatCard,
 } from "@/src/components/ui/Finance";
 import {
-  Button,
   EmptyState,
   FilterSheet,
   IconButton,
@@ -45,16 +44,6 @@ export function DebtsScreen() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<DebtFilter>("all");
   const [filterOpen, setFilterOpen] = useState(false);
-
-  function openOptions() {
-    Alert.alert("Debt options", "Choose an action", [
-      {
-        text: "Open filters",
-        onPress: () => setFilterOpen(true),
-      },
-      { text: "Cancel", style: "cancel" },
-    ]);
-  }
 
   const filteredEntries = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -143,14 +132,15 @@ export function DebtsScreen() {
         showBackButton={false}
         action={
           <IconButton
-            icon="ellipsis-horizontal"
-            label="Debt options"
-            onPress={openOptions}
+            icon="add"
+            label="Add debt"
+            onPress={() => router.push("/debt/form")}
+            tone="primary"
+            size={24}
+            style={styles.headerAddButton}
           />
         }
       />
-
-      <Button title="Add debt" icon="add" onPress={() => router.push("/debt/form")} />
 
       <SearchFilterBar
         value={query}
@@ -465,6 +455,13 @@ const styles = StyleSheet.create({
   },
   listColumn: {
     gap: spacing.sm,
+  },
+  headerAddButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignSelf: "flex-start",
+    marginTop: 2,
   },
   sectionAmount: {
     fontSize: typography.size.xl,

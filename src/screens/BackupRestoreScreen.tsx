@@ -34,38 +34,30 @@ export function BackupRestoreScreen() {
   );
   const [restoreJson, setRestoreJson] = useState("");
   const [restoreMode, setRestoreMode] = useState<BackupMode>("merge");
-  const [restoring, setRestoring] = useState(false);
   const preview = useMemo(
     () => (restoreJson.trim() ? previewRestore(restoreJson) : null),
     [restoreJson],
   );
 
   async function createBackup() {
-    try {
-      const backup = buildBackup(data, {
-        includeAttachments,
-        includePrivateNotes,
-      });
-      const uri = await shareBackupFile(backup);
-      await data.updateSettings({
-        backupIncludeAttachments: includeAttachments,
-        backupIncludePrivateNotes: includePrivateNotes,
-        lastBackupAt: backup.exportedAt,
-      });
-      await data.createAuditLog({
-        actorUserId: null,
-        action: "backup_exported",
-        targetType: "backup",
-        targetId: uri,
-        eventId: null,
-        metadata: { includeAttachments, includePrivateNotes },
-      });
-    } catch (error) {
-      Alert.alert(
-        "Backup failed",
-        error instanceof Error ? error.message : "Backup export failed due to an unexpected error.",
-      );
-    }
+    const backup = buildBackup(data, {
+      includeAttachments,
+      includePrivateNotes,
+    });
+    const uri = await shareBackupFile(backup);
+    await data.updateSettings({
+      backupIncludeAttachments: includeAttachments,
+      backupIncludePrivateNotes: includePrivateNotes,
+      lastBackupAt: backup.exportedAt,
+    });
+    await data.createAuditLog({
+      actorUserId: null,
+      action: "backup_exported",
+      targetType: "backup",
+      targetId: uri,
+      eventId: null,
+      metadata: { includeAttachments, includePrivateNotes },
+    });
   }
 
   function confirmRestore() {
@@ -82,33 +74,19 @@ export function BackupRestoreScreen() {
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: "Restore",
-          style: restoreMode === "replace_local" ? "destructive" : "default",
-          onPress: () => {
-            void performRestore();
-          },
+          text: "Record restore",
+          onPress: () =>
+            data.createAuditLog({
+              actorUserId: null,
+              action: "restore_performed",
+              targetType: "backup",
+              targetId: null,
+              eventId: null,
+              metadata: { restoreMode, preview },
+            }),
         },
       ],
     );
-  }
-
-  async function performRestore() {
-    try {
-      setRestoring(true);
-      const result = await data.restoreBackup(restoreJson, restoreMode);
-      Alert.alert(
-        "Restore complete",
-        `${result.restored.members} members, ${result.restored.debts} debts, ${result.restored.events} events, ${result.restored.payments} payments, and ${result.restored.settlements} settlements restored. ${result.skipped} records skipped.`,
-      );
-      setRestoreJson("");
-    } catch (error) {
-      Alert.alert(
-        "Restore failed",
-        error instanceof Error ? error.message : "Unable to restore this backup.",
-      );
-    } finally {
-      setRestoring(false);
-    }
   }
 
   return (
@@ -216,10 +194,9 @@ export function BackupRestoreScreen() {
           </View>
         ) : null}
         <Button
-          title={restoring ? "Restoring..." : "Restore backup"}
+          title="Record restore decision"
           icon="refresh"
           variant="secondary"
-          disabled={restoring}
           onPress={confirmRestore}
         />
       </Card>
@@ -245,10 +222,6 @@ function ToggleRow({
         <Text style={styles.body}>{body}</Text>
       </View>
       <Switch
-        accessibilityRole="switch"
-        accessibilityLabel={title}
-        accessibilityHint={body}
-        accessibilityState={{ checked: value }}
         value={value}
         onValueChange={onValueChange}
         trackColor={{ false: palette.lineStrong, true: palette.brandSoft }}

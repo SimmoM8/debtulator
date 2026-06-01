@@ -107,15 +107,15 @@ export function SettingsScreen() {
 
       <SectionTitle
         title="Notifications"
-        subtitle="In-app notifications only during beta."
+        subtitle="Friendly reminders without noise."
       />
       <GlassCard tone="lavender">
         <View style={styles.sectionColumn}>
           <SettingsRow
             icon="notifications-outline"
             title="Alerts"
-            subtitle="External push/email delivery is disabled in beta"
-            value="Beta only"
+            subtitle="Payment reminders and shared updates"
+            value={data.settings.pushNotificationsEnabled ? "On" : "Off"}
             onPress={() => router.push("/notifications")}
           />
           <SettingsRow
