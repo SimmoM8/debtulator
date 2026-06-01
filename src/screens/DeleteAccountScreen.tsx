@@ -1,21 +1,20 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, StyleSheet, Switch, Text, View } from "react-native";
 
 import { DebtulatorShieldIllustration } from "@/src/components/illustrations/DebtulatorShieldIllustration";
 import {
-    Button,
-    Card,
-    PageHeader,
-    Screen,
-    SectionTitle,
-    TextField,
+  Button,
+  Card,
+  PageHeader,
+  Screen,
+  SectionTitle,
+  TextField,
 } from "@/src/components/ui/Primitives";
-import { palette, spacing, typefaces,
-typography,
-} from "@/src/constants/design";
+import { palette, spacing, typefaces, typography } from "@/src/constants/design";
 import {
   type AccountDeletionRequest,
   fetchLatestAccountDeletionRequest,
+  getLatestAccountDeletionState,
   requestRemoteAccountDeletion,
 } from "@/src/services/accountDeletion";
 import { useAppData } from "@/src/state/AppDataProvider";
@@ -32,6 +31,10 @@ export function DeleteAccountScreen() {
   const [submitting, setSubmitting] = useState(false);
   const canRequest = confirmation.trim().toUpperCase() === "DELETE";
   const authenticatedUserId = auth.identity.authenticatedUserId;
+  const latestLocalState = useMemo(() => {
+    if (!authenticatedUserId) return null;
+    return getLatestAccountDeletionState(data.auditLogs, authenticatedUserId);
+  }, [authenticatedUserId, data.auditLogs]);
 
   const refreshRemoteStatus = useCallback(async () => {
     if (!authenticatedUserId) {
@@ -69,41 +72,52 @@ export function DeleteAccountScreen() {
           text: "Submit request",
           style: "destructive",
           onPress: async () => {
+            if (!authenticatedUserId) {
+              Alert.alert("Sign in required", "Sign in before requesting account deletion.");
+              return;
+            }
+
             setSubmitting(true);
             try {
-              const remote = authenticatedUserId
-                ? await requestRemoteAccountDeletion({
-                    deleteLocalData,
-                    keepLocalArchive,
-                    metadata: { source: "delete-account-screen" },
-                  })
-                : null;
-
-              await data.createAuditLog({
-                actorUserId: authenticatedUserId,
-                action: remote ? "account_deletion_remote_requested" : "account_deletion_requested",
-                targetType: "account",
-                targetId: authenticatedUserId,
-                eventId: null,
-                metadata: {
-                  deleteLocalData,
-                  keepLocalArchive,
-                  remoteRequestId: remote?.id ?? null,
-                  remoteStatus: remote?.status ?? null,
-                },
+              const remote = await requestRemoteAccountDeletion({
+                deleteLocalData,
+                keepLocalArchive,
+                metadata: { source: "delete-account-screen" },
+              });
+              const result = await data.submitAccountDeletionRequest({
+                userId: authenticatedUserId,
+                deleteLocalData,
+                keepLocalArchive,
               });
 
               if (remote) {
                 setRemoteRequest(remote);
               }
+
+              if (result.status === "failed") {
+                Alert.alert(
+                  "Deletion blocked",
+                  [
+                    remote ? `Backend status: ${formatStatus(remote.status)}.` : null,
+                    result.failureReason === "unresolved_owned_conflicts"
+                      ? "Resolve owned sync conflicts before deleting your account."
+                      : "Account deletion failed. Please try again.",
+                  ]
+                    .filter(Boolean)
+                    .join(" "),
+                );
+                return;
+              }
+
               if (deleteLocalData && !keepLocalArchive) {
                 await data.resetLocalData(false);
               }
+
               Alert.alert(
                 "Deletion request recorded",
                 remote
-                  ? `Remote status: ${formatStatus(remote.status)}.`
-                  : "This device recorded the request locally. Sign in with Supabase configured to submit a backend deletion request.",
+                  ? `Remote status: ${formatStatus(remote.status)}. Local cleanup completed.`
+                  : "Local cleanup completed on this device.",
               );
             } catch (error) {
               Alert.alert(
@@ -204,6 +218,16 @@ export function DeleteAccountScreen() {
           disabled={!canRequest || submitting}
           onPress={requestDeletion}
         />
+        {submitting ? (
+          <Text style={styles.statusText}>Deletion status: submitting…</Text>
+        ) : latestLocalState ? (
+          <Text style={styles.statusText}>
+            Deletion status: {latestLocalState.status}
+            {latestLocalState.status === "failed" && latestLocalState.failureReason
+              ? ` (${latestLocalState.failureReason.replaceAll("_", " ")})`
+              : ""}
+          </Text>
+        ) : null}
       </Card>
     </Screen>
   );
@@ -305,6 +329,11 @@ const styles = StyleSheet.create({
     color: palette.ink,
     fontSize: typography.size.lg,
     fontFamily: typefaces.bodyHeavy,
+  },
+  statusText: {
+    color: palette.muted,
+    fontSize: typography.size.sm,
+    fontFamily: typefaces.body,
   },
   errorText: {
     color: palette.danger,

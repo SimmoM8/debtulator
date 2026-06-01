@@ -6,7 +6,6 @@ import { palette, spacing,
 typography,
 } from '@/src/constants/design';
 import { userMessageForError } from '@/src/services/errors';
-import { captureTelemetryException } from '@/src/services/telemetry';
 
 type State = {
   error: unknown;
@@ -17,10 +16,6 @@ export class ErrorBoundary extends React.Component<{ children: React.ReactNode }
 
   static getDerivedStateFromError(error: unknown) {
     return { error };
-  }
-
-  componentDidCatch(error: unknown) {
-    captureTelemetryException(error, 'render_error_boundary', { screen: 'root_layout' });
   }
 
   render() {

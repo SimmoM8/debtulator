@@ -63,6 +63,13 @@ const {
   getConflictResolutionAvailability,
   getRelatedSyncQueueEntries,
 } = require('../src/data/conflictResolution.ts');
+const {
+  BETA_PUSH_NOTIFICATIONS_ENABLED,
+  canDeliverPushNotification,
+  isInsideQuietHours,
+  notificationEnabled,
+  privacySafeNotificationBody,
+} = require('../src/services/notifications.ts');
 
 function snapshot(overrides = {}) {
   return {
