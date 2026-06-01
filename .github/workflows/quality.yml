@@ -1,0 +1,38 @@
+name: Quality
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - "codex/**"
+
+jobs:
+  quality:
+    name: Typecheck, lint, and test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.19.4"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Release config preflight
+        run: npm run release:preflight:config -- --env=staging
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test

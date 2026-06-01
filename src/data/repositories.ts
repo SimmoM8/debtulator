@@ -40,6 +40,13 @@ import {
   updateCurrencyRate,
   updateSetting,
 } from '@/src/data/database';
+import { buildAccountDeletionPlan } from '@/src/services/accountDeletion';
+import {
+  canApplyRemoteSnapshot,
+  getConflictResolutionAvailability,
+  getRelatedSyncQueueEntries,
+} from '@/src/data/conflictResolution';
+import { buildRestorePlan, type RestoreResult } from '@/src/services/backupRestore';
 import { withGeneratedObligations } from '@/src/services/splits';
 import {
   buildDuplicateWarning,
@@ -48,6 +55,7 @@ import {
 } from '@/src/services/eventDuplicates';
 import type {
   AppSettings,
+  AccountDeletionState,
   ActivityTargetKind,
   AppNotification,
   Attachment,
@@ -94,6 +102,8 @@ import type {
   SmartSuggestionStatus,
   SmartSuggestionType,
   SuggestedDebtChange,
+  BackupMode,
+  ConflictResolution,
   SyncConflict,
   SyncQueueEntry,
   SyncStatus,
@@ -361,6 +371,94 @@ export class DebtulatorRepository {
     await resetDatabase(this.db, seed);
   }
 
+  async restoreBackup(rawJson: string, mode: BackupMode): Promise<RestoreResult> {
+    const current = await loadSnapshot(this.db);
+    const plan = buildRestorePlan(rawJson, current, mode);
+
+    if (mode === 'replace_local') {
+      await resetDatabase(this.db, false);
+    }
+
+    if (plan.settings) {
+      await this.updateSettings(plan.settings);
+    }
+    for (const rate of plan.records.currencyRates) {
+      await updateCurrencyRate(this.db, rate.currency, rate.rateToSek);
+    }
+    for (const profile of plan.records.profiles) {
+      await insertProfile(this.db, profile);
+    }
+    for (const member of plan.records.members) {
+      await insertMember(this.db, member);
+    }
+    for (const event of plan.records.events) {
+      await insertEvent(this.db, event);
+    }
+    for (const eventMember of plan.records.eventMembers) {
+      await insertEventMember(this.db, eventMember);
+    }
+    for (const member of plan.records.sharedEventMembers) {
+      await insertSharedEventMember(this.db, member);
+    }
+    for (const debt of plan.records.debts) {
+      await insertDebt(this.db, debt);
+    }
+    for (const expense of plan.records.sharedExpenses) {
+      await insertSharedExpense(this.db, expense);
+    }
+    for (const debt of plan.records.eventDebts) {
+      await insertEventDebt(this.db, debt);
+    }
+    for (const payment of plan.records.payments) {
+      await insertPayment(this.db, payment);
+    }
+    for (const settlement of plan.records.settlements) {
+      await insertSettlement(this.db, settlement);
+    }
+    for (const line of plan.records.settlementLines) {
+      await insertSettlementLine(this.db, line);
+    }
+    for (const template of plan.records.recurringTemplates) {
+      await insertRecurringTemplate(this.db, template);
+    }
+    for (const reminder of plan.records.reminders) {
+      await insertReminder(this.db, reminder);
+    }
+    for (const reminder of plan.records.softReminders) {
+      await insertSoftReminder(this.db, reminder);
+    }
+    for (const credit of plan.records.overpaymentCredits) {
+      await insertOverpaymentCredit(this.db, credit);
+    }
+    for (const comment of plan.records.comments) {
+      await insertComment(this.db, comment);
+    }
+    for (const attachment of plan.records.attachments) {
+      await insertAttachment(this.db, attachment);
+    }
+    for (const suggestion of plan.records.smartSuggestions) {
+      await insertSmartSuggestion(this.db, suggestion);
+    }
+    for (const auditLog of plan.records.auditLogs) {
+      await insertAuditLog(this.db, auditLog);
+    }
+
+    await this.createAuditLog({
+      actorUserId: null,
+      action: 'restore_performed',
+      targetType: 'backup',
+      targetId: null,
+      eventId: null,
+      metadata: {
+        restoreMode: mode,
+        restored: plan.result.restored,
+        skipped: plan.result.skipped,
+        warnings: plan.result.warnings,
+      },
+    });
+    return plan.result;
+  }
+
   async upsertSyncQueueEntry(entry: SyncQueueEntry) {
     await insertSyncQueueEntry(this.db, entry);
     return entry;
@@ -447,7 +545,22 @@ export class DebtulatorRepository {
     return conflict;
   }
 
-  async resolveSyncConflict(conflict: SyncConflict, resolution: SyncConflict['resolution'], actorUserId?: string | null) {
+  async resolveSyncConflict(conflict: SyncConflict, resolution: ConflictResolution, actorUserId?: string | null) {
+    const snapshot = await loadSnapshot(this.db);
+    const availability = getConflictResolutionAvailability(conflict, snapshot);
+    if (!availability[resolution]) {
+      throw new Error(`Resolution "${resolution}" is not supported for this conflict.`);
+    }
+
+    if (resolution === 'cancel_local_change') {
+      await this.cancelRelatedSyncQueueEntries(conflict, snapshot.syncQueue);
+    } else if (resolution === 'keep_mine') {
+      await this.requeueRelatedSyncQueueEntries(conflict, snapshot.syncQueue);
+    } else if (resolution === 'keep_theirs') {
+      await this.applyRemoteSnapshot(conflict);
+      await this.cancelRelatedSyncQueueEntries(conflict, snapshot.syncQueue);
+    }
+
     const resolved: SyncConflict = {
       ...conflict,
       status: 'resolved',
@@ -470,6 +583,104 @@ export class DebtulatorRepository {
       },
     });
     return resolved;
+  }
+
+  private async cancelRelatedSyncQueueEntries(conflict: SyncConflict, syncQueue: SyncQueueEntry[]) {
+    const timestamp = nowIso();
+    const relatedEntries = getRelatedSyncQueueEntries(syncQueue, conflict).filter((entry) =>
+      ['pending', 'running', 'failed', 'conflict'].includes(entry.status),
+    );
+    for (const entry of relatedEntries) {
+      await insertSyncQueueEntry(this.db, {
+        ...entry,
+        status: 'cancelled',
+        errorCode: null,
+        errorMessage: 'Cancelled during conflict resolution.',
+        updatedAt: timestamp,
+      });
+    }
+  }
+
+  private async requeueRelatedSyncQueueEntries(conflict: SyncConflict, syncQueue: SyncQueueEntry[]) {
+    const timestamp = nowIso();
+    const relatedEntries = getRelatedSyncQueueEntries(syncQueue, conflict).filter((entry) =>
+      ['pending', 'running', 'failed', 'conflict'].includes(entry.status),
+    );
+    if (!relatedEntries.length) {
+      throw new Error('No related sync work can be requeued for this conflict.');
+    }
+    for (const entry of relatedEntries) {
+      await insertSyncQueueEntry(this.db, {
+        ...entry,
+        payload: withoutConflictBlockers(entry.payload),
+        retryCount: 0,
+        status: 'pending',
+        errorCode: null,
+        errorMessage: null,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        lastAttemptAt: null,
+      });
+    }
+  }
+
+  private async applyRemoteSnapshot(conflict: SyncConflict) {
+    if (!canApplyRemoteSnapshot(conflict)) {
+      throw new Error('The remote snapshot cannot be safely applied to this local record.');
+    }
+    const remoteSnapshot = {
+      ...conflict.remoteSnapshot,
+      id: conflict.localEntityId,
+      remoteId: conflict.remoteEntityId ?? conflict.remoteSnapshot.remoteId ?? null,
+      syncStatus: 'synced',
+    };
+
+    switch (conflict.entityType) {
+      case 'member':
+        await insertMember(this.db, remoteSnapshot as Member);
+        return;
+      case 'debt':
+        await insertDebt(this.db, remoteSnapshot as Debt);
+        return;
+      case 'event':
+        await insertEvent(this.db, remoteSnapshot as Event);
+        return;
+      case 'shared_expense':
+        await insertSharedExpense(this.db, remoteSnapshot as SharedExpense);
+        return;
+      case 'event_invite':
+        await insertEventInvite(this.db, remoteSnapshot as EventInvite);
+        return;
+      case 'event_member':
+        await insertSharedEventMember(this.db, remoteSnapshot as SharedEventMember);
+        return;
+      case 'event_member_claim':
+        await insertEventMemberClaim(this.db, remoteSnapshot as EventMemberClaim);
+        return;
+      case 'event_duplicate_warning':
+        await insertEventDuplicateWarning(this.db, remoteSnapshot as EventDuplicateWarning);
+        return;
+      case 'event_debt':
+        await insertEventDebt(this.db, remoteSnapshot as EventDebt);
+        return;
+      case 'event_verification':
+        await insertEventVerificationResponse(this.db, remoteSnapshot as EventVerificationResponse);
+        return;
+      case 'payment':
+        await insertPayment(this.db, remoteSnapshot as Payment);
+        return;
+      case 'settlement':
+        await insertSettlement(this.db, remoteSnapshot as Settlement);
+        return;
+      case 'attachment':
+        await insertAttachment(this.db, remoteSnapshot as Attachment);
+        return;
+      case 'comment':
+        await insertComment(this.db, remoteSnapshot as Comment);
+        return;
+      default:
+        throw new Error(`Cannot apply remote snapshots for ${conflict.entityType} conflicts.`);
+    }
   }
 
   async createNotification(input: Omit<AppNotification, 'id' | 'createdAt' | 'readAt'> & { readAt?: string | null }) {
@@ -498,6 +709,178 @@ export class DebtulatorRepository {
     };
     await insertAuditLog(this.db, auditLog);
     return auditLog;
+  }
+
+  async submitAccountDeletionRequest(input: {
+    userId: string;
+    deleteLocalData: boolean;
+    keepLocalArchive: boolean;
+  }): Promise<AccountDeletionState> {
+    const requestId = createId('account_deletion');
+    const requestLog = await this.createAuditLog({
+      actorUserId: input.userId,
+      action: 'account_deletion_requested',
+      targetType: 'account',
+      targetId: input.userId,
+      eventId: null,
+      metadata: {
+        requestId,
+        deleteLocalData: input.deleteLocalData,
+        keepLocalArchive: input.keepLocalArchive,
+      },
+    });
+
+    const snapshot = await this.load();
+    const plan = buildAccountDeletionPlan(snapshot, input.userId);
+    if (plan.blockers.length > 0) {
+      const failureReason = plan.blockers.join(',');
+      const failedAt = nowIso();
+      await this.createAuditLog({
+        actorUserId: input.userId,
+        action: 'account_deletion_failed',
+        targetType: 'account',
+        targetId: input.userId,
+        eventId: null,
+        metadata: {
+          requestId,
+          failureReason,
+          unresolvedOwnedConflictCount: plan.unresolvedOwnedConflictCount,
+        },
+      });
+      return {
+        requestId,
+        userId: input.userId,
+        status: 'failed',
+        requestedAt: requestLog.createdAt,
+        processedAt: failedAt,
+        failureReason,
+        metadata: {
+          unresolvedOwnedConflictCount: plan.unresolvedOwnedConflictCount,
+        },
+      };
+    }
+
+    const timestamp = nowIso();
+    for (const profile of snapshot.profiles.filter((item) => item.id === input.userId)) {
+      await insertProfile(this.db, {
+        ...profile,
+        displayName: 'Deleted user',
+        email: null,
+        phone: null,
+        avatarUrl: null,
+        updatedAt: timestamp,
+      });
+    }
+
+    for (const event of snapshot.events.filter((item) => item.ownerUserId === input.userId)) {
+      await insertEvent(this.db, {
+        ...event,
+        ownerUserId: null,
+        updatedAt: timestamp,
+      });
+    }
+
+    for (const participant of snapshot.eventParticipants.filter((item) => item.userId === input.userId)) {
+      await insertEventParticipant(this.db, {
+        ...participant,
+        status: 'removed',
+        updatedAt: timestamp,
+      });
+    }
+
+    for (const member of snapshot.sharedEventMembers.filter((item) => item.linkedUserId === input.userId)) {
+      await insertSharedEventMember(this.db, {
+        ...member,
+        type: 'unlinked_placeholder',
+        linkedUserId: null,
+        displayName: 'Deleted user',
+        alias: null,
+        email: null,
+        phone: null,
+        notes: null,
+        updatedAt: timestamp,
+      });
+    }
+
+    for (const member of snapshot.members.filter((item) => item.linkedUserId === input.userId)) {
+      await insertMember(this.db, {
+        ...member,
+        linkedUserId: null,
+        linkStatus: 'unlinked',
+        linkedProfileDisplayName: null,
+        linkedProfileEmail: null,
+        linkedProfilePhone: null,
+        updatedAt: timestamp,
+      });
+    }
+
+    for (const attachment of snapshot.attachments.filter((item) => item.createdByUserId === input.userId)) {
+      const extension = attachment.fileType?.trim() ? `.${attachment.fileType.trim()}` : '';
+      await insertAttachment(this.db, {
+        ...attachment,
+        createdByUserId: null,
+        localUri: null,
+        remoteUrl: null,
+        storagePath: null,
+        thumbnailUri: null,
+        fileName: `deleted-${attachment.id}${extension}`,
+        archivedAt: attachment.archivedAt ?? timestamp,
+        updatedAt: timestamp,
+      });
+    }
+
+    for (const comment of snapshot.comments.filter((item) => item.authorUserId === input.userId)) {
+      await insertComment(this.db, {
+        ...comment,
+        authorUserId: null,
+        localAuthorLabel: 'Deleted user',
+        updatedAt: timestamp,
+      });
+    }
+
+    await this.db.runAsync(`DELETE FROM notifications WHERE user_id = ?`, [input.userId]);
+    await this.db.runAsync(`UPDATE reminders SET user_id = NULL WHERE user_id = ?`, [input.userId]);
+    await this.db.runAsync(`UPDATE soft_reminders SET sender_user_id = NULL WHERE sender_user_id = ?`, [input.userId]);
+    await this.db.runAsync(`UPDATE soft_reminders SET recipient_user_id = NULL WHERE recipient_user_id = ?`, [input.userId]);
+
+    const notificationSettings: (keyof AppSettings)[] = [
+      'pushNotificationsEnabled',
+      'emailNotificationsEnabled',
+      'notificationVerificationEnabled',
+      'notificationEventEnabled',
+      'notificationPaymentSettlementEnabled',
+      'notificationReminderEnabled',
+      'notificationCommentEnabled',
+    ];
+    for (const key of notificationSettings) {
+      await updateSetting(this.db, key, 'false');
+    }
+
+    const processedAt = nowIso();
+    await this.createAuditLog({
+      actorUserId: input.userId,
+      action: 'account_deletion_completed',
+      targetType: 'account',
+      targetId: input.userId,
+      eventId: null,
+      metadata: {
+        requestId,
+        ownedEventCount: plan.ownedEventCount,
+        ownedAttachmentCount: plan.ownedAttachmentCount,
+      },
+    });
+    return {
+      requestId,
+      userId: input.userId,
+      status: 'completed',
+      requestedAt: requestLog.createdAt,
+      processedAt,
+      failureReason: null,
+      metadata: {
+        ownedEventCount: plan.ownedEventCount,
+        ownedAttachmentCount: plan.ownedAttachmentCount,
+      },
+    };
   }
 
   async createMember(input: MemberInput) {
@@ -2448,6 +2831,11 @@ function inferFileType(mimeType: string | null | undefined, fileName: string) {
     return 'text';
   }
   return 'file';
+}
+
+function withoutConflictBlockers(payload: Record<string, unknown>) {
+  const { blocked: _blocked, conflictId: _conflictId, ...rest } = payload;
+  return rest;
 }
 
 function buildExpensePayers(

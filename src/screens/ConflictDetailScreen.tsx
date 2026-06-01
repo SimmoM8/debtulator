@@ -15,6 +15,7 @@ import {
 import { palette, spacing, typefaces,
 typography,
 } from "@/src/constants/design";
+import { getConflictResolutionAvailability } from "@/src/data/conflictResolution";
 import { isFinancialConflict } from "@/src/services/stage6Sync";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
@@ -39,6 +40,7 @@ export function ConflictDetailScreen() {
 
   const currentConflict = conflict;
   const financial = isFinancialConflict(currentConflict);
+  const availability = getConflictResolutionAvailability(currentConflict, data);
 
   function resolve(resolution: ConflictResolution) {
     const action = () =>
@@ -48,7 +50,15 @@ export function ConflictDetailScreen() {
           resolution,
           auth.identity.authenticatedUserId,
         )
-        .then(() => router.back());
+        .then(() => router.back())
+        .catch((error: unknown) => {
+          Alert.alert(
+            "Resolution not applied",
+            error instanceof Error
+              ? error.message
+              : "This resolution is not supported for the current conflict.",
+          );
+        });
     if (
       financial &&
       ["keep_mine", "merge", "manual_edit"].includes(resolution)
@@ -64,6 +74,21 @@ export function ConflictDetailScreen() {
       return;
     }
     action();
+  }
+
+  function confirmCancelLocalChange() {
+    Alert.alert(
+      "Cancel local change?",
+      "This discards the queued local change for this conflict and keeps the remote version.",
+      [
+        { text: "Keep reviewing", style: "cancel" },
+        {
+          text: "Cancel local",
+          style: "destructive",
+          onPress: () => resolve("cancel_local_change"),
+        },
+      ],
+    );
   }
 
   return (
@@ -132,41 +157,35 @@ export function ConflictDetailScreen() {
           subtitle="Financial fields require explicit review."
         />
         <View style={styles.actions}>
-          <Button
-            title="Keep mine"
-            icon="cloud-upload"
-            onPress={() => resolve("keep_mine")}
-          />
-          <Button
-            title="Keep theirs"
-            icon="cloud-download"
-            variant="secondary"
-            onPress={() => resolve("keep_theirs")}
-          />
-          <Button
-            title="Merge"
-            icon="git-merge"
-            variant="secondary"
-            onPress={() => resolve("merge")}
-          />
-          <Button
-            title="Duplicate"
-            icon="copy"
-            variant="secondary"
-            onPress={() => resolve("duplicate")}
-          />
-          <Button
-            title="Cancel local"
-            icon="close"
-            variant="ghost"
-            onPress={() => resolve("cancel_local_change")}
-          />
-          <Button
-            title="Manual edit"
-            icon="create"
-            variant="secondary"
-            onPress={() => resolve("manual_edit")}
-          />
+          {availability.keep_mine ? (
+            <Button
+              title="Keep mine"
+              icon="cloud-upload"
+              onPress={() => resolve("keep_mine")}
+            />
+          ) : null}
+          {availability.keep_theirs ? (
+            <Button
+              title="Keep theirs"
+              icon="cloud-download"
+              variant="secondary"
+              onPress={() => resolve("keep_theirs")}
+            />
+          ) : null}
+          {availability.cancel_local_change ? (
+            <Button
+              title="Cancel local"
+              icon="close"
+              variant="ghost"
+              onPress={confirmCancelLocalChange}
+            />
+          ) : null}
+          {Object.values(availability).some(Boolean) ? null : (
+            <Text style={styles.body}>
+              This conflict cannot be resolved automatically from the stored
+              snapshots. Resolve the related record manually, then retry sync.
+            </Text>
+          )}
         </View>
       </Card>
     </Screen>

@@ -1,5 +1,5 @@
-import * as FileSystem from "expo-file-system/legacy";
 import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system/legacy";
 import React, { useMemo, useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 
@@ -24,11 +24,14 @@ import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
 import { todayIsoDate } from "@/src/utils/id";
 
+const MAX_CSV_BYTES = 5 * 1024 * 1024;
+
 export function ImportCsvScreen() {
   const data = useAppData();
   const auth = useAuth();
   const [sourceName, setSourceName] = useState("");
   const [csvText, setCsvText] = useState("");
+  const [fileFeedback, setFileFeedback] = useState("");
   const [importing, setImporting] = useState(false);
   const previewRows = useMemo(
     () => previewCsvImport(csvText, data.members),
@@ -46,36 +49,50 @@ export function ImportCsvScreen() {
 
   async function pickCsvFile() {
     try {
-      const selection = await DocumentPicker.getDocumentAsync({
-        type: ["text/csv", "text/comma-separated-values", "application/csv"],
+      const result = await DocumentPicker.getDocumentAsync({
+        type: [
+          "text/csv",
+          "text/plain",
+          "application/csv",
+          "application/vnd.ms-excel",
+          "text/comma-separated-values",
+        ],
         copyToCacheDirectory: true,
+        multiple: false,
+        base64: false,
       });
-      if (selection.canceled) {
+      if (result.canceled) {
         return;
       }
-      const asset = selection.assets[0];
+      const asset = result.assets[0];
       if (!asset) {
-        Alert.alert("Could not read CSV", "No file was selected. Please pick a CSV file and try again.");
         return;
       }
       if (!isSupportedCsvFile({ fileName: asset.name, mimeType: asset.mimeType })) {
         Alert.alert("Unsupported file type", "Please choose a .csv file.");
         return;
       }
-      const info = await FileSystem.getInfoAsync(asset.uri);
-      if (!info.exists) {
-        Alert.alert("File unavailable", "The selected file is no longer available. Please pick it again.");
+      if (asset.size && asset.size > MAX_CSV_BYTES) {
+        Alert.alert(
+          "CSV too large",
+          "Choose a CSV that is 5 MB or smaller for this local preview import.",
+        );
         return;
       }
+      const name = asset.name || fileNameFromUri(asset.uri, "CSV file");
       const text = await FileSystem.readAsStringAsync(asset.uri, {
         encoding: FileSystem.EncodingType.UTF8,
       });
       setCsvText(text);
-      setSourceName(asset.name || fileNameFromUri(asset.uri, "CSV file"));
+      setSourceName(name);
+      setFileFeedback(
+        `${name} loaded. Review the preview before confirming the import.`,
+      );
+      Alert.alert("CSV loaded", `${name} is ready to preview.`);
     } catch {
       Alert.alert(
         "Could not read CSV",
-        "The selected file could not be opened. Try another CSV file or paste CSV text directly.",
+        "Choose another CSV file or paste CSV text directly.",
       );
     }
   }
@@ -166,6 +183,11 @@ export function ImportCsvScreen() {
         "Import complete",
         `${importedMembers} members and ${importedDebts} debts imported as private local records.`,
       );
+      setFileFeedback(
+        `${importedMembers} members and ${importedDebts} debts imported from ${
+          sourceName || "pasted CSV"
+        }.`,
+      );
     } finally {
       setImporting(false);
     }
@@ -202,19 +224,20 @@ export function ImportCsvScreen() {
       <Card tone="lavender">
         <SectionTitle
           title="Choose CSV"
-          subtitle="Pick a CSV file from your device, or paste CSV content directly."
+          subtitle="Pick a CSV from the system file picker, or paste CSV content directly."
         />
+        <Button
+          title="Pick CSV file"
+          icon="document-attach"
+          variant="secondary"
+          onPress={pickCsvFile}
+        />
+        {fileFeedback ? <Text style={styles.feedback}>{fileFeedback}</Text> : null}
         <TextField
           label="Source name"
           value={sourceName}
           onChangeText={setSourceName}
           placeholder="debts.csv"
-        />
-        <Button
-          title="Choose CSV file"
-          icon="cloud-upload"
-          variant="secondary"
-          onPress={pickCsvFile}
         />
         <TextField
           label="CSV text"
@@ -245,7 +268,7 @@ export function ImportCsvScreen() {
         ) : (
           <EmptyState
             title="No rows parsed"
-            body="Paste CSV text or choose a CSV file to preview the import."
+            body="Paste CSV text or load a file URI to preview the import."
           />
         )}
         <Button
@@ -340,6 +363,12 @@ const styles = StyleSheet.create({
     fontSize: typography.size.base,
     lineHeight: typography.line.xl,
     fontFamily: typefaces.body,
+  },
+  feedback: {
+    color: palette.blue,
+    fontSize: typography.size.md,
+    lineHeight: typography.line.lg,
+    fontFamily: typefaces.bodyStrong,
   },
   badgeLine: {
     flexDirection: "row",
