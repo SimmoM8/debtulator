@@ -19,6 +19,7 @@ import "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/src/components/ErrorBoundary";
+import { addTelemetryBreadcrumb, configureTelemetry, installGlobalCrashHandler } from "@/src/services/telemetry";
 import { palette, spacing, typefaces, typography } from "@/src/constants/design";
 import { AppDataProvider, useAppData } from "@/src/state/AppDataProvider";
 import { AuthProvider } from "@/src/state/AuthProvider";
@@ -56,8 +57,14 @@ export default function RootLayout() {
   const fontsLoaded = manropeLoaded && soraLoaded;
 
   useEffect(() => {
+    installGlobalCrashHandler();
+    addTelemetryBreadcrumb("app", "bootstrap_started");
+  }, []);
+
+  useEffect(() => {
     if (fontsLoaded) {
       void SplashScreen.hideAsync();
+      addTelemetryBreadcrumb("app", "bootstrap_ready", { result: "fonts_loaded" });
     }
   }, [fontsLoaded]);
 
@@ -68,42 +75,43 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AppDataProvider>
+        <TelemetrySettingsBridge />
         <ThemeProvider value={DebtulatorTheme}>
           <ErrorBoundary>
             <AppDataGate>
               <AuthProvider>
-              <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="(tabs)" />
-                <Stack.Screen name="member/[id]" />
-                <Stack.Screen name="member/form" />
-                <Stack.Screen name="debt/[id]" />
-                <Stack.Screen name="debt/form" />
-                <Stack.Screen name="event/[id]" />
-                <Stack.Screen name="event/form" />
-                <Stack.Screen name="expense/[id]" />
-                <Stack.Screen name="expense/form" />
-                <Stack.Screen name="attachment/[id]" />
-                <Stack.Screen name="analytics" />
-                <Stack.Screen name="export" />
-                <Stack.Screen name="full-export" />
-                <Stack.Screen name="import-csv" />
-                <Stack.Screen name="suggestions" />
-                <Stack.Screen name="sync" />
-                <Stack.Screen name="conflicts" />
-                <Stack.Screen name="conflict/[id]" />
-                <Stack.Screen name="notifications" />
-                <Stack.Screen name="backup" />
-                <Stack.Screen name="privacy" />
-                <Stack.Screen name="delete-account" />
-                <Stack.Screen name="language" />
-                <Stack.Screen name="accessibility" />
-                <Stack.Screen name="payment/[id]" />
-                <Stack.Screen name="payment/form" />
-                <Stack.Screen name="settlement/[id]" />
-                <Stack.Screen name="recurring/index" />
-                <Stack.Screen name="recurring/form" />
-                <Stack.Screen name="auth" />
-              </Stack>
+                <Stack screenOptions={{ headerShown: false }}>
+                  <Stack.Screen name="(tabs)" />
+                  <Stack.Screen name="member/[id]" />
+                  <Stack.Screen name="member/form" />
+                  <Stack.Screen name="debt/[id]" />
+                  <Stack.Screen name="debt/form" />
+                  <Stack.Screen name="event/[id]" />
+                  <Stack.Screen name="event/form" />
+                  <Stack.Screen name="expense/[id]" />
+                  <Stack.Screen name="expense/form" />
+                  <Stack.Screen name="attachment/[id]" />
+                  <Stack.Screen name="analytics" />
+                  <Stack.Screen name="export" />
+                  <Stack.Screen name="full-export" />
+                  <Stack.Screen name="import-csv" />
+                  <Stack.Screen name="suggestions" />
+                  <Stack.Screen name="sync" />
+                  <Stack.Screen name="conflicts" />
+                  <Stack.Screen name="conflict/[id]" />
+                  <Stack.Screen name="notifications" />
+                  <Stack.Screen name="backup" />
+                  <Stack.Screen name="privacy" />
+                  <Stack.Screen name="delete-account" />
+                  <Stack.Screen name="language" />
+                  <Stack.Screen name="accessibility" />
+                  <Stack.Screen name="payment/[id]" />
+                  <Stack.Screen name="payment/form" />
+                  <Stack.Screen name="settlement/[id]" />
+                  <Stack.Screen name="recurring/index" />
+                  <Stack.Screen name="recurring/form" />
+                  <Stack.Screen name="auth" />
+                </Stack>
               </AuthProvider>
             </AppDataGate>
           </ErrorBoundary>
@@ -112,6 +120,19 @@ export default function RootLayout() {
       </AppDataProvider>
     </SafeAreaProvider>
   );
+}
+
+function TelemetrySettingsBridge() {
+  const data = useAppData();
+
+  useEffect(() => {
+    configureTelemetry({
+      telemetryEnabled: data.settings.betaTelemetryEnabled,
+      crashReportingEnabled: data.settings.betaCrashReportingEnabled,
+    });
+  }, [data.settings.betaCrashReportingEnabled, data.settings.betaTelemetryEnabled]);
+
+  return null;
 }
 
 function AppDataGate({ children }: { children: React.ReactNode }) {

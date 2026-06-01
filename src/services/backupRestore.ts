@@ -1,4 +1,5 @@
 import type { DatabaseSnapshot } from '@/src/data/database';
+import { addTelemetryBreadcrumb, captureTelemetryException, trackTelemetryEvent } from '@/src/services/telemetry';
 import { sanitizeAttachmentsForPortableExport } from '@/src/services/export';
 import type {
   AppSettings,
@@ -138,6 +139,10 @@ type BackupData = {
 };
 
 export function buildBackup(snapshot: DatabaseSnapshot, options: BackupOptions): DebtulatorBackup {
+  addTelemetryBreadcrumb('backup', 'build_started', {
+    includeAttachments: options.includeAttachments,
+    includePrivateNotes: options.includePrivateNotes,
+  });
   const attachments = options.includeAttachments ? sanitizeAttachmentsForPortableExport(snapshot.attachments) : [];
   return {
     app: 'Debtulator',
@@ -186,9 +191,25 @@ export async function shareBackupFile(backup: DebtulatorBackup) {
     throw new Error('No writable document directory is available for backup export.');
   }
   const fileUri = `${directory}debtulator-backup-${backup.exportedAt.slice(0, 10)}.json`;
-  await FileSystem.writeAsStringAsync(fileUri, JSON.stringify(backup, null, 2));
-  await Share.share({ url: fileUri, message: 'Debtulator backup export' });
-  return fileUri;
+  try {
+    await FileSystem.writeAsStringAsync(fileUri, JSON.stringify(backup, null, 2));
+    await Share.share({ url: fileUri, message: 'Debtulator backup export' });
+    addTelemetryBreadcrumb('backup', 'share_completed', {
+      includeAttachments: backup.privacy.includesAttachments,
+      includePrivateNotes: backup.privacy.includesPrivateNotes,
+      result: 'success',
+    });
+    trackTelemetryEvent('backup_created', {
+      includeAttachments: backup.privacy.includesAttachments,
+      includePrivateNotes: backup.privacy.includesPrivateNotes,
+      result: 'success',
+    });
+    return fileUri;
+  } catch (error) {
+    addTelemetryBreadcrumb('backup', 'share_failed', { result: 'failure' });
+    captureTelemetryException(error, 'backup_share', {});
+    throw error;
+  }
 }
 
 export function previewRestore(rawJson: string): RestorePreview {
@@ -224,7 +245,7 @@ export function previewRestore(rawJson: string): RestorePreview {
     pushNonArrayWarning(data, 'events', warnings);
     pushNonArrayWarning(data, 'payments', warnings);
     pushNonArrayWarning(data, 'settlements', warnings);
-    return {
+    const preview: RestorePreview = {
       valid,
       schemaVersion: typeof parsed.schemaVersion === 'number' ? parsed.schemaVersion : null,
       memberCount: countArray(data?.members),
@@ -234,7 +255,24 @@ export function previewRestore(rawJson: string): RestorePreview {
       settlementCount: countArray(data?.settlements),
       warnings,
     };
+    addTelemetryBreadcrumb('restore', preview.valid ? 'preview_valid' : 'preview_invalid', {
+      valid: preview.valid,
+      schemaVersion: preview.schemaVersion ?? 0,
+      memberCount: preview.memberCount,
+      debtCount: preview.debtCount,
+      eventCount: preview.eventCount,
+      paymentCount: preview.paymentCount,
+      settlementCount: preview.settlementCount,
+      warningsCount: preview.warnings.length,
+    });
+    trackTelemetryEvent(preview.valid ? 'restore_preview_valid' : 'restore_preview_invalid', {
+      valid: preview.valid,
+      warningsCount: preview.warnings.length,
+    });
+    return preview;
   } catch {
+    addTelemetryBreadcrumb('restore', 'preview_invalid', { valid: false, warningsCount: 1 });
+    trackTelemetryEvent('restore_preview_invalid', { valid: false, warningsCount: 1 });
     return invalidPreview('Backup file is not valid JSON.');
   }
 }

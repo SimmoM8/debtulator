@@ -121,6 +121,22 @@ export function PrivacyControlsScreen() {
             data.updateSettings({ smartSuggestionsPrivateOnly })
           }
         />
+        <ToggleRow
+          title="Beta telemetry milestones"
+          body="Shares privacy-safe milestone events and breadcrumbs for beta diagnostics."
+          value={data.settings.betaTelemetryEnabled}
+          onValueChange={(betaTelemetryEnabled) =>
+            data.updateSettings({ betaTelemetryEnabled })
+          }
+        />
+        <ToggleRow
+          title="Crash reporting"
+          body="Shares crash context with recent breadcrumbs, never private notes or attachment contents."
+          value={data.settings.betaCrashReportingEnabled}
+          onValueChange={(betaCrashReportingEnabled) =>
+            data.updateSettings({ betaCrashReportingEnabled })
+          }
+        />
       </Card>
 
       <Card>
