@@ -40,6 +40,7 @@ export function BackupRestoreScreen() {
   );
   const [restoreJson, setRestoreJson] = useState("");
   const [restoreMode, setRestoreMode] = useState<BackupMode>("merge");
+  const [restoring, setRestoring] = useState(false);
   const preview = useMemo(
     () => (restoreJson.trim() ? previewRestore(restoreJson) : null),
     [restoreJson],
@@ -70,7 +71,10 @@ export function BackupRestoreScreen() {
     } catch (error) {
       addTelemetryBreadcrumb("backup", "create_failed", { result: "failure" });
       captureTelemetryException(error, "backup_create", {});
-      throw error;
+      Alert.alert(
+        "Backup failed",
+        error instanceof Error ? error.message : "Backup export failed due to an unexpected error.",
+      );
     }
   }
 
@@ -88,7 +92,8 @@ export function BackupRestoreScreen() {
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: "Record restore",
+          text: "Restore",
+          style: restoreMode === "replace_local" ? "destructive" : "default",
           onPress: () => {
             addTelemetryBreadcrumb("restore", "decision_recorded", {
               mode: restoreMode,
@@ -98,19 +103,32 @@ export function BackupRestoreScreen() {
               mode: restoreMode,
               valid: preview.valid,
             });
-            trackFirstSuccess("restore", { mode: restoreMode, result: "success" });
-            void data.createAuditLog({
-              actorUserId: null,
-              action: "restore_performed",
-              targetType: "backup",
-              targetId: null,
-              eventId: null,
-              metadata: { restoreMode, preview },
-            });
+            void performRestore();
           },
         },
       ],
     );
+  }
+
+  async function performRestore() {
+    try {
+      setRestoring(true);
+      const result = await data.restoreBackup(restoreJson, restoreMode);
+      Alert.alert(
+        "Restore complete",
+        `${result.restored.members} members, ${result.restored.debts} debts, ${result.restored.events} events, ${result.restored.payments} payments, and ${result.restored.settlements} settlements restored. ${result.skipped} records skipped.`,
+      );
+      trackFirstSuccess("restore", { mode: restoreMode, result: "success" });
+      setRestoreJson("");
+    } catch (error) {
+      Alert.alert(
+        "Restore failed",
+        error instanceof Error ? error.message : "Unable to restore this backup.",
+      );
+      captureTelemetryException(error, "restore_apply", { mode: restoreMode });
+    } finally {
+      setRestoring(false);
+    }
   }
 
   return (
@@ -218,9 +236,10 @@ export function BackupRestoreScreen() {
           </View>
         ) : null}
         <Button
-          title="Record restore decision"
+          title={restoring ? "Restoring..." : "Restore backup"}
           icon="refresh"
           variant="secondary"
+          disabled={restoring}
           onPress={confirmRestore}
         />
       </Card>
@@ -246,6 +265,10 @@ function ToggleRow({
         <Text style={styles.body}>{body}</Text>
       </View>
       <Switch
+        accessibilityRole="switch"
+        accessibilityLabel={title}
+        accessibilityHint={body}
+        accessibilityState={{ checked: value }}
         value={value}
         onValueChange={onValueChange}
         trackColor={{ false: palette.lineStrong, true: palette.brandSoft }}

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Alert, StyleSheet, Switch, Text, View } from "react-native";
 
 import { DebtulatorShieldIllustration } from "@/src/components/illustrations/DebtulatorShieldIllustration";
@@ -13,6 +13,11 @@ import {
 import { palette, spacing, typefaces,
 typography,
 } from "@/src/constants/design";
+import {
+  type AccountDeletionRequest,
+  fetchLatestAccountDeletionRequest,
+  requestRemoteAccountDeletion,
+} from "@/src/services/accountDeletion";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
 
@@ -22,7 +27,30 @@ export function DeleteAccountScreen() {
   const [confirmation, setConfirmation] = useState("");
   const [deleteLocalData, setDeleteLocalData] = useState(false);
   const [keepLocalArchive, setKeepLocalArchive] = useState(true);
+  const [remoteRequest, setRemoteRequest] = useState<AccountDeletionRequest | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const canRequest = confirmation.trim().toUpperCase() === "DELETE";
+  const authenticatedUserId = auth.identity.authenticatedUserId;
+
+  const refreshRemoteStatus = useCallback(async () => {
+    if (!authenticatedUserId) {
+      setRemoteRequest(null);
+      setStatusError(null);
+      return;
+    }
+
+    try {
+      setStatusError(null);
+      setRemoteRequest(await fetchLatestAccountDeletionRequest(authenticatedUserId));
+    } catch (error) {
+      setStatusError(error instanceof Error ? error.message : "Unable to load deletion status.");
+    }
+  }, [authenticatedUserId]);
+
+  useEffect(() => {
+    void refreshRemoteStatus();
+  }, [refreshRemoteStatus]);
 
   function requestDeletion() {
     if (!canRequest) {
@@ -38,19 +66,52 @@ export function DeleteAccountScreen() {
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: "Record request",
+          text: "Submit request",
           style: "destructive",
           onPress: async () => {
-            await data.createAuditLog({
-              actorUserId: auth.identity.authenticatedUserId,
-              action: "account_deletion_requested",
-              targetType: "account",
-              targetId: auth.identity.authenticatedUserId,
-              eventId: null,
-              metadata: { deleteLocalData, keepLocalArchive },
-            });
-            if (deleteLocalData && !keepLocalArchive) {
-              await data.resetLocalData(false);
+            setSubmitting(true);
+            try {
+              const remote = authenticatedUserId
+                ? await requestRemoteAccountDeletion({
+                    deleteLocalData,
+                    keepLocalArchive,
+                    metadata: { source: "delete-account-screen" },
+                  })
+                : null;
+
+              await data.createAuditLog({
+                actorUserId: authenticatedUserId,
+                action: remote ? "account_deletion_remote_requested" : "account_deletion_requested",
+                targetType: "account",
+                targetId: authenticatedUserId,
+                eventId: null,
+                metadata: {
+                  deleteLocalData,
+                  keepLocalArchive,
+                  remoteRequestId: remote?.id ?? null,
+                  remoteStatus: remote?.status ?? null,
+                },
+              });
+
+              if (remote) {
+                setRemoteRequest(remote);
+              }
+              if (deleteLocalData && !keepLocalArchive) {
+                await data.resetLocalData(false);
+              }
+              Alert.alert(
+                "Deletion request recorded",
+                remote
+                  ? `Remote status: ${formatStatus(remote.status)}.`
+                  : "This device recorded the request locally. Sign in with Supabase configured to submit a backend deletion request.",
+              );
+            } catch (error) {
+              Alert.alert(
+                "Could not submit request",
+                error instanceof Error ? error.message : "The deletion request could not be submitted.",
+              );
+            } finally {
+              setSubmitting(false);
             }
           },
         },
@@ -100,6 +161,26 @@ export function DeleteAccountScreen() {
       </Card>
 
       <Card>
+        <SectionTitle title="Backend request status" />
+        <Text style={styles.body}>
+          {authenticatedUserId
+            ? remoteRequest
+              ? `Status: ${formatStatus(remoteRequest.status)}. Anonymization: ${formatStatus(remoteRequest.anonymizationStatus)}. Requested ${formatDate(remoteRequest.requestedAt)}.`
+              : "No remote deletion request has been submitted for this signed-in account."
+            : "Sign in to submit and track a backend account deletion request."}
+        </Text>
+        {statusError ? <Text style={styles.errorText}>{statusError}</Text> : null}
+        {authenticatedUserId ? (
+          <Button
+            title="Refresh status"
+            icon="refresh"
+            variant="secondary"
+            onPress={refreshRemoteStatus}
+          />
+        ) : null}
+      </Card>
+
+      <Card>
         <SectionTitle title="Local data choice" />
         <ToggleRow
           title="Keep local-only archive on this device"
@@ -117,10 +198,10 @@ export function DeleteAccountScreen() {
           onChangeText={setConfirmation}
         />
         <Button
-          title="Request account deletion"
+          title={submitting ? "Submitting request" : "Request account deletion"}
           icon="trash"
           variant="danger"
-          disabled={!canRequest}
+          disabled={!canRequest || submitting}
           onPress={requestDeletion}
         />
       </Card>
@@ -141,6 +222,9 @@ function ToggleRow({
     <View style={styles.switchRow}>
       <Text style={styles.title}>{title}</Text>
       <Switch
+        accessibilityRole="switch"
+        accessibilityLabel={title}
+        accessibilityState={{ checked: value }}
         value={value}
         onValueChange={onValueChange}
         trackColor={{ false: palette.lineStrong, true: palette.brandSoft }}
@@ -148,6 +232,14 @@ function ToggleRow({
       />
     </View>
   );
+}
+
+function formatStatus(status: string) {
+  return status.replaceAll("_", " ");
+}
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString();
 }
 
 const styles = StyleSheet.create({
@@ -213,5 +305,11 @@ const styles = StyleSheet.create({
     color: palette.ink,
     fontSize: typography.size.lg,
     fontFamily: typefaces.bodyHeavy,
+  },
+  errorText: {
+    color: palette.danger,
+    fontSize: typography.size.sm,
+    lineHeight: typography.line.md,
+    fontFamily: typefaces.bodyStrong,
   },
 });

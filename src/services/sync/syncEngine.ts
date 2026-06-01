@@ -5,6 +5,7 @@ import { addTelemetryBreadcrumb, captureTelemetryException, trackFirstSuccess, t
 import {
   mapLocalAttachmentToRemote,
   mapLocalCommentToRemote,
+  mapLocalDebtToRemote,
   mapLocalEventDebtToRemote,
   mapLocalEventMemberToRemote,
   mapLocalEventToRemote,
@@ -21,6 +22,7 @@ import { pullRemoteData } from '@/src/services/sync/pullRemote';
 import type {
   Attachment,
   Comment,
+  Debt,
   EntityKind,
   Event,
   EventDebt,
@@ -56,6 +58,7 @@ export type SyncEngineStore = DatabaseSnapshot & {
   upsertEventInvite: (invite: EventInvite) => Promise<EventInvite>;
   upsertSharedEventMember: (member: SharedEventMember) => Promise<SharedEventMember>;
   upsertEventMemberClaim: (claim: EventMemberClaim) => Promise<EventMemberClaim>;
+  upsertDebt: (debt: Debt) => Promise<Debt>;
   upsertSharedExpense: (expense: SharedExpense) => Promise<SharedExpense>;
   upsertEventDebt: (debt: EventDebt) => Promise<EventDebt>;
   upsertEventVerificationResponse: (response: EventVerificationResponse) => Promise<EventVerificationResponse>;
@@ -208,6 +211,11 @@ async function processEntry(
     case 'update:shared_expense':
     case 'archive:shared_expense':
       return updateSharedExpense(snapshot, store, entry, userId);
+    case 'create:debt':
+      return createDebt(snapshot, store, entry, userId);
+    case 'update:debt':
+    case 'archive:debt':
+      return updateDebt(snapshot, store, entry, userId);
     case 'create:event_debt':
       return createEventDebt(snapshot, store, entry);
     case 'update:event_debt':
@@ -440,6 +448,50 @@ async function updateSharedExpense(snapshot: DatabaseSnapshot, store: SyncEngine
   const updated = { ...expense, syncStatus: 'synced' as const, updatedAt: data.updated_at };
   await store.upsertSharedExpense(updated);
   return replace(snapshot, 'sharedExpenses', updated);
+}
+
+async function createDebt(snapshot: DatabaseSnapshot, store: SyncEngineStore, entry: SyncQueueEntry, userId: string) {
+  const debt = requiredLocal(snapshot.debts, entry.entityId, 'debt');
+  if (debt.visibility !== 'shared_with_involved_member') {
+    return markEntitySynced(snapshot, store, 'debt', debt.id);
+  }
+  if (debt.remoteId) {
+    return markEntitySynced(snapshot, store, 'debt', debt.id);
+  }
+
+  const { data, error } = await supabase!
+    .from('shared_debt_records')
+    .insert(mapLocalDebtToRemote(debt, snapshot, userId))
+    .select('*')
+    .single();
+  throwIf(error);
+
+  const updated = { ...debt, remoteId: data.id, syncStatus: 'synced' as const, updatedAt: data.updated_at };
+  await store.upsertDebt(updated);
+  return replace(snapshot, 'debts', updated);
+}
+
+async function updateDebt(snapshot: DatabaseSnapshot, store: SyncEngineStore, entry: SyncQueueEntry, userId: string) {
+  const debt = requiredLocal(snapshot.debts, entry.entityId, 'debt');
+  if (debt.visibility !== 'shared_with_involved_member') {
+    return markEntitySynced(snapshot, store, 'debt', debt.id);
+  }
+  if (!debt.remoteId) {
+    return createDebt(snapshot, store, entry, userId);
+  }
+
+  await detectRemoteConflict(snapshot, store, userId, entry, debt, 'shared_debt_records', 'debt', 'update_update');
+  const { data, error } = await supabase!
+    .from('shared_debt_records')
+    .update(mapLocalDebtToRemote(debt, snapshot, userId))
+    .eq('id', debt.remoteId)
+    .select('*')
+    .single();
+  throwIf(error);
+
+  const updated = { ...debt, syncStatus: 'synced' as const, updatedAt: data.updated_at };
+  await store.upsertDebt(updated);
+  return replace(snapshot, 'debts', updated);
 }
 
 async function createEventDebt(snapshot: DatabaseSnapshot, store: SyncEngineStore, entry: SyncQueueEntry) {
@@ -764,6 +816,12 @@ async function markEntitySyncStatus(
       await store.upsertSharedExpense(updated);
       return replace(snapshot, 'sharedExpenses', updated);
     }
+    case 'debt': {
+      const debt = requiredLocal(snapshot.debts, entityId, 'debt');
+      const updated = { ...debt, syncStatus };
+      await store.upsertDebt(updated);
+      return replace(snapshot, 'debts', updated);
+    }
     case 'event_debt': {
       const debt = requiredLocal(snapshot.eventDebts, entityId, 'event debt');
       const updated = { ...debt, syncStatus };
@@ -826,6 +884,7 @@ function hasRemoteIdForLocalId(snapshot: DatabaseSnapshot, localId: string) {
   const collections: { id: string; remoteId?: string | null }[][] = [
     snapshot.events,
     snapshot.sharedEventMembers,
+    snapshot.debts,
     snapshot.sharedExpenses,
     snapshot.eventDebts,
     snapshot.payments,
@@ -847,6 +906,9 @@ function dependencyWeight(entry: SyncQueueEntry) {
   if (entry.entityType === 'shared_expense' || entry.entityType === 'event_debt') {
     return 2;
   }
+  if (entry.entityType === 'debt') {
+    return 2;
+  }
   return 3;
 }
 
@@ -861,6 +923,8 @@ function requiredLocal<T extends { id: string }>(items: T[], id: string, label: 
 function cloneSnapshot(snapshot: DatabaseSnapshot): DatabaseSnapshot {
   return {
     ...snapshot,
+    members: [...snapshot.members],
+    debts: [...snapshot.debts],
     events: [...snapshot.events],
     eventParticipants: [...snapshot.eventParticipants],
     eventInvites: [...snapshot.eventInvites],

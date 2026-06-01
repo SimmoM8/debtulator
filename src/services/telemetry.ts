@@ -1,4 +1,3 @@
-import { supabase } from '@/src/services/supabase';
 import { nowIso } from '@/src/utils/id';
 
 type TelemetryMetadata = Record<string, unknown>;
@@ -197,6 +196,7 @@ async function writeTelemetryRecord(input: {
   targetId: string;
   metadata: Record<string, unknown>;
 }) {
+  const supabase = await loadSupabaseClient();
   if (!supabase) {
     return;
   }
@@ -216,5 +216,14 @@ async function writeTelemetryRecord(input: {
     });
   } catch {
     // Ignore telemetry transport failures.
+  }
+}
+
+async function loadSupabaseClient() {
+  try {
+    const { supabase } = await import('@/src/services/supabase');
+    return supabase;
+  } catch {
+    return null;
   }
 }
