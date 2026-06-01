@@ -31,7 +31,6 @@ export function RecurringTemplatesScreen() {
       <PageHeader
         eyebrow="Recurring"
         title="Recurring records"
-        subtitle="Generate rent, subscriptions, utilities, and repeat shared expenses without duplicates."
         action={
           <Button
             title="Add recurring"

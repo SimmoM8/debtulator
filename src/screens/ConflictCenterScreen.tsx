@@ -29,7 +29,6 @@ export function ConflictCenterScreen() {
       <PageHeader
         eyebrow="Sync review"
         title="Conflict center"
-        subtitle="Conflicts that affect balances are never auto-resolved."
       />
       <Card tone="lavender" style={styles.heroCard}>
         <View style={styles.heroGlow} />

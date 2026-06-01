@@ -108,7 +108,6 @@ export function SettlementDetailScreen() {
             ? "Settlement suggestion accepted"
             : "Manual settlement"
         }
-        subtitle="A settlement groups payments and explains which obligations they reduce."
       />
 
       <Card tone="lavender" style={styles.heroCard}>

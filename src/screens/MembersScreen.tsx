@@ -128,7 +128,6 @@ export function MembersScreen() {
     <Screen>
       <PageHeader
         title="Members"
-        subtitle="People, balances, and who’s already linked."
         showBackButton={false}
         action={
           <IconButton

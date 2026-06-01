@@ -173,7 +173,6 @@ export function RequestsScreen() {
       <Screen>
         <PageHeader
           title="Requests"
-          subtitle="Sign in to receive verification requests, invites, and shared confirmations."
           showBackButton={false}
           action={<AppMenuButton />}
         />
@@ -194,7 +193,6 @@ export function RequestsScreen() {
     <Screen>
       <PageHeader
         title="Requests"
-        subtitle="A simple inbox for approvals, invites, and anything that needs your answer."
         showBackButton={false}
         action={<AppMenuButton />}
       />

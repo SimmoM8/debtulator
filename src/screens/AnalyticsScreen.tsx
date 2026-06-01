@@ -101,7 +101,6 @@ export function AnalyticsScreen() {
         <PageHeader
           eyebrow="Insights"
           title="Insights"
-          subtitle="Useful summaries shown in your selected base currency."
         action={
           <Button
             title="Export data"

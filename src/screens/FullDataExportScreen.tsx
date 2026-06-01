@@ -114,7 +114,6 @@ export function FullDataExportScreen() {
       <PageHeader
         eyebrow="Account data"
         title="Full data export"
-        subtitle="Exports only locally accessible data and clearly labels private/shared records."
       />
 
       <Card tone="lavender" style={styles.heroCard}>

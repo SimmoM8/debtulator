@@ -48,7 +48,6 @@ export function SyncStatusScreen() {
       <PageHeader
         eyebrow="Data safety"
         title="Sync status"
-        subtitle="Offline changes are queued locally and never discarded silently."
         action={
           <Button
             title="Conflicts"

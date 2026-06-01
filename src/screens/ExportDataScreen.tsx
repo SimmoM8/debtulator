@@ -239,7 +239,6 @@ export function ExportDataScreen() {
       <PageHeader
         eyebrow="Data portability"
         title="Export and share"
-        subtitle="Review exactly what will be included before creating files or sharing event summaries."
         action={
           <Button
             title="Import CSV"

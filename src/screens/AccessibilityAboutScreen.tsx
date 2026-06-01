@@ -29,7 +29,6 @@ export function AccessibilityAboutScreen() {
       <PageHeader
         eyebrow="Release readiness"
         title="Accessibility and help"
-        subtitle="Stage 6 accessibility checklist and production support notes."
       />
       <Card tone="lavender" style={styles.heroCard}>
         <View style={styles.heroGlow} />

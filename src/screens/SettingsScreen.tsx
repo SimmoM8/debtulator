@@ -29,7 +29,6 @@ export function SettingsScreen() {
     <Screen>
       <PageHeader
         title="Settings"
-        subtitle="Calm preferences, privacy-first defaults, and clear data safety controls."
         showBackButton={false}
         action={<AppMenuButton />}
       />

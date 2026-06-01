@@ -110,7 +110,6 @@ export function SmartSuggestionsScreen() {
       <PageHeader
         eyebrow="Smart suggestions"
         title="Suggestions"
-        subtitle="Optional assists for tags, events, duplicates, and recurring patterns. Nothing is changed automatically."
       />
 
       <Card tone="lavender" style={styles.heroCard}>
