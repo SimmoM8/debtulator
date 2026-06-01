@@ -19,6 +19,7 @@ import { palette, spacing, typefaces,
 typography,
 } from "@/src/constants/design";
 import { previewCsvImport, type ImportPreviewRow } from "@/src/services/csv";
+import { fileNameFromUri, isSupportedCsvFile } from "@/src/services/attachments";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
 import { todayIsoDate } from "@/src/utils/id";
@@ -67,6 +68,10 @@ export function ImportCsvScreen() {
       if (!asset) {
         return;
       }
+      if (!isSupportedCsvFile({ fileName: asset.name, mimeType: asset.mimeType })) {
+        Alert.alert("Unsupported file type", "Please choose a .csv file.");
+        return;
+      }
       if (asset.size && asset.size > MAX_CSV_BYTES) {
         Alert.alert(
           "CSV too large",
@@ -74,7 +79,7 @@ export function ImportCsvScreen() {
         );
         return;
       }
-      const name = asset.name || asset.uri.split("/").pop() || "CSV file";
+      const name = asset.name || fileNameFromUri(asset.uri, "CSV file");
       const text = await FileSystem.readAsStringAsync(asset.uri, {
         encoding: FileSystem.EncodingType.UTF8,
       });

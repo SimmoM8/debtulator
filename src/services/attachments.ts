@@ -1,6 +1,8 @@
 import type { Attachment, AttachmentKind, AttachmentTargetType, AttachmentVisibility } from '@/src/types/models';
 
 export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+/** Alias kept for backward compatibility with tests and older call-sites. */
+export const MAX_ATTACHMENT_FILE_SIZE_BYTES = MAX_ATTACHMENT_BYTES;
 
 export const ATTACHMENT_KIND_LABELS: Record<AttachmentKind, string> = {
   receipt: 'Receipt',
@@ -151,6 +153,38 @@ export function storagePathForAttachment(input: {
   const safeFileName = input.fileName.replace(/[^a-z0-9._-]+/gi, '-').toLowerCase();
   const prefix = input.eventId ? `events/${input.eventId}` : 'private';
   return `${prefix}/${input.targetType}/${input.targetId}/${Date.now()}-${safeFileName}`;
+}
+
+/**
+ * Returns true when the given file (identified by name and/or MIME type) is an
+ * image or PDF — the types accepted as general-purpose record attachments.
+ */
+export function isSupportedAttachmentFile(input: { fileName?: string | null; mimeType?: string | null }) {
+  const lowerMime = input.mimeType?.toLowerCase() ?? '';
+  if (lowerMime === 'application/pdf' || lowerMime.startsWith('image/')) {
+    return true;
+  }
+  const ext = extensionFromFileName(input.fileName?.toLowerCase() ?? '');
+  const imagePdfExtensions = new Set(['png', 'jpg', 'jpeg', 'pdf', 'heic', 'heif', 'webp']);
+  return imagePdfExtensions.has(ext);
+}
+
+const SUPPORTED_CSV_MIME_TYPES = new Set([
+  'text/csv',
+  'text/comma-separated-values',
+  'application/csv',
+  'application/vnd.ms-excel',
+]);
+
+/**
+ * Returns true when the given file (identified by name and/or MIME type) is
+ * a CSV file suitable for import.
+ */
+export function isSupportedCsvFile(input: { fileName?: string | null; mimeType?: string | null }) {
+  if (extensionFromFileName(input.fileName?.toLowerCase() ?? '') === 'csv') {
+    return true;
+  }
+  return SUPPORTED_CSV_MIME_TYPES.has(input.mimeType?.toLowerCase() ?? '');
 }
 
 function normalizeMimeType(mimeType: string | null | undefined, fileName: string) {

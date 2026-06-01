@@ -40,6 +40,7 @@ import {
   updateCurrencyRate,
   updateSetting,
 } from '@/src/data/database';
+import { buildAccountDeletionPlan } from '@/src/services/accountDeletion';
 import {
   canApplyRemoteSnapshot,
   getConflictResolutionAvailability,
@@ -54,6 +55,7 @@ import {
 } from '@/src/services/eventDuplicates';
 import type {
   AppSettings,
+  AccountDeletionState,
   ActivityTargetKind,
   AppNotification,
   Attachment,
@@ -707,6 +709,178 @@ export class DebtulatorRepository {
     };
     await insertAuditLog(this.db, auditLog);
     return auditLog;
+  }
+
+  async submitAccountDeletionRequest(input: {
+    userId: string;
+    deleteLocalData: boolean;
+    keepLocalArchive: boolean;
+  }): Promise<AccountDeletionState> {
+    const requestId = createId('account_deletion');
+    const requestLog = await this.createAuditLog({
+      actorUserId: input.userId,
+      action: 'account_deletion_requested',
+      targetType: 'account',
+      targetId: input.userId,
+      eventId: null,
+      metadata: {
+        requestId,
+        deleteLocalData: input.deleteLocalData,
+        keepLocalArchive: input.keepLocalArchive,
+      },
+    });
+
+    const snapshot = await this.load();
+    const plan = buildAccountDeletionPlan(snapshot, input.userId);
+    if (plan.blockers.length > 0) {
+      const failureReason = plan.blockers.join(',');
+      const failedAt = nowIso();
+      await this.createAuditLog({
+        actorUserId: input.userId,
+        action: 'account_deletion_failed',
+        targetType: 'account',
+        targetId: input.userId,
+        eventId: null,
+        metadata: {
+          requestId,
+          failureReason,
+          unresolvedOwnedConflictCount: plan.unresolvedOwnedConflictCount,
+        },
+      });
+      return {
+        requestId,
+        userId: input.userId,
+        status: 'failed',
+        requestedAt: requestLog.createdAt,
+        processedAt: failedAt,
+        failureReason,
+        metadata: {
+          unresolvedOwnedConflictCount: plan.unresolvedOwnedConflictCount,
+        },
+      };
+    }
+
+    const timestamp = nowIso();
+    for (const profile of snapshot.profiles.filter((item) => item.id === input.userId)) {
+      await insertProfile(this.db, {
+        ...profile,
+        displayName: 'Deleted user',
+        email: null,
+        phone: null,
+        avatarUrl: null,
+        updatedAt: timestamp,
+      });
+    }
+
+    for (const event of snapshot.events.filter((item) => item.ownerUserId === input.userId)) {
+      await insertEvent(this.db, {
+        ...event,
+        ownerUserId: null,
+        updatedAt: timestamp,
+      });
+    }
+
+    for (const participant of snapshot.eventParticipants.filter((item) => item.userId === input.userId)) {
+      await insertEventParticipant(this.db, {
+        ...participant,
+        status: 'removed',
+        updatedAt: timestamp,
+      });
+    }
+
+    for (const member of snapshot.sharedEventMembers.filter((item) => item.linkedUserId === input.userId)) {
+      await insertSharedEventMember(this.db, {
+        ...member,
+        type: 'unlinked_placeholder',
+        linkedUserId: null,
+        displayName: 'Deleted user',
+        alias: null,
+        email: null,
+        phone: null,
+        notes: null,
+        updatedAt: timestamp,
+      });
+    }
+
+    for (const member of snapshot.members.filter((item) => item.linkedUserId === input.userId)) {
+      await insertMember(this.db, {
+        ...member,
+        linkedUserId: null,
+        linkStatus: 'unlinked',
+        linkedProfileDisplayName: null,
+        linkedProfileEmail: null,
+        linkedProfilePhone: null,
+        updatedAt: timestamp,
+      });
+    }
+
+    for (const attachment of snapshot.attachments.filter((item) => item.createdByUserId === input.userId)) {
+      const extension = attachment.fileType?.trim() ? `.${attachment.fileType.trim()}` : '';
+      await insertAttachment(this.db, {
+        ...attachment,
+        createdByUserId: null,
+        localUri: null,
+        remoteUrl: null,
+        storagePath: null,
+        thumbnailUri: null,
+        fileName: `deleted-${attachment.id}${extension}`,
+        archivedAt: attachment.archivedAt ?? timestamp,
+        updatedAt: timestamp,
+      });
+    }
+
+    for (const comment of snapshot.comments.filter((item) => item.authorUserId === input.userId)) {
+      await insertComment(this.db, {
+        ...comment,
+        authorUserId: null,
+        localAuthorLabel: 'Deleted user',
+        updatedAt: timestamp,
+      });
+    }
+
+    await this.db.runAsync(`DELETE FROM notifications WHERE user_id = ?`, [input.userId]);
+    await this.db.runAsync(`UPDATE reminders SET user_id = NULL WHERE user_id = ?`, [input.userId]);
+    await this.db.runAsync(`UPDATE soft_reminders SET sender_user_id = NULL WHERE sender_user_id = ?`, [input.userId]);
+    await this.db.runAsync(`UPDATE soft_reminders SET recipient_user_id = NULL WHERE recipient_user_id = ?`, [input.userId]);
+
+    const notificationSettings: (keyof AppSettings)[] = [
+      'pushNotificationsEnabled',
+      'emailNotificationsEnabled',
+      'notificationVerificationEnabled',
+      'notificationEventEnabled',
+      'notificationPaymentSettlementEnabled',
+      'notificationReminderEnabled',
+      'notificationCommentEnabled',
+    ];
+    for (const key of notificationSettings) {
+      await updateSetting(this.db, key, 'false');
+    }
+
+    const processedAt = nowIso();
+    await this.createAuditLog({
+      actorUserId: input.userId,
+      action: 'account_deletion_completed',
+      targetType: 'account',
+      targetId: input.userId,
+      eventId: null,
+      metadata: {
+        requestId,
+        ownedEventCount: plan.ownedEventCount,
+        ownedAttachmentCount: plan.ownedAttachmentCount,
+      },
+    });
+    return {
+      requestId,
+      userId: input.userId,
+      status: 'completed',
+      requestedAt: requestLog.createdAt,
+      processedAt,
+      failureReason: null,
+      metadata: {
+        ownedEventCount: plan.ownedEventCount,
+        ownedAttachmentCount: plan.ownedAttachmentCount,
+      },
+    };
   }
 
   async createMember(input: MemberInput) {
