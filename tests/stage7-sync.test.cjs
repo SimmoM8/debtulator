@@ -8,6 +8,12 @@ const projectRoot = path.resolve(__dirname, '..');
 const originalResolve = Module._resolveFilename;
 
 Module._resolveFilename = function resolveAlias(request, parent, isMain, options) {
+  if (request === 'react-native') {
+    return originalResolve.call(this, path.join(projectRoot, 'tests/mocks/react-native.cjs'), parent, isMain, options);
+  }
+  if (request === 'expo-file-system/legacy') {
+    return originalResolve.call(this, path.join(projectRoot, 'tests/mocks/expo-file-system-legacy.cjs'), parent, isMain, options);
+  }
   if (request.startsWith('@/')) {
     return originalResolve.call(this, path.join(projectRoot, request.slice(2)), parent, isMain, options);
   }
@@ -44,6 +50,14 @@ const {
 } = require('../src/services/sync/mappers.ts');
 const { buildLedgerEntries } = require('../src/services/ledger.ts');
 const { canRetrySyncEntry } = require('../src/services/stage6Sync.ts');
+const { buildBackup, previewRestore, RESTORE_PREVIEW_MAX_BYTES } = require('../src/services/backupRestore.ts');
+const {
+  BETA_PUSH_NOTIFICATIONS_ENABLED,
+  canDeliverPushNotification,
+  isInsideQuietHours,
+  notificationEnabled,
+  privacySafeNotificationBody,
+} = require('../src/services/notifications.ts');
 const {
   canApplyRemoteSnapshot,
   getConflictResolutionAvailability,
@@ -185,6 +199,35 @@ function sharedExpense(overrides = {}) {
     syncStatus: 'synced',
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
+function backupSnapshot(overrides = {}) {
+  return {
+    profiles: [],
+    members: [],
+    debts: [],
+    events: [],
+    eventMembers: [],
+    sharedEventMembers: [],
+    sharedExpenses: [],
+    eventDebts: [],
+    payments: [],
+    settlements: [],
+    settlementLines: [],
+    expensePayers: [],
+    tags: [],
+    comments: [],
+    attachments: [],
+    recurringTemplates: [],
+    reminders: [],
+    softReminders: [],
+    overpaymentCredits: [],
+    smartSuggestions: [],
+    settings: {},
+    currencyRates: [],
+    auditLogs: [],
     ...overrides,
   };
 }
@@ -579,6 +622,111 @@ test('missing local to remote relationship fails loudly instead of producing mix
     () => mapLocalExpenseToRemote(sharedExpense({ participantIds: ['member_a', 'unknown_member'] }), snapshot()),
     SyncMappingError,
   );
+});
+
+test('backup attachment toggle excludes attachments when disabled and sanitizes file paths when enabled', () => {
+  const attachment = {
+    id: 'attachment_1',
+    targetType: 'debt',
+    targetId: 'debt_1',
+    eventId: null,
+    createdByUserId: null,
+    localUri: 'file:///private/path/receipt.png',
+    remoteUrl: 'https://cdn.example.com/receipt.png',
+    storagePath: 'private/debt/debt_1/receipt.png',
+    fileName: 'receipt.png',
+    fileType: 'image',
+    mimeType: 'image/png',
+    fileSize: 4096,
+    attachmentKind: 'receipt',
+    visibility: 'private',
+    thumbnailUri: 'file:///private/path/thumb.png',
+    syncStatus: 'local_only',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    archivedAt: null,
+  };
+  const withAttachments = buildBackup(backupSnapshot({ attachments: [attachment] }), {
+    includeAttachments: true,
+    includePrivateNotes: true,
+  });
+  const withoutAttachments = buildBackup(backupSnapshot({ attachments: [attachment] }), {
+    includeAttachments: false,
+    includePrivateNotes: true,
+  });
+
+  assert.equal(withAttachments.data.attachments.length, 1);
+  assert.equal(withAttachments.data.attachments[0].localUri, null);
+  assert.equal(withAttachments.data.attachments[0].remoteUrl, null);
+  assert.equal(withAttachments.data.attachments[0].storagePath, null);
+  assert.equal(withAttachments.data.attachments[0].thumbnailUri, null);
+  assert.deepEqual(withoutAttachments.data.attachments, []);
+});
+
+test('backup fails clearly when attachments are unsafe for export', () => {
+  const oversizedAttachment = {
+    id: 'attachment_big',
+    targetType: 'debt',
+    targetId: 'debt_1',
+    eventId: null,
+    createdByUserId: null,
+    localUri: null,
+    remoteUrl: null,
+    storagePath: null,
+    fileName: 'huge.exe',
+    fileType: 'binary',
+    mimeType: 'application/octet-stream',
+    fileSize: 30 * 1024 * 1024,
+    attachmentKind: 'other',
+    visibility: 'private',
+    thumbnailUri: null,
+    syncStatus: 'local_only',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    archivedAt: null,
+  };
+
+  assert.throws(
+    () =>
+      buildBackup(backupSnapshot({ attachments: [oversizedAttachment] }), {
+        includeAttachments: true,
+        includePrivateNotes: true,
+      }),
+    /Attachment huge\.exe is larger than the 25 MB export limit\./,
+  );
+});
+
+test('restore preview rejects malformed and oversized payloads safely', () => {
+  const malformed = previewRestore('{"not":"json"');
+  assert.equal(malformed.valid, false);
+  assert.deepEqual(malformed.warnings, ['Backup file is not valid JSON.']);
+
+  const oversized = previewRestore('x'.repeat(RESTORE_PREVIEW_MAX_BYTES + 1));
+  assert.equal(oversized.valid, false);
+  assert.match(oversized.warnings[0], /preview limit/);
+});
+
+test('restore preview keeps version-skew payloads valid with warnings and malformed fields safe', () => {
+  const preview = previewRestore(
+    JSON.stringify({
+      app: 'Debtulator',
+      schemaVersion: 5,
+      privacy: { restoredRecordsDefaultPrivate: true },
+      data: {
+        members: [{ id: 'member_1' }],
+        debts: 'not-an-array',
+        events: [],
+        payments: [],
+        settlements: [],
+      },
+    }),
+  );
+
+  assert.equal(preview.valid, true);
+  assert.equal(preview.memberCount, 1);
+  assert.equal(preview.debtCount, 0);
+  assert.ok(preview.warnings.some((warning) => warning.includes('older than this app version')));
+  assert.ok(preview.warnings.some((warning) => warning.includes('"debts" is malformed')));
 });
 
 function notificationSettings(overrides = {}) {
