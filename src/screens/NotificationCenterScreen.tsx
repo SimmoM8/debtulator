@@ -66,7 +66,6 @@ export function NotificationCenterScreen() {
       <PageHeader
         eyebrow="Notifications"
         title="Notification center"
-        subtitle="This build shows in-app notifications here; it does not send push or email."
         action={
           <Button
             title="Mark all read"

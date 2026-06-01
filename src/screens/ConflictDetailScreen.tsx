@@ -121,7 +121,6 @@ export function ConflictDetailScreen() {
       <PageHeader
         eyebrow="Conflict review"
         title={currentConflict.entityType.replaceAll("_", " ")}
-        subtitle={currentConflict.conflictType.replaceAll("_", " ")}
       />
 
       <Card tone="lavender" style={styles.heroCard}>

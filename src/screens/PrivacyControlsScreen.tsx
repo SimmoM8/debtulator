@@ -24,7 +24,6 @@ export function PrivacyControlsScreen() {
       <PageHeader
         eyebrow="Privacy"
         title="Privacy controls"
-        subtitle="Signing in, linking members, or joining events never auto-shares private records."
       />
 
       <Card tone="lavender" style={styles.heroCard}>

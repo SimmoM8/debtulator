@@ -139,7 +139,6 @@ export function DebtsScreen() {
     <Screen>
       <PageHeader
         title="Debts"
-        subtitle="See what you owe, what is owed to you, what is due soon, and what is already settled."
         showBackButton={false}
         action={
           <IconButton

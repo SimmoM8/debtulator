@@ -89,7 +89,6 @@ export function EventsScreen() {
     <Screen>
       <PageHeader
         title="Events"
-        subtitle="Trips, households, and group expenses that feel social instead of stressful."
         showBackButton={false}
         action={
           <IconButton

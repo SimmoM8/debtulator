@@ -138,7 +138,6 @@ export function DeleteAccountScreen() {
       <PageHeader
         eyebrow="Destructive action"
         title="Delete account"
-        subtitle="Deletion is deliberate and preserves shared ledger integrity where required."
       />
 
       <Card tone="lavender" style={styles.heroCard}>

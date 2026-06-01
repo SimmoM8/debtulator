@@ -198,7 +198,6 @@ export function ImportCsvScreen() {
       <PageHeader
         eyebrow="CSV import"
         title="Import CSV"
-        subtitle="Preview, validate, and confirm before saving members or simple debts."
       />
 
       <Card tone="lavender" style={styles.heroCard}>

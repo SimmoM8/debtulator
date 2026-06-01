@@ -136,7 +136,6 @@ export function BackupRestoreScreen() {
       <PageHeader
         eyebrow="Data safety"
         title="Backup and restore"
-        subtitle="Backups default restored records to private/local copies."
       />
 
       <Card tone="lavender" style={styles.heroCard}>

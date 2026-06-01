@@ -71,7 +71,6 @@ export function AuthScreen() {
       <PageHeader
         eyebrow="Account"
         title="Debtulator account"
-        subtitle="Use the app locally without an account, or sign in to link members and verify debts."
       />
 
       <Card tone="lavender" style={styles.heroCard}>

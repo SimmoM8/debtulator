@@ -23,7 +23,6 @@ export function LanguageSettingsScreen() {
       <PageHeader
         eyebrow="Localization"
         title="Language"
-        subtitle="Display strings, dates, and currency formatting can follow system language or be pinned."
       />
       <Card tone="lavender" style={styles.heroCard}>
         <View style={styles.heroGlow} />
