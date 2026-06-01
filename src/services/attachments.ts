@@ -1,5 +1,9 @@
 import type { Attachment, AttachmentKind, AttachmentTargetType, AttachmentVisibility } from '@/src/types/models';
 
+export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+/** Alias kept for backward compatibility with tests and older call-sites. */
+export const MAX_ATTACHMENT_FILE_SIZE_BYTES = MAX_ATTACHMENT_BYTES;
+
 export const ATTACHMENT_KIND_LABELS: Record<AttachmentKind, string> = {
   receipt: 'Receipt',
   proof: 'Proof',
@@ -16,6 +20,30 @@ export const ATTACHMENT_TARGET_LABELS: Record<AttachmentTargetType, string> = {
   settlement: 'Settlement',
   event: 'Event',
   comment: 'Comment',
+};
+
+const SUPPORTED_MIME_TYPES = new Set([
+  'application/pdf',
+  'image/heic',
+  'image/heif',
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+  'text/csv',
+  'text/plain',
+]);
+
+const MIME_BY_EXTENSION: Record<string, string> = {
+  csv: 'text/csv',
+  heic: 'image/heic',
+  heif: 'image/heif',
+  jpeg: 'image/jpeg',
+  jpg: 'image/jpeg',
+  pdf: 'application/pdf',
+  png: 'image/png',
+  txt: 'text/plain',
+  webp: 'image/webp',
 };
 
 export function activeAttachmentsForTarget(
@@ -58,7 +86,54 @@ export function formatFileSize(bytes: number) {
 export function fileNameFromUri(uri: string, fallback: string) {
   const clean = uri.split('?')[0] ?? uri;
   const name = clean.split('/').filter(Boolean).pop();
-  return name || fallback;
+  return name ? decodeURIComponent(name) : fallback;
+}
+
+export function inferMimeType(fileName: string, fallback = 'application/octet-stream') {
+  const extension = extensionFromFileName(fileName);
+  return extension ? MIME_BY_EXTENSION[extension] ?? fallback : fallback;
+}
+
+export function inferFileType(mimeType: string, fileName: string) {
+  if (mimeType.startsWith('image/')) {
+    return 'image';
+  }
+  if (mimeType === 'application/pdf') {
+    return 'pdf';
+  }
+  return extensionFromFileName(fileName) || 'file';
+}
+
+export function validateAttachmentCandidate(input: {
+  fileName: string;
+  mimeType?: string | null;
+  fileSize?: number | null;
+}) {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const cleanName = input.fileName.trim();
+  const normalizedMime = normalizeMimeType(input.mimeType, cleanName);
+  const size = Number(input.fileSize) || 0;
+
+  if (!cleanName) {
+    errors.push('Choose a file before adding the attachment.');
+  }
+  if (!isSupportedAttachmentMime(normalizedMime, cleanName)) {
+    errors.push('Use a supported file type: JPG, PNG, HEIC, WebP, PDF, CSV, or TXT.');
+  }
+  if (size > MAX_ATTACHMENT_BYTES) {
+    errors.push(`Attachment must be ${formatFileSize(MAX_ATTACHMENT_BYTES)} or smaller.`);
+  } else if (size <= 0) {
+    warnings.push('File size was not reported by the picker, so the app will save it as an unknown-size reference.');
+  }
+
+  return {
+    errors,
+    warnings,
+    valid: errors.length === 0,
+    mimeType: normalizedMime,
+    fileSize: size,
+  };
 }
 
 export function inferAttachmentVisibility(parentVisibility: string | null | undefined): AttachmentVisibility {
@@ -78,4 +153,54 @@ export function storagePathForAttachment(input: {
   const safeFileName = input.fileName.replace(/[^a-z0-9._-]+/gi, '-').toLowerCase();
   const prefix = input.eventId ? `events/${input.eventId}` : 'private';
   return `${prefix}/${input.targetType}/${input.targetId}/${Date.now()}-${safeFileName}`;
+}
+
+/**
+ * Returns true when the given file (identified by name and/or MIME type) is an
+ * image or PDF — the types accepted as general-purpose record attachments.
+ */
+export function isSupportedAttachmentFile(input: { fileName?: string | null; mimeType?: string | null }) {
+  const lowerMime = input.mimeType?.toLowerCase() ?? '';
+  if (lowerMime === 'application/pdf' || lowerMime.startsWith('image/')) {
+    return true;
+  }
+  const ext = extensionFromFileName(input.fileName?.toLowerCase() ?? '');
+  const imagePdfExtensions = new Set(['png', 'jpg', 'jpeg', 'pdf', 'heic', 'heif', 'webp']);
+  return imagePdfExtensions.has(ext);
+}
+
+const SUPPORTED_CSV_MIME_TYPES = new Set([
+  'text/csv',
+  'text/comma-separated-values',
+  'application/csv',
+  'application/vnd.ms-excel',
+]);
+
+/**
+ * Returns true when the given file (identified by name and/or MIME type) is
+ * a CSV file suitable for import.
+ */
+export function isSupportedCsvFile(input: { fileName?: string | null; mimeType?: string | null }) {
+  if (extensionFromFileName(input.fileName?.toLowerCase() ?? '') === 'csv') {
+    return true;
+  }
+  return SUPPORTED_CSV_MIME_TYPES.has(input.mimeType?.toLowerCase() ?? '');
+}
+
+function normalizeMimeType(mimeType: string | null | undefined, fileName: string) {
+  const cleanMime = mimeType?.split(';')[0]?.trim().toLowerCase();
+  if (cleanMime && cleanMime !== 'application/octet-stream') {
+    return cleanMime;
+  }
+  return inferMimeType(fileName);
+}
+
+function isSupportedAttachmentMime(mimeType: string, fileName: string) {
+  return SUPPORTED_MIME_TYPES.has(mimeType) || Boolean(MIME_BY_EXTENSION[extensionFromFileName(fileName)]);
+}
+
+function extensionFromFileName(fileName: string) {
+  const clean = fileName.split('?')[0]?.split('#')[0] ?? fileName;
+  const extension = clean.includes('.') ? clean.split('.').pop()?.trim().toLowerCase() : '';
+  return extension ?? '';
 }

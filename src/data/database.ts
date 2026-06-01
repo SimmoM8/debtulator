@@ -684,6 +684,8 @@ type AuditLogRow = {
 };
 
 const DB_NAME = 'debtulator-stage1.db';
+const DEMO_SEEDING_SETTING_KEY = '__demoSeeding';
+const DEMO_SEEDING_DISABLED = 'disabled';
 
 export async function openDebtulatorDatabase() {
   const db = await SQLite.openDatabaseAsync(DB_NAME);
@@ -1492,10 +1494,12 @@ export async function resetDatabase(db: SQLite.SQLiteDatabase, seed = true) {
     DELETE FROM app_settings;
   `);
 
+  await seedDefaults(db);
+
   if (seed) {
     await seedDemoData(db);
   } else {
-    await seedDefaults(db);
+    await disableDemoSeeding(db);
   }
 }
 
@@ -1509,9 +1513,23 @@ export async function seedIfEmpty(db: SQLite.SQLiteDatabase) {
       (SELECT COUNT(*) FROM shared_expenses) AS count`,
   );
 
-  if ((row?.count ?? 0) === 0) {
+  if ((row?.count ?? 0) === 0 && !(await isDemoSeedingDisabled(db))) {
     await seedDemoData(db);
   }
+}
+
+async function disableDemoSeeding(db: SQLite.SQLiteDatabase) {
+  await db.runAsync(`INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)`, [
+    DEMO_SEEDING_SETTING_KEY,
+    DEMO_SEEDING_DISABLED,
+  ]);
+}
+
+async function isDemoSeedingDisabled(db: SQLite.SQLiteDatabase) {
+  const row = await db.getFirstAsync<{ value: string }>(`SELECT value FROM app_settings WHERE key = ?`, [
+    DEMO_SEEDING_SETTING_KEY,
+  ]);
+  return row?.value === DEMO_SEEDING_DISABLED;
 }
 
 export async function seedDefaults(db: SQLite.SQLiteDatabase) {
@@ -1554,6 +1572,8 @@ export async function seedDefaults(db: SQLite.SQLiteDatabase) {
     language: 'system',
     backupIncludeAttachments: 'false',
     backupIncludePrivateNotes: 'false',
+    betaTelemetryEnabled: 'true',
+    betaCrashReportingEnabled: 'true',
     lastBackupAt: '',
   };
 
@@ -2909,6 +2929,8 @@ export async function getSettings(db: SQLite.SQLiteDatabase): Promise<AppSetting
     language: values.language === 'en' || values.language === 'sv' ? values.language : 'system',
     backupIncludeAttachments: values.backupIncludeAttachments === 'true',
     backupIncludePrivateNotes: values.backupIncludePrivateNotes === 'true',
+    betaTelemetryEnabled: values.betaTelemetryEnabled !== 'false',
+    betaCrashReportingEnabled: values.betaCrashReportingEnabled !== 'false',
     lastBackupAt: values.lastBackupAt && values.lastBackupAt !== 'null' ? values.lastBackupAt : null,
   };
 }

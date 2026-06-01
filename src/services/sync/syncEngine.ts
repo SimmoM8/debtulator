@@ -1,9 +1,11 @@
 import type { DatabaseSnapshot } from '@/src/data/database';
 import { supabase } from '@/src/services/supabase';
 import { canRetrySyncEntry } from '@/src/services/stage6Sync';
+import { addTelemetryBreadcrumb, captureTelemetryException, trackFirstSuccess, trackTelemetryEvent } from '@/src/services/telemetry';
 import {
   mapLocalAttachmentToRemote,
   mapLocalCommentToRemote,
+  mapLocalDebtToRemote,
   mapLocalEventDebtToRemote,
   mapLocalEventMemberToRemote,
   mapLocalEventToRemote,
@@ -20,6 +22,7 @@ import { pullRemoteData } from '@/src/services/sync/pullRemote';
 import type {
   Attachment,
   Comment,
+  Debt,
   EntityKind,
   Event,
   EventDebt,
@@ -55,6 +58,7 @@ export type SyncEngineStore = DatabaseSnapshot & {
   upsertEventInvite: (invite: EventInvite) => Promise<EventInvite>;
   upsertSharedEventMember: (member: SharedEventMember) => Promise<SharedEventMember>;
   upsertEventMemberClaim: (claim: EventMemberClaim) => Promise<EventMemberClaim>;
+  upsertDebt: (debt: Debt) => Promise<Debt>;
   upsertSharedExpense: (expense: SharedExpense) => Promise<SharedExpense>;
   upsertEventDebt: (debt: EventDebt) => Promise<EventDebt>;
   upsertEventVerificationResponse: (response: EventVerificationResponse) => Promise<EventVerificationResponse>;
@@ -95,55 +99,85 @@ export async function runSyncEngine(input: {
   let failed = 0;
   let conflicts = 0;
 
-  for (const entry of entries) {
-    const dependenciesReady = entry.dependencyIds.every((id) => hasRemoteIdForLocalId(snapshot, id));
-    if (!dependenciesReady) {
-      continue;
-    }
+  try {
+    addTelemetryBreadcrumb('sync', 'run_started', { syncQueueSize: entries.length });
+    trackTelemetryEvent('sync_run_started', { syncQueueSize: entries.length });
 
-    await input.store.updateSyncQueueEntry(entry.id, {
-      status: 'running',
-      lastAttemptAt: nowIso(),
-      errorCode: null,
-      errorMessage: null,
-    });
-
-    try {
-      const nextSnapshot = await processEntry(entry, snapshot, input.store, input.userId);
-      snapshot = nextSnapshot;
-      await input.store.updateSyncQueueEntry(entry.id, { status: 'succeeded' });
-      succeeded += 1;
-    } catch (error) {
-      if (error instanceof ConflictDetectedError) {
-        await input.store.updateSyncQueueEntry(entry.id, { status: 'conflict', errorCode: 'conflict', errorMessage: error.message });
-        conflicts += 1;
+    for (const entry of entries) {
+      const dependenciesReady = entry.dependencyIds.every((id) => hasRemoteIdForLocalId(snapshot, id));
+      if (!dependenciesReady) {
         continue;
       }
-      const mapped = normaliseSyncError(error);
-      if (mapped.errorCode === 'permission_denied') {
-        snapshot = await markEntitySyncStatus(snapshot, input.store, entry.entityType, entry.entityId, 'permission_error');
-      } else if (mapped.errorCode === 'mapping_error') {
-        snapshot = await markEntitySyncStatus(snapshot, input.store, entry.entityType, entry.entityId, 'sync_error');
-      }
+
       await input.store.updateSyncQueueEntry(entry.id, {
-        status: mapped.status,
-        retryCount: entry.retryCount + 1,
-        errorCode: mapped.errorCode,
-        errorMessage: mapped.message,
+        status: 'running',
+        lastAttemptAt: nowIso(),
+        errorCode: null,
+        errorMessage: null,
       });
-      failed += 1;
+
+      try {
+        const nextSnapshot = await processEntry(entry, snapshot, input.store, input.userId);
+        snapshot = nextSnapshot;
+        await input.store.updateSyncQueueEntry(entry.id, { status: 'succeeded' });
+        succeeded += 1;
+        addTelemetryBreadcrumb('sync', 'entry_succeeded', {
+          entityType: entry.entityType,
+          operation: entry.operation,
+        });
+      } catch (error) {
+        if (error instanceof ConflictDetectedError) {
+          await input.store.updateSyncQueueEntry(entry.id, { status: 'conflict', errorCode: 'conflict', errorMessage: error.message });
+          conflicts += 1;
+          addTelemetryBreadcrumb('sync', 'entry_conflict', {
+            entityType: entry.entityType,
+            operation: entry.operation,
+            result: 'conflict',
+          });
+          continue;
+        }
+        const mapped = normaliseSyncError(error);
+        if (mapped.errorCode === 'permission_denied') {
+          snapshot = await markEntitySyncStatus(snapshot, input.store, entry.entityType, entry.entityId, 'permission_error');
+        } else if (mapped.errorCode === 'mapping_error') {
+          snapshot = await markEntitySyncStatus(snapshot, input.store, entry.entityType, entry.entityId, 'sync_error');
+        }
+        await input.store.updateSyncQueueEntry(entry.id, {
+          status: mapped.status,
+          retryCount: entry.retryCount + 1,
+          errorCode: mapped.errorCode,
+          errorMessage: mapped.message,
+        });
+        failed += 1;
+        addTelemetryBreadcrumb('sync', 'entry_failed', {
+          entityType: entry.entityType,
+          operation: entry.operation,
+          errorCode: mapped.errorCode,
+          result: 'failure',
+        });
+      }
     }
+
+    const pull = await pullRemoteData({ store: input.store, userId: input.userId, email: input.email });
+    const result: SyncEngineResult = {
+      processed: entries.length,
+      succeeded,
+      failed,
+      conflicts,
+      pulled: pull.pulledCount,
+    };
+
+    addTelemetryBreadcrumb('sync', 'run_completed', result);
+    trackTelemetryEvent('sync_run_completed', result);
+    if (result.succeeded > 0 || result.pulled > 0) {
+      trackFirstSuccess('sync', { source: 'sync_engine', result: 'success' });
+    }
+    return result;
+  } catch (error) {
+    addTelemetryBreadcrumb('sync', 'run_failed', { processed: entries.length, result: 'failure' });
+    captureTelemetryException(error, 'sync_engine_run', { processed: entries.length });
+    throw error;
   }
-
-  const pull = await pullRemoteData({ store: input.store, userId: input.userId, email: input.email });
-
-  return {
-    processed: entries.length,
-    succeeded,
-    failed,
-    conflicts,
-    pulled: pull.pulledCount,
-  };
 }
 
 async function processEntry(
@@ -177,6 +211,11 @@ async function processEntry(
     case 'update:shared_expense':
     case 'archive:shared_expense':
       return updateSharedExpense(snapshot, store, entry, userId);
+    case 'create:debt':
+      return createDebt(snapshot, store, entry, userId);
+    case 'update:debt':
+    case 'archive:debt':
+      return updateDebt(snapshot, store, entry, userId);
     case 'create:event_debt':
       return createEventDebt(snapshot, store, entry);
     case 'update:event_debt':
@@ -409,6 +448,50 @@ async function updateSharedExpense(snapshot: DatabaseSnapshot, store: SyncEngine
   const updated = { ...expense, syncStatus: 'synced' as const, updatedAt: data.updated_at };
   await store.upsertSharedExpense(updated);
   return replace(snapshot, 'sharedExpenses', updated);
+}
+
+async function createDebt(snapshot: DatabaseSnapshot, store: SyncEngineStore, entry: SyncQueueEntry, userId: string) {
+  const debt = requiredLocal(snapshot.debts, entry.entityId, 'debt');
+  if (debt.visibility !== 'shared_with_involved_member') {
+    return markEntitySynced(snapshot, store, 'debt', debt.id);
+  }
+  if (debt.remoteId) {
+    return markEntitySynced(snapshot, store, 'debt', debt.id);
+  }
+
+  const { data, error } = await supabase!
+    .from('shared_debt_records')
+    .insert(mapLocalDebtToRemote(debt, snapshot, userId))
+    .select('*')
+    .single();
+  throwIf(error);
+
+  const updated = { ...debt, remoteId: data.id, syncStatus: 'synced' as const, updatedAt: data.updated_at };
+  await store.upsertDebt(updated);
+  return replace(snapshot, 'debts', updated);
+}
+
+async function updateDebt(snapshot: DatabaseSnapshot, store: SyncEngineStore, entry: SyncQueueEntry, userId: string) {
+  const debt = requiredLocal(snapshot.debts, entry.entityId, 'debt');
+  if (debt.visibility !== 'shared_with_involved_member') {
+    return markEntitySynced(snapshot, store, 'debt', debt.id);
+  }
+  if (!debt.remoteId) {
+    return createDebt(snapshot, store, entry, userId);
+  }
+
+  await detectRemoteConflict(snapshot, store, userId, entry, debt, 'shared_debt_records', 'debt', 'update_update');
+  const { data, error } = await supabase!
+    .from('shared_debt_records')
+    .update(mapLocalDebtToRemote(debt, snapshot, userId))
+    .eq('id', debt.remoteId)
+    .select('*')
+    .single();
+  throwIf(error);
+
+  const updated = { ...debt, syncStatus: 'synced' as const, updatedAt: data.updated_at };
+  await store.upsertDebt(updated);
+  return replace(snapshot, 'debts', updated);
 }
 
 async function createEventDebt(snapshot: DatabaseSnapshot, store: SyncEngineStore, entry: SyncQueueEntry) {
@@ -677,6 +760,12 @@ async function createConflict(
     targetId: conflict.id,
     metadata: { conflictType },
   });
+  addTelemetryBreadcrumb('sync', 'conflict_detected', {
+    entityType,
+    conflictType,
+    result: 'conflict',
+  });
+  trackTelemetryEvent('sync_conflict_detected', { entityType, conflictType, result: 'conflict' });
   return conflict;
 }
 
@@ -726,6 +815,12 @@ async function markEntitySyncStatus(
       const updated = { ...expense, syncStatus };
       await store.upsertSharedExpense(updated);
       return replace(snapshot, 'sharedExpenses', updated);
+    }
+    case 'debt': {
+      const debt = requiredLocal(snapshot.debts, entityId, 'debt');
+      const updated = { ...debt, syncStatus };
+      await store.upsertDebt(updated);
+      return replace(snapshot, 'debts', updated);
     }
     case 'event_debt': {
       const debt = requiredLocal(snapshot.eventDebts, entityId, 'event debt');
@@ -789,6 +884,7 @@ function hasRemoteIdForLocalId(snapshot: DatabaseSnapshot, localId: string) {
   const collections: { id: string; remoteId?: string | null }[][] = [
     snapshot.events,
     snapshot.sharedEventMembers,
+    snapshot.debts,
     snapshot.sharedExpenses,
     snapshot.eventDebts,
     snapshot.payments,
@@ -810,6 +906,9 @@ function dependencyWeight(entry: SyncQueueEntry) {
   if (entry.entityType === 'shared_expense' || entry.entityType === 'event_debt') {
     return 2;
   }
+  if (entry.entityType === 'debt') {
+    return 2;
+  }
   return 3;
 }
 
@@ -824,6 +923,8 @@ function requiredLocal<T extends { id: string }>(items: T[], id: string, label: 
 function cloneSnapshot(snapshot: DatabaseSnapshot): DatabaseSnapshot {
   return {
     ...snapshot,
+    members: [...snapshot.members],
+    debts: [...snapshot.debts],
     events: [...snapshot.events],
     eventParticipants: [...snapshot.eventParticipants],
     eventInvites: [...snapshot.eventInvites],

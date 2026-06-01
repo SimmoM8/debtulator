@@ -123,6 +123,28 @@ export function MemberDetailScreen() {
     await shareExport(uri, `${currentMember.displayName} PDF`);
   }
 
+  function toggleMemberArchive() {
+    if (currentMember.archived) {
+      void data.updateMember(currentMember.id, { archived: false });
+      return;
+    }
+
+    Alert.alert(
+      "Archive member?",
+      "This hides the member from active member lists while keeping existing ledger history.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Archive",
+          style: "destructive",
+          onPress: () => {
+            void data.updateMember(currentMember.id, { archived: true });
+          },
+        },
+      ],
+    );
+  }
+
   return (
     <Screen>
       <PageHeader
@@ -214,9 +236,7 @@ export function MemberDetailScreen() {
             title={member.archived ? "Restore" : "Archive"}
             icon={member.archived ? "archive-outline" : "archive"}
             variant="secondary"
-            onPress={() =>
-              data.updateMember(member.id, { archived: !member.archived })
-            }
+            onPress={toggleMemberArchive}
           />
           <Button
             title="Export PDF"

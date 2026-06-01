@@ -33,6 +33,11 @@ import {
     type PrivacyExportOptions,
 } from "@/src/services/export";
 import { explainEventSettlement } from "@/src/services/ledger";
+import {
+  addTelemetryBreadcrumb,
+  captureTelemetryException,
+  trackTelemetryEvent,
+} from "@/src/services/telemetry";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
 
@@ -78,31 +83,40 @@ export function ExportDataScreen() {
   };
 
   async function exportCsv() {
-    const csv = csvForScope(scope);
-    const uri = await writeTextExport(
-      `debtulator-${scope}-${Date.now()}.csv`,
-      csv,
-    );
-    await data.createExportLog({
-      userId: auth.identity.authenticatedUserId,
-      exportType: "csv",
-      targetType:
-        scope === "members"
-          ? "member"
-          : scope === "events"
-            ? "event"
-            : "ledger",
-      metadata: {
-        scope,
-        includeNotes,
-        includeComments,
-        includeAttachments,
-        includeRejected,
-        includeArchived,
-        uri,
-      },
-    });
-    await shareExport(uri, `Debtulator ${scope} CSV`);
+    try {
+      const csv = csvForScope(scope);
+      const uri = await writeTextExport(
+        `debtulator-${scope}-${Date.now()}.csv`,
+        csv,
+      );
+      await data.createExportLog({
+        userId: auth.identity.authenticatedUserId,
+        exportType: "csv",
+        targetType:
+          scope === "members"
+            ? "member"
+            : scope === "events"
+              ? "event"
+              : "ledger",
+        metadata: {
+          scope,
+          includeNotes,
+          includeComments,
+          includeAttachments,
+          includeRejected,
+          includeArchived,
+          uri,
+        },
+      });
+      addTelemetryBreadcrumb("export", "csv_generated", { result: "success" });
+      trackTelemetryEvent("export_csv_generated", { result: "success" });
+      await shareExport(uri, `Debtulator ${scope} CSV`);
+    } catch (error) {
+      addTelemetryBreadcrumb("export", "csv_failed", { result: "failure" });
+      trackTelemetryEvent("export_csv_failed", { result: "failure" });
+      captureTelemetryException(error, "export_csv", {});
+      throw error;
+    }
   }
 
   async function exportFirstEventPdf() {
@@ -114,31 +128,40 @@ export function ExportDataScreen() {
       );
       return;
     }
-    const explanation = explainEventSettlement(event.id, data.ledgerEntries);
-    const uri = await writePdfExport(
-      `debtulator-${event.name}-summary.pdf`,
-      eventPdfLines({
-        event,
-        explanation,
-        snapshot: data,
-        options: privacyOptions,
-      }),
-    );
-    await data.createExportLog({
-      userId: auth.identity.authenticatedUserId,
-      exportType: "pdf",
-      targetType: "event",
-      targetId: event.id,
-      metadata: {
-        includeNotes,
-        includeComments,
-        includeAttachments,
-        includeRejected,
-        includeArchived,
-        uri,
-      },
-    });
-    await shareExport(uri, `${event.name} PDF summary`);
+    try {
+      const explanation = explainEventSettlement(event.id, data.ledgerEntries);
+      const uri = await writePdfExport(
+        `debtulator-${event.name}-summary.pdf`,
+        eventPdfLines({
+          event,
+          explanation,
+          snapshot: data,
+          options: privacyOptions,
+        }),
+      );
+      await data.createExportLog({
+        userId: auth.identity.authenticatedUserId,
+        exportType: "pdf",
+        targetType: "event",
+        targetId: event.id,
+        metadata: {
+          includeNotes,
+          includeComments,
+          includeAttachments,
+          includeRejected,
+          includeArchived,
+          uri,
+        },
+      });
+      addTelemetryBreadcrumb("export", "event_pdf_generated", { result: "success" });
+      trackTelemetryEvent("export_event_pdf_generated", { result: "success" });
+      await shareExport(uri, `${event.name} PDF summary`);
+    } catch (error) {
+      addTelemetryBreadcrumb("export", "event_pdf_failed", { result: "failure" });
+      trackTelemetryEvent("export_event_pdf_failed", { result: "failure" });
+      captureTelemetryException(error, "export_event_pdf", {});
+      throw error;
+    }
   }
 
   async function shareFirstEventText() {
@@ -150,31 +173,40 @@ export function ExportDataScreen() {
       );
       return;
     }
-    const text = eventTextSummary({
-      event,
-      explanation: explainEventSettlement(event.id, data.ledgerEntries),
-      snapshot: data,
-      options: privacyOptions,
-    });
-    const uri = await writeTextExport(
-      `debtulator-${event.name}-summary.txt`,
-      text,
-    );
-    await data.createExportLog({
-      userId: auth.identity.authenticatedUserId,
-      exportType: "text_summary",
-      targetType: "event",
-      targetId: event.id,
-      metadata: {
-        includeNotes,
-        includeComments,
-        includeAttachments,
-        includeRejected,
-        includeArchived,
-        uri,
-      },
-    });
-    await shareExport(uri, `${event.name} text summary`, text);
+    try {
+      const text = eventTextSummary({
+        event,
+        explanation: explainEventSettlement(event.id, data.ledgerEntries),
+        snapshot: data,
+        options: privacyOptions,
+      });
+      const uri = await writeTextExport(
+        `debtulator-${event.name}-summary.txt`,
+        text,
+      );
+      await data.createExportLog({
+        userId: auth.identity.authenticatedUserId,
+        exportType: "text_summary",
+        targetType: "event",
+        targetId: event.id,
+        metadata: {
+          includeNotes,
+          includeComments,
+          includeAttachments,
+          includeRejected,
+          includeArchived,
+          uri,
+        },
+      });
+      addTelemetryBreadcrumb("export", "event_text_shared", { result: "success" });
+      trackTelemetryEvent("export_event_text_shared", { result: "success" });
+      await shareExport(uri, `${event.name} text summary`, text);
+    } catch (error) {
+      addTelemetryBreadcrumb("export", "event_text_share_failed", { result: "failure" });
+      trackTelemetryEvent("export_event_text_share_failed", { result: "failure" });
+      captureTelemetryException(error, "export_event_text", {});
+      throw error;
+    }
   }
 
   function csvForScope(selectedScope: Scope) {
@@ -227,8 +259,8 @@ export function ExportDataScreen() {
               Decide exactly what leaves the ledger before you create a file.
             </Text>
             <Text style={styles.body}>
-              CSV, PDF, and text exports all respect the privacy switches here,
-              so private notes and disputed records never slip out by accident.
+              CSV, PDF, and text exports respect the privacy switches here, so
+              private notes and disputed records never slip out by accident.
             </Text>
           </View>
           <View style={styles.heroArtWrap}>
@@ -331,6 +363,9 @@ function PrivacySwitch({
     <View style={styles.switchRow}>
       <Text style={styles.switchLabel}>{label}</Text>
       <Switch
+        accessibilityRole="switch"
+        accessibilityLabel={label}
+        accessibilityState={{ checked: value }}
         value={value}
         onValueChange={onValueChange}
         trackColor={{ false: palette.lineStrong, true: palette.brandSoft }}
