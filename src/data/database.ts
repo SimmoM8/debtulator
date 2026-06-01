@@ -1572,6 +1572,8 @@ export async function seedDefaults(db: SQLite.SQLiteDatabase) {
     language: 'system',
     backupIncludeAttachments: 'false',
     backupIncludePrivateNotes: 'false',
+    betaTelemetryEnabled: 'true',
+    betaCrashReportingEnabled: 'true',
     lastBackupAt: '',
   };
 
@@ -2927,6 +2929,8 @@ export async function getSettings(db: SQLite.SQLiteDatabase): Promise<AppSetting
     language: values.language === 'en' || values.language === 'sv' ? values.language : 'system',
     backupIncludeAttachments: values.backupIncludeAttachments === 'true',
     backupIncludePrivateNotes: values.backupIncludePrivateNotes === 'true',
+    betaTelemetryEnabled: values.betaTelemetryEnabled !== 'false',
+    betaCrashReportingEnabled: values.betaCrashReportingEnabled !== 'false',
     lastBackupAt: values.lastBackupAt && values.lastBackupAt !== 'null' ? values.lastBackupAt : null,
   };
 }
