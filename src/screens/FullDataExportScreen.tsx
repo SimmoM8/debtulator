@@ -13,6 +13,12 @@ import {
 import { palette, spacing, typefaces,
 typography,
 } from "@/src/constants/design";
+import {
+  addTelemetryBreadcrumb,
+  captureTelemetryException,
+  trackFirstSuccess,
+  trackTelemetryEvent,
+} from "@/src/services/telemetry";
 import { sanitizeAttachmentsForPortableExport } from "@/src/services/export";
 import { useAppData } from "@/src/state/AppDataProvider";
 
@@ -84,12 +90,18 @@ export function FullDataExportScreen() {
         actorUserId: null,
         action: "export_generated",
         targetType: "backup",
-        targetId: uri,
+        targetId: null,
         eventId: null,
         metadata: { format: "json", includeAttachments, includePrivateNotes },
       });
+      addTelemetryBreadcrumb("export", "full_export_generated", { result: "success", mode: "json" });
+      trackTelemetryEvent("export_full_generated", { result: "success", mode: "json" });
+      trackFirstSuccess("export", { source: "full_export", result: "success" });
       await Share.share({ url: uri, message: "Debtulator full data export" });
     } catch (error) {
+      addTelemetryBreadcrumb("export", "full_export_failed", { result: "failure", mode: "json" });
+      trackTelemetryEvent("export_full_failed", { result: "failure", mode: "json" });
+      captureTelemetryException(error, "export_full", { mode: "json" });
       Alert.alert(
         "Export failed",
         error instanceof Error ? error.message : "Export failed due to an unexpected error.",

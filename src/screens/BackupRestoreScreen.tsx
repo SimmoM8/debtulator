@@ -21,6 +21,12 @@ import {
     restoreModeDescription,
     shareBackupFile,
 } from "@/src/services/backupRestore";
+import {
+  addTelemetryBreadcrumb,
+  captureTelemetryException,
+  trackFirstSuccess,
+  trackTelemetryEvent,
+} from "@/src/services/telemetry";
 import { useAppData } from "@/src/state/AppDataProvider";
 import type { BackupMode } from "@/src/types/models";
 
@@ -46,7 +52,7 @@ export function BackupRestoreScreen() {
         includeAttachments,
         includePrivateNotes,
       });
-      const uri = await shareBackupFile(backup);
+      await shareBackupFile(backup);
       await data.updateSettings({
         backupIncludeAttachments: includeAttachments,
         backupIncludePrivateNotes: includePrivateNotes,
@@ -56,11 +62,15 @@ export function BackupRestoreScreen() {
         actorUserId: null,
         action: "backup_exported",
         targetType: "backup",
-        targetId: uri,
+        targetId: null,
         eventId: null,
         metadata: { includeAttachments, includePrivateNotes },
       });
+      addTelemetryBreadcrumb("backup", "audit_logged", { result: "success" });
+      trackTelemetryEvent("backup_audit_logged", { result: "success" });
     } catch (error) {
+      addTelemetryBreadcrumb("backup", "create_failed", { result: "failure" });
+      captureTelemetryException(error, "backup_create", {});
       Alert.alert(
         "Backup failed",
         error instanceof Error ? error.message : "Backup export failed due to an unexpected error.",
@@ -85,6 +95,14 @@ export function BackupRestoreScreen() {
           text: "Restore",
           style: restoreMode === "replace_local" ? "destructive" : "default",
           onPress: () => {
+            addTelemetryBreadcrumb("restore", "decision_recorded", {
+              mode: restoreMode,
+              valid: preview.valid,
+            });
+            trackTelemetryEvent("restore_decision_recorded", {
+              mode: restoreMode,
+              valid: preview.valid,
+            });
             void performRestore();
           },
         },
@@ -100,12 +118,14 @@ export function BackupRestoreScreen() {
         "Restore complete",
         `${result.restored.members} members, ${result.restored.debts} debts, ${result.restored.events} events, ${result.restored.payments} payments, and ${result.restored.settlements} settlements restored. ${result.skipped} records skipped.`,
       );
+      trackFirstSuccess("restore", { mode: restoreMode, result: "success" });
       setRestoreJson("");
     } catch (error) {
       Alert.alert(
         "Restore failed",
         error instanceof Error ? error.message : "Unable to restore this backup.",
       );
+      captureTelemetryException(error, "restore_apply", { mode: restoreMode });
     } finally {
       setRestoring(false);
     }
