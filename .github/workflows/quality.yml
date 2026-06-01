@@ -7,6 +7,9 @@ on:
       - main
       - "codex/**"
 
+permissions:
+  contents: read
+
 jobs:
   quality:
     name: Typecheck, lint, and test
