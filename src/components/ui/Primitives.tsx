@@ -365,11 +365,15 @@ export function IconButton({
   onPress,
   label,
   tone = "default",
+  size = 22,
+  style,
 }: {
   icon: IconName;
   onPress: () => void;
   label: string;
-  tone?: "default" | "danger";
+  tone?: "default" | "danger" | "primary";
+  size?: number;
+  style?: StyleProp<ViewStyle>;
 }) {
   return (
     <Pressable
@@ -378,14 +382,22 @@ export function IconButton({
       onPress={onPress}
       style={({ pressed }) => [
         styles.iconButton,
+        tone === "primary" && styles.iconButtonPrimary,
         tone === "danger" && styles.iconButtonDanger,
         pressed && styles.pressed,
+        style,
       ]}
     >
       <Ionicons
         name={icon}
-        size={22}
-        color={tone === "danger" ? palette.danger : palette.primary}
+        size={size}
+        color={
+          tone === "danger"
+            ? palette.danger
+            : tone === "primary"
+              ? palette.surface
+              : palette.primary
+        }
       />
     </Pressable>
   );
@@ -910,6 +922,12 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
     alignItems: "center",
     justifyContent: "center",
+  },
+  iconButtonPrimary: {
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.96)",
+    backgroundColor: palette.primary,
+    ...shadows.soft,
   },
   iconButtonDanger: {
     backgroundColor: "transparent",
