@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
     AvatarStack,
@@ -8,9 +8,9 @@ import {
     SearchFilterBar,
     SingleSelectFilterList,
     StatCard,
-    StatusPill,
 } from "@/src/components/ui/Finance";
 import {
+    Button,
     EmptyState,
     FilterSheet,
     IconButton,
@@ -36,6 +36,16 @@ export function EventsScreen() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<EventFilter>("all");
   const [filterOpen, setFilterOpen] = useState(false);
+
+  function openOptions() {
+    Alert.alert("Event options", "Choose an action", [
+      {
+        text: "Open filters",
+        onPress: () => setFilterOpen(true),
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  }
 
   const events = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -83,11 +93,17 @@ export function EventsScreen() {
         showBackButton={false}
         action={
           <IconButton
-            icon="add"
-            label="Add event"
-            onPress={() => router.push("/event/form")}
+            icon="ellipsis-horizontal"
+            label="Event options"
+            onPress={openOptions}
           />
         }
+      />
+
+      <Button
+        title="Add event"
+        icon="add"
+        onPress={() => router.push("/event/form")}
       />
 
       <SearchFilterBar
@@ -180,6 +196,13 @@ export function EventsScreen() {
             return (
               <Pressable
                 key={event.id}
+                accessibilityRole="button"
+                accessibilityLabel={`${event.name}, ${event.visibility} event, ${event.status}, ${amountLabel}`}
+                accessibilityHint={
+                  explanation.suggestions.length
+                    ? `${explanation.suggestions.length} settlement ideas. Opens event details.`
+                    : "Balanced. Opens event details."
+                }
                 onPress={() =>
                   router.push({
                     pathname: "/event/[id]",
@@ -192,28 +215,6 @@ export function EventsScreen() {
                 ]}
               >
                 <GlassCard tone="peach" style={styles.eventCard}>
-                  <View style={styles.eventAccentRow}>
-                    <StatusPill
-                      label={
-                        event.status === "finalising"
-                          ? "Active"
-                          : capitalize(event.status)
-                      }
-                      tone={
-                        event.status === "settled"
-                          ? "teal"
-                          : event.status === "planning"
-                            ? "peach"
-                            : "indigo"
-                      }
-                    />
-                    <StatusPill
-                      label={
-                        event.visibility === "shared" ? "Shared" : "Private"
-                      }
-                      tone={event.visibility === "shared" ? "teal" : "lavender"}
-                    />
-                  </View>
                   <View style={styles.eventBody}>
                     <View style={styles.eventHeader}>
                       <View style={styles.eventCopy}>
@@ -290,10 +291,6 @@ const FILTERS: { label: string; value: EventFilter; description: string }[] = [
   },
 ];
 
-function capitalize(value: string) {
-  return value.charAt(0).toUpperCase() + value.slice(1);
-}
-
 const styles = StyleSheet.create({
   statsRow: {
     flexDirection: "row",
@@ -309,14 +306,6 @@ const styles = StyleSheet.create({
   eventCard: {
     padding: 0,
     overflow: "hidden",
-  },
-  eventAccentRow: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: spacing.sm,
   },
   eventBody: {
     padding: spacing.lg,
