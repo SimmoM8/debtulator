@@ -38,7 +38,7 @@ import type {
 } from "@/src/types/models";
 import { formatMoney } from "@/src/utils/money";
 
-type DebtFilter = "all" | "you-owe" | "owed-to-you" | "due-soon" | "settled";
+type DebtFilter = "all" | "you-owe" | "owed-to-you" | "due-soon";
 
 export function DebtsScreen() {
   const data = useAppData();
@@ -48,6 +48,10 @@ export function DebtsScreen() {
 
   function openOptions() {
     Alert.alert("Debt options", "Choose an action", [
+      {
+        text: "History",
+        onPress: () => router.push("/debt/history"),
+      },
       {
         text: "Open filters",
         onPress: () => setFilterOpen(true),
@@ -89,19 +93,21 @@ export function DebtsScreen() {
         entry.remainingAmount <= 0.005 ||
         entry.status === "settled" ||
         entry.paymentStatus === "paid";
+      if (isSettled) {
+        return false;
+      }
+
       const isDueSoon = Boolean(entry.dueDate && entry.remainingAmount > 0.005);
       const isYouOwe = entry.fromId === "me";
       const isOwedToYou = entry.toId === "me";
 
       switch (filter) {
         case "you-owe":
-          return isYouOwe && !isSettled;
+          return isYouOwe;
         case "owed-to-you":
-          return isOwedToYou && !isSettled;
+          return isOwedToYou;
         case "due-soon":
-          return isDueSoon && !isSettled;
-        case "settled":
-          return isSettled;
+          return isDueSoon;
         default:
           return true;
       }
@@ -120,12 +126,6 @@ export function DebtsScreen() {
   );
   const owedToYou = filteredEntries.filter(
     (entry) => entry.toId === "me" && entry.remainingAmount > 0.005,
-  );
-  const settled = filteredEntries.filter(
-    (entry) =>
-      entry.remainingAmount <= 0.005 ||
-      entry.status === "settled" ||
-      entry.paymentStatus === "paid",
   );
   const dueSoonCount = filteredEntries.filter(
     (entry) => entry.dueDate && entry.remainingAmount > 0.005,
@@ -180,14 +180,6 @@ export function DebtsScreen() {
             compactDensity="tight"
             withDivider
           />
-          <StatCard
-            label="Settled"
-            value={String(settled.length)}
-            subtitle="Closed out items"
-            tone="teal"
-            compact
-            compactDensity="tight"
-          />
         </View>
       </GlassCard>
 
@@ -233,20 +225,6 @@ export function DebtsScreen() {
         members={data.members}
         sharedEventMembers={data.sharedEventMembers}
       />
-      <LedgerSection
-        title="Settled"
-        subtitle="Finished and paid items."
-        entries={settled}
-        summaryAmount={sectionTotalLabel(
-          settled,
-          data.settings,
-          data.currencyRates,
-        )}
-        summaryTone="neutral"
-        members={data.members}
-        sharedEventMembers={data.sharedEventMembers}
-      />
-
       {!filteredEntries.length ? (
         <GlassCard tone="lavender">
           <EmptyState
@@ -300,15 +278,7 @@ function LedgerSection({
           </Text>
         }
       />
-      <GlassCard
-        tone={
-          title === "You owe"
-            ? "coral"
-            : title === "Settled"
-              ? "teal"
-              : "lavender"
-        }
-      >
+      <GlassCard tone={title === "You owe" ? "coral" : "lavender"}>
         <View style={styles.listColumn}>
           {entries.map((entry, index) => (
             <ListRow
@@ -448,11 +418,6 @@ const FILTERS: { label: string; value: DebtFilter; description: string }[] = [
     label: "Due soon",
     value: "due-soon",
     description: "Open balances that already have a due date.",
-  },
-  {
-    label: "Settled",
-    value: "settled",
-    description: "Finished items that are already paid or closed out.",
   },
 ];
 
