@@ -796,6 +796,18 @@ export type AuditLog = {
   createdAt: string;
 };
 
+export type AccountDeletionStatus = 'pending' | 'completed' | 'failed';
+
+export type AccountDeletionState = {
+  requestId: string;
+  userId: string;
+  status: AccountDeletionStatus;
+  requestedAt: string;
+  processedAt: string | null;
+  failureReason: string | null;
+  metadata: Record<string, unknown>;
+};
+
 export type UserProfile = {
   id: string;
   displayName: string;
