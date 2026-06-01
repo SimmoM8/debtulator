@@ -227,8 +227,8 @@ export function ExportDataScreen() {
               Decide exactly what leaves the ledger before you create a file.
             </Text>
             <Text style={styles.body}>
-              CSV, PDF, and text exports all respect the privacy switches here,
-              so private notes and disputed records never slip out by accident.
+              CSV, PDF, and text exports respect the privacy switches here, so
+              private notes and disputed records never slip out by accident.
             </Text>
           </View>
           <View style={styles.heroArtWrap}>
