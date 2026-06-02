@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 
+import { CurrencySelect } from "@/src/components/ui/CurrencySelect";
 import { TagInput } from "@/src/components/ui/TagInput";
 import {
   Button,
@@ -20,7 +21,6 @@ import {
   Screen,
   TextField,
 } from "@/src/components/ui/Primitives";
-import { CURRENCIES } from "@/src/constants/currencies";
 import { palette, shadows, typefaces, typography } from "@/src/constants/design";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
@@ -85,14 +85,6 @@ export function DebtFormScreen() {
         value: member.id,
       })),
     [sharedEventMembers],
-  );
-  const currencyOptions = useMemo(
-    () =>
-      CURRENCIES.map((currencyCode) => ({
-        label: currencyCode,
-        value: currencyCode,
-      })),
-    [],
   );
   const usedTagNames = useMemo(
     () => data.tags.map((tag) => tag.name),
@@ -210,10 +202,9 @@ export function DebtFormScreen() {
             keyboardType="decimal-pad"
             style={styles.amountField}
           />
-          <DropdownSelect
+          <CurrencySelect
             label="Currency"
             value={currency}
-            options={currencyOptions}
             onChange={setCurrency}
             style={styles.currencyField}
           />
