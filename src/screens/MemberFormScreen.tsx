@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 
+import { TagInput } from "@/src/components/ui/TagInput";
 import {
   Button,
   Card,
@@ -35,7 +36,9 @@ export function MemberFormScreen() {
   const [notes, setNotes] = useState(member?.notes ?? "");
   const [email, setEmail] = useState(member?.email ?? "");
   const [phone, setPhone] = useState(member?.phone ?? "");
-  const [tags, setTags] = useState(member?.tags.join(", ") ?? "");
+  const [selectedTags, setSelectedTags] = useState<string[]>(
+    member?.tags ?? [],
+  );
   const [profileQuery, setProfileQuery] = useState("");
   const [profileResults, setProfileResults] = useState<SignedUpMemberProfile[]>(
     [],
@@ -47,8 +50,8 @@ export function MemberFormScreen() {
     null,
   );
 
-  const tagHint = useMemo(
-    () => data.tags.map((tag) => tag.name).join(", "),
+  const usedTagNames = useMemo(
+    () => data.tags.map((tag) => tag.name),
     [data.tags],
   );
 
@@ -123,7 +126,7 @@ export function MemberFormScreen() {
       linkedProfileDisplayName: selectedProfile?.displayName,
       linkedProfileEmail: selectedProfile?.email,
       linkedProfilePhone: selectedProfile?.phone,
-      tags: splitTags(tags),
+      tags: selectedTags,
     };
 
     if (member) {
@@ -226,7 +229,7 @@ export function MemberFormScreen() {
 
       <Card tone="peach">
         <TextField
-          label="Display name"
+          label="Name"
           value={displayName}
           onChangeText={setDisplayName}
           placeholder="Daniel"
@@ -245,11 +248,10 @@ export function MemberFormScreen() {
           placeholder="+46 ..."
           keyboardType="phone-pad"
         />
-        <TextField
-          label="Tags"
-          value={tags}
-          onChangeText={setTags}
-          placeholder={tagHint || "Family, Friends, Travel"}
+        <TagInput
+          value={selectedTags}
+          onChange={setSelectedTags}
+          usedTags={usedTagNames}
         />
         <TextField
           label="Notes"
@@ -261,13 +263,6 @@ export function MemberFormScreen() {
       </Card>
     </Screen>
   );
-}
-
-function splitTags(value: string) {
-  return value
-    .split(",")
-    .map((tag) => tag.trim())
-    .filter(Boolean);
 }
 
 const styles = StyleSheet.create({
