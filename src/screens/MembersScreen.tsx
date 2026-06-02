@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
     GlassCard,
@@ -10,6 +10,7 @@ import {
     SingleSelectFilterList,
     StatCard,
 } from "@/src/components/ui/Finance";
+import { MobileMenuModal } from "@/src/components/ui/MenuList";
 import {
     Button,
     EmptyState,
@@ -38,16 +39,7 @@ export function MembersScreen() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<MemberFilter>("all");
   const [filterOpen, setFilterOpen] = useState(false);
-
-  function openOptions() {
-    Alert.alert("Member options", "Choose an action", [
-      {
-        text: "Open filters",
-        onPress: () => setFilterOpen(true),
-      },
-      { text: "Cancel", style: "cancel" },
-    ]);
-  }
+  const [optionsOpen, setOptionsOpen] = useState(false);
 
   const members = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -133,7 +125,7 @@ export function MembersScreen() {
           <IconButton
             icon="ellipsis-horizontal"
             label="Member options"
-            onPress={openOptions}
+            onPress={() => setOptionsOpen(true)}
           />
         }
       />
@@ -199,6 +191,27 @@ export function MembersScreen() {
           }}
         />
       </FilterSheet>
+
+      <MobileMenuModal
+        visible={optionsOpen}
+        title="Member options"
+        onClose={() => setOptionsOpen(false)}
+        sections={[
+          {
+            items: [
+              {
+                label: "Open filters",
+                subtitle: "Change which members are shown",
+                icon: "options-outline",
+                onPress: () => {
+                  setOptionsOpen(false);
+                  setFilterOpen(true);
+                },
+              },
+            ],
+          },
+        ]}
+      />
 
       <GlassCard tone="lavender">
         {members.length ? (

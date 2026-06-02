@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
-import React from "react";
+import React, { useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 
 import { DebtulatorOrbitIllustration } from "@/src/components/illustrations/DebtulatorOrbitIllustration";
@@ -10,6 +10,7 @@ import {
 } from "@/src/components/ui/Badges";
 import { AvatarStack } from "@/src/components/ui/Finance";
 import { Amount } from "@/src/components/ui/Money";
+import { MobileMenuModal } from "@/src/components/ui/MenuList";
 import {
     Button,
     Card,
@@ -49,6 +50,7 @@ export function DebtDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const data = useAppData();
   const auth = useAuth();
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const debt = data.debts.find((item) => item.id === id);
   const member = debt
     ? data.members.find((item) => item.id === debt.memberId)
@@ -227,46 +229,6 @@ export function DebtDetailScreen() {
     await shareExport(uri, `${currentDebt.title} PDF`);
   }
 
-  function openOptions() {
-    Alert.alert("Debt options", "Choose an action", [
-      {
-        text: "Edit debt",
-        onPress: () =>
-          router.push({
-            pathname: "/debt/form",
-            params: { id: currentDebt.id },
-          }),
-      },
-      {
-        text: "Export PDF",
-        onPress: () => {
-          void exportPdf();
-        },
-      },
-      ...(member?.linkStatus === "linked" &&
-      currentDebt.verificationStatus !== "pending"
-        ? [
-            {
-              text: "Request verification",
-              onPress: () => {
-                void requestVerification();
-              },
-            },
-          ]
-        : []),
-      ...(currentDebt.status !== "archived"
-        ? [
-            {
-              text: "Archive",
-              style: "destructive" as const,
-              onPress: confirmArchiveDebt,
-            },
-          ]
-        : []),
-      { text: "Cancel", style: "cancel" as const },
-    ]);
-  }
-
   const dueLabel = currentDebt.dueDate
     ? formatDate(currentDebt.dueDate)
     : "No due date";
@@ -310,9 +272,70 @@ export function DebtDetailScreen() {
           <IconButton
             icon="ellipsis-horizontal"
             label="Debt options"
-            onPress={openOptions}
+            onPress={() => setOptionsOpen(true)}
           />
         }
+      />
+
+      <MobileMenuModal
+        visible={optionsOpen}
+        title="Debt options"
+        onClose={() => setOptionsOpen(false)}
+        sections={[
+          {
+            items: [
+              {
+                label: "Edit debt",
+                subtitle: "Change amount, details, notes, or status",
+                icon: "create-outline",
+                onPress: () => {
+                  setOptionsOpen(false);
+                  router.push({
+                    pathname: "/debt/form",
+                    params: { id: currentDebt.id },
+                  });
+                },
+              },
+              {
+                label: "Export PDF",
+                subtitle: "Create a portable record for this debt",
+                icon: "download-outline",
+                onPress: () => {
+                  setOptionsOpen(false);
+                  void exportPdf();
+                },
+              },
+              ...(member?.linkStatus === "linked" &&
+              currentDebt.verificationStatus !== "pending"
+                ? [
+                    {
+                      label: "Request verification",
+                      subtitle: "Ask the linked member to confirm this debt",
+                      icon: "shield-checkmark-outline" as const,
+                      onPress: () => {
+                        setOptionsOpen(false);
+                        void requestVerification();
+                      },
+                    },
+                  ]
+                : []),
+              ...(currentDebt.status !== "archived"
+                ? [
+                    {
+                      label: "Archive",
+                      subtitle: "Hide this debt from active views",
+                      icon: "archive-outline" as const,
+                      destructive: true,
+                      onPress: () => {
+                        setOptionsOpen(false);
+                        confirmArchiveDebt();
+                      },
+                    },
+                  ]
+                : []),
+            ],
+          },
+        ]}
       />
 
       <View style={styles.overview}>
