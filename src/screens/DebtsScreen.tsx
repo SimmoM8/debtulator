@@ -1,6 +1,6 @@
 import { router } from "expo-router";
-import React, { useMemo, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Animated, StyleSheet, Text, View } from "react-native";
 
 import {
   GlassCard,
@@ -22,6 +22,7 @@ import {
 } from "@/src/components/ui/Primitives";
 import {
   palette,
+  shadows,
   spacing,
   typefaces,
   typography,
@@ -47,8 +48,37 @@ export function DebtsScreen() {
   const [filter, setFilter] = useState<DebtFilter>("all");
   const [filterOpen, setFilterOpen] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const [statsWidth, setStatsWidth] = useState(0);
+  const quickFilterTranslate = useRef(new Animated.Value(0)).current;
+  const quickFilterOpacity = useRef(new Animated.Value(0)).current;
+  const quickFilterIndex =
+    filter === "you-owe" ? 0 : filter === "owed-to-you" ? 1 : null;
+  const quickFilterGlassTone =
+    filter === "you-owe"
+      ? {
+          borderColor: "rgba(255,107,107,0.52)",
+        }
+      : {
+          borderColor: "rgba(55,48,163,0.34)",
+        };
 
-  const filteredEntries = useMemo(() => {
+  useEffect(() => {
+    const segmentWidth = statsWidth / 2;
+    Animated.parallel([
+      Animated.timing(quickFilterTranslate, {
+        toValue: quickFilterIndex === null ? 0 : quickFilterIndex * segmentWidth,
+        duration: 210,
+        useNativeDriver: true,
+      }),
+      Animated.timing(quickFilterOpacity, {
+        toValue: quickFilterIndex === null || !statsWidth ? 0 : 1,
+        duration: quickFilterIndex === null ? 130 : 180,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [quickFilterIndex, quickFilterOpacity, quickFilterTranslate, statsWidth]);
+
+  const activeMatchedEntries = useMemo(() => {
     const normalized = query.trim().toLowerCase();
 
     return data.ledgerEntries.filter((entry) => {
@@ -85,6 +115,18 @@ export function DebtsScreen() {
         return false;
       }
 
+      return true;
+    });
+  }, [
+    data.events,
+    data.ledgerEntries,
+    data.members,
+    data.sharedEventMembers,
+    query,
+  ]);
+
+  const filteredEntries = useMemo(() => {
+    return activeMatchedEntries.filter((entry) => {
       const isDueSoon = Boolean(entry.dueDate && entry.remainingAmount > 0.005);
       const isYouOwe = entry.fromId === "me";
       const isOwedToYou = entry.toId === "me";
@@ -100,14 +142,7 @@ export function DebtsScreen() {
           return true;
       }
     });
-  }, [
-    data.events,
-    data.ledgerEntries,
-    data.members,
-    data.sharedEventMembers,
-    filter,
-    query,
-  ]);
+  }, [activeMatchedEntries, filter]);
 
   const youOwe = filteredEntries.filter(
     (entry) => entry.fromId === "me" && entry.remainingAmount > 0.005,
@@ -115,8 +150,11 @@ export function DebtsScreen() {
   const owedToYou = filteredEntries.filter(
     (entry) => entry.toId === "me" && entry.remainingAmount > 0.005,
   );
-  const dueSoonCount = filteredEntries.filter(
-    (entry) => entry.dueDate && entry.remainingAmount > 0.005,
+  const owingCount = activeMatchedEntries.filter(
+    (entry) => entry.fromId === "me" && entry.remainingAmount > 0.005,
+  ).length;
+  const owedCount = activeMatchedEntries.filter(
+    (entry) => entry.toId === "me" && entry.remainingAmount > 0.005,
   ).length;
 
   if (data.loading) {
@@ -149,24 +187,52 @@ export function DebtsScreen() {
       />
 
       <GlassCard tone="lavender" allowOverflow>
-        <View style={styles.statsRow}>
+        <View
+          style={styles.statsRow}
+          onLayout={(event) => setStatsWidth(event.nativeEvent.layout.width)}
+        >
+          {statsWidth ? (
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.quickFilterGlass,
+                quickFilterGlassTone,
+                {
+                  width: statsWidth / 2 - 8,
+                  opacity: quickFilterOpacity,
+                  transform: [{ translateX: quickFilterTranslate }],
+                },
+              ]}
+            />
+          ) : null}
           <StatCard
-            label="Open"
-            value={String(youOwe.length + owedToYou.length)}
-            subtitle="Balances that still need action"
+            label="Owing"
+            value={String(owingCount)}
+            subtitle="Debts you still need to pay"
+            tone="coral"
+            compact
+            compactDensity="tight"
+            withDivider
+            selected={filter === "you-owe"}
+            onPress={() =>
+              setFilter((current) => (current === "you-owe" ? "all" : "you-owe"))
+            }
+            accessibilityHint="Shows debts you still owe"
+          />
+          <StatCard
+            label="Owed"
+            value={String(owedCount)}
+            subtitle="Debts other people owe you"
             tone="indigo"
             compact
             compactDensity="tight"
-            withDivider
-          />
-          <StatCard
-            label="Due soon"
-            value={String(dueSoonCount)}
-            subtitle="Deadlines coming up"
-            tone="amber"
-            compact
-            compactDensity="tight"
-            withDivider
+            selected={filter === "owed-to-you"}
+            onPress={() =>
+              setFilter((current) =>
+                current === "owed-to-you" ? "all" : "owed-to-you",
+              )
+            }
+            accessibilityHint="Shows debts owed to you"
           />
         </View>
       </GlassCard>
@@ -444,6 +510,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "stretch",
     gap: 0,
+    position: "relative",
+  },
+  quickFilterGlass: {
+    position: "absolute",
+    top: -5,
+    bottom: -5,
+    left: 4,
+    borderRadius: 18,
+    borderWidth: 1,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    ...shadows.soft,
   },
   listColumn: {
     gap: spacing.sm,
