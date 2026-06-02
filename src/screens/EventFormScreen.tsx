@@ -1,6 +1,7 @@
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useMemo, useState } from "react";
 
+import { TagInput } from "@/src/components/ui/TagInput";
 import {
     Button,
     Card,
@@ -40,7 +41,7 @@ export function EventFormScreen() {
   const [defaultCurrency, setDefaultCurrency] = useState<CurrencyCode>(
     event?.defaultCurrency ?? data.settings.baseCurrency,
   );
-  const [tags, setTags] = useState(event?.tags.join(", ") ?? "");
+  const [selectedTags, setSelectedTags] = useState<string[]>(event?.tags ?? []);
   const [status, setStatus] = useState<EventStatus>(event?.status ?? "active");
   const [visibility, setVisibility] = useState<EventVisibility>(
     event?.visibility ?? visibilityParam ?? "private",
@@ -54,6 +55,10 @@ export function EventFormScreen() {
         .filter((member) => !member.archived)
         .map((member) => ({ label: member.displayName, value: member.id })),
     [data.members],
+  );
+  const usedTagNames = useMemo(
+    () => data.tags.map((tag) => tag.name),
+    [data.tags],
   );
 
   if (data.loading || auth.loading) {
@@ -80,7 +85,7 @@ export function EventFormScreen() {
           notes,
           defaultCurrency,
           allowedCurrencies: [defaultCurrency],
-          tags: splitTags(tags),
+          tags: selectedTags,
           ownerDisplayName: auth.identity.displayName,
           ownerEmail: auth.identity.email,
         });
@@ -105,7 +110,7 @@ export function EventFormScreen() {
       notes,
       defaultCurrency,
       allowedCurrencies: [defaultCurrency],
-      tags: splitTags(tags),
+      tags: selectedTags,
       status,
       visibility,
       ownerUserId:
@@ -180,11 +185,10 @@ export function EventFormScreen() {
           }))}
           onChange={setDefaultCurrency}
         />
-        <TextField
-          label="Tags"
-          value={tags}
-          onChangeText={setTags}
-          placeholder="Travel, Food"
+        <TagInput
+          value={selectedTags}
+          onChange={setSelectedTags}
+          usedTags={usedTagNames}
         />
         <SelectChips
           label="Status"
@@ -218,11 +222,4 @@ export function EventFormScreen() {
       </Card>
     </Screen>
   );
-}
-
-function splitTags(value: string) {
-  return value
-    .split(",")
-    .map((tag) => tag.trim())
-    .filter(Boolean);
 }

@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
+import { TagInput } from "@/src/components/ui/TagInput";
 import {
     Button,
     Card,
@@ -19,7 +20,6 @@ import { palette, spacing, typefaces,
 typography,
 } from "@/src/constants/design";
 import { participantName } from "@/src/services/ledger";
-import { suggestTags } from "@/src/services/smartSuggestions";
 import {
     buildSplitObligations,
     calculateParticipantShares,
@@ -139,7 +139,9 @@ export function ExpenseFormScreen() {
       ]),
     ),
   );
-  const [tags, setTags] = useState(expense?.tags.join(", ") ?? "");
+  const [selectedTags, setSelectedTags] = useState<string[]>(
+    expense?.tags ?? [],
+  );
   const [status, setStatus] = useState<DebtStatus>(expense?.status ?? "active");
   const [verificationStatus, setVerificationStatus] =
     useState<VerificationStatus>(expense?.verificationStatus ?? "local_only");
@@ -187,16 +189,9 @@ export function ExpenseFormScreen() {
     ],
     [data.members, data.sharedEventMembers, eventMemberIds, isSharedEvent],
   );
-  const tagSuggestions = useMemo(
-    () =>
-      suggestTags({
-        title,
-        notes,
-        event: selectedEvent,
-        previousEntries: data.ledgerEntries,
-        existingTags: splitTags(tags),
-      }),
-    [data.ledgerEntries, notes, selectedEvent, tags, title],
+  const usedTagNames = useMemo(
+    () => data.tags.map((tag) => tag.name),
+    [data.tags],
   );
 
   const numericSplitAllocations = Object.fromEntries(
@@ -268,7 +263,7 @@ export function ExpenseFormScreen() {
         eventMemberId: payer.eventMemberId,
         amountPaid: payer.amountPaid,
       })),
-      tags: splitTags(tags),
+      tags: selectedTags,
       status,
       verificationStatus,
       visibility,
@@ -373,27 +368,11 @@ export function ExpenseFormScreen() {
           onChangeText={setNotes}
           multiline
         />
-        <TextField
-          label="Tags"
-          value={tags}
-          onChangeText={setTags}
-          placeholder="Food, Travel"
+        <TagInput
+          value={selectedTags}
+          onChange={setSelectedTags}
+          usedTags={usedTagNames}
         />
-        {tagSuggestions.length ? (
-          <SelectChips
-            label="Suggested tags"
-            value="none"
-            options={[
-              { label: "Ignore", value: "none" },
-              ...tagSuggestions.map((tag) => ({ label: tag, value: tag })),
-            ]}
-            onChange={(value) => {
-              if (value !== "none") {
-                setTags((current) => mergeTagText(current, value));
-              }
-            }}
-          />
-        ) : null}
         <MultiSelectChips
           label="Split participants"
           values={participantIds}
@@ -533,17 +512,6 @@ export function ExpenseFormScreen() {
       </Card>
     </Screen>
   );
-}
-
-function splitTags(value: string) {
-  return value
-    .split(",")
-    .map((tag) => tag.trim())
-    .filter(Boolean);
-}
-
-function mergeTagText(current: string, tag: string) {
-  return Array.from(new Set([...splitTags(current), tag])).join(", ");
 }
 
 const styles = StyleSheet.create({

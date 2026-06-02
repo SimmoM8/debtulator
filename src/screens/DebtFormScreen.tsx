@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
@@ -7,10 +6,10 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 
+import { TagInput } from "@/src/components/ui/TagInput";
 import {
   Button,
   Card,
@@ -71,7 +70,6 @@ export function DebtFormScreen() {
   const [notes, setNotes] = useState(debt?.notes ?? "");
   const [dueDate, setDueDate] = useState(debt?.dueDate ?? "");
   const [selectedTags, setSelectedTags] = useState<string[]>(debt?.tags ?? []);
-  const [tagInput, setTagInput] = useState("");
 
   const memberOptions = useMemo(
     () =>
@@ -96,57 +94,13 @@ export function DebtFormScreen() {
       })),
     [],
   );
-  const tagSuggestions = useMemo(() => {
-    const fragment = tagInput.trim().toLowerCase();
-    const selectedTagSet = selectedTagsNormalized(selectedTags);
-
-    if (!fragment) {
-      return [];
-    }
-
-    return data.tags
-      .map((tag) => tag.name)
-      .filter((tagName) => {
-        const normalized = tagName.toLowerCase();
-        return (
-          normalized.includes(fragment) && !selectedTagSet.has(normalized)
-        );
-      })
-      .slice(0, 6);
-  }, [data.tags, selectedTags, tagInput]);
+  const usedTagNames = useMemo(
+    () => data.tags.map((tag) => tag.name),
+    [data.tags],
+  );
 
   if (data.loading || auth.loading) {
     return <LoadingState />;
-  }
-
-  function addTag(tag: string) {
-    const clean = tag.trim();
-    if (!clean) {
-      return;
-    }
-
-    setSelectedTags((current) => {
-      const existing = selectedTagsNormalized(current);
-      if (existing.has(clean.toLowerCase())) {
-        return current;
-      }
-      return [...current, clean];
-    });
-    setTagInput("");
-  }
-
-  function updateTagInput(value: string) {
-    if (value.includes(",")) {
-      value.split(",").forEach(addTag);
-      setTagInput("");
-      return;
-    }
-
-    setTagInput(value);
-  }
-
-  function removeTag(tag: string) {
-    setSelectedTags((current) => current.filter((item) => item !== tag));
   }
 
   async function save() {
@@ -294,71 +248,11 @@ export function DebtFormScreen() {
           onChange={setDueDate}
           placeholder="No due date"
         />
-        <View style={styles.tagField}>
-          <View style={styles.tagInputField}>
-            <Text style={styles.tagLabel}>Tags</Text>
-            <View style={styles.tagInputShell}>
-              <TextInput
-                value={tagInput}
-                onChangeText={updateTagInput}
-                onSubmitEditing={() => addTag(tagInput)}
-                onKeyPress={({ nativeEvent }) => {
-                  if (nativeEvent.key === "Enter" || nativeEvent.key === "Tab") {
-                    addTag(tagInput);
-                  }
-                }}
-                placeholder="Add tag"
-                placeholderTextColor={palette.textTertiary}
-                returnKeyType="done"
-                blurOnSubmit={false}
-                style={styles.tagInput}
-              />
-            </View>
-          </View>
-          {tagSuggestions.length ? (
-            <View style={styles.tagSuggestionList}>
-              {tagSuggestions.map((tag) => (
-                <Pressable
-                  key={tag}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Add ${tag} tag`}
-                  onPress={() => addTag(tag)}
-                  style={({ pressed }) => [
-                    styles.tagSuggestion,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <Text style={styles.tagSuggestionText}>{tag}</Text>
-                </Pressable>
-              ))}
-            </View>
-          ) : null}
-          {selectedTags.length ? (
-            <View style={styles.selectedTagList}>
-              {selectedTags.map((tag) => (
-                <View key={tag} style={styles.selectedTag}>
-                  <Text style={styles.selectedTagText}>{tag}</Text>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`Remove ${tag} tag`}
-                    onPress={() => removeTag(tag)}
-                    hitSlop={8}
-                    style={({ pressed }) => [
-                      styles.removeTagButton,
-                      pressed && styles.pressed,
-                    ]}
-                  >
-                    <Ionicons
-                      name="close"
-                      size={11}
-                      color={palette.primary}
-                    />
-                  </Pressable>
-                </View>
-              ))}
-            </View>
-          ) : null}
-        </View>
+        <TagInput
+          value={selectedTags}
+          onChange={setSelectedTags}
+          usedTags={usedTagNames}
+        />
         <TextField
           label="Notes"
           value={notes}
@@ -369,10 +263,6 @@ export function DebtFormScreen() {
       </Card>
     </Screen>
   );
-}
-
-function selectedTagsNormalized(tags: string[]) {
-  return new Set(tags.map((tag) => tag.toLowerCase()));
 }
 
 function DirectionToggle({
@@ -519,87 +409,6 @@ const styles = StyleSheet.create({
   },
   currencyField: {
     width: 128,
-  },
-  tagField: {
-    gap: 8,
-  },
-  tagInputField: {
-    gap: 10,
-  },
-  tagLabel: {
-    color: palette.muted,
-    fontSize: typography.size.sm,
-    fontFamily: typefaces.bodyStrong,
-    letterSpacing: 0.2,
-  },
-  tagInputShell: {
-    minHeight: 54,
-    borderRadius: 18,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderIndigoSoft,
-    backgroundColor: "rgba(255,255,255,0.68)",
-    paddingHorizontal: 12,
-    justifyContent: "center",
-  },
-  tagInput: {
-    color: palette.textPrimary,
-    fontSize: typography.size.base,
-    lineHeight: typography.line.base,
-    fontFamily: typefaces.body,
-  },
-  tagSuggestionList: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  tagSuggestion: {
-    minHeight: 34,
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderIndigo,
-    backgroundColor: "rgba(255,255,255,0.62)",
-    paddingHorizontal: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  tagSuggestionText: {
-    color: palette.primary,
-    fontSize: 13,
-    fontFamily: typefaces.bodyStrong,
-  },
-  selectedTagList: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  selectedTag: {
-    minHeight: 36,
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderIndigo,
-    backgroundColor: palette.surfaceGlassStrong,
-    paddingLeft: 12,
-    paddingRight: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    position: "relative",
-    overflow: "visible",
-  },
-  selectedTagText: {
-    color: palette.textPrimary,
-    fontSize: 13,
-    fontFamily: typefaces.bodyStrong,
-  },
-  removeTagButton: {
-    position: "absolute",
-    top: -5,
-    right: -5,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: "rgba(221,214,254,0.42)",
-    alignItems: "center",
-    justifyContent: "center",
   },
   pressed: {
     opacity: 0.76,
