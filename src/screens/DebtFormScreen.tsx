@@ -1,30 +1,31 @@
+import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { Alert, StyleSheet, Text, View } from "react-native";
+import {
+  Animated,
+  Alert,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 
 import {
-    Button,
-    Card,
-    LoadingState,
-    PageHeader,
-    Screen,
-    SelectChips,
-    TextField,
+  Button,
+  Card,
+  DatePickerField,
+  DropdownSelect,
+  LoadingState,
+  PageHeader,
+  Screen,
+  TextField,
 } from "@/src/components/ui/Primitives";
 import { CURRENCIES } from "@/src/constants/currencies";
-import { palette, spacing, typefaces,
-typography,
-} from "@/src/constants/design";
-import { suggestTags } from "@/src/services/smartSuggestions";
+import { palette, shadows, typefaces, typography } from "@/src/constants/design";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
-import type {
-    CurrencyCode,
-    DebtDirection,
-    DebtStatus,
-    VerificationStatus,
-} from "@/src/types/models";
-import { todayIsoDate } from "@/src/utils/id";
+import type { CurrencyCode, DebtDirection } from "@/src/types/models";
 
 export function DebtFormScreen() {
   const { id, memberId, eventId } = useLocalSearchParams<{
@@ -68,17 +69,9 @@ export function DebtFormScreen() {
   );
   const [title, setTitle] = useState(debt?.title ?? "");
   const [notes, setNotes] = useState(debt?.notes ?? "");
-  const [sharedNotes, setSharedNotes] = useState(debt?.sharedNotes ?? "");
-  const [debtDate, setDebtDate] = useState(debt?.debtDate ?? todayIsoDate());
   const [dueDate, setDueDate] = useState(debt?.dueDate ?? "");
-  const [tags, setTags] = useState(debt?.tags.join(", ") ?? "");
-  const [selectedEventId, setSelectedEventId] = useState(
-    debt?.eventId ?? eventId ?? "none",
-  );
-  const [status, setStatus] = useState<DebtStatus>(debt?.status ?? "active");
-  const [verificationStatus, setVerificationStatus] =
-    useState<VerificationStatus>(debt?.verificationStatus ?? "local_only");
-  const [visibility, setVisibility] = useState(debt?.visibility ?? "private");
+  const [selectedTags, setSelectedTags] = useState<string[]>(debt?.tags ?? []);
+  const [tagInput, setTagInput] = useState("");
 
   const memberOptions = useMemo(
     () =>
@@ -86,15 +79,6 @@ export function DebtFormScreen() {
         .filter((member) => !member.archived)
         .map((member) => ({ label: member.displayName, value: member.id })),
     [data.members],
-  );
-  const eventOptions = useMemo(
-    () => [
-      { label: "No event", value: "none" },
-      ...data.events
-        .filter((event) => !event.archived)
-        .map((event) => ({ label: event.name, value: event.id })),
-    ],
-    [data.events],
   );
   const eventMemberOptions = useMemo(
     () =>
@@ -104,29 +88,65 @@ export function DebtFormScreen() {
       })),
     [sharedEventMembers],
   );
-  const tagSuggestions = useMemo(
+  const currencyOptions = useMemo(
     () =>
-      suggestTags({
-        title,
-        notes,
-        member: data.members.find((member) => member.id === selectedMemberId),
-        event: selectedEvent,
-        previousEntries: data.ledgerEntries,
-        existingTags: splitTags(tags),
-      }),
-    [
-      data.ledgerEntries,
-      data.members,
-      notes,
-      selectedEvent,
-      selectedMemberId,
-      tags,
-      title,
-    ],
+      CURRENCIES.map((currencyCode) => ({
+        label: currencyCode,
+        value: currencyCode,
+      })),
+    [],
   );
+  const tagSuggestions = useMemo(() => {
+    const fragment = tagInput.trim().toLowerCase();
+    const selectedTagSet = selectedTagsNormalized(selectedTags);
+
+    if (!fragment) {
+      return [];
+    }
+
+    return data.tags
+      .map((tag) => tag.name)
+      .filter((tagName) => {
+        const normalized = tagName.toLowerCase();
+        return (
+          normalized.includes(fragment) && !selectedTagSet.has(normalized)
+        );
+      })
+      .slice(0, 6);
+  }, [data.tags, selectedTags, tagInput]);
 
   if (data.loading || auth.loading) {
     return <LoadingState />;
+  }
+
+  function addTag(tag: string) {
+    const clean = tag.trim();
+    if (!clean) {
+      return;
+    }
+
+    setSelectedTags((current) => {
+      const existing = selectedTagsNormalized(current);
+      if (existing.has(clean.toLowerCase())) {
+        return current;
+      }
+      return [...current, clean];
+    });
+    setTagInput("");
+  }
+
+  function updateTagInput(value: string) {
+    if (value.includes(",")) {
+      value.split(",").forEach(addTag);
+      setTagInput("");
+      return;
+    }
+
+    setTagInput(value);
+  }
+
+  function removeTag(tag: string) {
+    setSelectedTags((current) => current.filter((item) => item !== tag));
   }
 
   async function save() {
@@ -141,10 +161,8 @@ export function DebtFormScreen() {
         currency,
         title,
         notes,
-        debtDate,
-        tags: splitTags(tags),
-        verificationStatus,
-        status,
+        dueDate,
+        tags: selectedTags,
       });
       router.back();
       return;
@@ -157,14 +175,9 @@ export function DebtFormScreen() {
       currency,
       title,
       notes,
-      sharedNotes,
-      debtDate,
       dueDate,
-      tags: splitTags(tags),
-      eventId: selectedEventId === "none" ? null : selectedEventId,
-      status,
-      verificationStatus,
-      visibility,
+      tags: selectedTags,
+      ...(debt ? {} : { eventId: eventId ?? null }),
     };
 
     const financialFieldsChanged =
@@ -173,9 +186,7 @@ export function DebtFormScreen() {
       (selectedMemberId !== debt.memberId ||
         direction !== debt.direction ||
         Number(amount) !== debt.amount ||
-        currency !== debt.currency ||
-        debtDate !== debt.debtDate ||
-        (selectedEventId === "none" ? null : selectedEventId) !== debt.eventId);
+        currency !== debt.currency);
 
     if (financialFieldsChanged) {
       Alert.alert(
@@ -227,15 +238,41 @@ export function DebtFormScreen() {
       />
 
       <Card tone="lavender">
+        {!isSharedEventDebt ? (
+          <DirectionToggle value={direction} onChange={setDirection} />
+        ) : null}
+        <TextField
+          label="Title"
+          value={title}
+          onChangeText={setTitle}
+          placeholder="Dinner, rent, tickets"
+        />
+        <View style={styles.amountRow}>
+          <TextField
+            label="Amount"
+            value={amount}
+            onChangeText={(value) => setAmount(sanitizeCurrencyAmount(value))}
+            placeholder="0.00"
+            keyboardType="decimal-pad"
+            style={styles.amountField}
+          />
+          <DropdownSelect
+            label="Currency"
+            value={currency}
+            options={currencyOptions}
+            onChange={setCurrency}
+            style={styles.currencyField}
+          />
+        </View>
         {isSharedEventDebt ? (
           <>
-            <SelectChips
+            <DropdownSelect
               label="Debtor"
               value={debtorEventMemberId}
               options={eventMemberOptions}
               onChange={setDebtorEventMemberId}
             />
-            <SelectChips
+            <DropdownSelect
               label="Creditor"
               value={creditorEventMemberId}
               options={eventMemberOptions}
@@ -243,210 +280,328 @@ export function DebtFormScreen() {
             />
           </>
         ) : (
-          <>
-            <SelectChips
-              label="Member"
-              value={selectedMemberId}
-              options={memberOptions}
-              onChange={setSelectedMemberId}
-            />
-            <SelectChips
-              label="Direction"
-              value={direction}
-              options={[
-                { label: "They owe me", value: "they_owe_me" },
-                { label: "I owe them", value: "i_owe_them" },
-              ]}
-              onChange={setDirection}
-            />
-          </>
+          <DropdownSelect
+            label="Member"
+            value={selectedMemberId}
+            options={memberOptions}
+            onChange={setSelectedMemberId}
+            placeholder="Select member"
+          />
         )}
-        <TextField
-          label="Title"
-          value={title}
-          onChangeText={setTitle}
-          placeholder="Dinner deposit"
-        />
-        <TextField
-          label="Amount"
-          value={amount}
-          onChangeText={setAmount}
-          keyboardType="numeric"
-        />
-        <SelectChips
-          label="Currency"
-          value={currency}
-          options={CURRENCIES.map((currencyCode) => ({
-            label: currencyCode,
-            value: currencyCode,
-          }))}
-          onChange={setCurrency}
-        />
-        <TextField
-          label="Debt date"
-          value={debtDate}
-          onChangeText={setDebtDate}
-          placeholder="YYYY-MM-DD"
-        />
-        <TextField
+        <DatePickerField
           label="Due date"
           value={dueDate}
-          onChangeText={setDueDate}
-          placeholder="Optional YYYY-MM-DD"
+          onChange={setDueDate}
+          placeholder="No due date"
         />
+        <View style={styles.tagField}>
+          <View style={styles.tagInputField}>
+            <Text style={styles.tagLabel}>Tags</Text>
+            <View style={styles.tagInputShell}>
+              <TextInput
+                value={tagInput}
+                onChangeText={updateTagInput}
+                onSubmitEditing={() => addTag(tagInput)}
+                onKeyPress={({ nativeEvent }) => {
+                  if (nativeEvent.key === "Enter" || nativeEvent.key === "Tab") {
+                    addTag(tagInput);
+                  }
+                }}
+                placeholder="Add tag"
+                placeholderTextColor={palette.textTertiary}
+                returnKeyType="done"
+                blurOnSubmit={false}
+                style={styles.tagInput}
+              />
+            </View>
+          </View>
+          {tagSuggestions.length ? (
+            <View style={styles.tagSuggestionList}>
+              {tagSuggestions.map((tag) => (
+                <Pressable
+                  key={tag}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Add ${tag} tag`}
+                  onPress={() => addTag(tag)}
+                  style={({ pressed }) => [
+                    styles.tagSuggestion,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Text style={styles.tagSuggestionText}>{tag}</Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+          {selectedTags.length ? (
+            <View style={styles.selectedTagList}>
+              {selectedTags.map((tag) => (
+                <View key={tag} style={styles.selectedTag}>
+                  <Text style={styles.selectedTagText}>{tag}</Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove ${tag} tag`}
+                    onPress={() => removeTag(tag)}
+                    hitSlop={8}
+                    style={({ pressed }) => [
+                      styles.removeTagButton,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Ionicons
+                      name="close"
+                      size={11}
+                      color={palette.primary}
+                    />
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          ) : null}
+        </View>
         <TextField
           label="Notes"
           value={notes}
           onChangeText={setNotes}
+          placeholder="Optional details"
           multiline
         />
-        <TextField
-          label="Shared notes"
-          value={sharedNotes}
-          onChangeText={setSharedNotes}
-          placeholder="Visible only after requesting verification"
-          multiline
-        />
-        <TextField
-          label="Tags"
-          value={tags}
-          onChangeText={setTags}
-          placeholder="Food, Travel"
-        />
-        {tagSuggestions.length ? (
-          <SelectChips
-            label="Suggested tags"
-            value="none"
-            options={[
-              { label: "Ignore", value: "none" },
-              ...tagSuggestions.map((tag) => ({ label: tag, value: tag })),
-            ]}
-            onChange={(value) => {
-              if (value !== "none") {
-                setTags((current) => mergeTagText(current, value));
-              }
-            }}
-          />
-        ) : null}
-        {!isSharedEventDebt ? (
-          <SelectChips
-            label="Event"
-            value={selectedEventId}
-            options={eventOptions}
-            onChange={setSelectedEventId}
-          />
-        ) : null}
-        <SelectChips
-          label="Status"
-          value={status}
-          options={[
-            { label: "Active", value: "active" },
-            { label: "Settled", value: "settled" },
-            { label: "Archived", value: "archived" },
-          ]}
-          onChange={setStatus}
-        />
-        <SelectChips
-          label="Review state"
-          value={verificationStatus}
-          options={[
-            { label: "Local only", value: "local_only" },
-            { label: "Pending", value: "pending" },
-            { label: "Verified", value: "verified" },
-            { label: "Rejected", value: "rejected" },
-            { label: "Disputed", value: "disputed" },
-            { label: "Resolved", value: "resolved" },
-            { label: "Cancelled", value: "cancelled" },
-          ]}
-          onChange={setVerificationStatus}
-        />
-        {!isSharedEventDebt ? (
-          <SelectChips
-            label="Visibility"
-            value={visibility}
-            options={[
-              { label: "Private", value: "private" },
-              {
-                label: "Shared with member",
-                value: "shared_with_involved_member",
-              },
-              { label: "Event shared later", value: "future_event_shared" },
-            ]}
-            onChange={setVisibility}
-          />
-        ) : null}
-      </Card>
-
-      <Card tone="peach">
-        <Text style={styles.reviewEyebrow}>Review</Text>
-        <View style={styles.reviewRow}>
-          <Text style={styles.reviewLabel}>What</Text>
-          <Text style={styles.reviewValue}>
-            {title.trim() || "Untitled debt"}
-          </Text>
-        </View>
-        <View style={styles.reviewRow}>
-          <Text style={styles.reviewLabel}>Amount</Text>
-          <Text style={styles.reviewValue}>
-            {Number(amount) > 0 ? `${amount} ${currency}` : "Enter an amount"}
-          </Text>
-        </View>
-        <View style={styles.reviewRow}>
-          <Text style={styles.reviewLabel}>Direction</Text>
-          <Text style={styles.reviewValue}>
-            {isSharedEventDebt
-              ? `${eventMemberOptions.find((option) => option.value === debtorEventMemberId)?.label ?? "Someone"} owes ${eventMemberOptions.find((option) => option.value === creditorEventMemberId)?.label ?? "someone"}`
-              : direction === "they_owe_me"
-                ? `${memberOptions.find((option) => option.value === selectedMemberId)?.label ?? "They"} owe you`
-                : `You owe ${memberOptions.find((option) => option.value === selectedMemberId)?.label ?? "them"}`}
-          </Text>
-        </View>
-        <View style={styles.reviewRow}>
-          <Text style={styles.reviewLabel}>Due</Text>
-          <Text style={styles.reviewValue}>{dueDate || "No due date"}</Text>
-        </View>
       </Card>
     </Screen>
   );
 }
 
-function splitTags(value: string) {
-  return value
-    .split(",")
-    .map((tag) => tag.trim())
-    .filter(Boolean);
+function selectedTagsNormalized(tags: string[]) {
+  return new Set(tags.map((tag) => tag.toLowerCase()));
 }
 
-function mergeTagText(current: string, tag: string) {
-  return Array.from(new Set([...splitTags(current), tag])).join(", ");
+function DirectionToggle({
+  value,
+  onChange,
+}: {
+  value: DebtDirection;
+  onChange: (value: DebtDirection) => void;
+}) {
+  const [width, setWidth] = useState(0);
+  const translate = React.useRef(
+    new Animated.Value(value === "they_owe_me" ? 0 : 1),
+  ).current;
+  const segmentWidth = width / DIRECTION_OPTIONS.length;
+
+  React.useEffect(() => {
+    Animated.timing(translate, {
+      toValue: value === "they_owe_me" ? 0 : segmentWidth,
+      duration: 210,
+      useNativeDriver: true,
+    }).start();
+  }, [segmentWidth, translate, value]);
+
+  return (
+    <View style={styles.directionField}>
+      <Text style={styles.directionLabel}>Direction</Text>
+      <View
+        style={styles.directionToggle}
+        onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
+      >
+        {width ? (
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.directionThumb,
+              {
+                width: segmentWidth - 6,
+                transform: [{ translateX: translate }],
+              },
+            ]}
+          />
+        ) : null}
+        {DIRECTION_OPTIONS.map((option) => {
+          const active = option.value === value;
+          return (
+            <Pressable
+              key={option.value}
+              accessibilityRole="button"
+              accessibilityLabel={option.label}
+              accessibilityState={{ selected: active }}
+              onPress={() => onChange(option.value)}
+              style={({ pressed }) => [
+                styles.directionOption,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.directionOptionText,
+                  active && styles.directionOptionTextActive,
+                ]}
+              >
+                {option.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+const DIRECTION_OPTIONS: { label: string; value: DebtDirection }[] = [
+  { label: "They owe you", value: "they_owe_me" },
+  { label: "You owe them", value: "i_owe_them" },
+];
+
+function sanitizeCurrencyAmount(value: string) {
+  const normalized = value.replace(",", ".").replace(/[^\d.]/g, "");
+  const [wholeRaw = "", ...decimalParts] = normalized.split(".");
+  const whole = wholeRaw.replace(/^0+(?=\d)/, "");
+
+  if (!decimalParts.length) {
+    return whole;
+  }
+
+  return `${whole || "0"}.${decimalParts.join("").slice(0, 2)}`;
 }
 
 const styles = StyleSheet.create({
-  reviewEyebrow: {
-    color: palette.brand,
+  directionField: {
+    gap: 10,
+  },
+  directionLabel: {
+    color: palette.muted,
     fontSize: typography.size.sm,
     fontFamily: typefaces.bodyStrong,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
+    letterSpacing: 0.2,
   },
-  reviewRow: {
+  directionToggle: {
+    minHeight: 54,
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderIndigoSoft,
+    backgroundColor: "rgba(255,255,255,0.54)",
+    padding: 3,
     flexDirection: "row",
-    justifyContent: "space-between",
-    gap: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "rgba(55,48,163,0.14)",
+    position: "relative",
+    overflow: "hidden",
   },
-  reviewLabel: {
+  directionThumb: {
+    position: "absolute",
+    top: 3,
+    bottom: 3,
+    left: 3,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: "rgba(55,48,163,0.18)",
+    backgroundColor: "rgba(255,255,255,0.72)",
+    ...shadows.soft,
+  },
+  directionOption: {
+    flex: 1,
+    minHeight: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 10,
+  },
+  directionOptionText: {
     color: palette.muted,
-    fontSize: typography.size.md,
+    fontSize: typography.size.base,
     fontFamily: typefaces.bodyStrong,
   },
-  reviewValue: {
-    color: palette.ink,
+  directionOptionTextActive: {
+    color: palette.primary,
+  },
+  amountRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  amountField: {
     flex: 1,
+  },
+  currencyField: {
+    width: 128,
+  },
+  tagField: {
+    gap: 8,
+  },
+  tagInputField: {
+    gap: 10,
+  },
+  tagLabel: {
+    color: palette.muted,
+    fontSize: typography.size.sm,
+    fontFamily: typefaces.bodyStrong,
+    letterSpacing: 0.2,
+  },
+  tagInputShell: {
+    minHeight: 54,
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderIndigoSoft,
+    backgroundColor: "rgba(255,255,255,0.68)",
+    paddingHorizontal: 12,
+    justifyContent: "center",
+  },
+  tagInput: {
+    color: palette.textPrimary,
     fontSize: typography.size.base,
-    fontFamily: typefaces.bodyHeavy,
-    textAlign: "right",
+    lineHeight: typography.line.base,
+    fontFamily: typefaces.body,
+  },
+  tagSuggestionList: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  tagSuggestion: {
+    minHeight: 34,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderIndigo,
+    backgroundColor: "rgba(255,255,255,0.62)",
+    paddingHorizontal: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tagSuggestionText: {
+    color: palette.primary,
+    fontSize: 13,
+    fontFamily: typefaces.bodyStrong,
+  },
+  selectedTagList: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  selectedTag: {
+    minHeight: 36,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderIndigo,
+    backgroundColor: palette.surfaceGlassStrong,
+    paddingLeft: 12,
+    paddingRight: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+    overflow: "visible",
+  },
+  selectedTagText: {
+    color: palette.textPrimary,
+    fontSize: 13,
+    fontFamily: typefaces.bodyStrong,
+  },
+  removeTagButton: {
+    position: "absolute",
+    top: -5,
+    right: -5,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: "rgba(221,214,254,0.42)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pressed: {
+    opacity: 0.76,
   },
 });

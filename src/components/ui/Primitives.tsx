@@ -423,7 +423,12 @@ export function TextField({
   value: string;
   onChangeText: (value: string) => void;
   placeholder?: string;
-  keyboardType?: "default" | "numeric" | "email-address" | "phone-pad";
+  keyboardType?:
+    | "default"
+    | "numeric"
+    | "decimal-pad"
+    | "email-address"
+    | "phone-pad";
   multiline?: boolean;
   secureTextEntry?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -445,6 +450,305 @@ export function TextField({
           style={[styles.input, multiline && styles.inputMultiline]}
         />
       </View>
+    </View>
+  );
+}
+
+export function DropdownSelect<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+  placeholder = "Select",
+  style,
+}: {
+  label?: string;
+  value: T;
+  options: { label: string; value: T }[];
+  onChange: (value: T) => void;
+  placeholder?: string;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [query, setQuery] = React.useState("");
+  const selected = options.find((option) => option.value === value);
+  const filteredOptions = React.useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) {
+      return options;
+    }
+    return options.filter((option) =>
+      option.label.toLowerCase().includes(normalized),
+    );
+  }, [options, query]);
+
+  React.useEffect(() => {
+    if (!open) {
+      setQuery("");
+    }
+  }, [open]);
+
+  return (
+    <View style={[styles.field, style]}>
+      {label ? <Text style={styles.label}>{label}</Text> : null}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={label ?? placeholder}
+        accessibilityHint="Opens a dropdown selector"
+        onPress={() => setOpen(true)}
+        style={({ pressed }) => [
+          styles.inputShell,
+          styles.dropdownShell,
+          pressed && styles.pressed,
+        ]}
+      >
+        <Text
+          numberOfLines={1}
+          style={[
+            styles.dropdownValue,
+            !selected && styles.dropdownPlaceholder,
+          ]}
+        >
+          {selected?.label ?? placeholder}
+        </Text>
+        <Ionicons name="chevron-down" size={18} color={palette.primary} />
+      </Pressable>
+
+      <Modal
+        visible={open}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setOpen(false)}
+      >
+        <View style={styles.dropdownOverlay}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close selector"
+            style={styles.dropdownBackdrop}
+            onPress={() => setOpen(false)}
+          />
+          <GlassCard style={styles.dropdownMenu}>
+            {label ? <Text style={styles.dropdownTitle}>{label}</Text> : null}
+            <View style={styles.dropdownSearchShell}>
+              <Ionicons name="search" size={16} color={palette.muted} />
+              <TextInput
+                value={query}
+                onChangeText={setQuery}
+                placeholder="Search"
+                placeholderTextColor={palette.textTertiary}
+                style={styles.dropdownSearchInput}
+              />
+            </View>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.dropdownList}
+            >
+              {filteredOptions.map((option) => {
+                const active = option.value === value;
+                return (
+                  <Pressable
+                    key={option.value}
+                    accessibilityRole="button"
+                    accessibilityLabel={option.label}
+                    accessibilityState={{ selected: active }}
+                    onPress={() => {
+                      onChange(option.value);
+                      setOpen(false);
+                    }}
+                    style={({ pressed }) => [
+                      styles.dropdownOption,
+                      active && styles.dropdownOptionActive,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        styles.dropdownOptionText,
+                        active && styles.dropdownOptionTextActive,
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                    {active ? (
+                      <Ionicons
+                        name="checkmark"
+                        size={18}
+                        color={palette.primary}
+                      />
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+              {!filteredOptions.length ? (
+                <Text style={styles.dropdownEmpty}>No matches</Text>
+              ) : null}
+            </ScrollView>
+          </GlassCard>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+export function DatePickerField({
+  label,
+  value,
+  onChange,
+  placeholder = "Optional YYYY-MM-DD",
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [visibleMonth, setVisibleMonth] = React.useState(() =>
+    monthFromIso(value),
+  );
+
+  React.useEffect(() => {
+    if (open) {
+      setVisibleMonth(monthFromIso(value));
+    }
+  }, [open, value]);
+
+  const days = React.useMemo(() => calendarDays(visibleMonth), [visibleMonth]);
+  const selected = parseIsoDate(value);
+  const monthLabel = new Date(
+    visibleMonth.year,
+    visibleMonth.month,
+    1,
+  ).toLocaleDateString(undefined, { month: "long", year: "numeric" });
+
+  return (
+    <View style={styles.field}>
+      <Text style={styles.label}>{label}</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityHint="Opens a date picker"
+        onPress={() => setOpen(true)}
+        style={({ pressed }) => [
+          styles.inputShell,
+          styles.dropdownShell,
+          pressed && styles.pressed,
+        ]}
+      >
+        <Text
+          numberOfLines={1}
+          style={[
+            styles.dropdownValue,
+            !value && styles.dropdownPlaceholder,
+          ]}
+        >
+          {value || placeholder}
+        </Text>
+        <Ionicons name="calendar-outline" size={18} color={palette.primary} />
+      </Pressable>
+
+      <Modal
+        visible={open}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setOpen(false)}
+      >
+        <View style={styles.dropdownOverlay}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close date picker"
+            style={styles.dropdownBackdrop}
+            onPress={() => setOpen(false)}
+          />
+          <GlassCard style={styles.datePickerMenu}>
+            <View style={styles.datePickerHeader}>
+              <IconButton
+                icon="chevron-back"
+                label="Previous month"
+                onPress={() =>
+                  setVisibleMonth((current) => shiftMonth(current, -1))
+                }
+              />
+              <Text style={styles.dropdownTitle}>{monthLabel}</Text>
+              <IconButton
+                icon="chevron-forward"
+                label="Next month"
+                onPress={() =>
+                  setVisibleMonth((current) => shiftMonth(current, 1))
+                }
+              />
+            </View>
+            <View style={styles.weekdayRow}>
+              {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
+                <Text key={`${day}-${index}`} style={styles.weekdayLabel}>
+                  {day}
+                </Text>
+              ))}
+            </View>
+            <View style={styles.calendarGrid}>
+              {days.map((day, index) => {
+                const iso = day ? formatIsoDate(day) : "";
+                const active = Boolean(
+                  day &&
+                    selected &&
+                    day.year === selected.year &&
+                    day.month === selected.month &&
+                    day.day === selected.day,
+                );
+                return day ? (
+                  <Pressable
+                    key={iso}
+                    accessibilityRole="button"
+                    accessibilityLabel={iso}
+                    accessibilityState={{ selected: active }}
+                    onPress={() => {
+                      onChange(iso);
+                      setOpen(false);
+                    }}
+                    style={({ pressed }) => [
+                      styles.calendarDay,
+                      active && styles.calendarDayActive,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.calendarDayText,
+                        active && styles.calendarDayTextActive,
+                      ]}
+                    >
+                      {day.day}
+                    </Text>
+                  </Pressable>
+                ) : (
+                  <View
+                    key={`empty-${index}`}
+                    style={styles.calendarDayPlaceholder}
+                  />
+                );
+              })}
+            </View>
+            <View style={styles.datePickerActions}>
+              <Button
+                title="Clear"
+                variant="ghost"
+                onPress={() => {
+                  onChange("");
+                  setOpen(false);
+                }}
+              />
+              <Button
+                title="Today"
+                variant="secondary"
+                onPress={() => {
+                  onChange(todayIso());
+                  setOpen(false);
+                }}
+              />
+            </View>
+          </GlassCard>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -650,6 +954,77 @@ export function ResponsiveGrid({ children }: { children: React.ReactNode }) {
   const wide = width >= 900;
 
   return <View style={[styles.grid, wide && styles.gridWide]}>{children}</View>;
+}
+
+type CalendarDate = { year: number; month: number; day: number };
+type CalendarMonth = { year: number; month: number };
+
+function todayIso() {
+  return formatIsoDate({
+    year: new Date().getFullYear(),
+    month: new Date().getMonth(),
+    day: new Date().getDate(),
+  });
+}
+
+function parseIsoDate(value: string): CalendarDate | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) {
+    return null;
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]) - 1;
+  const day = Number(match[3]);
+  const candidate = new Date(year, month, day);
+  if (
+    candidate.getFullYear() !== year ||
+    candidate.getMonth() !== month ||
+    candidate.getDate() !== day
+  ) {
+    return null;
+  }
+
+  return { year, month, day };
+}
+
+function monthFromIso(value: string): CalendarMonth {
+  const parsed = parseIsoDate(value);
+  const today = new Date();
+  return {
+    year: parsed?.year ?? today.getFullYear(),
+    month: parsed?.month ?? today.getMonth(),
+  };
+}
+
+function shiftMonth(current: CalendarMonth, delta: number): CalendarMonth {
+  const next = new Date(current.year, current.month + delta, 1);
+  return { year: next.getFullYear(), month: next.getMonth() };
+}
+
+function calendarDays(month: CalendarMonth): (CalendarDate | null)[] {
+  const firstDay = new Date(month.year, month.month, 1).getDay();
+  const daysInMonth = new Date(month.year, month.month + 1, 0).getDate();
+  const days: (CalendarDate | null)[] = Array.from(
+    { length: firstDay },
+    () => null,
+  );
+
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    days.push({ ...month, day });
+  }
+
+  while (days.length % 7 !== 0) {
+    days.push(null);
+  }
+
+  return days;
+}
+
+function formatIsoDate(date: CalendarDate) {
+  return `${date.year}-${String(date.month + 1).padStart(2, "0")}-${String(
+    date.day,
+  ).padStart(2, "0")}`;
 }
 
 const textVariants = StyleSheet.create({
@@ -991,12 +1366,147 @@ const styles = StyleSheet.create({
   },
   input: {
     color: palette.textPrimary,
-    fontSize: typography.size.xl,
+    fontSize: typography.size.base,
+    lineHeight: typography.line.base,
     fontFamily: typefaces.body,
   },
   inputMultiline: {
     minHeight: 90,
     textAlignVertical: "top",
+  },
+  dropdownShell: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  dropdownValue: {
+    flex: 1,
+    color: palette.textPrimary,
+    fontSize: typography.size.base,
+    lineHeight: typography.line.base,
+    fontFamily: typefaces.bodyStrong,
+  },
+  dropdownPlaceholder: {
+    color: palette.textTertiary,
+    fontFamily: typefaces.body,
+  },
+  dropdownOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "flex-end",
+    padding: spacing.md,
+  },
+  dropdownBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(17,24,39,0.18)",
+  },
+  dropdownMenu: {
+    maxHeight: "72%",
+    gap: spacing.sm,
+    padding: spacing.md,
+  },
+  dropdownTitle: {
+    color: palette.textPrimary,
+    fontSize: typography.size.lg,
+    fontFamily: typefaces.displayMedium,
+  },
+  dropdownSearchShell: {
+    minHeight: 44,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderIndigoSoft,
+    backgroundColor: "rgba(255,255,255,0.72)",
+    paddingHorizontal: spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
+  dropdownSearchInput: {
+    flex: 1,
+    color: palette.textPrimary,
+    fontSize: typography.size.base,
+    fontFamily: typefaces.body,
+  },
+  dropdownList: {
+    gap: 6,
+  },
+  dropdownEmpty: {
+    color: palette.muted,
+    fontSize: typography.size.sm,
+    fontFamily: typefaces.body,
+    textAlign: "center",
+    paddingVertical: spacing.md,
+  },
+  dropdownOption: {
+    minHeight: 48,
+    borderRadius: 14,
+    paddingHorizontal: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  dropdownOptionActive: {
+    backgroundColor: palette.surfaceGlassStrong,
+    ...shadows.soft,
+  },
+  dropdownOptionText: {
+    flex: 1,
+    color: palette.textSecondary,
+    fontSize: typography.size.base,
+    fontFamily: typefaces.bodyStrong,
+  },
+  dropdownOptionTextActive: {
+    color: palette.primary,
+  },
+  datePickerMenu: {
+    gap: spacing.md,
+    padding: spacing.md,
+  },
+  datePickerHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+  },
+  weekdayRow: {
+    flexDirection: "row",
+  },
+  weekdayLabel: {
+    width: `${100 / 7}%`,
+    color: palette.muted,
+    fontSize: typography.size.xs,
+    fontFamily: typefaces.bodyStrong,
+    textAlign: "center",
+  },
+  calendarGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  calendarDay: {
+    width: `${100 / 7}%`,
+    aspectRatio: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 14,
+  },
+  calendarDayActive: {
+    backgroundColor: palette.surfaceGlassStrong,
+    ...shadows.soft,
+  },
+  calendarDayText: {
+    color: palette.textSecondary,
+    fontSize: typography.size.base,
+    fontFamily: typefaces.bodyStrong,
+  },
+  calendarDayTextActive: {
+    color: palette.primary,
+  },
+  calendarDayPlaceholder: {
+    width: `${100 / 7}%`,
+    aspectRatio: 1,
+  },
+  datePickerActions: {
+    flexDirection: "row",
+    gap: spacing.sm,
   },
   segmented: {
     flexDirection: "row",
