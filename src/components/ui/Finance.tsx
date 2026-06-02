@@ -327,6 +327,9 @@ export function StatCard({
   dividerSide = "right",
   showCompactSubtitle = false,
   subtitleIcon,
+  onPress,
+  accessibilityHint,
+  selected = false,
 }: {
   label: string;
   value: string;
@@ -338,6 +341,9 @@ export function StatCard({
   dividerSide?: "left" | "right";
   showCompactSubtitle?: boolean;
   subtitleIcon?: IconName;
+  onPress?: () => void;
+  accessibilityHint?: string;
+  selected?: boolean;
 }) {
   const toneStyle = toneStyles[tone];
   const [showInfo, setShowInfo] = React.useState(false);
@@ -458,6 +464,35 @@ export function StatCard({
       ) : null}
     </>
   );
+
+  if (onPress) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${label}, ${value}`}
+        accessibilityHint={accessibilityHint}
+        accessibilityState={{ selected }}
+        onPress={onPress}
+        onLongPress={showsCompactInfo ? revealInfo : undefined}
+        onHoverIn={showsCompactInfo ? revealInfo : undefined}
+        onHoverOut={showsCompactInfo ? dismissInfo : undefined}
+        style={({ pressed }) => [
+          styles.statCard,
+          { borderColor: toneStyle.border },
+          compact && styles.statCardCompact,
+          compact && compactDensity === "tight" && styles.statCardCompactTight,
+          compact &&
+            withDivider &&
+            (dividerSide === "left"
+              ? styles.statCardCompactDividerLeft
+              : styles.statCardCompactDivider),
+          pressed && styles.pressed,
+        ]}
+      >
+        {content}
+      </Pressable>
+    );
+  }
 
   if (showsCompactInfo) {
     return (

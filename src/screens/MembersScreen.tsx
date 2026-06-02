@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
     GlassCard,
@@ -40,8 +40,37 @@ export function MembersScreen() {
   const [filter, setFilter] = useState<MemberFilter>("all");
   const [filterOpen, setFilterOpen] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const [statsWidth, setStatsWidth] = useState(0);
+  const quickFilterTranslate = useRef(new Animated.Value(0)).current;
+  const quickFilterOpacity = useRef(new Animated.Value(0)).current;
+  const quickFilterIndex =
+    filter === "you-owe" ? 0 : filter === "owed-to-you" ? 1 : null;
+  const quickFilterGlassTone =
+    filter === "you-owe"
+      ? {
+          borderColor: "rgba(255,107,107,0.52)",
+        }
+      : {
+          borderColor: "rgba(30,150,130,0.38)",
+        };
 
-  const members = useMemo(() => {
+  useEffect(() => {
+    const segmentWidth = statsWidth / 2;
+    Animated.parallel([
+      Animated.timing(quickFilterTranslate, {
+        toValue: quickFilterIndex === null ? 0 : quickFilterIndex * segmentWidth,
+        duration: 210,
+        useNativeDriver: true,
+      }),
+      Animated.timing(quickFilterOpacity, {
+        toValue: quickFilterIndex === null || !statsWidth ? 0 : 1,
+        duration: quickFilterIndex === null ? 130 : 180,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [quickFilterIndex, quickFilterOpacity, quickFilterTranslate, statsWidth]);
+
+  const activeMatchedMembers = useMemo(() => {
     const normalized = query.trim().toLowerCase();
 
     return data.members.filter((member) => {
@@ -49,6 +78,18 @@ export function MembersScreen() {
         return false;
       }
 
+      const matchesQuery =
+        !normalized ||
+        member.displayName.toLowerCase().includes(normalized) ||
+        (member.email ?? "").toLowerCase().includes(normalized) ||
+        (member.phone ?? "").toLowerCase().includes(normalized);
+
+      return matchesQuery;
+    });
+  }, [data.members, query]);
+
+  const members = useMemo(() => {
+    return activeMatchedMembers.filter((member) => {
       const balance = data.memberBalances[member.id] ?? {};
       const values = Object.values(balance);
       const hasPositive = values.some(
@@ -66,15 +107,6 @@ export function MembersScreen() {
             !event.archived &&
             event.name.toLowerCase().includes(member.displayName.toLowerCase()),
         );
-      const matchesQuery =
-        !normalized ||
-        member.displayName.toLowerCase().includes(normalized) ||
-        (member.email ?? "").toLowerCase().includes(normalized) ||
-        (member.phone ?? "").toLowerCase().includes(normalized);
-
-      if (!matchesQuery) {
-        return false;
-      }
 
       switch (filter) {
         case "linked":
@@ -89,26 +121,16 @@ export function MembersScreen() {
           return true;
       }
     });
-  }, [
-    data.debts,
-    data.events,
-    data.memberBalances,
-    data.members,
-    filter,
-    query,
-  ]);
+  }, [activeMatchedMembers, data.debts, data.events, data.memberBalances, filter]);
 
-  const linkedCount = data.members.filter(
-    (member) => member.linkStatus === "linked" && !member.archived,
-  ).length;
-  const owingYouCount = members.filter((member) =>
-    Object.values(data.memberBalances[member.id] ?? {}).some(
-      (value) => (value ?? 0) > MINIMUM_BALANCE_THRESHOLD,
-    ),
-  ).length;
-  const youOweCount = members.filter((member) =>
+  const youOweCount = activeMatchedMembers.filter((member) =>
     Object.values(data.memberBalances[member.id] ?? {}).some(
       (value) => (value ?? 0) < -MINIMUM_BALANCE_THRESHOLD,
+    ),
+  ).length;
+  const owingYouCount = activeMatchedMembers.filter((member) =>
+    Object.values(data.memberBalances[member.id] ?? {}).some(
+      (value) => (value ?? 0) > MINIMUM_BALANCE_THRESHOLD,
     ),
   ).length;
 
@@ -146,15 +168,37 @@ export function MembersScreen() {
       />
 
       <GlassCard tone="lavender" allowOverflow>
-        <View style={styles.statsRow}>
+        <View
+          style={styles.statsRow}
+          onLayout={(event) => setStatsWidth(event.nativeEvent.layout.width)}
+        >
+          {statsWidth ? (
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.quickFilterGlass,
+                quickFilterGlassTone,
+                {
+                  width: statsWidth / 2 - 8,
+                  opacity: quickFilterOpacity,
+                  transform: [{ translateX: quickFilterTranslate }],
+                },
+              ]}
+            />
+          ) : null}
           <StatCard
-            label="Linked"
-            value={String(linkedCount)}
-            subtitle="Ready for shared sync"
-            tone="indigo"
+            label="You owe"
+            value={String(youOweCount)}
+            subtitle="People you still owe"
+            tone="coral"
             compact
             compactDensity="tight"
             withDivider
+            selected={filter === "you-owe"}
+            onPress={() =>
+              setFilter((current) => (current === "you-owe" ? "all" : "you-owe"))
+            }
+            accessibilityHint="Shows members you currently owe"
           />
           <StatCard
             label="Owes you"
@@ -163,15 +207,13 @@ export function MembersScreen() {
             tone="teal"
             compact
             compactDensity="tight"
-            withDivider
-          />
-          <StatCard
-            label="You owe"
-            value={String(youOweCount)}
-            subtitle="People you still owe"
-            tone="coral"
-            compact
-            compactDensity="tight"
+            selected={filter === "owed-to-you"}
+            onPress={() =>
+              setFilter((current) =>
+                current === "owed-to-you" ? "all" : "owed-to-you",
+              )
+            }
+            accessibilityHint="Shows members who currently owe you"
           />
         </View>
       </GlassCard>
@@ -347,6 +389,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "stretch",
     gap: 0,
+    position: "relative",
+  },
+  quickFilterGlass: {
+    position: "absolute",
+    top: -5,
+    bottom: -5,
+    left: 4,
+    borderRadius: 18,
+    borderWidth: 1,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    ...shadows.soft,
   },
   listColumn: {
     gap: 0,
