@@ -232,13 +232,6 @@ export function MemberFormScreen() {
           placeholder="Daniel"
         />
         <TextField
-          label="Notes"
-          value={notes}
-          onChangeText={setNotes}
-          placeholder="How you know them"
-          multiline
-        />
-        <TextField
           label="Email"
           value={email}
           onChangeText={setEmail}
@@ -257,6 +250,13 @@ export function MemberFormScreen() {
           value={tags}
           onChangeText={setTags}
           placeholder={tagHint || "Family, Friends, Travel"}
+        />
+        <TextField
+          label="Notes"
+          value={notes}
+          onChangeText={setNotes}
+          placeholder="How you know them"
+          multiline
         />
       </Card>
     </Screen>
