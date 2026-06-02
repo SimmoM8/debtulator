@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { Alert, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 import {
   GlassCard,
@@ -9,6 +9,7 @@ import {
   SingleSelectFilterList,
   StatCard,
 } from "@/src/components/ui/Finance";
+import { MobileMenuModal } from "@/src/components/ui/MenuList";
 import {
   Button,
   EmptyState,
@@ -45,20 +46,7 @@ export function DebtsScreen() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<DebtFilter>("all");
   const [filterOpen, setFilterOpen] = useState(false);
-
-  function openOptions() {
-    Alert.alert("Debt options", "Choose an action", [
-      {
-        text: "History",
-        onPress: () => router.push("/debt/history"),
-      },
-      {
-        text: "Open filters",
-        onPress: () => setFilterOpen(true),
-      },
-      { text: "Cancel", style: "cancel" },
-    ]);
-  }
+  const [optionsOpen, setOptionsOpen] = useState(false);
 
   const filteredEntries = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -144,7 +132,7 @@ export function DebtsScreen() {
           <IconButton
             icon="ellipsis-horizontal"
             label="Debt options"
-            onPress={openOptions}
+            onPress={() => setOptionsOpen(true)}
           />
         }
       />
@@ -198,6 +186,36 @@ export function DebtsScreen() {
           }}
         />
       </FilterSheet>
+
+      <MobileMenuModal
+        visible={optionsOpen}
+        title="Debt options"
+        onClose={() => setOptionsOpen(false)}
+        sections={[
+          {
+            items: [
+              {
+                label: "History",
+                subtitle: "View settled debts and how they were closed",
+                icon: "time-outline",
+                onPress: () => {
+                  setOptionsOpen(false);
+                  router.push("/debt/history");
+                },
+              },
+              {
+                label: "Open filters",
+                subtitle: "Change which active debts are shown",
+                icon: "options-outline",
+                onPress: () => {
+                  setOptionsOpen(false);
+                  setFilterOpen(true);
+                },
+              },
+            ],
+          },
+        ]}
+      />
 
       <LedgerSection
         title="You owe"

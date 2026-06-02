@@ -7,6 +7,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FloatingAddButton, GlassCard } from "@/src/components/ui/Finance";
+import { MenuListContent } from "@/src/components/ui/MenuList";
 import {
     palette,
     radii,
@@ -49,14 +50,40 @@ const visibleTabs: TabConfig[] = [
 
 const quickActions: {
   label: string;
+  subtitle: string;
   icon: IconName;
   href: Parameters<typeof router.push>[0];
 }[] = [
-  { label: "Add debt", icon: "receipt-outline", href: "/debt/form" },
-  { label: "Record payment", icon: "card-outline", href: "/payment/form" },
-  { label: "Split expense", icon: "pie-chart-outline", href: "/expense/form" },
-  { label: "Invite member", icon: "person-add-outline", href: "/member/form" },
-  { label: "Add event", icon: "calendar-outline", href: "/event/form" },
+  {
+    label: "Add debt",
+    subtitle: "Create a simple balance with one person",
+    icon: "receipt-outline",
+    href: "/debt/form",
+  },
+  {
+    label: "Record payment",
+    subtitle: "Log money movement against open balances",
+    icon: "card-outline",
+    href: "/payment/form",
+  },
+  {
+    label: "Split expense",
+    subtitle: "Add an event expense and calculate shares",
+    icon: "pie-chart-outline",
+    href: "/expense/form",
+  },
+  {
+    label: "Invite member",
+    subtitle: "Create a member profile for debts and events",
+    icon: "person-add-outline",
+    href: "/member/form",
+  },
+  {
+    label: "Add event",
+    subtitle: "Start a trip, household, or shared space",
+    icon: "calendar-outline",
+    href: "/event/form",
+  },
 ];
 
 export function GlassBottomTabBar({
@@ -100,37 +127,22 @@ export function GlassBottomTabBar({
           style={[styles.menuWrap, { bottom: 112 + insets.bottom }]}
         >
           <GlassCard tone="lavender" style={styles.menuCard}>
-            <Text style={styles.menuTitle}>Quick actions</Text>
-            <Text style={styles.menuSubtitle}>
-              Add the most common records in one tap.
-            </Text>
-            <View style={styles.menuGrid}>
-              {quickActions.map((action) => (
-                <Pressable
-                  key={action.label}
-                  accessibilityRole="button"
-                  accessibilityLabel={action.label}
-                  accessibilityHint="Opens this quick action form"
-                  onPress={() => {
-                    setMenuOpen(false);
-                    router.push(action.href);
-                  }}
-                  style={({ pressed }) => [
-                    styles.menuItem,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <View style={styles.menuIcon}>
-                    <Ionicons
-                      name={action.icon}
-                      size={18}
-                      color={palette.primary}
-                    />
-                  </View>
-                  <Text style={styles.menuItemText}>{action.label}</Text>
-                </Pressable>
-              ))}
-            </View>
+            <MenuListContent
+              sections={[
+                {
+                  title: "Quick actions",
+                  items: quickActions.map((action) => ({
+                    label: action.label,
+                    subtitle: action.subtitle,
+                    icon: action.icon,
+                    onPress: () => {
+                      setMenuOpen(false);
+                      router.push(action.href);
+                    },
+                  })),
+                },
+              ]}
+            />
           </GlassCard>
         </View>
       ) : null}
@@ -242,46 +254,6 @@ const styles = StyleSheet.create({
   menuCard: {
     width: "100%",
     maxWidth: 360,
-    gap: spacing.md,
-  },
-  menuTitle: {
-    color: palette.textPrimary,
-    fontSize: typography.size.h3,
-    fontFamily: typefaces.displayMedium,
-  },
-  menuSubtitle: {
-    color: palette.muted,
-    fontSize: typography.size.md,
-    lineHeight: typography.line.lg,
-    fontFamily: typefaces.body,
-  },
-  menuGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-  },
-  menuItem: {
-    width: "48%",
-    minHeight: 76,
-    borderRadius: 20,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderIndigoSoft,
-    backgroundColor: "rgba(255,255,255,0.7)",
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  menuIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(55,48,163,0.1)",
-  },
-  menuItemText: {
-    color: palette.textPrimary,
-    fontSize: typography.size.md,
-    fontFamily: typefaces.bodyStrong,
   },
   barWrap: {
     position: "absolute",

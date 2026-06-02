@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
     AvatarStack,
@@ -9,6 +9,7 @@ import {
     SingleSelectFilterList,
     StatCard,
 } from "@/src/components/ui/Finance";
+import { MobileMenuModal } from "@/src/components/ui/MenuList";
 import {
     Button,
     EmptyState,
@@ -36,16 +37,7 @@ export function EventsScreen() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<EventFilter>("all");
   const [filterOpen, setFilterOpen] = useState(false);
-
-  function openOptions() {
-    Alert.alert("Event options", "Choose an action", [
-      {
-        text: "Open filters",
-        onPress: () => setFilterOpen(true),
-      },
-      { text: "Cancel", style: "cancel" },
-    ]);
-  }
+  const [optionsOpen, setOptionsOpen] = useState(false);
 
   const events = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -94,7 +86,7 @@ export function EventsScreen() {
           <IconButton
             icon="ellipsis-horizontal"
             label="Event options"
-            onPress={openOptions}
+            onPress={() => setOptionsOpen(true)}
           />
         }
       />
@@ -160,6 +152,27 @@ export function EventsScreen() {
           }}
         />
       </FilterSheet>
+
+      <MobileMenuModal
+        visible={optionsOpen}
+        title="Event options"
+        onClose={() => setOptionsOpen(false)}
+        sections={[
+          {
+            items: [
+              {
+                label: "Open filters",
+                subtitle: "Change which events are shown",
+                icon: "options-outline",
+                onPress: () => {
+                  setOptionsOpen(false);
+                  setFilterOpen(true);
+                },
+              },
+            ],
+          },
+        ]}
+      />
 
       <SectionTitle
         title="Your groups"
