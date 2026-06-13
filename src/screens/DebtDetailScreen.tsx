@@ -1,44 +1,39 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useState } from "react";
-import { Alert, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { Alert, Animated, StyleSheet, Text, View } from "react-native";
 
-import {
-  Badge,
-  StatusBadge,
-  VerificationBadge,
-} from "@/src/components/ui/Badges";
 import { AvatarStack } from "@/src/components/ui/Finance";
-import { Amount } from "@/src/components/ui/Money";
 import { MobileMenuModal } from "@/src/components/ui/MenuList";
+import { Amount } from "@/src/components/ui/Money";
 import {
-  Button,
-  Card,
-  EmptyState,
-  IconButton,
-  LoadingState,
-  PageHeader,
-  Screen,
-  SectionTitle,
+    Button,
+    Card,
+    EmptyState,
+    IconButton,
+    LoadingState,
+    PageHeader,
+    Screen,
+    SectionTitle,
 } from "@/src/components/ui/Primitives";
 import {
-  palette,
-  radii,
-  spacing,
-  typefaces,
-  typography,
+    palette,
+    radii,
+    spacing,
+    typefaces,
+    typography,
 } from "@/src/constants/design";
 import {
-  debtPdfLines,
-  shareExport,
-  writePdfExport,
+    debtPdfLines,
+    shareExport,
+    writePdfExport,
 } from "@/src/services/export";
-import { formatMoney } from "@/src/utils/money";
 import { buildLedgerEntries } from "@/src/services/ledger";
 import { createRemoteDebtVerification } from "@/src/services/stage2Sync";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
 import type { DebtStatus } from "@/src/types/models";
+import { formatMoney } from "@/src/utils/money";
 
 type ActivityItem = {
   id: string;
@@ -234,15 +229,7 @@ export function DebtDetailScreen() {
     ? formatDate(currentDebt.dueDate)
     : "No due date";
 
-  const signedAmount =
-    currentDebt.direction === "they_owe_me"
-      ? currentDebt.amount
-      : -currentDebt.amount;
-
   const isOwedToMe = currentDebt.direction === "they_owe_me";
-
-  const fromName = isOwedToMe ? (member?.displayName ?? "Them") : "You";
-  const toName = isOwedToMe ? "You" : (member?.displayName ?? "Them");
 
   const isPartiallyPaid =
     currentEntry.paymentStatus === "partially_paid" &&
@@ -252,10 +239,8 @@ export function DebtDetailScreen() {
     currentEntry.paymentStatus === "overpaid";
 
   const displayAmount = isPartiallyPaid
-    ? isOwedToMe
-      ? currentEntry.remainingAmount
-      : -currentEntry.remainingAmount
-    : signedAmount;
+    ? currentEntry.remainingAmount
+    : currentEntry.originalAmount;
 
   const paidFraction =
     currentEntry.originalAmount > 0
@@ -364,23 +349,17 @@ export function DebtDetailScreen() {
 
       {/* ── Hero ── */}
       <View style={styles.hero}>
-        {/* Participant flow: [From] ──► [To] */}
+        {/* Participant flow: You always left */}
         <View style={styles.participantFlow}>
-          <ParticipantChip
-            label={fromName}
-            highlight={!isOwedToMe}
-          />
+          <ParticipantChip label="You" highlight />
           <View style={styles.flowArrowWrap}>
+            {isOwedToMe ? <AnimatedFlowArrow isOwedToMe={isOwedToMe} /> : null}
             <View style={styles.flowArrowLine} />
-            <Ionicons
-              name="arrow-forward"
-              size={14}
-              color={isOwedToMe ? palette.positive : palette.warning}
-            />
+            {!isOwedToMe ? <AnimatedFlowArrow isOwedToMe={isOwedToMe} /> : null}
           </View>
           <ParticipantChip
-            label={toName}
-            highlight={isOwedToMe}
+            label={member?.displayName ?? "Them"}
+            highlight={false}
           />
         </View>
 
@@ -389,7 +368,6 @@ export function DebtDetailScreen() {
           <Amount
             amount={displayAmount}
             currency={currentDebt.currency}
-            signed
             size="lg"
           />
           {isPartiallyPaid ? (
@@ -414,12 +392,9 @@ export function DebtDetailScreen() {
         {currentEntry.amountPaid > 0 && (
           <View style={styles.progressBlock}>
             <View style={styles.progressTrack}>
-              <View
-                style={[
-                  styles.progressFill,
-                  isFullyPaid && styles.progressFillComplete,
-                  { width: `${Math.round(paidFraction * 100)}%` },
-                ]}
+              <AnimatedProgressFill
+                paidFraction={paidFraction}
+                isFullyPaid={isFullyPaid}
               />
             </View>
             <View style={styles.progressLabels}>
@@ -456,25 +431,11 @@ export function DebtDetailScreen() {
         ) : null}
       </View>
 
-      {/* ── Status badges ── */}
-      <View style={styles.statusRow}>
-        <StatusBadge status={currentDebt.status} />
-        <VerificationBadge status={currentDebt.verificationStatus} />
-        <Badge
-          label={currentEntry.paymentStatus.replaceAll("_", " ")}
-          tone={
-            currentEntry.paymentStatus === "paid"
-              ? "positive"
-              : currentEntry.paymentStatus === "overpaid"
-                ? "amber"
-                : "blue"
-          }
-        />
-      </View>
-
       {/* ── Details ── */}
-      <Card tone="lavender" style={styles.detailsCard}>
+      <View style={styles.sectionHeader}>
         <SectionTitle title="Details" />
+      </View>
+      <Card tone="lavender" style={styles.detailsCard}>
         <DetailRow label="Member" value={member?.displayName ?? "Unknown"} />
         <DetailRow label="Date" value={formatDate(currentDebt.debtDate)} />
         {event ? <DetailRow label="Event" value={event.name} /> : null}
@@ -501,18 +462,98 @@ export function DebtDetailScreen() {
 
       {/* ── Activity ── */}
       {activityItems.length > 0 ? (
-        <Card style={styles.activityCard}>
-          <SectionTitle title="Activity" />
-          {activityItems.map((activity, index) => (
-            <ActivityTimelineRow
-              key={activity.id}
-              item={activity}
-              isLast={index === activityItems.length - 1}
-            />
-          ))}
-        </Card>
+        <>
+          <View style={styles.sectionHeader}>
+            <SectionTitle title="Activity" />
+          </View>
+          <Card style={styles.activityCard}>
+            {activityItems.map((activity, index) => (
+              <ActivityTimelineRow
+                key={activity.id}
+                item={activity}
+                isLast={index === activityItems.length - 1}
+              />
+            ))}
+          </Card>
+        </>
       ) : null}
     </Screen>
+  );
+}
+
+function AnimatedFlowArrow({ isOwedToMe }: { isOwedToMe: boolean }) {
+  const [anim] = useState(() => new Animated.Value(0));
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, {
+          toValue: 1,
+          duration: 480,
+          useNativeDriver: true,
+        }),
+        Animated.timing(anim, {
+          toValue: 0,
+          duration: 480,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [anim]);
+
+  const translateX = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: isOwedToMe ? [0, -10] : [0, 10],
+  });
+  const opacity = anim.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [0.35, 1, 0.35],
+  });
+
+  return (
+    <Animated.View style={{ transform: [{ translateX }], opacity }}>
+      <Ionicons
+        name={isOwedToMe ? "arrow-back" : "arrow-forward"}
+        size={20}
+        color={isOwedToMe ? palette.positive : palette.warning}
+      />
+    </Animated.View>
+  );
+}
+
+function AnimatedProgressFill({
+  paidFraction,
+  isFullyPaid,
+}: {
+  paidFraction: number;
+  isFullyPaid: boolean;
+}) {
+  const [anim] = useState(() => new Animated.Value(0));
+
+  useEffect(() => {
+    Animated.timing(anim, {
+      toValue: paidFraction,
+      duration: 900,
+      delay: 250,
+      useNativeDriver: false,
+    }).start();
+  }, [anim, paidFraction]);
+
+  const animatedWidth = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0%", "100%"],
+  });
+
+  return (
+    <Animated.View
+      style={[
+        styles.progressFill,
+        isFullyPaid && styles.progressFillComplete,
+        { width: animatedWidth },
+      ]}
+    />
   );
 }
 
@@ -622,17 +663,17 @@ const styles = StyleSheet.create({
   // Hero
   hero: {
     paddingHorizontal: spacing.xs,
-    paddingTop: spacing.xl,
+    paddingTop: spacing.xxl,
     paddingBottom: spacing.xxl,
-    gap: spacing.md,
+    gap: spacing.xl,
   },
 
   // Participant flow
   participantFlow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
+    gap: spacing.xl,
+    marginBottom: spacing.md,
   },
   participantChip: {
     alignItems: "center",
@@ -671,7 +712,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: 2,
+    gap: spacing.sm,
   },
   flowArrowLine: {
     flex: 1,
@@ -767,13 +808,10 @@ const styles = StyleSheet.create({
     fontFamily: typefaces.bodyStrong,
   },
 
-  // Status badges row
-  statusRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.xs,
+  // Section headings
+  sectionHeader: {
     paddingHorizontal: spacing.xs,
-    marginBottom: spacing.xl,
+    marginBottom: spacing.sm,
   },
 
   // Details card
