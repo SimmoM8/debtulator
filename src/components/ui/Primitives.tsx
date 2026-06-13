@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
 import React from "react";
 import {
     ActivityIndicator,
@@ -158,8 +158,7 @@ export function PageHeader({
   action?: React.ReactNode;
   showBackButton?: boolean;
 }) {
-  const navigation = useNavigation();
-  const canGoBack = navigation.canGoBack();
+  const canGoBack = router.canGoBack();
   const detailHeader = showBackButton && canGoBack;
 
   return (
@@ -175,7 +174,7 @@ export function PageHeader({
             <IconButton
               icon="chevron-back"
               label="Go back"
-              onPress={() => navigation.goBack()}
+              onPress={() => router.back()}
             />
           </View>
           <View style={styles.pageHeaderCenter}>
@@ -199,9 +198,13 @@ export function PageHeader({
         <>
           <View style={styles.pageHeaderMain}>
             <View style={styles.pageHeaderCopy}>
-              {eyebrow ? <Text style={styles.pageEyebrowRoot}>{eyebrow}</Text> : null}
+              {eyebrow ? (
+                <Text style={styles.pageEyebrowRoot}>{eyebrow}</Text>
+              ) : null}
               <Text style={styles.pageTitleRoot}>{title}</Text>
-              {subtitle ? <Text style={styles.pageSubtitleRoot}>{subtitle}</Text> : null}
+              {subtitle ? (
+                <Text style={styles.pageSubtitleRoot}>{subtitle}</Text>
+              ) : null}
             </View>
           </View>
           {action ? (
@@ -251,7 +254,9 @@ export function SectionTitle({
     <View style={styles.sectionTitle}>
       <View style={styles.flexOne}>
         <Text style={styles.sectionHeading}>{title}</Text>
-        {subtitle ? <Text style={styles.sectionSubtitle}>{subtitle}</Text> : null}
+        {subtitle ? (
+          <Text style={styles.sectionSubtitle}>{subtitle}</Text>
+        ) : null}
       </View>
       {action}
     </View>
@@ -310,7 +315,9 @@ export function Button({
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
   accessibilityHint?: string;
-  accessibilityState?: React.ComponentProps<typeof Pressable>["accessibilityState"];
+  accessibilityState?: React.ComponentProps<
+    typeof Pressable
+  >["accessibilityState"];
 }) {
   return (
     <Pressable
@@ -637,10 +644,7 @@ export function DatePickerField({
       >
         <Text
           numberOfLines={1}
-          style={[
-            styles.dropdownValue,
-            !value && styles.dropdownPlaceholder,
-          ]}
+          style={[styles.dropdownValue, !value && styles.dropdownPlaceholder]}
         >
           {value || placeholder}
         </Text>
@@ -690,10 +694,10 @@ export function DatePickerField({
                 const iso = day ? formatIsoDate(day) : "";
                 const active = Boolean(
                   day &&
-                    selected &&
-                    day.year === selected.year &&
-                    day.month === selected.month &&
-                    day.day === selected.day,
+                  selected &&
+                  day.year === selected.year &&
+                  day.month === selected.month &&
+                  day.day === selected.day,
                 );
                 return day ? (
                   <Pressable
