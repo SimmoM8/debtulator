@@ -202,6 +202,8 @@ type CreatePaymentSettlementInput = {
   status?: Payment['status'];
   confirmationStatus?: Payment['confirmationStatus'];
   createdByUserId?: string | null;
+  payerUserId?: string | null;
+  payeeUserId?: string | null;
   lines?: {
     sourceRecordType: SettlementLine['sourceRecordType'];
     sourceRecordId: string;
@@ -416,6 +418,11 @@ type AppDataContextValue = DatabaseSnapshot & {
     settlement: Settlement;
     lines: SettlementLine[];
   }>;
+  respondToPaymentConfirmation: (
+    paymentId: string,
+    status: Extract<Payment['confirmationStatus'], 'confirmed' | 'rejected'>,
+    actorUserId: string,
+  ) => Promise<Payment>;
   createRecurringTemplate: (input: CreateRecurringTemplateInput) => Promise<RecurringTemplate>;
   updateRecurringTemplate: (
     templateId: string,
@@ -877,6 +884,15 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           return repo.updateGroupDebt(debt, input);
         }),
       createPaymentSettlement: (input) => runAndRefresh((repo) => repo.createPaymentSettlement(input)),
+      respondToPaymentConfirmation: (paymentId, status, actorUserId) =>
+        runAndRefresh(async (repo) => {
+          const latest = await repo.load();
+          const payment = latest.payments.find((item) => item.id === paymentId);
+          if (!payment) {
+            throw new Error('Payment not found.');
+          }
+          return repo.respondToPaymentConfirmation(payment, status, actorUserId);
+        }),
       createRecurringTemplate: (input) => runAndRefresh((repo) => repo.createRecurringTemplate(input)),
       updateRecurringTemplate: (templateId, input) =>
         runAndRefresh((repo) => {

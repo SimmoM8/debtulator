@@ -25,6 +25,7 @@ import {
     sourceRecordTypeForEntry,
 } from "@/src/services/ledger";
 import { useAppData } from "@/src/state/AppDataProvider";
+import { useAuth } from "@/src/state/AuthProvider";
 import type {
     CurrencyCode,
     LedgerEntry,
@@ -48,6 +49,7 @@ export function PaymentFormScreen() {
     payeeId?: string;
   }>();
   const data = useAppData();
+  const auth = useAuth();
   const focusedEntry = useMemo(
     () =>
       data.ledgerEntries.find(
@@ -139,28 +141,81 @@ export function PaymentFormScreen() {
       sourceRecordId: line.entry.sourceId,
       appliedAmount: line.appliedAmount,
     }));
-    const result = await data.createPaymentSettlement({
-      payerId,
-      payeeId,
-      amount: Number(amount),
-      currency,
-      paymentDate,
-      notes,
-      groupId: groupId ?? focusedEntry?.groupId ?? null,
-      relatedMemberId:
-        memberId ??
-        (!groupId && payerId !== "me"
-          ? payerId
-          : payeeId !== "me"
-            ? payeeId
-            : null),
-      lines,
-      settlementType: "manual",
-    });
-    router.replace({
-      pathname: "/settlement/[id]",
-      params: { id: result.settlement.id },
-    });
+    const focusedDebt =
+      focusedEntry?.kind === "simple_debt"
+        ? data.debts.find((debt) => debt.id === focusedEntry.sourceId)
+        : undefined;
+    const focusedMember = focusedDebt
+      ? data.members.find((member) => member.id === focusedDebt.memberId)
+      : undefined;
+    const sharedWithLinkedMember =
+      focusedMember?.linkStatus === "linked" &&
+      Boolean(focusedMember.linkedUserId) &&
+      Boolean(auth.identity.authenticatedUserId);
+    const currentUserId = auth.identity.authenticatedUserId;
+    const linkedUserId = focusedMember?.linkedUserId ?? null;
+    const createPayment = async () => {
+      const result = await data.createPaymentSettlement({
+        payerId,
+        payeeId,
+        amount: Number(amount),
+        currency,
+        paymentDate,
+        notes,
+        groupId: groupId ?? focusedEntry?.groupId ?? null,
+        relatedMemberId:
+          memberId ??
+          (!groupId && payerId !== "me"
+            ? payerId
+            : payeeId !== "me"
+              ? payeeId
+              : null),
+        visibility: sharedWithLinkedMember
+          ? "shared_with_involved_member"
+          : undefined,
+        confirmationStatus: sharedWithLinkedMember
+          ? "pending_confirmation"
+          : undefined,
+        createdByUserId: currentUserId,
+        payerUserId:
+          sharedWithLinkedMember
+            ? payerId === "me"
+              ? currentUserId
+              : linkedUserId
+            : undefined,
+        payeeUserId:
+          sharedWithLinkedMember
+            ? payeeId === "me"
+              ? currentUserId
+              : linkedUserId
+            : undefined,
+        lines,
+        settlementType: "manual",
+      });
+      router.replace({
+        pathname: "/settlement/[id]",
+        params: { id: result.settlement.id },
+      });
+    };
+
+    if (sharedWithLinkedMember) {
+      Alert.alert(
+        "Confirmation required",
+        "This payment will require confirmation from the other member.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Make payment",
+            onPress: () => {
+              void createPayment();
+            },
+          },
+        ],
+      );
+      return;
+    }
+
+    await createPayment();
   }
 
   if (candidateEntries.length === 0 && !focusedEntry) {

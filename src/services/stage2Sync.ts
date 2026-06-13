@@ -191,6 +191,58 @@ export async function respondRemoteDebtVerification(input: {
 
 }
 
+export async function sendRemoteDebtConfirmationReminder(input: {
+  verificationRemoteId: string;
+}) {
+  if (!supabase) {
+    return false;
+  }
+
+  const { error } = await supabase.rpc('send_debt_confirmation_reminder', {
+    p_verification_id: input.verificationRemoteId,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return true;
+}
+
+export async function respondRemotePaymentConfirmation(input: {
+  paymentRemoteId: string;
+  status: 'confirmed' | 'rejected';
+}) {
+  if (!supabase) {
+    return;
+  }
+
+  const { error } = await supabase.rpc('respond_to_payment_confirmation', {
+    p_payment_id: input.paymentRemoteId,
+    p_status: input.status,
+  });
+
+  if (error) {
+    throw error;
+  }
+}
+
+export async function sendRemotePaymentConfirmationReminder(input: {
+  paymentRemoteId: string;
+}) {
+  if (!supabase) {
+    return false;
+  }
+
+  const { error } = await supabase.rpc('send_payment_confirmation_reminder', {
+    p_payment_id: input.paymentRemoteId,
+  });
+  if (error) {
+    throw error;
+  }
+  return true;
+}
+
 export async function fetchRemoteStage2Records(input: { userId: string; email?: string | null }) {
   if (!supabase) {
     return null;
