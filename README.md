@@ -4,16 +4,16 @@ Debtulator is a local-first debt, shared expense, group ledger, payment, settlem
 
 ## Tech Stack
 
-- Expo SDK 54, React Native 0.81, React 19
+- Expo SDK 56, React Native 0.85, React 19
 - Expo Router file-based navigation
 - TypeScript
 - SQLite via `expo-sqlite`
-- Supabase auth/database/storage for linked members, shared groups, verification, and backend-ready Stage 6 sync/notification records
+- Optional Supabase auth/database/storage for linked members, shared groups, verification, sync, notifications, attachments, and account deletion request records
 - Expo Secure Store for sensitive session storage support
 
 ## Setup
 
-Use Node 20.19.4 or newer. Expo SDK 54 currently resolves Metro 0.83, which uses modern Array helpers such as `toReversed` that are not available in Node 18.
+Use Node 20.19.4 or newer.
 
 ```bash
 nvm use
@@ -33,9 +33,9 @@ Do not commit service-role keys or production secrets. The mobile client must on
 
 ## Local Database
 
-The app opens `debtulator-stage1.db` and runs additive SQLite migrations in [`src/data/database.ts`](/Users/benjaminsimmons/Documents/CODING/debtulator/src/data/database.ts). Migrations add Stage 1-6 tables without wiping user data. Reset controls exist only in settings for development.
+The app opens `debtulator-stage1.db` and runs additive SQLite migrations in `src/data/database.ts`. The local database is the main source of truth and works offline. Reset controls exist only in settings for development.
 
-Stage 6 local tables include:
+Key local sync/support tables include:
 
 - `sync_queue`
 - `sync_conflicts`
@@ -44,13 +44,17 @@ Stage 6 local tables include:
 
 ## Supabase
 
-Apply migrations in order from the [`supabase`](/Users/benjaminsimmons/Documents/CODING/debtulator/supabase) directory:
+Supabase is optional during development. The clean prelaunch setup is documented in `supabase/README.md`.
 
-1. `stage2_schema.sql`
-2. `stage3_schema.sql`
-3. `stage4_schema.sql`
-4. `stage5_schema.sql`
-5. `stage6_schema.sql`
+For a fresh development backend:
+
+1. Create a Supabase project.
+2. Run `supabase/schema.sql` in the Supabase SQL editor.
+3. Add `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` locally.
+4. Create/sign up a test user.
+5. Optionally run `supabase/seed.sql`.
+
+`supabase/schema.sql` is intentionally destructive and is meant for prelaunch development only. After launch, cloud schema changes should move to additive, data-preserving migrations.
 
 RLS must remain enabled. Storage policies must restrict receipt/proof attachments to owners or shared group participants.
 
@@ -88,56 +92,4 @@ npm run release:preflight -- --env=production --strict-env
 
 ```bash
 npx eas build --profile staging --platform ios
-npx eas build --profile staging --platform android
-npx eas build --profile production --platform all
 ```
-
-Use separate Supabase projects and EAS environment variables for dev/staging/prod. Staging should use internal distribution and resettable staging data; production should use store distribution and production-only credentials. Never commit production secrets, service-role keys, `.env` files, or credential exports.
-
-Store readiness requires real HTTPS privacy and support URLs before production submission. Until those pages exist, track placeholders as release blockers:
-
-```bash
-APP_PRIVACY_POLICY_URL=https://...
-APP_SUPPORT_URL=https://...
-```
-
-## Stage 6 Model
-
-Stage 6 hardens Debtulator for production:
-
-- Offline-first queue and cached synced data
-- Cross-device sync primitives for authenticated users
-- Transparent conflict detection and conflict review screens
-- Financial history protection through warnings, soft-delete/archive/void patterns, and audit logs
-- In-app notification center plus push/email preferences
-- Backup/restore with private-by-default restore semantics
-- Full data export and deliberate account deletion flow
-- Advanced permission helpers and backend/RLS migration
-- SQLite indexes for large ledgers/groups
-- English/Swedish localization support
-- Accessibility checklist and production error types
-
-Detailed docs:
-
-- [`docs/sync-model.md`](/Users/benjaminsimmons/Documents/CODING/debtulator/docs/sync-model.md)
-- [`docs/privacy-model.md`](/Users/benjaminsimmons/Documents/CODING/debtulator/docs/privacy-model.md)
-- [`docs/permission-model.md`](/Users/benjaminsimmons/Documents/CODING/debtulator/docs/permission-model.md)
-- [`docs/backup-restore.md`](/Users/benjaminsimmons/Documents/CODING/debtulator/docs/backup-restore.md)
-- [`docs/release-checklist.md`](/Users/benjaminsimmons/Documents/CODING/debtulator/docs/release-checklist.md)
-- [`docs/manual-qa-scripts.md`](/Users/benjaminsimmons/Documents/CODING/debtulator/docs/manual-qa-scripts.md)
-- [`docs/app-sitemap.md`](/Users/benjaminsimmons/Documents/CODING/debtulator/docs/app-sitemap.md)
-- [`docs/user-flow.md`](/Users/benjaminsimmons/Documents/CODING/debtulator/docs/user-flow.md)
-- [`docs/navigation-map.md`](/Users/benjaminsimmons/Documents/CODING/debtulator/docs/navigation-map.md)
-
-## QA Checklist
-
-- Signed-out local member/debt/group/payment usage works offline.
-- Signing in does not upload private local-only records.
-- Shared group cached data remains viewable offline.
-- Safe shared edits create queue entries; unsafe shared financial actions are blocked or reviewed.
-- Conflicts can be reviewed and resolved without silently overwriting financial history.
-- Backup export works and restore preview defaults records to private/local copies.
-- Full data export labels shared/private and estimated values.
-- Delete account flow records a deliberate audit event.
-- Notification center works even when push/email are disabled.
-- `npm run quality` and release preflight pass before release.
