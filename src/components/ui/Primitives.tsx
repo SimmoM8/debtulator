@@ -603,11 +603,13 @@ export function DatePickerField({
   value,
   onChange,
   placeholder = "Optional YYYY-MM-DD",
+  minDate,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  minDate?: string;
 }) {
   const [open, setOpen] = React.useState(false);
   const [visibleMonth, setVisibleMonth] = React.useState(() =>
@@ -692,6 +694,7 @@ export function DatePickerField({
             <View style={styles.calendarGrid}>
               {days.map((day, index) => {
                 const iso = day ? formatIsoDate(day) : "";
+                const disabled = Boolean(day && minDate && iso < minDate);
                 const active = Boolean(
                   day &&
                   selected &&
@@ -704,7 +707,8 @@ export function DatePickerField({
                     key={iso}
                     accessibilityRole="button"
                     accessibilityLabel={iso}
-                    accessibilityState={{ selected: active }}
+                    accessibilityState={{ selected: active, disabled }}
+                    disabled={disabled}
                     onPress={() => {
                       onChange(iso);
                       setOpen(false);
@@ -712,13 +716,15 @@ export function DatePickerField({
                     style={({ pressed }) => [
                       styles.calendarDay,
                       active && styles.calendarDayActive,
-                      pressed && styles.pressed,
+                      disabled && styles.calendarDayDisabled,
+                      pressed && !disabled && styles.pressed,
                     ]}
                   >
                     <Text
                       style={[
                         styles.calendarDayText,
                         active && styles.calendarDayTextActive,
+                        disabled && styles.calendarDayTextDisabled,
                       ]}
                     >
                       {day.day}
@@ -745,7 +751,8 @@ export function DatePickerField({
                 title="Today"
                 variant="secondary"
                 onPress={() => {
-                  onChange(todayIso());
+                  const today = todayIso();
+                  onChange(minDate && today < minDate ? minDate : today);
                   setOpen(false);
                 }}
               />
@@ -1496,6 +1503,9 @@ const styles = StyleSheet.create({
     backgroundColor: palette.surfaceGlassStrong,
     ...shadows.soft,
   },
+  calendarDayDisabled: {
+    opacity: 0.32,
+  },
   calendarDayText: {
     color: palette.textSecondary,
     fontSize: typography.size.base,
@@ -1503,6 +1513,9 @@ const styles = StyleSheet.create({
   },
   calendarDayTextActive: {
     color: palette.primary,
+  },
+  calendarDayTextDisabled: {
+    color: palette.faint,
   },
   calendarDayPlaceholder: {
     width: `${100 / 7}%`,

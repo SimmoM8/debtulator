@@ -6,16 +6,16 @@ import {
   mapLocalAttachmentToRemote,
   mapLocalCommentToRemote,
   mapLocalDebtToRemote,
-  mapLocalEventDebtToRemote,
-  mapLocalEventMemberToRemote,
-  mapLocalEventToRemote,
-  mapLocalEventVerificationToRemote,
+  mapLocalGroupDebtToRemote,
+  mapLocalGroupMemberToRemote,
+  mapLocalGroupToRemote,
+  mapLocalGroupVerificationToRemote,
   mapLocalExpenseToRemote,
   mapLocalPaymentToRemote,
   mapLocalSettlementLineToRemote,
   mapLocalSettlementToRemote,
-  mapRemoteEventMemberToLocal,
-  mapRemoteEventParticipantToLocal,
+  mapRemoteGroupMemberToLocal,
+  mapRemoteGroupParticipantToLocal,
   SyncMappingError,
 } from '@/src/services/sync/mappers';
 import { pullRemoteData } from '@/src/services/sync/pullRemote';
@@ -24,16 +24,16 @@ import type {
   Comment,
   Debt,
   EntityKind,
-  Event,
-  EventDebt,
-  EventInvite,
-  EventMemberClaim,
-  EventParticipant,
-  EventVerificationResponse,
+  Group,
+  GroupDebt,
+  GroupInvite,
+  GroupMemberClaim,
+  GroupParticipant,
+  GroupVerificationResponse,
   Payment,
   Settlement,
   SettlementLine,
-  SharedEventMember,
+  SharedGroupMember,
   SharedExpense,
   SyncConflict,
   SyncQueueEntry,
@@ -53,22 +53,22 @@ export type SyncEngineStore = DatabaseSnapshot & {
     metadata: Record<string, unknown>;
     readAt?: string | null;
   }) => Promise<unknown>;
-  upsertEvent: (event: Event) => Promise<Event>;
-  upsertEventParticipant: (participant: EventParticipant) => Promise<EventParticipant>;
-  upsertEventInvite: (invite: EventInvite) => Promise<EventInvite>;
-  upsertSharedEventMember: (member: SharedEventMember) => Promise<SharedEventMember>;
-  upsertEventMemberClaim: (claim: EventMemberClaim) => Promise<EventMemberClaim>;
+  upsertGroup: (group: Group) => Promise<Group>;
+  upsertGroupParticipant: (participant: GroupParticipant) => Promise<GroupParticipant>;
+  upsertGroupInvite: (invite: GroupInvite) => Promise<GroupInvite>;
+  upsertSharedGroupMember: (member: SharedGroupMember) => Promise<SharedGroupMember>;
+  upsertGroupMemberClaim: (claim: GroupMemberClaim) => Promise<GroupMemberClaim>;
   upsertDebt: (debt: Debt) => Promise<Debt>;
   upsertSharedExpense: (expense: SharedExpense) => Promise<SharedExpense>;
-  upsertEventDebt: (debt: EventDebt) => Promise<EventDebt>;
-  upsertEventVerificationResponse: (response: EventVerificationResponse) => Promise<EventVerificationResponse>;
+  upsertGroupDebt: (debt: GroupDebt) => Promise<GroupDebt>;
+  upsertGroupVerificationResponse: (response: GroupVerificationResponse) => Promise<GroupVerificationResponse>;
   upsertPayment: (payment: Payment) => Promise<Payment>;
   upsertSettlement: (settlement: Settlement) => Promise<Settlement>;
   upsertSettlementLine: (line: SettlementLine) => Promise<SettlementLine>;
   upsertAttachment: (attachment: Attachment) => Promise<Attachment>;
   upsertComment: (comment: Comment) => Promise<Comment>;
-  upsertEventActivityLog: DatabaseSnapshot extends never ? never : any;
-  upsertEventDuplicateWarning: DatabaseSnapshot extends never ? never : any;
+  upsertGroupActivityLog: DatabaseSnapshot extends never ? never : any;
+  upsertGroupDuplicateWarning: DatabaseSnapshot extends never ? never : any;
 };
 
 export type SyncEngineResult = {
@@ -187,24 +187,24 @@ async function processEntry(
   userId: string,
 ) {
   switch (`${entry.operation}:${entry.entityType}`) {
-    case 'create:event':
-      return createEvent(snapshot, store, entry);
-    case 'update:event':
-    case 'archive:event':
-      return updateEvent(snapshot, store, entry, userId);
-    case 'create:event_member':
-      return createEventMember(snapshot, store, entry);
-    case 'update:event_member':
-    case 'archive:event_member':
-    case 'merge:event_member':
-      return updateEventMember(snapshot, store, entry, userId);
-    case 'create:event_invite':
+    case 'create:group':
+      return createGroup(snapshot, store, entry);
+    case 'update:group':
+    case 'archive:group':
+      return updateGroup(snapshot, store, entry, userId);
+    case 'create:group_member':
+      return createGroupMember(snapshot, store, entry);
+    case 'update:group_member':
+    case 'archive:group_member':
+    case 'merge:group_member':
+      return updateGroupMember(snapshot, store, entry, userId);
+    case 'create:group_invite':
       return createInvite(snapshot, store, entry);
-    case 'update:event_invite':
+    case 'update:group_invite':
       return updateInvite(snapshot, store, entry);
-    case 'create:event_member_claim':
+    case 'create:group_member_claim':
       return createClaim(snapshot, store, entry);
-    case 'update:event_member_claim':
+    case 'update:group_member_claim':
       return updateClaim(snapshot, store, entry);
     case 'create:shared_expense':
       return createSharedExpense(snapshot, store, entry);
@@ -216,14 +216,14 @@ async function processEntry(
     case 'update:debt':
     case 'archive:debt':
       return updateDebt(snapshot, store, entry, userId);
-    case 'create:event_debt':
-      return createEventDebt(snapshot, store, entry);
-    case 'update:event_debt':
-    case 'archive:event_debt':
-      return updateEventDebt(snapshot, store, entry, userId);
-    case 'create:event_verification':
-    case 'update:event_verification':
-      return upsertEventVerification(snapshot, store, entry, userId);
+    case 'create:group_debt':
+      return createGroupDebt(snapshot, store, entry);
+    case 'update:group_debt':
+    case 'archive:group_debt':
+      return updateGroupDebt(snapshot, store, entry, userId);
+    case 'create:group_verification':
+    case 'update:group_verification':
+      return upsertGroupVerification(snapshot, store, entry, userId);
     case 'create:payment':
       return createPayment(snapshot, store, entry);
     case 'update:payment':
@@ -251,29 +251,29 @@ async function processEntry(
   }
 }
 
-async function createEvent(snapshot: DatabaseSnapshot, store: SyncEngineStore, entry: SyncQueueEntry) {
-  const event = requiredLocal(snapshot.events, entry.entityId, 'event');
-  if (event.visibility !== 'shared') {
-    return markEntitySynced(snapshot, store, 'event', event.id);
+async function createGroup(snapshot: DatabaseSnapshot, store: SyncEngineStore, entry: SyncQueueEntry) {
+  const group = requiredLocal(snapshot.groups, entry.entityId, 'group');
+  if (group.visibility !== 'shared') {
+    return markEntitySynced(snapshot, store, 'group', group.id);
   }
 
-  const { data: remoteEvent, error } = await supabase!
-    .from('events')
-    .insert(mapLocalEventToRemote(event))
+  const { data: remoteGroup, error } = await supabase!
+    .from('groups')
+    .insert(mapLocalGroupToRemote(group))
     .select('*')
     .single();
   throwIf(error);
 
-  const updatedEvent = { ...event, remoteId: remoteEvent.id, syncStatus: 'synced' as const, updatedAt: remoteEvent.updated_at };
-  await store.upsertEvent(updatedEvent);
-  snapshot = replace(snapshot, 'events', updatedEvent);
+  const updatedGroup = { ...group, remoteId: remoteGroup.id, syncStatus: 'synced' as const, updatedAt: remoteGroup.updated_at };
+  await store.upsertGroup(updatedGroup);
+  snapshot = replace(snapshot, 'groups', updatedGroup);
 
-  const ownerParticipant = snapshot.eventParticipants.find((participant) => participant.eventId === event.id && participant.userId === event.ownerUserId);
+  const ownerParticipant = snapshot.groupParticipants.find((participant) => participant.groupId === group.id && participant.userId === group.ownerUserId);
   if (ownerParticipant) {
     const { data: remoteParticipant, error: participantError } = await supabase!
-      .from('event_participants')
+      .from('group_participants')
       .insert({
-        event_id: remoteEvent.id,
+        group_id: remoteGroup.id,
         user_id: ownerParticipant.userId,
         role: ownerParticipant.role,
         status: ownerParticipant.status,
@@ -282,74 +282,74 @@ async function createEvent(snapshot: DatabaseSnapshot, store: SyncEngineStore, e
       .select('*')
       .single();
     throwIf(participantError);
-    const localParticipant = mapRemoteEventParticipantToLocal(remoteParticipant, snapshot);
-    await store.upsertEventParticipant(localParticipant);
-    snapshot = replace(snapshot, 'eventParticipants', localParticipant);
+    const localParticipant = mapRemoteGroupParticipantToLocal(remoteParticipant, snapshot);
+    await store.upsertGroupParticipant(localParticipant);
+    snapshot = replace(snapshot, 'groupParticipants', localParticipant);
   }
 
-  const ownerMember = snapshot.sharedEventMembers.find((member) => member.eventId === event.id && member.linkedUserId === event.ownerUserId);
+  const ownerMember = snapshot.sharedGroupMembers.find((member) => member.groupId === group.id && member.linkedUserId === group.ownerUserId);
   if (ownerMember) {
     const { data: remoteMember, error: memberError } = await supabase!
-      .from('event_members')
-      .insert(mapLocalEventMemberToRemote({ ...ownerMember, remoteEventId: remoteEvent.id }, snapshot))
+      .from('group_members')
+      .insert(mapLocalGroupMemberToRemote({ ...ownerMember, remoteGroupId: remoteGroup.id }, snapshot))
       .select('*')
       .single();
     throwIf(memberError);
-    const localMember = mapRemoteEventMemberToLocal(remoteMember, snapshot);
-    await store.upsertSharedEventMember(localMember);
-    snapshot = replace(snapshot, 'sharedEventMembers', localMember);
+    const localMember = mapRemoteGroupMemberToLocal(remoteMember, snapshot);
+    await store.upsertSharedGroupMember(localMember);
+    snapshot = replace(snapshot, 'sharedGroupMembers', localMember);
   }
   return snapshot;
 }
 
-async function updateEvent(snapshot: DatabaseSnapshot, store: SyncEngineStore, entry: SyncQueueEntry, userId: string) {
-  const event = requiredLocal(snapshot.events, entry.entityId, 'event');
-  if (!event.remoteId) {
-    throw new SyncMappingError('Cannot update event before it has a remote id.', { eventId: event.id });
+async function updateGroup(snapshot: DatabaseSnapshot, store: SyncEngineStore, entry: SyncQueueEntry, userId: string) {
+  const group = requiredLocal(snapshot.groups, entry.entityId, 'group');
+  if (!group.remoteId) {
+    throw new SyncMappingError('Cannot update group before it has a remote id.', { groupId: group.id });
   }
-  await detectRemoteConflict(snapshot, store, userId, entry, event, 'events', 'event', 'update_update');
-  const { data, error } = await supabase!.from('events').update(mapLocalEventToRemote(event)).eq('id', event.remoteId).select('*').single();
+  await detectRemoteConflict(snapshot, store, userId, entry, group, 'groups', 'group', 'update_update');
+  const { data, error } = await supabase!.from('groups').update(mapLocalGroupToRemote(group)).eq('id', group.remoteId).select('*').single();
   throwIf(error);
-  const updated = { ...event, syncStatus: 'synced' as const, updatedAt: data.updated_at };
-  await store.upsertEvent(updated);
-  return replace(snapshot, 'events', updated);
+  const updated = { ...group, syncStatus: 'synced' as const, updatedAt: data.updated_at };
+  await store.upsertGroup(updated);
+  return replace(snapshot, 'groups', updated);
 }
 
-async function createEventMember(snapshot: DatabaseSnapshot, store: SyncEngineStore, entry: SyncQueueEntry) {
-  const member = requiredLocal(snapshot.sharedEventMembers, entry.entityId, 'event member');
+async function createGroupMember(snapshot: DatabaseSnapshot, store: SyncEngineStore, entry: SyncQueueEntry) {
+  const member = requiredLocal(snapshot.sharedGroupMembers, entry.entityId, 'group member');
   if (member.remoteId) {
-    return markEntitySynced(snapshot, store, 'event_member', member.id);
+    return markEntitySynced(snapshot, store, 'group_member', member.id);
   }
-  const { data, error } = await supabase!.from('event_members').insert(mapLocalEventMemberToRemote(member, snapshot)).select('*').single();
+  const { data, error } = await supabase!.from('group_members').insert(mapLocalGroupMemberToRemote(member, snapshot)).select('*').single();
   throwIf(error);
-  const updated = mapRemoteEventMemberToLocal(data, snapshot);
-  await store.upsertSharedEventMember(updated);
-  return replace(snapshot, 'sharedEventMembers', updated);
+  const updated = mapRemoteGroupMemberToLocal(data, snapshot);
+  await store.upsertSharedGroupMember(updated);
+  return replace(snapshot, 'sharedGroupMembers', updated);
 }
 
-async function updateEventMember(snapshot: DatabaseSnapshot, store: SyncEngineStore, entry: SyncQueueEntry, userId: string) {
-  const member = requiredLocal(snapshot.sharedEventMembers, entry.entityId, 'event member');
+async function updateGroupMember(snapshot: DatabaseSnapshot, store: SyncEngineStore, entry: SyncQueueEntry, userId: string) {
+  const member = requiredLocal(snapshot.sharedGroupMembers, entry.entityId, 'group member');
   if (!member.remoteId) {
-    return createEventMember(snapshot, store, entry);
+    return createGroupMember(snapshot, store, entry);
   }
-  await detectRemoteConflict(snapshot, store, userId, entry, member, 'event_members', 'event_member', 'update_update');
-  const { data, error } = await supabase!.from('event_members').update(mapLocalEventMemberToRemote(member, snapshot)).eq('id', member.remoteId).select('*').single();
+  await detectRemoteConflict(snapshot, store, userId, entry, member, 'group_members', 'group_member', 'update_update');
+  const { data, error } = await supabase!.from('group_members').update(mapLocalGroupMemberToRemote(member, snapshot)).eq('id', member.remoteId).select('*').single();
   throwIf(error);
-  const updated = mapRemoteEventMemberToLocal(data, snapshot);
-  await store.upsertSharedEventMember(updated);
-  return replace(snapshot, 'sharedEventMembers', updated);
+  const updated = mapRemoteGroupMemberToLocal(data, snapshot);
+  await store.upsertSharedGroupMember(updated);
+  return replace(snapshot, 'sharedGroupMembers', updated);
 }
 
 async function createInvite(snapshot: DatabaseSnapshot, store: SyncEngineStore, entry: SyncQueueEntry) {
-  const invite = requiredLocal(snapshot.eventInvites, entry.entityId, 'event invite');
-  const event = requiredLocal(snapshot.events, invite.eventId, 'event');
-  if (!event.remoteId) {
-    throw new SyncMappingError('Cannot create invite before event has remote id.', { inviteId: invite.id, eventId: event.id });
+  const invite = requiredLocal(snapshot.groupInvites, entry.entityId, 'group invite');
+  const group = requiredLocal(snapshot.groups, invite.groupId, 'group');
+  if (!group.remoteId) {
+    throw new SyncMappingError('Cannot create invite before group has remote id.', { inviteId: invite.id, groupId: group.id });
   }
   const { data, error } = await supabase!
-    .from('event_invites')
+    .from('group_invites')
     .insert({
-      event_id: event.remoteId,
+      group_id: group.remoteId,
       inviter_user_id: invite.inviterUserId,
       invited_user_id: invite.invitedUserId,
       invited_email: invite.invitedEmail,
@@ -362,39 +362,39 @@ async function createInvite(snapshot: DatabaseSnapshot, store: SyncEngineStore, 
     .select('*')
     .single();
   throwIf(error);
-  const updated = { ...invite, remoteId: data.id, remoteEventId: data.event_id, syncStatus: 'synced' as const, updatedAt: data.updated_at };
-  await store.upsertEventInvite(updated);
-  return replace(snapshot, 'eventInvites', updated);
+  const updated = { ...invite, remoteId: data.id, remoteGroupId: data.group_id, syncStatus: 'synced' as const, updatedAt: data.updated_at };
+  await store.upsertGroupInvite(updated);
+  return replace(snapshot, 'groupInvites', updated);
 }
 
 async function updateInvite(snapshot: DatabaseSnapshot, store: SyncEngineStore, entry: SyncQueueEntry) {
-  const invite = requiredLocal(snapshot.eventInvites, entry.entityId, 'event invite');
+  const invite = requiredLocal(snapshot.groupInvites, entry.entityId, 'group invite');
   if (!invite.remoteId) {
     return createInvite(snapshot, store, entry);
   }
   const { data, error } = await supabase!
-    .from('event_invites')
+    .from('group_invites')
     .update({ status: invite.status, invited_user_id: invite.invitedUserId, responded_at: invite.respondedAt })
     .eq('id', invite.remoteId)
     .select('*')
     .single();
   throwIf(error);
   const updated = { ...invite, syncStatus: 'synced' as const, updatedAt: data.updated_at };
-  await store.upsertEventInvite(updated);
-  return replace(snapshot, 'eventInvites', updated);
+  await store.upsertGroupInvite(updated);
+  return replace(snapshot, 'groupInvites', updated);
 }
 
 async function createClaim(snapshot: DatabaseSnapshot, store: SyncEngineStore, entry: SyncQueueEntry) {
-  const claim = requiredLocal(snapshot.eventMemberClaims, entry.entityId, 'event member claim');
-  const member = requiredLocal(snapshot.sharedEventMembers, claim.eventMemberId, 'event member');
-  if (!member.remoteId || !member.remoteEventId) {
-    throw new SyncMappingError('Cannot create claim before event member has remote id.', { claimId: claim.id });
+  const claim = requiredLocal(snapshot.groupMemberClaims, entry.entityId, 'group member claim');
+  const member = requiredLocal(snapshot.sharedGroupMembers, claim.groupMemberId, 'group member');
+  if (!member.remoteId || !member.remoteGroupId) {
+    throw new SyncMappingError('Cannot create claim before group member has remote id.', { claimId: claim.id });
   }
   const { data, error } = await supabase!
-    .from('event_member_claims')
+    .from('group_member_claims')
     .insert({
-      event_id: member.remoteEventId,
-      event_member_id: member.remoteId,
+      group_id: member.remoteGroupId,
+      group_member_id: member.remoteId,
       claimant_user_id: claim.claimantUserId,
       status: claim.status,
       message: claim.message,
@@ -402,32 +402,32 @@ async function createClaim(snapshot: DatabaseSnapshot, store: SyncEngineStore, e
     .select('*')
     .single();
   throwIf(error);
-  const updated = { ...claim, remoteId: data.id, remoteEventId: data.event_id, remoteEventMemberId: data.event_member_id, syncStatus: 'synced' as const, updatedAt: data.updated_at };
-  await store.upsertEventMemberClaim(updated);
-  return replace(snapshot, 'eventMemberClaims', updated);
+  const updated = { ...claim, remoteId: data.id, remoteGroupId: data.group_id, remoteGroupMemberId: data.group_member_id, syncStatus: 'synced' as const, updatedAt: data.updated_at };
+  await store.upsertGroupMemberClaim(updated);
+  return replace(snapshot, 'groupMemberClaims', updated);
 }
 
 async function updateClaim(snapshot: DatabaseSnapshot, store: SyncEngineStore, entry: SyncQueueEntry) {
-  const claim = requiredLocal(snapshot.eventMemberClaims, entry.entityId, 'event member claim');
+  const claim = requiredLocal(snapshot.groupMemberClaims, entry.entityId, 'group member claim');
   if (!claim.remoteId) {
     return createClaim(snapshot, store, entry);
   }
   const { data, error } = await supabase!
-    .from('event_member_claims')
+    .from('group_member_claims')
     .update({ status: claim.status, responded_by_user_id: claim.respondedByUserId, responded_at: claim.respondedAt })
     .eq('id', claim.remoteId)
     .select('*')
     .single();
   throwIf(error);
   const updated = { ...claim, syncStatus: 'synced' as const, updatedAt: data.updated_at };
-  await store.upsertEventMemberClaim(updated);
-  return replace(snapshot, 'eventMemberClaims', updated);
+  await store.upsertGroupMemberClaim(updated);
+  return replace(snapshot, 'groupMemberClaims', updated);
 }
 
 async function createSharedExpense(snapshot: DatabaseSnapshot, store: SyncEngineStore, entry: SyncQueueEntry) {
   const expense = requiredLocal(snapshot.sharedExpenses, entry.entityId, 'shared expense');
   const mapped = mapLocalExpenseToRemote(expense, snapshot);
-  const { data, error } = await supabase!.from('event_expenses').insert(mapped.expense).select('*').single();
+  const { data, error } = await supabase!.from('group_expenses').insert(mapped.expense).select('*').single();
   throwIf(error);
   await replaceExpenseChildren(data.id, mapped);
   const updated = { ...expense, remoteId: data.id, syncStatus: 'synced' as const, updatedAt: data.updated_at };
@@ -440,9 +440,9 @@ async function updateSharedExpense(snapshot: DatabaseSnapshot, store: SyncEngine
   if (!expense.remoteId) {
     return createSharedExpense(snapshot, store, entry);
   }
-  await detectRemoteConflict(snapshot, store, userId, entry, expense, 'event_expenses', 'shared_expense', 'update_update');
+  await detectRemoteConflict(snapshot, store, userId, entry, expense, 'group_expenses', 'shared_expense', 'update_update');
   const mapped = mapLocalExpenseToRemote(expense, snapshot);
-  const { data, error } = await supabase!.from('event_expenses').update(mapped.expense).eq('id', expense.remoteId).select('*').single();
+  const { data, error } = await supabase!.from('group_expenses').update(mapped.expense).eq('id', expense.remoteId).select('*').single();
   throwIf(error);
   await replaceExpenseChildren(expense.remoteId, mapped);
   const updated = { ...expense, syncStatus: 'synced' as const, updatedAt: data.updated_at };
@@ -494,42 +494,42 @@ async function updateDebt(snapshot: DatabaseSnapshot, store: SyncEngineStore, en
   return replace(snapshot, 'debts', updated);
 }
 
-async function createEventDebt(snapshot: DatabaseSnapshot, store: SyncEngineStore, entry: SyncQueueEntry) {
-  const debt = requiredLocal(snapshot.eventDebts, entry.entityId, 'event debt');
-  const { data, error } = await supabase!.from('event_debts').insert(mapLocalEventDebtToRemote(debt, snapshot)).select('*').single();
+async function createGroupDebt(snapshot: DatabaseSnapshot, store: SyncEngineStore, entry: SyncQueueEntry) {
+  const debt = requiredLocal(snapshot.groupDebts, entry.entityId, 'group debt');
+  const { data, error } = await supabase!.from('group_debts').insert(mapLocalGroupDebtToRemote(debt, snapshot)).select('*').single();
   throwIf(error);
-  const updated = { ...debt, remoteId: data.id, remoteEventId: data.event_id, syncStatus: 'synced' as const, updatedAt: data.updated_at };
-  await store.upsertEventDebt(updated);
-  return replace(snapshot, 'eventDebts', updated);
+  const updated = { ...debt, remoteId: data.id, remoteGroupId: data.group_id, syncStatus: 'synced' as const, updatedAt: data.updated_at };
+  await store.upsertGroupDebt(updated);
+  return replace(snapshot, 'groupDebts', updated);
 }
 
-async function updateEventDebt(snapshot: DatabaseSnapshot, store: SyncEngineStore, entry: SyncQueueEntry, userId: string) {
-  const debt = requiredLocal(snapshot.eventDebts, entry.entityId, 'event debt');
+async function updateGroupDebt(snapshot: DatabaseSnapshot, store: SyncEngineStore, entry: SyncQueueEntry, userId: string) {
+  const debt = requiredLocal(snapshot.groupDebts, entry.entityId, 'group debt');
   if (!debt.remoteId) {
-    return createEventDebt(snapshot, store, entry);
+    return createGroupDebt(snapshot, store, entry);
   }
-  await detectRemoteConflict(snapshot, store, userId, entry, debt, 'event_debts', 'event_debt', 'update_update');
-  const { data, error } = await supabase!.from('event_debts').update(mapLocalEventDebtToRemote(debt, snapshot)).eq('id', debt.remoteId).select('*').single();
+  await detectRemoteConflict(snapshot, store, userId, entry, debt, 'group_debts', 'group_debt', 'update_update');
+  const { data, error } = await supabase!.from('group_debts').update(mapLocalGroupDebtToRemote(debt, snapshot)).eq('id', debt.remoteId).select('*').single();
   throwIf(error);
   const updated = { ...debt, syncStatus: 'synced' as const, updatedAt: data.updated_at };
-  await store.upsertEventDebt(updated);
-  return replace(snapshot, 'eventDebts', updated);
+  await store.upsertGroupDebt(updated);
+  return replace(snapshot, 'groupDebts', updated);
 }
 
-async function upsertEventVerification(snapshot: DatabaseSnapshot, store: SyncEngineStore, entry: SyncQueueEntry, userId: string) {
-  const response = requiredLocal(snapshot.eventVerificationResponses, entry.entityId, 'event verification response');
+async function upsertGroupVerification(snapshot: DatabaseSnapshot, store: SyncEngineStore, entry: SyncQueueEntry, userId: string) {
+  const response = requiredLocal(snapshot.groupVerificationResponses, entry.entityId, 'group verification response');
   if (response.remoteId) {
-    await detectRemoteConflict(snapshot, store, userId, entry, response, 'event_verification_responses', 'event_verification', 'verification_changed');
+    await detectRemoteConflict(snapshot, store, userId, entry, response, 'group_verification_responses', 'group_verification', 'verification_changed');
   }
-  const remote = mapLocalEventVerificationToRemote(response, snapshot);
+  const remote = mapLocalGroupVerificationToRemote(response, snapshot);
   const request = response.remoteId
-    ? supabase!.from('event_verification_responses').update(remote).eq('id', response.remoteId)
-    : supabase!.from('event_verification_responses').upsert(remote, { onConflict: 'event_id,target_type,target_id,event_member_id' });
+    ? supabase!.from('group_verification_responses').update(remote).eq('id', response.remoteId)
+    : supabase!.from('group_verification_responses').upsert(remote, { onConflict: 'group_id,target_type,target_id,group_member_id' });
   const { data, error } = await request.select('*').single();
   throwIf(error);
-  const updated = { ...response, remoteId: data.id, remoteEventId: data.event_id, remoteTargetId: data.target_id, syncStatus: 'synced' as const, updatedAt: data.updated_at };
-  await store.upsertEventVerificationResponse(updated);
-  return replace(snapshot, 'eventVerificationResponses', updated);
+  const updated = { ...response, remoteId: data.id, remoteGroupId: data.group_id, remoteTargetId: data.target_id, syncStatus: 'synced' as const, updatedAt: data.updated_at };
+  await store.upsertGroupVerificationResponse(updated);
+  return replace(snapshot, 'groupVerificationResponses', updated);
 }
 
 async function createPayment(snapshot: DatabaseSnapshot, store: SyncEngineStore, entry: SyncQueueEntry) {
@@ -641,10 +641,10 @@ async function replaceExpenseChildren(
   remoteExpenseId: string,
   mapped: ReturnType<typeof mapLocalExpenseToRemote>,
 ) {
-  const { error: splitDeleteError } = await supabase!.from('event_expense_splits').delete().eq('expense_id', remoteExpenseId);
+  const { error: splitDeleteError } = await supabase!.from('group_expense_splits').delete().eq('expense_id', remoteExpenseId);
   throwIf(splitDeleteError);
   if (mapped.splits.length > 0) {
-    const { error } = await supabase!.from('event_expense_splits').insert(
+    const { error } = await supabase!.from('group_expense_splits').insert(
       mapped.splits.map((split) => ({
         ...split,
         expense_id: remoteExpenseId,
@@ -699,9 +699,9 @@ async function detectRemoteConflict(
     await createConflict(snapshot, store, userId, entityType, local.id, local.remoteId, 'update_delete', local, data, entry.payload);
     throw new ConflictDetectedError('Remote record was archived while a local update was pending.');
   }
-  if (remoteLocked && local.syncStatus === 'pending_update' && entityType !== 'event') {
-    await createConflict(snapshot, store, userId, entityType, local.id, local.remoteId, 'event_locked', local, data, entry.payload);
-    throw new ConflictDetectedError('Remote event is locked while a local update was pending.');
+  if (remoteLocked && local.syncStatus === 'pending_update' && entityType !== 'group') {
+    await createConflict(snapshot, store, userId, entityType, local.id, local.remoteId, 'group_locked', local, data, entry.payload);
+    throw new ConflictDetectedError('Remote group is locked while a local update was pending.');
   }
   if (verificationChanged) {
     await createConflict(snapshot, store, userId, entityType, local.id, local.remoteId, 'verification_changed', local, data, entry.payload);
@@ -786,29 +786,29 @@ async function markEntitySyncStatus(
   syncStatus: 'synced' | 'sync_error' | 'permission_error',
 ) {
   switch (entityType) {
-    case 'event': {
-      const event = requiredLocal(snapshot.events, entityId, 'event');
-      const updated = { ...event, syncStatus };
-      await store.upsertEvent(updated);
-      return replace(snapshot, 'events', updated);
+    case 'group': {
+      const group = requiredLocal(snapshot.groups, entityId, 'group');
+      const updated = { ...group, syncStatus };
+      await store.upsertGroup(updated);
+      return replace(snapshot, 'groups', updated);
     }
-    case 'event_invite': {
-      const invite = requiredLocal(snapshot.eventInvites, entityId, 'event invite');
+    case 'group_invite': {
+      const invite = requiredLocal(snapshot.groupInvites, entityId, 'group invite');
       const updated = { ...invite, syncStatus };
-      await store.upsertEventInvite(updated);
-      return replace(snapshot, 'eventInvites', updated);
+      await store.upsertGroupInvite(updated);
+      return replace(snapshot, 'groupInvites', updated);
     }
-    case 'event_member': {
-      const member = requiredLocal(snapshot.sharedEventMembers, entityId, 'event member');
+    case 'group_member': {
+      const member = requiredLocal(snapshot.sharedGroupMembers, entityId, 'group member');
       const updated = { ...member, syncStatus };
-      await store.upsertSharedEventMember(updated);
-      return replace(snapshot, 'sharedEventMembers', updated);
+      await store.upsertSharedGroupMember(updated);
+      return replace(snapshot, 'sharedGroupMembers', updated);
     }
-    case 'event_member_claim': {
-      const claim = requiredLocal(snapshot.eventMemberClaims, entityId, 'event member claim');
+    case 'group_member_claim': {
+      const claim = requiredLocal(snapshot.groupMemberClaims, entityId, 'group member claim');
       const updated = { ...claim, syncStatus };
-      await store.upsertEventMemberClaim(updated);
-      return replace(snapshot, 'eventMemberClaims', updated);
+      await store.upsertGroupMemberClaim(updated);
+      return replace(snapshot, 'groupMemberClaims', updated);
     }
     case 'shared_expense': {
       const expense = requiredLocal(snapshot.sharedExpenses, entityId, 'shared expense');
@@ -822,17 +822,17 @@ async function markEntitySyncStatus(
       await store.upsertDebt(updated);
       return replace(snapshot, 'debts', updated);
     }
-    case 'event_debt': {
-      const debt = requiredLocal(snapshot.eventDebts, entityId, 'event debt');
+    case 'group_debt': {
+      const debt = requiredLocal(snapshot.groupDebts, entityId, 'group debt');
       const updated = { ...debt, syncStatus };
-      await store.upsertEventDebt(updated);
-      return replace(snapshot, 'eventDebts', updated);
+      await store.upsertGroupDebt(updated);
+      return replace(snapshot, 'groupDebts', updated);
     }
-    case 'event_verification': {
-      const response = requiredLocal(snapshot.eventVerificationResponses, entityId, 'event verification response');
+    case 'group_verification': {
+      const response = requiredLocal(snapshot.groupVerificationResponses, entityId, 'group verification response');
       const updated = { ...response, syncStatus };
-      await store.upsertEventVerificationResponse(updated);
-      return replace(snapshot, 'eventVerificationResponses', updated);
+      await store.upsertGroupVerificationResponse(updated);
+      return replace(snapshot, 'groupVerificationResponses', updated);
     }
     case 'payment': {
       const payment = requiredLocal(snapshot.payments, entityId, 'payment');
@@ -882,11 +882,11 @@ function throwIf(error: unknown) {
 
 function hasRemoteIdForLocalId(snapshot: DatabaseSnapshot, localId: string) {
   const collections: { id: string; remoteId?: string | null }[][] = [
-    snapshot.events,
-    snapshot.sharedEventMembers,
+    snapshot.groups,
+    snapshot.sharedGroupMembers,
     snapshot.debts,
     snapshot.sharedExpenses,
-    snapshot.eventDebts,
+    snapshot.groupDebts,
     snapshot.payments,
     snapshot.settlements,
     snapshot.comments,
@@ -897,13 +897,13 @@ function hasRemoteIdForLocalId(snapshot: DatabaseSnapshot, localId: string) {
 }
 
 function dependencyWeight(entry: SyncQueueEntry) {
-  if (entry.entityType === 'event') {
+  if (entry.entityType === 'group') {
     return 0;
   }
-  if (entry.entityType === 'event_member' || entry.entityType === 'event_invite') {
+  if (entry.entityType === 'group_member' || entry.entityType === 'group_invite') {
     return 1;
   }
-  if (entry.entityType === 'shared_expense' || entry.entityType === 'event_debt') {
+  if (entry.entityType === 'shared_expense' || entry.entityType === 'group_debt') {
     return 2;
   }
   if (entry.entityType === 'debt') {
@@ -925,14 +925,14 @@ function cloneSnapshot(snapshot: DatabaseSnapshot): DatabaseSnapshot {
     ...snapshot,
     members: [...snapshot.members],
     debts: [...snapshot.debts],
-    events: [...snapshot.events],
-    eventParticipants: [...snapshot.eventParticipants],
-    eventInvites: [...snapshot.eventInvites],
-    sharedEventMembers: [...snapshot.sharedEventMembers],
-    eventMemberClaims: [...snapshot.eventMemberClaims],
+    groups: [...snapshot.groups],
+    groupParticipants: [...snapshot.groupParticipants],
+    groupInvites: [...snapshot.groupInvites],
+    sharedGroupMembers: [...snapshot.sharedGroupMembers],
+    groupMemberClaims: [...snapshot.groupMemberClaims],
     sharedExpenses: [...snapshot.sharedExpenses],
-    eventDebts: [...snapshot.eventDebts],
-    eventVerificationResponses: [...snapshot.eventVerificationResponses],
+    groupDebts: [...snapshot.groupDebts],
+    groupVerificationResponses: [...snapshot.groupVerificationResponses],
     payments: [...snapshot.payments],
     settlements: [...snapshot.settlements],
     settlementLines: [...snapshot.settlementLines],

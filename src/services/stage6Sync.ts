@@ -73,7 +73,7 @@ export function shouldQueueOfflineMutation(input: {
 }) {
   const isShared =
     input.visibility === 'shared' ||
-    input.visibility === 'shared_event' ||
+    input.visibility === 'shared_group' ||
     input.visibility === 'shared_with_involved_member';
   const isPrivateBackup = input.visibility === 'private' && input.syncStatus !== 'local_only';
   const canQueue = Boolean(input.authenticatedUserId) && (isShared || isPrivateBackup);
@@ -113,7 +113,7 @@ export function isFinancialConflict(conflict: SyncConflict) {
   return (
     conflict.conflictType === 'payment_conflict' ||
     conflict.conflictType === 'settlement_conflict' ||
-    ['debt', 'shared_expense', 'event_debt', 'payment', 'settlement'].includes(conflict.entityType)
+    ['debt', 'shared_expense', 'group_debt', 'payment', 'settlement'].includes(conflict.entityType)
   );
 }
 
@@ -127,7 +127,7 @@ export function canRetrySyncEntry(entry: SyncQueueEntry, currentTime = nowIso())
   if (entry.status !== 'failed') {
     return entry.status === 'pending';
   }
-  if (entry.errorCode === 'permission_denied' || entry.errorCode === 'event_locked' || entry.errorCode === 'mapping_error') {
+  if (entry.errorCode === 'permission_denied' || entry.errorCode === 'group_locked' || entry.errorCode === 'mapping_error') {
     return false;
   }
   return nextRetryAt(entry) <= currentTime;
@@ -137,14 +137,14 @@ function collectSyncStatuses(snapshot: DatabaseSnapshot) {
   return [
     ...snapshot.members.map((item) => item.syncStatus),
     ...snapshot.debts.map((item) => item.syncStatus),
-    ...snapshot.events.map((item) => item.syncStatus),
-    ...snapshot.eventParticipants.map((item) => item.syncStatus),
-    ...snapshot.eventInvites.map((item) => item.syncStatus),
-    ...snapshot.sharedEventMembers.map((item) => item.syncStatus),
-    ...snapshot.eventMemberClaims.map((item) => item.syncStatus),
-    ...snapshot.eventDuplicateWarnings.map((item) => item.syncStatus),
+    ...snapshot.groups.map((item) => item.syncStatus),
+    ...snapshot.groupParticipants.map((item) => item.syncStatus),
+    ...snapshot.groupInvites.map((item) => item.syncStatus),
+    ...snapshot.sharedGroupMembers.map((item) => item.syncStatus),
+    ...snapshot.groupMemberClaims.map((item) => item.syncStatus),
+    ...snapshot.groupDuplicateWarnings.map((item) => item.syncStatus),
     ...snapshot.sharedExpenses.map((item) => item.syncStatus),
-    ...snapshot.eventDebts.map((item) => item.syncStatus),
+    ...snapshot.groupDebts.map((item) => item.syncStatus),
     ...snapshot.payments.map((item) => item.syncStatus),
     ...snapshot.settlements.map((item) => item.syncStatus),
     ...snapshot.attachments.map((item) => item.syncStatus),

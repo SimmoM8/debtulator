@@ -36,7 +36,7 @@ import type {
     CurrencyRate,
     LedgerEntry,
     Member,
-    SharedEventMember,
+    SharedGroupMember,
 } from "@/src/types/models";
 import { formatMoney } from "@/src/utils/money";
 
@@ -92,16 +92,16 @@ export function DashboardScreen() {
     () => data.ledgerEntries.slice(0, 4),
     [data.ledgerEntries],
   );
-  const activeSharedEvents = useMemo(
+  const activeSharedGroups = useMemo(
     () =>
-      data.events
-        .filter((event) => !event.archived && event.status !== "settled")
+      data.groups
+        .filter((group) => !group.archived && group.status !== "settled")
         .slice(0, 3),
-    [data.events],
+    [data.groups],
   );
   const pendingRequests =
     data.linkRequests.filter((item) => item.status === "pending").length +
-    data.eventInvites.filter((item) => item.status === "pending").length +
+    data.groupInvites.filter((item) => item.status === "pending").length +
     data.debtVerifications.filter((item) => item.status === "pending").length;
   const netEstimatedInBase = estimateMoneyMap(
     totals.net,
@@ -237,8 +237,8 @@ export function DashboardScreen() {
             subtitle={
               dueSoonOwedToMe > 0
                 ? `Due soon ${formatMoney(dueSoonOwedToMe, data.settings.baseCurrency)}`
-                : activeSharedEvents.length
-                  ? `${activeSharedEvents.length} active groups`
+                : activeSharedGroups.length
+                  ? `${activeSharedGroups.length} active groups`
                   : "Nothing pending"
             }
             tone="indigo"
@@ -268,7 +268,7 @@ export function DashboardScreen() {
                 subtitle={entryDirectionText(
                   entry,
                   data.members,
-                  data.sharedEventMembers,
+                  data.sharedGroupMembers,
                 )}
                 amount={formatMoney(entry.remainingAmount, entry.currency)}
                 status={overdue ? "Needs action" : "Due soon"}
@@ -282,7 +282,7 @@ export function DashboardScreen() {
                 avatars={participantLabels(
                   entry,
                   data.members,
-                  data.sharedEventMembers,
+                  data.sharedGroupMembers,
                 )}
                 showDivider={index < nextActionEntries.length - 1}
                 onPress={() => openEntry(entry)}
@@ -333,13 +333,13 @@ export function DashboardScreen() {
                 subtitle={entryDirectionText(
                   entry,
                   data.members,
-                  data.sharedEventMembers,
+                  data.sharedGroupMembers,
                 )}
                 amount={formatMoney(entry.originalAmount, entry.currency)}
                 status={activityStatus(entry)}
                 statusTone={activityTone(entry)}
                 meta={entry.date}
-                icon={entry.eventId ? "people-outline" : "wallet-outline"}
+                icon={entry.groupId ? "people-outline" : "wallet-outline"}
                 showDivider={index < recentActivity.length - 1}
                 onPress={() => openEntry(entry)}
               />
@@ -357,15 +357,15 @@ export function DashboardScreen() {
 }
 
 function openEntry(
-  entry: Pick<LedgerEntry, "kind" | "sourceId" | "expenseId" | "eventId">,
+  entry: Pick<LedgerEntry, "kind" | "sourceId" | "expenseId" | "groupId">,
 ) {
   if (entry.kind === "simple_debt") {
     router.push({ pathname: "/debt/[id]", params: { id: entry.sourceId } });
     return;
   }
 
-  if (entry.kind === "event_direct_debt" && entry.eventId) {
-    router.push({ pathname: "/event/[id]", params: { id: entry.eventId } });
+  if (entry.kind === "group_direct_debt" && entry.groupId) {
+    router.push({ pathname: "/group/[id]", params: { id: entry.groupId } });
     return;
   }
 
@@ -378,12 +378,12 @@ function openEntry(
 function participantLabels(
   entry: Pick<LedgerEntry, "fromId" | "toId">,
   members: Member[],
-  sharedEventMembers: SharedEventMember[],
+  sharedGroupMembers: SharedGroupMember[],
 ) {
   return [entry.fromId, entry.toId]
     .filter((participantId) => participantId !== "me")
     .map((participantId) => {
-      const sharedMember = sharedEventMembers.find(
+      const sharedMember = sharedGroupMembers.find(
         (member) => member.id === participantId,
       );
       if (sharedMember) {

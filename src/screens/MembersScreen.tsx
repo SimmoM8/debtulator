@@ -100,12 +100,12 @@ export function MembersScreen() {
       );
       const hasSharedActivity =
         data.debts.some(
-          (debt) => debt.memberId === member.id && debt.eventId,
+          (debt) => debt.memberId === member.id && debt.groupId,
         ) ||
-        data.events.some(
-          (event) =>
-            !event.archived &&
-            event.name.toLowerCase().includes(member.displayName.toLowerCase()),
+        data.groups.some(
+          (group) =>
+            !group.archived &&
+            group.name.toLowerCase().includes(member.displayName.toLowerCase()),
         );
 
       switch (filter) {
@@ -121,7 +121,7 @@ export function MembersScreen() {
           return true;
       }
     });
-  }, [activeMatchedMembers, data.debts, data.events, data.memberBalances, filter]);
+  }, [activeMatchedMembers, data.debts, data.groups, data.memberBalances, filter]);
 
   const youOweCount = activeMatchedMembers.filter((member) =>
     Object.values(data.memberBalances[member.id] ?? {}).some(

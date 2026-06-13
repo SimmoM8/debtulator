@@ -146,7 +146,7 @@ export function AttachmentDetailScreen() {
           label="Target"
           value={`${attachment.targetType.replaceAll("_", " ")} · ${attachment.targetId}`}
         />
-        <InfoRow label="Event" value={attachment.eventId ?? "None"} />
+        <InfoRow label="Group" value={attachment.groupId ?? "None"} />
         <InfoRow label="File type" value={attachment.fileType} />
         <InfoRow label="MIME" value={attachment.mimeType} />
         <InfoRow label="Size" value={formatFileSize(attachment.fileSize)} />

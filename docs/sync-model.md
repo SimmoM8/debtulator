@@ -8,7 +8,7 @@ The durable `sync_queue` table stores operation type, payload, dependencies, ret
 
 Stage 7 adds a real executor in [`src/services/sync/syncEngine.ts`](/Users/benjaminsimmons/Documents/CODING/debtulator/src/services/sync/syncEngine.ts). It processes pending queue items, resolves local IDs to remote UUIDs, pushes creates/updates/archives, stores returned remote IDs locally, pulls remote changes, and writes conflicts when financial records diverge.
 
-Remote hydration lives in [`src/services/sync/pullRemote.ts`](/Users/benjaminsimmons/Documents/CODING/debtulator/src/services/sync/pullRemote.ts). It pulls the authenticated user's shared event graph and hydrates SQLite through mapper functions so repeated pulls update existing local rows instead of duplicating them.
+Remote hydration lives in [`src/services/sync/pullRemote.ts`](/Users/benjaminsimmons/Documents/CODING/debtulator/src/services/sync/pullRemote.ts). It pulls the authenticated user's shared group graph and hydrates SQLite through mapper functions so repeated pulls update existing local rows instead of duplicating them.
 
 Conflicts are recorded in `sync_conflicts` with local, remote, and optional base snapshots. Financial conflicts are never auto-resolved. The conflict review UI supports keep mine, keep theirs, merge, duplicate, cancel local change, archive local copy, and manual edit.
 
@@ -17,5 +17,5 @@ The Stage 6 service layer centralizes summary, retry, and conflict helpers in [`
 See also:
 
 - [`docs/local-remote-id-mapping.md`](/Users/benjaminsimmons/Documents/CODING/debtulator/docs/local-remote-id-mapping.md)
-- [`docs/shared-event-sync.md`](/Users/benjaminsimmons/Documents/CODING/debtulator/docs/shared-event-sync.md)
+- [`docs/shared-group-sync.md`](/Users/benjaminsimmons/Documents/CODING/debtulator/docs/shared-group-sync.md)
 - [`docs/data-sync-architecture.md`](/Users/benjaminsimmons/Documents/CODING/debtulator/docs/data-sync-architecture.md)

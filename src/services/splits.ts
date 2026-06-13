@@ -10,7 +10,7 @@ import { roundMoney } from '@/src/utils/money';
 
 type SplitInput = {
   expenseId: string;
-  eventId: string;
+  groupId: string;
   payerId: ParticipantId;
   expensePayers?: ExpensePayer[];
   amount: number;
@@ -45,8 +45,8 @@ export function buildSplitObligations(input: SplitInput): GeneratedObligation[] 
 
   for (const payer of payerContributions) {
     participantBalances.set(
-      payer.eventMemberId,
-      roundMoney((participantBalances.get(payer.eventMemberId) ?? 0) + payer.amountPaid),
+      payer.groupMemberId,
+      roundMoney((participantBalances.get(payer.groupMemberId) ?? 0) + payer.amountPaid),
     );
   }
 
@@ -72,7 +72,7 @@ export function buildSplitObligations(input: SplitInput): GeneratedObligation[] 
       obligations.push({
         id: `${input.expenseId}_${debtor.participantId}_to_${creditor.participantId}_${obligations.length}`,
       expenseId: input.expenseId,
-      eventId: input.eventId,
+      groupId: input.groupId,
         fromParticipantId: debtor.participantId,
         toParticipantId: creditor.participantId,
         amount,
@@ -100,7 +100,7 @@ export function withGeneratedObligations(expense: Omit<SharedExpense, 'generated
     ...expense,
     generatedObligations: buildSplitObligations({
       expenseId: expense.id,
-      eventId: expense.eventId,
+      groupId: expense.groupId,
       payerId: expense.payerId,
       expensePayers: expense.expensePayers,
       amount: expense.amount,
@@ -224,7 +224,7 @@ function normaliseExpensePayers(input: SplitInput): ExpensePayer[] {
         {
           id: `${input.expenseId}_payer_${input.payerId}`,
           expenseId: input.expenseId,
-          eventMemberId: input.payerId,
+          groupMemberId: input.payerId,
           amountPaid: input.amount,
           currency: input.currency,
           createdAt: '',

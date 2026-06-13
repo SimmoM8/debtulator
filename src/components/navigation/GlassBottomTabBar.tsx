@@ -41,8 +41,8 @@ const visibleTabs: TabConfig[] = [
     activeIcon: "people",
   },
   {
-    name: "events",
-    label: "Events",
+    name: "groups",
+    label: "Groups",
     icon: "calendar-outline",
     activeIcon: "calendar",
   },
@@ -68,21 +68,21 @@ const quickActions: {
   },
   {
     label: "Split expense",
-    subtitle: "Add an event expense and calculate shares",
+    subtitle: "Add an group expense and calculate shares",
     icon: "pie-chart-outline",
     href: "/expense/form",
   },
   {
     label: "Invite member",
-    subtitle: "Create a member profile for debts and events",
+    subtitle: "Create a member profile for debts and groups",
     icon: "person-add-outline",
     href: "/member/form",
   },
   {
-    label: "Add event",
+    label: "Add group",
     subtitle: "Start a trip, household, or shared space",
     icon: "calendar-outline",
-    href: "/event/form",
+    href: "/group/form",
   },
 ];
 

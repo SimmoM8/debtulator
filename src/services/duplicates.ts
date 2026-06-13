@@ -1,20 +1,20 @@
-import type { DuplicateWarning, Event, EventMember, Member } from '@/src/types/models';
+import type { DuplicateWarning, Group, GroupMember, Member } from '@/src/types/models';
 import { compactPhone, normalizeText } from '@/src/utils/text';
 
-export function findDuplicateWarnings(event: Event, eventMembers: EventMember[], members: Member[]) {
-  const memberIds = eventMembers
-    .filter((eventMember) => eventMember.eventId === event.id)
-    .map((eventMember) => eventMember.memberId);
-  const eventMemberRecords = members.filter((member) => memberIds.includes(member.id));
+export function findDuplicateWarnings(group: Group, groupMembers: GroupMember[], members: Member[]) {
+  const memberIds = groupMembers
+    .filter((groupMember) => groupMember.groupId === group.id)
+    .map((groupMember) => groupMember.memberId);
+  const groupMemberRecords = members.filter((member) => memberIds.includes(member.id));
   const warnings: DuplicateWarning[] = [];
 
-  for (let outerIndex = 0; outerIndex < eventMemberRecords.length; outerIndex += 1) {
-    for (let innerIndex = outerIndex + 1; innerIndex < eventMemberRecords.length; innerIndex += 1) {
-      const first = eventMemberRecords[outerIndex];
-      const second = eventMemberRecords[innerIndex];
-      const warning = compareMembers(event.id, first, second);
+  for (let outerIndex = 0; outerIndex < groupMemberRecords.length; outerIndex += 1) {
+    for (let innerIndex = outerIndex + 1; innerIndex < groupMemberRecords.length; innerIndex += 1) {
+      const first = groupMemberRecords[outerIndex];
+      const second = groupMemberRecords[innerIndex];
+      const warning = compareMembers(group.id, first, second);
 
-      if (warning && !event.ignoredDuplicateKeys.includes(warning.key)) {
+      if (warning && !group.ignoredDuplicateKeys.includes(warning.key)) {
         warnings.push(warning);
       }
     }
@@ -23,7 +23,7 @@ export function findDuplicateWarnings(event: Event, eventMembers: EventMember[],
   return warnings;
 }
 
-function compareMembers(eventId: string, first: Member, second: Member): DuplicateWarning | null {
+function compareMembers(groupId: string, first: Member, second: Member): DuplicateWarning | null {
   const firstName = normalizeText(first.displayName);
   const secondName = normalizeText(second.displayName);
   const firstEmail = first.email?.trim().toLowerCase();
@@ -32,33 +32,33 @@ function compareMembers(eventId: string, first: Member, second: Member): Duplica
   const secondPhone = compactPhone(second.phone);
 
   if (firstEmail && secondEmail && firstEmail === secondEmail) {
-    return warning(eventId, first, second, 'same_email');
+    return warning(groupId, first, second, 'same_email');
   }
 
   if (firstPhone && secondPhone && firstPhone === secondPhone) {
-    return warning(eventId, first, second, 'same_phone');
+    return warning(groupId, first, second, 'same_phone');
   }
 
   if (firstName && firstName === secondName) {
-    return warning(eventId, first, second, 'same_name');
+    return warning(groupId, first, second, 'same_name');
   }
 
   if (isSimilarName(firstName, secondName)) {
-    return warning(eventId, first, second, 'similar_name');
+    return warning(groupId, first, second, 'similar_name');
   }
 
   return null;
 }
 
 function warning(
-  eventId: string,
+  groupId: string,
   first: Member,
   second: Member,
   reason: DuplicateWarning['reason'],
 ): DuplicateWarning {
   return {
-    key: [eventId, first.id, second.id, reason].join(':'),
-    eventId,
+    key: [groupId, first.id, second.id, reason].join(':'),
+    groupId,
     memberAId: first.id,
     memberBId: second.id,
     reason,

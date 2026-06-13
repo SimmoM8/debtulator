@@ -1,7 +1,7 @@
 import type * as SQLite from 'expo-sqlite';
 
 import {
-  deleteEventMember,
+  deleteGroupMember,
   insertAttachment,
   insertActivityLog,
   insertAuditLog,
@@ -9,16 +9,16 @@ import {
   insertCsvImportBatch,
   insertDebt,
   insertDebtVerification,
-  insertEvent,
-  insertEventActivityLog,
+  insertGroup,
+  insertGroupActivityLog,
   insertExportLog,
-  insertEventDebt,
-  insertEventDuplicateWarning,
-  insertEventMember,
-  insertEventMemberClaim,
-  insertEventParticipant,
-  insertEventInvite,
-  insertEventVerificationResponse,
+  insertGroupDebt,
+  insertGroupDuplicateWarning,
+  insertGroupMember,
+  insertGroupMemberClaim,
+  insertGroupParticipant,
+  insertGroupInvite,
+  insertGroupVerificationResponse,
   insertLinkRequest,
   insertMember,
   insertOverpaymentCredit,
@@ -28,7 +28,7 @@ import {
   insertReminder,
   insertSettlement,
   insertSettlementLine,
-  insertSharedEventMember,
+  insertSharedGroupMember,
   insertSharedExpense,
   insertSoftReminder,
   insertSmartSuggestion,
@@ -51,8 +51,8 @@ import { withGeneratedObligations } from '@/src/services/splits';
 import {
   buildDuplicateWarning,
   duplicatePairKey,
-  findSharedEventDuplicateWarningDrafts,
-} from '@/src/services/eventDuplicates';
+  findSharedGroupDuplicateWarningDrafts,
+} from '@/src/services/groupDuplicates';
 import type {
   AppSettings,
   AccountDeletionState,
@@ -71,17 +71,17 @@ import type {
   Debt,
   DebtVerification,
   DebtStatus,
-  Event,
-  EventActivityLog,
-  EventDebt,
-  EventDuplicateWarning,
-  EventInvite,
-  EventMember,
-  EventMemberClaim,
-  EventParticipant,
-  EventRole,
-  EventStatus,
-  EventVerificationResponse,
+  Group,
+  GroupActivityLog,
+  GroupDebt,
+  GroupDuplicateWarning,
+  GroupInvite,
+  GroupMember,
+  GroupMemberClaim,
+  GroupParticipant,
+  GroupRole,
+  GroupStatus,
+  GroupVerificationResponse,
   ExportLog,
   ExportType,
   ExpensePayer,
@@ -93,7 +93,7 @@ import type {
   Payment,
   RecurringTemplate,
   Reminder,
-  SharedEventMember,
+  SharedGroupMember,
   SharedExpense,
   Settlement,
   SettlementLine,
@@ -137,31 +137,31 @@ type DebtInput = {
   dueDate?: string | null;
   recurringTemplateId?: string | null;
   tags?: string[];
-  eventId?: string | null;
+  groupId?: string | null;
   status?: DebtStatus;
   verificationStatus?: VerificationStatus;
   visibility?: Debt['visibility'];
 };
 
-type EventInput = {
+type GroupInput = {
   name: string;
   notes?: string | null;
   defaultCurrency: CurrencyCode;
   allowedCurrencies?: CurrencyCode[];
   tags?: string[];
-  status?: EventStatus;
-  visibility?: Event['visibility'];
+  status?: GroupStatus;
+  visibility?: Group['visibility'];
   ownerUserId?: string | null;
   ownerDisplayName?: string | null;
   ownerEmail?: string | null;
   remoteId?: string | null;
-  ownerRemoteEventMemberId?: string | null;
+  ownerRemoteGroupMemberId?: string | null;
   syncStatus?: SyncStatus;
   memberIds?: string[];
 };
 
 type SharedExpenseInput = {
-  eventId: string;
+  groupId: string;
   creatorUserId?: string | null;
   payerId: ParticipantId;
   amount: number;
@@ -172,7 +172,7 @@ type SharedExpenseInput = {
   participantIds: ParticipantId[];
   splitMethod?: SharedExpense['splitMethod'];
   splitAllocations?: Record<ParticipantId, number>;
-  expensePayers?: { eventMemberId: ParticipantId; amountPaid: number }[];
+  expensePayers?: { groupMemberId: ParticipantId; amountPaid: number }[];
   dueDate?: string | null;
   recurringTemplateId?: string | null;
   tags?: string[];
@@ -183,24 +183,24 @@ type SharedExpenseInput = {
   syncStatus?: SyncStatus;
 };
 
-type EventInviteInput = {
-  eventId: string;
-  remoteEventId?: string | null;
+type GroupInviteInput = {
+  groupId: string;
+  remoteGroupId?: string | null;
   inviterUserId: string;
   invitedUserId?: string | null;
   invitedEmail?: string | null;
   invitedPhone?: string | null;
   invitedDisplayName: string;
-  offeredRole: Exclude<EventRole, 'owner'>;
+  offeredRole: Exclude<GroupRole, 'owner'>;
   message?: string | null;
   remoteId?: string | null;
   syncStatus?: SyncStatus;
 };
 
-type SharedEventMemberInput = {
-  eventId: string;
-  remoteEventId?: string | null;
-  type?: SharedEventMember['type'];
+type SharedGroupMemberInput = {
+  groupId: string;
+  remoteGroupId?: string | null;
+  type?: SharedGroupMember['type'];
   linkedUserId?: string | null;
   displayName: string;
   alias?: string | null;
@@ -208,17 +208,17 @@ type SharedEventMemberInput = {
   phone?: string | null;
   notes?: string | null;
   createdByUserId?: string | null;
-  status?: SharedEventMember['status'];
+  status?: SharedGroupMember['status'];
   remoteId?: string | null;
   syncStatus?: SyncStatus;
 };
 
-type EventDebtInput = {
-  eventId: string;
-  remoteEventId?: string | null;
+type GroupDebtInput = {
+  groupId: string;
+  remoteGroupId?: string | null;
   creatorUserId?: string | null;
-  debtorEventMemberId: string;
-  creditorEventMemberId: string;
+  debtorGroupMemberId: string;
+  creditorGroupMemberId: string;
   amount: number;
   currency: CurrencyCode;
   title: string;
@@ -240,7 +240,7 @@ type CreatePaymentInput = {
   currency: CurrencyCode;
   paymentDate?: string;
   notes?: string | null;
-  eventId?: string | null;
+  groupId?: string | null;
   relatedMemberId?: string | null;
   visibility?: Payment['visibility'];
   status?: Payment['status'];
@@ -266,7 +266,7 @@ type CreatePaymentInput = {
 
 type CreateRecurringTemplateInput = {
   createdByUserId?: string | null;
-  eventId?: string | null;
+  groupId?: string | null;
   memberId?: string | null;
   type: RecurringTemplate['type'];
   title: string;
@@ -304,7 +304,7 @@ type DebtVerificationInput = {
 type AttachmentInput = {
   targetType: AttachmentTargetType;
   targetId: string;
-  eventId?: string | null;
+  groupId?: string | null;
   createdByUserId?: string | null;
   localUri?: string | null;
   remoteUrl?: string | null;
@@ -322,7 +322,7 @@ type AttachmentInput = {
 type CommentInput = {
   targetType: CommentTargetType;
   targetId: string;
-  eventId?: string | null;
+  groupId?: string | null;
   authorUserId?: string | null;
   localAuthorLabel?: string | null;
   body: string;
@@ -391,14 +391,14 @@ export class DebtulatorRepository {
     for (const member of plan.records.members) {
       await insertMember(this.db, member);
     }
-    for (const event of plan.records.events) {
-      await insertEvent(this.db, event);
+    for (const group of plan.records.groups) {
+      await insertGroup(this.db, group);
     }
-    for (const eventMember of plan.records.eventMembers) {
-      await insertEventMember(this.db, eventMember);
+    for (const groupMember of plan.records.groupMembers) {
+      await insertGroupMember(this.db, groupMember);
     }
-    for (const member of plan.records.sharedEventMembers) {
-      await insertSharedEventMember(this.db, member);
+    for (const member of plan.records.sharedGroupMembers) {
+      await insertSharedGroupMember(this.db, member);
     }
     for (const debt of plan.records.debts) {
       await insertDebt(this.db, debt);
@@ -406,8 +406,8 @@ export class DebtulatorRepository {
     for (const expense of plan.records.sharedExpenses) {
       await insertSharedExpense(this.db, expense);
     }
-    for (const debt of plan.records.eventDebts) {
-      await insertEventDebt(this.db, debt);
+    for (const debt of plan.records.groupDebts) {
+      await insertGroupDebt(this.db, debt);
     }
     for (const payment of plan.records.payments) {
       await insertPayment(this.db, payment);
@@ -448,7 +448,7 @@ export class DebtulatorRepository {
       action: 'restore_performed',
       targetType: 'backup',
       targetId: null,
-      eventId: null,
+      groupId: null,
       metadata: {
         restoreMode: mode,
         restored: plan.result.restored,
@@ -574,7 +574,7 @@ export class DebtulatorRepository {
       action: 'conflict_resolved',
       targetType: 'sync_conflict',
       targetId: conflict.id,
-      eventId: null,
+      groupId: null,
       metadata: {
         entityType: conflict.entityType,
         localEntityId: conflict.localEntityId,
@@ -642,29 +642,29 @@ export class DebtulatorRepository {
       case 'debt':
         await insertDebt(this.db, remoteSnapshot as Debt);
         return;
-      case 'event':
-        await insertEvent(this.db, remoteSnapshot as Event);
+      case 'group':
+        await insertGroup(this.db, remoteSnapshot as Group);
         return;
       case 'shared_expense':
         await insertSharedExpense(this.db, remoteSnapshot as SharedExpense);
         return;
-      case 'event_invite':
-        await insertEventInvite(this.db, remoteSnapshot as EventInvite);
+      case 'group_invite':
+        await insertGroupInvite(this.db, remoteSnapshot as GroupInvite);
         return;
-      case 'event_member':
-        await insertSharedEventMember(this.db, remoteSnapshot as SharedEventMember);
+      case 'group_member':
+        await insertSharedGroupMember(this.db, remoteSnapshot as SharedGroupMember);
         return;
-      case 'event_member_claim':
-        await insertEventMemberClaim(this.db, remoteSnapshot as EventMemberClaim);
+      case 'group_member_claim':
+        await insertGroupMemberClaim(this.db, remoteSnapshot as GroupMemberClaim);
         return;
-      case 'event_duplicate_warning':
-        await insertEventDuplicateWarning(this.db, remoteSnapshot as EventDuplicateWarning);
+      case 'group_duplicate_warning':
+        await insertGroupDuplicateWarning(this.db, remoteSnapshot as GroupDuplicateWarning);
         return;
-      case 'event_debt':
-        await insertEventDebt(this.db, remoteSnapshot as EventDebt);
+      case 'group_debt':
+        await insertGroupDebt(this.db, remoteSnapshot as GroupDebt);
         return;
-      case 'event_verification':
-        await insertEventVerificationResponse(this.db, remoteSnapshot as EventVerificationResponse);
+      case 'group_verification':
+        await insertGroupVerificationResponse(this.db, remoteSnapshot as GroupVerificationResponse);
         return;
       case 'payment':
         await insertPayment(this.db, remoteSnapshot as Payment);
@@ -722,7 +722,7 @@ export class DebtulatorRepository {
       action: 'account_deletion_requested',
       targetType: 'account',
       targetId: input.userId,
-      eventId: null,
+      groupId: null,
       metadata: {
         requestId,
         deleteLocalData: input.deleteLocalData,
@@ -740,7 +740,7 @@ export class DebtulatorRepository {
         action: 'account_deletion_failed',
         targetType: 'account',
         targetId: input.userId,
-        eventId: null,
+        groupId: null,
         metadata: {
           requestId,
           failureReason,
@@ -772,24 +772,24 @@ export class DebtulatorRepository {
       });
     }
 
-    for (const event of snapshot.events.filter((item) => item.ownerUserId === input.userId)) {
-      await insertEvent(this.db, {
-        ...event,
+    for (const group of snapshot.groups.filter((item) => item.ownerUserId === input.userId)) {
+      await insertGroup(this.db, {
+        ...group,
         ownerUserId: null,
         updatedAt: timestamp,
       });
     }
 
-    for (const participant of snapshot.eventParticipants.filter((item) => item.userId === input.userId)) {
-      await insertEventParticipant(this.db, {
+    for (const participant of snapshot.groupParticipants.filter((item) => item.userId === input.userId)) {
+      await insertGroupParticipant(this.db, {
         ...participant,
         status: 'removed',
         updatedAt: timestamp,
       });
     }
 
-    for (const member of snapshot.sharedEventMembers.filter((item) => item.linkedUserId === input.userId)) {
-      await insertSharedEventMember(this.db, {
+    for (const member of snapshot.sharedGroupMembers.filter((item) => item.linkedUserId === input.userId)) {
+      await insertSharedGroupMember(this.db, {
         ...member,
         type: 'unlinked_placeholder',
         linkedUserId: null,
@@ -847,7 +847,7 @@ export class DebtulatorRepository {
       'pushNotificationsEnabled',
       'emailNotificationsEnabled',
       'notificationVerificationEnabled',
-      'notificationEventEnabled',
+      'notificationGroupEnabled',
       'notificationPaymentSettlementEnabled',
       'notificationReminderEnabled',
       'notificationCommentEnabled',
@@ -862,10 +862,10 @@ export class DebtulatorRepository {
       action: 'account_deletion_completed',
       targetType: 'account',
       targetId: input.userId,
-      eventId: null,
+      groupId: null,
       metadata: {
         requestId,
-        ownedEventCount: plan.ownedEventCount,
+        ownedGroupCount: plan.ownedGroupCount,
         ownedAttachmentCount: plan.ownedAttachmentCount,
       },
     });
@@ -877,7 +877,7 @@ export class DebtulatorRepository {
       processedAt,
       failureReason: null,
       metadata: {
-        ownedEventCount: plan.ownedEventCount,
+        ownedGroupCount: plan.ownedGroupCount,
         ownedAttachmentCount: plan.ownedAttachmentCount,
       },
     };
@@ -953,7 +953,7 @@ export class DebtulatorRepository {
       dueDate: cleanOptional(input.dueDate),
       recurringTemplateId: cleanOptional(input.recurringTemplateId),
       tags: cleanTags(input.tags),
-      eventId: input.eventId ?? null,
+      groupId: input.groupId ?? null,
       status: input.status ?? 'active',
       verificationStatus: input.verificationStatus ?? 'local_only',
       verifiedByUserId: null,
@@ -983,8 +983,7 @@ export class DebtulatorRepository {
       input.memberId !== undefined && input.memberId !== debt.memberId,
       input.direction !== undefined && input.direction !== debt.direction,
       input.amount !== undefined && toAmount(input.amount) !== debt.amount,
-      input.eventId !== undefined && input.eventId !== debt.eventId,
-      input.debtDate !== undefined && input.debtDate !== debt.debtDate,
+      input.groupId !== undefined && input.groupId !== debt.groupId,
     ].some(Boolean);
 
     const nextVerificationStatus =
@@ -1010,12 +1009,12 @@ export class DebtulatorRepository {
       title: input.title?.trim() ?? debt.title,
       notes: input.notes === undefined ? debt.notes : cleanOptional(input.notes),
       sharedNotes: input.sharedNotes === undefined ? debt.sharedNotes : cleanOptional(input.sharedNotes),
-      debtDate: input.debtDate ?? debt.debtDate,
+      debtDate: debt.debtDate,
       dueDate: input.dueDate === undefined ? debt.dueDate : cleanOptional(input.dueDate),
       recurringTemplateId:
         input.recurringTemplateId === undefined ? debt.recurringTemplateId : cleanOptional(input.recurringTemplateId),
       tags: input.tags === undefined ? debt.tags : cleanTags(input.tags),
-      eventId: input.eventId === undefined ? debt.eventId : input.eventId,
+      groupId: input.groupId === undefined ? debt.groupId : input.groupId,
       status:
         (input.status ?? debt.status) === 'settled'
           ? 'active'
@@ -1098,9 +1097,6 @@ export class DebtulatorRepository {
         updated.dueDate,
       );
     }
-    if (updated.debtDate !== debt.debtDate) {
-      addChange('debt_date_changed', 'debtDate', debt.debtDate, updated.debtDate);
-    }
     if (updated.amount !== debt.amount) {
       addChange('debt_amount_changed', 'amount', debt.amount, updated.amount, {
         currency: debt.currency,
@@ -1112,12 +1108,12 @@ export class DebtulatorRepository {
     if (updated.direction !== debt.direction) {
       addChange('debt_direction_changed', 'direction', debt.direction, updated.direction);
     }
-    if (updated.eventId !== debt.eventId) {
+    if (updated.groupId !== debt.groupId) {
       addChange(
-        updated.eventId ? 'debt_event_added' : 'debt_event_removed',
-        'eventId',
-        debt.eventId,
-        updated.eventId,
+        updated.groupId ? 'debt_group_added' : 'debt_group_removed',
+        'groupId',
+        debt.groupId,
+        updated.groupId,
       );
     }
     if (JSON.stringify(updated.tags) !== JSON.stringify(debt.tags)) {
@@ -1154,11 +1150,11 @@ export class DebtulatorRepository {
     return updated;
   }
 
-  async createEvent(input: EventInput) {
+  async createGroup(input: GroupInput) {
     const timestamp = nowIso();
     const visibility = input.visibility ?? 'private';
-    const event: Event = {
-      id: createId('event'),
+    const group: Group = {
+      id: createId('group'),
       localId: null,
       remoteId: input.remoteId ?? null,
       ownerUserId: cleanOptional(input.ownerUserId),
@@ -1178,117 +1174,117 @@ export class DebtulatorRepository {
       createdAt: timestamp,
       updatedAt: timestamp,
     };
-    await insertEvent(this.db, event);
-    if (visibility === 'shared' && event.ownerUserId) {
-      const participant: EventParticipant = {
-        id: createId('event_participant'),
+    await insertGroup(this.db, group);
+    if (visibility === 'shared' && group.ownerUserId) {
+      const participant: GroupParticipant = {
+        id: createId('group_participant'),
         remoteId: null,
-        eventId: event.id,
-        remoteEventId: event.remoteId,
-        userId: event.ownerUserId,
+        groupId: group.id,
+        remoteGroupId: group.remoteId,
+        userId: group.ownerUserId,
         role: 'owner',
         status: 'active',
         joinedAt: timestamp,
         createdAt: timestamp,
         updatedAt: timestamp,
-        syncStatus: event.syncStatus,
+        syncStatus: group.syncStatus,
       };
-      await insertEventParticipant(this.db, participant);
-      await insertSharedEventMember(this.db, {
-        id: createId('event_member'),
-        remoteId: input.ownerRemoteEventMemberId ?? null,
-        eventId: event.id,
-        remoteEventId: event.remoteId,
+      await insertGroupParticipant(this.db, participant);
+      await insertSharedGroupMember(this.db, {
+        id: createId('group_member'),
+        remoteId: input.ownerRemoteGroupMemberId ?? null,
+        groupId: group.id,
+        remoteGroupId: group.remoteId,
         type: 'linked_user',
-        linkedUserId: event.ownerUserId,
+        linkedUserId: group.ownerUserId,
         displayName: cleanOptional(input.ownerDisplayName) ?? 'You',
         alias: 'You',
         email: cleanOptional(input.ownerEmail),
         phone: null,
         notes: null,
-        createdByUserId: event.ownerUserId,
+        createdByUserId: group.ownerUserId,
         status: 'active',
-        mergedIntoEventMemberId: null,
+        mergedIntoGroupMemberId: null,
         createdAt: timestamp,
         updatedAt: timestamp,
-        syncStatus: event.syncStatus,
+        syncStatus: group.syncStatus,
       });
-      await this.logEventActivity(event.id, 'event_created', event.ownerUserId, 'event', event.id, {
-        name: event.name,
-        visibility: event.visibility,
+      await this.logGroupActivity(group.id, 'group_created', group.ownerUserId, 'group', group.id, {
+        name: group.name,
+        visibility: group.visibility,
       });
     } else {
-      await this.setEventMembers(event.id, input.memberIds ?? []);
+      await this.setGroupMembers(group.id, input.memberIds ?? []);
     }
-    if (event.syncStatus === 'pending_upload' || event.syncStatus === 'pending_create') {
-      await this.queueSyncOperation({ entityType: 'event', entityId: event.id, operation: 'create', payload: event });
+    if (group.syncStatus === 'pending_upload' || group.syncStatus === 'pending_create') {
+      await this.queueSyncOperation({ entityType: 'group', entityId: group.id, operation: 'create', payload: group });
     }
-    return event;
+    return group;
   }
 
-  async updateEvent(
-    event: Event,
-    input: Partial<EventInput> & {
+  async updateGroup(
+    group: Group,
+    input: Partial<GroupInput> & {
       archived?: boolean;
       ignoredDuplicateKeys?: string[];
     },
   ) {
-    const updated: Event = {
-      ...event,
-      name: input.name?.trim() ?? event.name,
-      notes: input.notes === undefined ? event.notes : cleanOptional(input.notes),
-      defaultCurrency: input.defaultCurrency ?? event.defaultCurrency,
-      allowedCurrencies: input.allowedCurrencies ?? event.allowedCurrencies,
-      tags: input.tags === undefined ? event.tags : cleanTags(input.tags),
-      status: input.status ?? event.status,
-      visibility: input.visibility ?? event.visibility,
-      remoteId: input.remoteId === undefined ? event.remoteId : cleanOptional(input.remoteId),
-      ownerUserId: input.ownerUserId === undefined ? event.ownerUserId : cleanOptional(input.ownerUserId),
+    const updated: Group = {
+      ...group,
+      name: input.name?.trim() ?? group.name,
+      notes: input.notes === undefined ? group.notes : cleanOptional(input.notes),
+      defaultCurrency: input.defaultCurrency ?? group.defaultCurrency,
+      allowedCurrencies: input.allowedCurrencies ?? group.allowedCurrencies,
+      tags: input.tags === undefined ? group.tags : cleanTags(input.tags),
+      status: input.status ?? group.status,
+      visibility: input.visibility ?? group.visibility,
+      remoteId: input.remoteId === undefined ? group.remoteId : cleanOptional(input.remoteId),
+      ownerUserId: input.ownerUserId === undefined ? group.ownerUserId : cleanOptional(input.ownerUserId),
       syncStatus:
         input.syncStatus ??
-        (event.syncStatus === 'synced' && hasEventUpdate(input) ? 'pending_update' : event.syncStatus),
-      archived: input.archived ?? event.archived,
+        (group.syncStatus === 'synced' && hasGroupUpdate(input) ? 'pending_update' : group.syncStatus),
+      archived: input.archived ?? group.archived,
       archivedAt:
-        input.archived === true && !event.archivedAt
+        input.archived === true && !group.archivedAt
           ? nowIso()
           : input.archived === false
             ? null
-            : event.archivedAt,
+            : group.archivedAt,
       finalisedAt:
-        input.status === 'finalising' && !event.finalisedAt
+        input.status === 'finalising' && !group.finalisedAt
           ? nowIso()
           : input.status === 'active'
             ? null
-            : event.finalisedAt,
+            : group.finalisedAt,
       lockedAt:
-        input.status === 'finalising' && !event.lockedAt
+        input.status === 'finalising' && !group.lockedAt
           ? nowIso()
           : input.status === 'active'
             ? null
-            : event.lockedAt,
-      ignoredDuplicateKeys: input.ignoredDuplicateKeys ?? event.ignoredDuplicateKeys,
+            : group.lockedAt,
+      ignoredDuplicateKeys: input.ignoredDuplicateKeys ?? group.ignoredDuplicateKeys,
       updatedAt: nowIso(),
     };
-    await insertEvent(this.db, updated);
-    if (event.visibility === 'private' && input.memberIds) {
-      await this.setEventMembers(event.id, input.memberIds);
+    await insertGroup(this.db, updated);
+    if (group.visibility === 'private' && input.memberIds) {
+      await this.setGroupMembers(group.id, input.memberIds);
     }
-    if (event.visibility === 'shared') {
-      await this.logEventActivity(event.id, 'event_edited', input.ownerUserId ?? null, 'event', event.id, {
+    if (group.visibility === 'shared') {
+      await this.logGroupActivity(group.id, 'group_edited', input.ownerUserId ?? null, 'group', group.id, {
         status: updated.status,
         archived: updated.archived,
       });
     }
     if (updated.syncStatus === 'pending_update') {
-      await this.queueSyncOperation({ entityType: 'event', entityId: updated.id, operation: 'update', payload: updated });
+      await this.queueSyncOperation({ entityType: 'group', entityId: updated.id, operation: 'update', payload: updated });
     }
     return updated;
   }
 
-  async setEventMembers(eventId: string, memberIds: string[]) {
+  async setGroupMembers(groupId: string, memberIds: string[]) {
     const current = await this.db.getAllAsync<{ member_id: string }>(
-      `SELECT member_id FROM event_members WHERE event_id = ?`,
-      [eventId],
+      `SELECT member_id FROM group_members WHERE group_id = ?`,
+      [groupId],
     );
     const currentIds = new Set(current.map((row) => row.member_id));
     const nextIds = new Set(memberIds);
@@ -1296,13 +1292,13 @@ export class DebtulatorRepository {
 
     for (const memberId of currentIds) {
       if (!nextIds.has(memberId)) {
-        await deleteEventMember(this.db, eventId, memberId);
+        await deleteGroupMember(this.db, groupId, memberId);
       }
     }
 
     for (const memberId of nextIds) {
-      const eventMember: EventMember = { eventId, memberId, createdAt: timestamp };
-      await insertEventMember(this.db, eventMember);
+      const groupMember: GroupMember = { groupId, memberId, createdAt: timestamp };
+      await insertGroupMember(this.db, groupMember);
     }
   }
 
@@ -1312,12 +1308,12 @@ export class DebtulatorRepository {
     const expense = withGeneratedObligations({
       id: expenseId,
       remoteId: input.remoteId ?? null,
-      eventId: input.eventId,
+      groupId: input.groupId,
       creatorUserId: cleanOptional(input.creatorUserId),
       payerId: input.payerId,
       expensePayers: buildExpensePayers(
         expenseId,
-        input.expensePayers ?? [{ eventMemberId: input.payerId, amountPaid: toAmount(input.amount) }],
+        input.expensePayers ?? [{ groupMemberId: input.payerId, amountPaid: toAmount(input.amount) }],
         input.currency,
         timestamp,
       ),
@@ -1335,13 +1331,13 @@ export class DebtulatorRepository {
       status: input.status ?? 'active',
       verificationStatus: input.verificationStatus ?? 'local_only',
       visibility: input.visibility ?? 'private',
-      syncStatus: input.syncStatus ?? (input.visibility === 'shared_event' ? (input.remoteId ? 'synced' : 'pending_upload') : 'local_only'),
+      syncStatus: input.syncStatus ?? (input.visibility === 'shared_group' ? (input.remoteId ? 'synced' : 'pending_upload') : 'local_only'),
       createdAt: timestamp,
       updatedAt: timestamp,
     });
     await insertSharedExpense(this.db, expense);
-    if (expense.visibility === 'shared_event') {
-      await this.logEventActivity(expense.eventId, 'expense_added', expense.creatorUserId, 'shared_expense', expense.id, {
+    if (expense.visibility === 'shared_group') {
+      await this.logGroupActivity(expense.groupId, 'expense_added', expense.creatorUserId, 'shared_expense', expense.id, {
         amount: expense.amount,
         currency: expense.currency,
         title: expense.title,
@@ -1353,7 +1349,7 @@ export class DebtulatorRepository {
         entityId: expense.id,
         operation: 'create',
         payload: expense,
-        dependencyIds: [expense.eventId, expense.payerId, ...expense.participantIds, ...expense.expensePayers.map((payer) => payer.eventMemberId)].map(String),
+        dependencyIds: [expense.groupId, expense.payerId, ...expense.participantIds, ...expense.expensePayers.map((payer) => payer.groupMemberId)].map(String),
       });
     }
     return expense;
@@ -1364,7 +1360,7 @@ export class DebtulatorRepository {
       input.participantIds === undefined ? expense.participantIds : cleanParticipants(input.participantIds);
 
     const financialFieldsChanged = [
-      input.eventId !== undefined && input.eventId !== expense.eventId,
+      input.groupId !== undefined && input.groupId !== expense.groupId,
       input.payerId !== undefined && input.payerId !== expense.payerId,
       input.expensePayers !== undefined,
       input.amount !== undefined && toAmount(input.amount) !== expense.amount,
@@ -1382,7 +1378,7 @@ export class DebtulatorRepository {
     const updated = withGeneratedObligations({
       ...expense,
       remoteId: input.remoteId === undefined ? expense.remoteId : cleanOptional(input.remoteId),
-      eventId: input.eventId ?? expense.eventId,
+      groupId: input.groupId ?? expense.groupId,
       creatorUserId: input.creatorUserId === undefined ? expense.creatorUserId : cleanOptional(input.creatorUserId),
       payerId: input.payerId ?? expense.payerId,
       expensePayers:
@@ -1412,8 +1408,8 @@ export class DebtulatorRepository {
       updatedAt: nowIso(),
     });
     await insertSharedExpense(this.db, updated);
-    if (updated.visibility === 'shared_event') {
-      await this.logEventActivity(updated.eventId, 'expense_edited', updated.creatorUserId, 'shared_expense', updated.id, {
+    if (updated.visibility === 'shared_group') {
+      await this.logGroupActivity(updated.groupId, 'expense_edited', updated.creatorUserId, 'shared_expense', updated.id, {
         financialFieldsChanged,
       });
     }
@@ -1423,19 +1419,19 @@ export class DebtulatorRepository {
         entityId: updated.id,
         operation: updated.status === 'archived' ? 'archive' : 'update',
         payload: updated,
-        dependencyIds: [updated.eventId, updated.payerId, ...updated.participantIds, ...updated.expensePayers.map((payer) => payer.eventMemberId)].map(String),
+        dependencyIds: [updated.groupId, updated.payerId, ...updated.participantIds, ...updated.expensePayers.map((payer) => payer.groupMemberId)].map(String),
       });
     }
     return updated;
   }
 
-  async createEventInvite(input: EventInviteInput) {
+  async createGroupInvite(input: GroupInviteInput) {
     const timestamp = nowIso();
-    const invite: EventInvite = {
-      id: createId('event_invite'),
+    const invite: GroupInvite = {
+      id: createId('group_invite'),
       remoteId: input.remoteId ?? null,
-      eventId: input.eventId,
-      remoteEventId: input.remoteEventId ?? null,
+      groupId: input.groupId,
+      remoteGroupId: input.remoteGroupId ?? null,
       inviterUserId: input.inviterUserId,
       invitedUserId: cleanOptional(input.invitedUserId),
       invitedEmail: cleanOptional(input.invitedEmail),
@@ -1449,27 +1445,27 @@ export class DebtulatorRepository {
       respondedAt: null,
       syncStatus: input.syncStatus ?? (input.remoteId ? 'synced' : 'pending_upload'),
     };
-    await insertEventInvite(this.db, invite);
-    await this.logEventActivity(invite.eventId, 'invite_sent', invite.inviterUserId, 'event_invite', invite.id, {
+    await insertGroupInvite(this.db, invite);
+    await this.logGroupActivity(invite.groupId, 'invite_sent', invite.inviterUserId, 'group_invite', invite.id, {
       invitedDisplayName: invite.invitedDisplayName,
       invitedEmail: invite.invitedEmail,
       offeredRole: invite.offeredRole,
     });
     if (invite.syncStatus === 'pending_upload' || invite.syncStatus === 'pending_create') {
-      await this.queueSyncOperation({ entityType: 'event_invite', entityId: invite.id, operation: 'create', payload: invite, dependencyIds: [invite.eventId] });
+      await this.queueSyncOperation({ entityType: 'group_invite', entityId: invite.id, operation: 'create', payload: invite, dependencyIds: [invite.groupId] });
     }
     return invite;
   }
 
-  async respondToEventInvite(
-    invite: EventInvite,
-    status: Extract<EventInvite['status'], 'accepted' | 'rejected' | 'cancelled'>,
+  async respondToGroupInvite(
+    invite: GroupInvite,
+    status: Extract<GroupInvite['status'], 'accepted' | 'rejected' | 'cancelled'>,
     actorUserId: string,
     actorDisplayName?: string | null,
     actorEmail?: string | null,
   ) {
     const timestamp = nowIso();
-    const updatedInvite: EventInvite = {
+    const updatedInvite: GroupInvite = {
       ...invite,
       status,
       invitedUserId: status === 'accepted' ? actorUserId : invite.invitedUserId,
@@ -1477,19 +1473,19 @@ export class DebtulatorRepository {
       updatedAt: timestamp,
       syncStatus: invite.remoteId ? 'pending_update' : invite.syncStatus,
     };
-    await insertEventInvite(this.db, updatedInvite);
+    await insertGroupInvite(this.db, updatedInvite);
 
     if (status === 'accepted') {
       const snapshot = await loadSnapshot(this.db);
-      const event = snapshot.events.find((item) => item.id === invite.eventId);
-      const existingParticipant = snapshot.eventParticipants.find(
-        (participant) => participant.eventId === invite.eventId && participant.userId === actorUserId,
+      const group = snapshot.groups.find((item) => item.id === invite.groupId);
+      const existingParticipant = snapshot.groupParticipants.find(
+        (participant) => participant.groupId === invite.groupId && participant.userId === actorUserId,
       );
-      await insertEventParticipant(this.db, {
-        id: existingParticipant?.id ?? createId('event_participant'),
+      await insertGroupParticipant(this.db, {
+        id: existingParticipant?.id ?? createId('group_participant'),
         remoteId: existingParticipant?.remoteId ?? null,
-        eventId: invite.eventId,
-        remoteEventId: invite.remoteEventId,
+        groupId: invite.groupId,
+        remoteGroupId: invite.remoteGroupId,
         userId: actorUserId,
         role: invite.offeredRole,
         status: 'active',
@@ -1499,15 +1495,15 @@ export class DebtulatorRepository {
         syncStatus: invite.remoteId ? 'pending_update' : 'pending_upload',
       });
 
-      const existingMember = snapshot.sharedEventMembers.find(
-        (member) => member.eventId === invite.eventId && member.linkedUserId === actorUserId && member.status !== 'merged',
+      const existingMember = snapshot.sharedGroupMembers.find(
+        (member) => member.groupId === invite.groupId && member.linkedUserId === actorUserId && member.status !== 'merged',
       );
       if (!existingMember) {
-        await insertSharedEventMember(this.db, {
-          id: createId('event_member'),
+        await insertSharedGroupMember(this.db, {
+          id: createId('group_member'),
           remoteId: null,
-          eventId: invite.eventId,
-          remoteEventId: event?.remoteId ?? invite.remoteEventId,
+          groupId: invite.groupId,
+          remoteGroupId: group?.remoteId ?? invite.remoteGroupId,
           type: 'linked_user',
           linkedUserId: actorUserId,
           displayName: cleanOptional(actorDisplayName) ?? invite.invitedDisplayName,
@@ -1517,7 +1513,7 @@ export class DebtulatorRepository {
           notes: null,
           createdByUserId: invite.inviterUserId,
           status: 'active',
-          mergedIntoEventMemberId: null,
+          mergedIntoGroupMemberId: null,
           createdAt: timestamp,
           updatedAt: timestamp,
           syncStatus: 'pending_upload',
@@ -1525,41 +1521,41 @@ export class DebtulatorRepository {
       }
     }
 
-    await this.logEventActivity(
-      invite.eventId,
+    await this.logGroupActivity(
+      invite.groupId,
       status === 'accepted' ? 'invite_accepted' : status === 'rejected' ? 'invite_rejected' : 'invite_cancelled',
       actorUserId,
-      'event_invite',
+      'group_invite',
       invite.id,
       { invitedDisplayName: invite.invitedDisplayName },
     );
     if (updatedInvite.syncStatus === 'pending_update') {
-      await this.queueSyncOperation({ entityType: 'event_invite', entityId: updatedInvite.id, operation: 'update', payload: updatedInvite, dependencyIds: [updatedInvite.eventId] });
+      await this.queueSyncOperation({ entityType: 'group_invite', entityId: updatedInvite.id, operation: 'update', payload: updatedInvite, dependencyIds: [updatedInvite.groupId] });
     }
     return updatedInvite;
   }
 
-  async createSharedEventMember(input: SharedEventMemberInput) {
+  async createSharedGroupMember(input: SharedGroupMemberInput) {
     const snapshot = await loadSnapshot(this.db);
     if (input.linkedUserId) {
-      const duplicateLinked = snapshot.sharedEventMembers.find(
+      const duplicateLinked = snapshot.sharedGroupMembers.find(
         (member) =>
-          member.eventId === input.eventId &&
+          member.groupId === input.groupId &&
           member.linkedUserId === input.linkedUserId &&
           member.status !== 'merged' &&
           member.status !== 'archived',
       );
       if (duplicateLinked) {
-        throw new Error('This linked user is already an event member.');
+        throw new Error('This linked user is already an group member.');
       }
     }
 
     const timestamp = nowIso();
-    const member: SharedEventMember = {
-      id: createId('event_member'),
+    const member: SharedGroupMember = {
+      id: createId('group_member'),
       remoteId: input.remoteId ?? null,
-      eventId: input.eventId,
-      remoteEventId: input.remoteEventId ?? null,
+      groupId: input.groupId,
+      remoteGroupId: input.remoteGroupId ?? null,
       type: input.type ?? (input.linkedUserId ? 'linked_user' : 'unlinked_placeholder'),
       linkedUserId: cleanOptional(input.linkedUserId),
       displayName: input.displayName.trim(),
@@ -1569,26 +1565,26 @@ export class DebtulatorRepository {
       notes: cleanOptional(input.notes),
       createdByUserId: cleanOptional(input.createdByUserId),
       status: input.status ?? 'active',
-      mergedIntoEventMemberId: null,
+      mergedIntoGroupMemberId: null,
       createdAt: timestamp,
       updatedAt: timestamp,
       syncStatus: input.syncStatus ?? (input.remoteId ? 'synced' : 'pending_upload'),
     };
-    await insertSharedEventMember(this.db, member);
-    await this.reconcileEventDuplicateWarnings(member.eventId);
-    await this.logEventActivity(member.eventId, 'event_member_added', member.createdByUserId, 'event_member', member.id, {
+    await insertSharedGroupMember(this.db, member);
+    await this.reconcileGroupDuplicateWarnings(member.groupId);
+    await this.logGroupActivity(member.groupId, 'group_member_added', member.createdByUserId, 'group_member', member.id, {
       displayName: member.displayName,
       type: member.type,
     });
     if (member.syncStatus === 'pending_upload' || member.syncStatus === 'pending_create') {
-      await this.queueSyncOperation({ entityType: 'event_member', entityId: member.id, operation: 'create', payload: member, dependencyIds: [member.eventId] });
+      await this.queueSyncOperation({ entityType: 'group_member', entityId: member.id, operation: 'create', payload: member, dependencyIds: [member.groupId] });
     }
     return member;
   }
 
-  async updateSharedEventMember(member: SharedEventMember, input: Partial<SharedEventMemberInput> & { archived?: boolean }) {
+  async updateSharedGroupMember(member: SharedGroupMember, input: Partial<SharedGroupMemberInput> & { archived?: boolean }) {
     const timestamp = nowIso();
-    const updated: SharedEventMember = {
+    const updated: SharedGroupMember = {
       ...member,
       type: input.type ?? member.type,
       linkedUserId: input.linkedUserId === undefined ? member.linkedUserId : cleanOptional(input.linkedUserId),
@@ -1601,27 +1597,27 @@ export class DebtulatorRepository {
       syncStatus: input.syncStatus ?? (member.syncStatus === 'synced' ? 'pending_update' : member.syncStatus),
       updatedAt: timestamp,
     };
-    await insertSharedEventMember(this.db, updated);
-    await this.reconcileEventDuplicateWarnings(updated.eventId);
-    await this.logEventActivity(updated.eventId, 'event_member_edited', input.createdByUserId ?? null, 'event_member', updated.id, {
+    await insertSharedGroupMember(this.db, updated);
+    await this.reconcileGroupDuplicateWarnings(updated.groupId);
+    await this.logGroupActivity(updated.groupId, 'group_member_edited', input.createdByUserId ?? null, 'group_member', updated.id, {
       displayName: updated.displayName,
       status: updated.status,
     });
     if (updated.syncStatus === 'pending_update') {
-      await this.queueSyncOperation({ entityType: 'event_member', entityId: updated.id, operation: input.archived ? 'archive' : 'update', payload: updated, dependencyIds: [updated.eventId] });
+      await this.queueSyncOperation({ entityType: 'group_member', entityId: updated.id, operation: input.archived ? 'archive' : 'update', payload: updated, dependencyIds: [updated.groupId] });
     }
     return updated;
   }
 
-  async createEventMemberClaim(member: SharedEventMember, claimantUserId: string, message?: string | null, remoteId?: string | null) {
+  async createGroupMemberClaim(member: SharedGroupMember, claimantUserId: string, message?: string | null, remoteId?: string | null) {
     const timestamp = nowIso();
-    const claim: EventMemberClaim = {
-      id: createId('event_claim'),
+    const claim: GroupMemberClaim = {
+      id: createId('group_claim'),
       remoteId: remoteId ?? null,
-      eventId: member.eventId,
-      remoteEventId: member.remoteEventId,
-      eventMemberId: member.id,
-      remoteEventMemberId: member.remoteId,
+      groupId: member.groupId,
+      remoteGroupId: member.remoteGroupId,
+      groupMemberId: member.id,
+      remoteGroupMemberId: member.remoteId,
       claimantUserId,
       status: 'pending',
       message: cleanOptional(message),
@@ -1631,45 +1627,45 @@ export class DebtulatorRepository {
       updatedAt: timestamp,
       syncStatus: remoteId ? 'synced' : 'pending_upload',
     };
-    await insertEventMemberClaim(this.db, claim);
-    await insertSharedEventMember(this.db, {
+    await insertGroupMemberClaim(this.db, claim);
+    await insertSharedGroupMember(this.db, {
       ...member,
       status: 'claim_pending',
       updatedAt: timestamp,
       syncStatus: member.syncStatus === 'synced' ? 'pending_update' : member.syncStatus,
     });
-    await this.logEventActivity(member.eventId, 'unlinked_member_claim_requested', claimantUserId, 'event_member_claim', claim.id, {
-      eventMemberId: member.id,
+    await this.logGroupActivity(member.groupId, 'unlinked_member_claim_requested', claimantUserId, 'group_member_claim', claim.id, {
+      groupMemberId: member.id,
       displayName: member.displayName,
     });
     if (claim.syncStatus === 'pending_upload' || claim.syncStatus === 'pending_create') {
-      await this.queueSyncOperation({ entityType: 'event_member_claim', entityId: claim.id, operation: 'create', payload: claim, dependencyIds: [member.id] });
+      await this.queueSyncOperation({ entityType: 'group_member_claim', entityId: claim.id, operation: 'create', payload: claim, dependencyIds: [member.id] });
     }
     return claim;
   }
 
-  async respondToEventMemberClaim(
-    claim: EventMemberClaim,
-    member: SharedEventMember,
-    status: Extract<EventMemberClaim['status'], 'approved' | 'rejected' | 'cancelled'>,
+  async respondToGroupMemberClaim(
+    claim: GroupMemberClaim,
+    member: SharedGroupMember,
+    status: Extract<GroupMemberClaim['status'], 'approved' | 'rejected' | 'cancelled'>,
     actorUserId: string,
   ) {
     const timestamp = nowIso();
     const snapshot = await loadSnapshot(this.db);
     if (status === 'approved') {
-      const alreadyLinked = snapshot.sharedEventMembers.find(
+      const alreadyLinked = snapshot.sharedGroupMembers.find(
         (item) =>
-          item.eventId === claim.eventId &&
+          item.groupId === claim.groupId &&
           item.linkedUserId === claim.claimantUserId &&
           item.id !== member.id &&
           item.status !== 'merged',
       );
       if (alreadyLinked) {
-        throw new Error('This user is already linked to another member in this event.');
+        throw new Error('This user is already linked to another member in this group.');
       }
     }
 
-    const updatedClaim: EventMemberClaim = {
+    const updatedClaim: GroupMemberClaim = {
       ...claim,
       status,
       respondedByUserId: actorUserId,
@@ -1677,10 +1673,10 @@ export class DebtulatorRepository {
       updatedAt: timestamp,
       syncStatus: claim.remoteId ? 'pending_update' : claim.syncStatus,
     };
-    await insertEventMemberClaim(this.db, updatedClaim);
+    await insertGroupMemberClaim(this.db, updatedClaim);
 
     if (status === 'approved') {
-      await insertSharedEventMember(this.db, {
+      await insertSharedGroupMember(this.db, {
         ...member,
         type: 'linked_user',
         linkedUserId: claim.claimantUserId,
@@ -1689,7 +1685,7 @@ export class DebtulatorRepository {
         syncStatus: member.remoteId ? 'pending_update' : member.syncStatus,
       });
     } else if (member.status === 'claim_pending') {
-      await insertSharedEventMember(this.db, {
+      await insertSharedGroupMember(this.db, {
         ...member,
         status: 'active',
         updatedAt: timestamp,
@@ -1697,48 +1693,48 @@ export class DebtulatorRepository {
       });
     }
 
-    await this.logEventActivity(
-      claim.eventId,
+    await this.logGroupActivity(
+      claim.groupId,
       status === 'approved' ? 'claim_approved' : status === 'rejected' ? 'claim_rejected' : 'claim_cancelled',
       actorUserId,
-      'event_member_claim',
+      'group_member_claim',
       claim.id,
-      { eventMemberId: claim.eventMemberId, claimantUserId: claim.claimantUserId },
+      { groupMemberId: claim.groupMemberId, claimantUserId: claim.claimantUserId },
     );
     if (updatedClaim.syncStatus === 'pending_update') {
-      await this.queueSyncOperation({ entityType: 'event_member_claim', entityId: updatedClaim.id, operation: 'update', payload: updatedClaim, dependencyIds: [updatedClaim.eventMemberId] });
+      await this.queueSyncOperation({ entityType: 'group_member_claim', entityId: updatedClaim.id, operation: 'update', payload: updatedClaim, dependencyIds: [updatedClaim.groupMemberId] });
     }
     return updatedClaim;
   }
 
-  async ignoreEventDuplicateWarning(warning: EventDuplicateWarning, actorUserId: string) {
+  async ignoreGroupDuplicateWarning(warning: GroupDuplicateWarning, actorUserId: string) {
     const timestamp = nowIso();
-    const updated: EventDuplicateWarning = {
+    const updated: GroupDuplicateWarning = {
       ...warning,
       status: 'ignored',
       ignoredByUserId: actorUserId,
       updatedAt: timestamp,
       syncStatus: warning.remoteId ? 'pending_update' : warning.syncStatus,
     };
-    await insertEventDuplicateWarning(this.db, updated);
-    await this.logEventActivity(warning.eventId, 'duplicate_warning_ignored', actorUserId, 'event_duplicate_warning', warning.id, {
-      eventMemberIdA: warning.eventMemberIdA,
-      eventMemberIdB: warning.eventMemberIdB,
+    await insertGroupDuplicateWarning(this.db, updated);
+    await this.logGroupActivity(warning.groupId, 'duplicate_warning_ignored', actorUserId, 'group_duplicate_warning', warning.id, {
+      groupMemberIdA: warning.groupMemberIdA,
+      groupMemberIdB: warning.groupMemberIdB,
     });
     return updated;
   }
 
-  async mergeSharedEventMembers(source: SharedEventMember, target: SharedEventMember, actorUserId: string) {
+  async mergeSharedGroupMembers(source: SharedGroupMember, target: SharedGroupMember, actorUserId: string) {
     if (source.type !== 'unlinked_placeholder' || target.type !== 'unlinked_placeholder') {
-      throw new Error('Only unlinked event members can be merged.');
+      throw new Error('Only unlinked group members can be merged.');
     }
-    if (source.eventId !== target.eventId) {
-      throw new Error('Members must belong to the same event.');
+    if (source.groupId !== target.groupId) {
+      throw new Error('Members must belong to the same group.');
     }
 
     const timestamp = nowIso();
     const snapshot = await loadSnapshot(this.db);
-    for (const expense of snapshot.sharedExpenses.filter((item) => item.eventId === source.eventId)) {
+    for (const expense of snapshot.sharedExpenses.filter((item) => item.groupId === source.groupId)) {
       const replacedParticipants = expense.participantIds.map((id) => (id === source.id ? target.id : id));
       const nextParticipantIds = Array.from(new Set(replacedParticipants));
       const updatedExpense = withGeneratedObligations({
@@ -1751,31 +1747,31 @@ export class DebtulatorRepository {
       await insertSharedExpense(this.db, updatedExpense);
     }
 
-    for (const debt of snapshot.eventDebts.filter((item) => item.eventId === source.eventId)) {
-      await insertEventDebt(this.db, {
+    for (const debt of snapshot.groupDebts.filter((item) => item.groupId === source.groupId)) {
+      await insertGroupDebt(this.db, {
         ...debt,
-        debtorEventMemberId: debt.debtorEventMemberId === source.id ? target.id : debt.debtorEventMemberId,
-        creditorEventMemberId: debt.creditorEventMemberId === source.id ? target.id : debt.creditorEventMemberId,
+        debtorGroupMemberId: debt.debtorGroupMemberId === source.id ? target.id : debt.debtorGroupMemberId,
+        creditorGroupMemberId: debt.creditorGroupMemberId === source.id ? target.id : debt.creditorGroupMemberId,
         syncStatus: debt.syncStatus === 'synced' ? 'pending_update' : debt.syncStatus,
         updatedAt: timestamp,
       });
     }
 
-    await insertSharedEventMember(this.db, {
+    await insertSharedGroupMember(this.db, {
       ...source,
       status: 'merged',
-      mergedIntoEventMemberId: target.id,
+      mergedIntoGroupMemberId: target.id,
       updatedAt: timestamp,
       syncStatus: source.remoteId ? 'pending_update' : source.syncStatus,
     });
 
-    for (const warning of snapshot.eventDuplicateWarnings.filter(
+    for (const warning of snapshot.groupDuplicateWarnings.filter(
       (item) =>
-        item.eventId === source.eventId &&
-        [item.eventMemberIdA, item.eventMemberIdB].includes(source.id) &&
-        [item.eventMemberIdA, item.eventMemberIdB].includes(target.id),
+        item.groupId === source.groupId &&
+        [item.groupMemberIdA, item.groupMemberIdB].includes(source.id) &&
+        [item.groupMemberIdA, item.groupMemberIdB].includes(target.id),
     )) {
-      await insertEventDuplicateWarning(this.db, {
+      await insertGroupDuplicateWarning(this.db, {
         ...warning,
         status: 'resolved',
         updatedAt: timestamp,
@@ -1783,26 +1779,26 @@ export class DebtulatorRepository {
       });
     }
 
-    await this.reconcileEventDuplicateWarnings(source.eventId);
-    await this.logEventActivity(source.eventId, 'members_merged', actorUserId, 'event_member', target.id, {
-      sourceEventMemberId: source.id,
-      targetEventMemberId: target.id,
+    await this.reconcileGroupDuplicateWarnings(source.groupId);
+    await this.logGroupActivity(source.groupId, 'members_merged', actorUserId, 'group_member', target.id, {
+      sourceGroupMemberId: source.id,
+      targetGroupMemberId: target.id,
       sourceDisplayName: source.displayName,
       targetDisplayName: target.displayName,
     });
     return { sourceId: source.id, targetId: target.id };
   }
 
-  async createEventDebt(input: EventDebtInput) {
+  async createGroupDebt(input: GroupDebtInput) {
     const timestamp = nowIso();
-    const debt: EventDebt = {
-      id: createId('event_debt'),
+    const debt: GroupDebt = {
+      id: createId('group_debt'),
       remoteId: input.remoteId ?? null,
-      eventId: input.eventId,
-      remoteEventId: input.remoteEventId ?? null,
+      groupId: input.groupId,
+      remoteGroupId: input.remoteGroupId ?? null,
       creatorUserId: cleanOptional(input.creatorUserId),
-      debtorEventMemberId: input.debtorEventMemberId,
-      creditorEventMemberId: input.creditorEventMemberId,
+      debtorGroupMemberId: input.debtorGroupMemberId,
+      creditorGroupMemberId: input.creditorGroupMemberId,
       amount: toAmount(input.amount),
       currency: input.currency,
       title: input.title.trim(),
@@ -1818,31 +1814,31 @@ export class DebtulatorRepository {
       archivedAt: null,
       syncStatus: input.syncStatus ?? (input.remoteId ? 'synced' : 'pending_upload'),
     };
-    await insertEventDebt(this.db, debt);
-    await this.logEventActivity(debt.eventId, 'simple_debt_added', debt.creatorUserId, 'event_debt', debt.id, {
+    await insertGroupDebt(this.db, debt);
+    await this.logGroupActivity(debt.groupId, 'simple_debt_added', debt.creatorUserId, 'group_debt', debt.id, {
       amount: debt.amount,
       currency: debt.currency,
       title: debt.title,
     });
     if (debt.syncStatus === 'pending_upload' || debt.syncStatus === 'pending_create') {
-      await this.queueSyncOperation({ entityType: 'event_debt', entityId: debt.id, operation: 'create', payload: debt, dependencyIds: [debt.eventId, debt.debtorEventMemberId, debt.creditorEventMemberId] });
+      await this.queueSyncOperation({ entityType: 'group_debt', entityId: debt.id, operation: 'create', payload: debt, dependencyIds: [debt.groupId, debt.debtorGroupMemberId, debt.creditorGroupMemberId] });
     }
     return debt;
   }
 
-  async updateEventDebt(debt: EventDebt, input: Partial<EventDebtInput>) {
+  async updateGroupDebt(debt: GroupDebt, input: Partial<GroupDebtInput>) {
     const timestamp = nowIso();
-    const updated: EventDebt = {
+    const updated: GroupDebt = {
       ...debt,
       remoteId: input.remoteId === undefined ? debt.remoteId : cleanOptional(input.remoteId),
       creatorUserId: input.creatorUserId === undefined ? debt.creatorUserId : cleanOptional(input.creatorUserId),
-      debtorEventMemberId: input.debtorEventMemberId ?? debt.debtorEventMemberId,
-      creditorEventMemberId: input.creditorEventMemberId ?? debt.creditorEventMemberId,
+      debtorGroupMemberId: input.debtorGroupMemberId ?? debt.debtorGroupMemberId,
+      creditorGroupMemberId: input.creditorGroupMemberId ?? debt.creditorGroupMemberId,
       amount: input.amount === undefined ? debt.amount : toAmount(input.amount),
       currency: input.currency ?? debt.currency,
       title: input.title?.trim() ?? debt.title,
       notes: input.notes === undefined ? debt.notes : cleanOptional(input.notes),
-      debtDate: input.debtDate ?? debt.debtDate,
+      debtDate: debt.debtDate,
       dueDate: input.dueDate === undefined ? debt.dueDate : cleanOptional(input.dueDate),
       tags: input.tags === undefined ? debt.tags : cleanTags(input.tags),
       verificationStatus: input.verificationStatus ?? debt.verificationStatus,
@@ -1852,44 +1848,44 @@ export class DebtulatorRepository {
       updatedAt: timestamp,
       syncStatus: input.syncStatus ?? (debt.syncStatus === 'synced' ? 'pending_update' : debt.syncStatus),
     };
-    await insertEventDebt(this.db, updated);
-    await this.logEventActivity(updated.eventId, 'simple_debt_edited', updated.creatorUserId, 'event_debt', updated.id, {
+    await insertGroupDebt(this.db, updated);
+    await this.logGroupActivity(updated.groupId, 'simple_debt_edited', updated.creatorUserId, 'group_debt', updated.id, {
       status: updated.status,
       verificationStatus: updated.verificationStatus,
     });
     if (updated.syncStatus === 'pending_update') {
-      await this.queueSyncOperation({ entityType: 'event_debt', entityId: updated.id, operation: updated.status === 'archived' ? 'archive' : 'update', payload: updated, dependencyIds: [updated.eventId, updated.debtorEventMemberId, updated.creditorEventMemberId] });
+      await this.queueSyncOperation({ entityType: 'group_debt', entityId: updated.id, operation: updated.status === 'archived' ? 'archive' : 'update', payload: updated, dependencyIds: [updated.groupId, updated.debtorGroupMemberId, updated.creditorGroupMemberId] });
     }
     return updated;
   }
 
-  async respondToEventVerification(input: {
-    eventId: string;
-    targetType: EventVerificationResponse['targetType'];
+  async respondToGroupVerification(input: {
+    groupId: string;
+    targetType: GroupVerificationResponse['targetType'];
     targetId: string;
-    eventMemberId: string;
+    groupMemberId: string;
     linkedUserId: string;
     status: Extract<VerificationStatus, 'verified' | 'rejected'>;
     rejectionReason?: string | null;
   }) {
     const timestamp = nowIso();
     const snapshot = await loadSnapshot(this.db);
-    const existing = snapshot.eventVerificationResponses.find(
+    const existing = snapshot.groupVerificationResponses.find(
       (response) =>
-        response.eventId === input.eventId &&
+        response.groupId === input.groupId &&
         response.targetType === input.targetType &&
         response.targetId === input.targetId &&
-        response.eventMemberId === input.eventMemberId,
+        response.groupMemberId === input.groupMemberId,
     );
-    const response: EventVerificationResponse = {
-      id: existing?.id ?? createId('event_verify'),
+    const response: GroupVerificationResponse = {
+      id: existing?.id ?? createId('group_verify'),
       remoteId: existing?.remoteId ?? null,
-      eventId: input.eventId,
-      remoteEventId: existing?.remoteEventId ?? null,
+      groupId: input.groupId,
+      remoteGroupId: existing?.remoteGroupId ?? null,
       targetType: input.targetType,
       targetId: input.targetId,
       remoteTargetId: existing?.remoteTargetId ?? null,
-      eventMemberId: input.eventMemberId,
+      groupMemberId: input.groupMemberId,
       linkedUserId: input.linkedUserId,
       responseStatus: input.status,
       rejectionReason: input.status === 'rejected' ? cleanOptional(input.rejectionReason) : null,
@@ -1898,23 +1894,23 @@ export class DebtulatorRepository {
       updatedAt: timestamp,
       syncStatus: existing?.remoteId ? 'pending_update' : existing?.syncStatus ?? 'pending_upload',
     };
-    await insertEventVerificationResponse(this.db, response);
-    await this.deriveEventTargetVerification(input.eventId, input.targetType, input.targetId);
-    await this.logEventActivity(
-      input.eventId,
+    await insertGroupVerificationResponse(this.db, response);
+    await this.deriveGroupTargetVerification(input.groupId, input.targetType, input.targetId);
+    await this.logGroupActivity(
+      input.groupId,
       input.status === 'verified' ? 'expense_verified' : 'expense_rejected',
       input.linkedUserId,
-      input.targetType === 'debt' ? 'event_debt' : 'shared_expense',
+      input.targetType === 'debt' ? 'group_debt' : 'shared_expense',
       input.targetId,
-      { eventMemberId: input.eventMemberId, rejectionReason: response.rejectionReason },
+      { groupMemberId: input.groupMemberId, rejectionReason: response.rejectionReason },
     );
     if (response.syncStatus === 'pending_upload' || response.syncStatus === 'pending_create' || response.syncStatus === 'pending_update') {
       await this.queueSyncOperation({
-        entityType: 'event_verification',
+        entityType: 'group_verification',
         entityId: response.id,
         operation: response.remoteId ? 'update' : 'create',
         payload: response,
-        dependencyIds: [response.eventId, response.eventMemberId, response.targetId],
+        dependencyIds: [response.groupId, response.groupMemberId, response.targetId],
       });
     }
     return response;
@@ -1936,7 +1932,7 @@ export class DebtulatorRepository {
       id: createId('attachment'),
       targetType: input.targetType,
       targetId: input.targetId,
-      eventId: cleanOptional(input.eventId),
+      groupId: cleanOptional(input.groupId),
       createdByUserId: cleanOptional(input.createdByUserId),
       localUri: cleanOptional(input.localUri),
       remoteUrl: cleanOptional(input.remoteUrl),
@@ -1960,8 +1956,8 @@ export class DebtulatorRepository {
       attachmentKind: attachment.attachmentKind,
       visibility: attachment.visibility,
     });
-    if (attachment.eventId && attachment.visibility === 'shared') {
-      await this.logEventActivity(attachment.eventId, 'attachment_added', attachment.createdByUserId, 'attachment', attachment.id, {
+    if (attachment.groupId && attachment.visibility === 'shared') {
+      await this.logGroupActivity(attachment.groupId, 'attachment_added', attachment.createdByUserId, 'attachment', attachment.id, {
         targetType: attachment.targetType,
         targetId: attachment.targetId,
         attachmentKind: attachment.attachmentKind,
@@ -1995,8 +1991,8 @@ export class DebtulatorRepository {
       targetType: attachment.targetType,
       targetId: attachment.targetId,
     });
-    if (attachment.eventId && attachment.visibility === 'shared') {
-      await this.logEventActivity(attachment.eventId, 'attachment_removed', actorUserId ?? attachment.createdByUserId, 'attachment', attachment.id, {
+    if (attachment.groupId && attachment.visibility === 'shared') {
+      await this.logGroupActivity(attachment.groupId, 'attachment_removed', actorUserId ?? attachment.createdByUserId, 'attachment', attachment.id, {
         targetType: attachment.targetType,
         targetId: attachment.targetId,
       });
@@ -2013,7 +2009,7 @@ export class DebtulatorRepository {
       id: createId('comment'),
       targetType: input.targetType,
       targetId: input.targetId,
-      eventId: cleanOptional(input.eventId),
+      groupId: cleanOptional(input.groupId),
       authorUserId: cleanOptional(input.authorUserId),
       localAuthorLabel: cleanOptional(input.localAuthorLabel),
       body: input.body.trim(),
@@ -2029,8 +2025,8 @@ export class DebtulatorRepository {
       targetId: comment.targetId,
       visibility: comment.visibility,
     });
-    if (comment.eventId && comment.visibility === 'shared') {
-      await this.logEventActivity(comment.eventId, 'comment_added', comment.authorUserId, 'comment', comment.id, {
+    if (comment.groupId && comment.visibility === 'shared') {
+      await this.logGroupActivity(comment.groupId, 'comment_added', comment.authorUserId, 'comment', comment.id, {
         targetType: comment.targetType,
         targetId: comment.targetId,
       });
@@ -2054,8 +2050,8 @@ export class DebtulatorRepository {
       targetType: comment.targetType,
       targetId: comment.targetId,
     });
-    if (comment.eventId && comment.visibility === 'shared') {
-      await this.logEventActivity(comment.eventId, 'comment_edited', comment.authorUserId, 'comment', comment.id, {
+    if (comment.groupId && comment.visibility === 'shared') {
+      await this.logGroupActivity(comment.groupId, 'comment_edited', comment.authorUserId, 'comment', comment.id, {
         targetType: comment.targetType,
         targetId: comment.targetId,
       });
@@ -2078,8 +2074,8 @@ export class DebtulatorRepository {
       targetType: comment.targetType,
       targetId: comment.targetId,
     });
-    if (comment.eventId && comment.visibility === 'shared') {
-      await this.logEventActivity(comment.eventId, 'comment_deleted', actorUserId ?? comment.authorUserId, 'comment', comment.id, {
+    if (comment.groupId && comment.visibility === 'shared') {
+      await this.logGroupActivity(comment.groupId, 'comment_deleted', actorUserId ?? comment.authorUserId, 'comment', comment.id, {
         targetType: comment.targetType,
         targetId: comment.targetId,
       });
@@ -2330,48 +2326,48 @@ export class DebtulatorRepository {
     return expense;
   }
 
-  async upsertEvent(event: Event) {
-    await insertEvent(this.db, event);
-    return event;
+  async upsertGroup(group: Group) {
+    await insertGroup(this.db, group);
+    return group;
   }
 
-  async upsertEventParticipant(participant: EventParticipant) {
-    await insertEventParticipant(this.db, participant);
+  async upsertGroupParticipant(participant: GroupParticipant) {
+    await insertGroupParticipant(this.db, participant);
     return participant;
   }
 
-  async upsertEventInvite(invite: EventInvite) {
-    await insertEventInvite(this.db, invite);
+  async upsertGroupInvite(invite: GroupInvite) {
+    await insertGroupInvite(this.db, invite);
     return invite;
   }
 
-  async upsertSharedEventMember(member: SharedEventMember) {
-    await insertSharedEventMember(this.db, member);
+  async upsertSharedGroupMember(member: SharedGroupMember) {
+    await insertSharedGroupMember(this.db, member);
     return member;
   }
 
-  async upsertEventMemberClaim(claim: EventMemberClaim) {
-    await insertEventMemberClaim(this.db, claim);
+  async upsertGroupMemberClaim(claim: GroupMemberClaim) {
+    await insertGroupMemberClaim(this.db, claim);
     return claim;
   }
 
-  async upsertEventDuplicateWarning(warning: EventDuplicateWarning) {
-    await insertEventDuplicateWarning(this.db, warning);
+  async upsertGroupDuplicateWarning(warning: GroupDuplicateWarning) {
+    await insertGroupDuplicateWarning(this.db, warning);
     return warning;
   }
 
-  async upsertEventDebt(debt: EventDebt) {
-    await insertEventDebt(this.db, debt);
+  async upsertGroupDebt(debt: GroupDebt) {
+    await insertGroupDebt(this.db, debt);
     return debt;
   }
 
-  async upsertEventVerificationResponse(response: EventVerificationResponse) {
-    await insertEventVerificationResponse(this.db, response);
+  async upsertGroupVerificationResponse(response: GroupVerificationResponse) {
+    await insertGroupVerificationResponse(this.db, response);
     return response;
   }
 
-  async upsertEventActivityLog(activity: EventActivityLog) {
-    await insertEventActivityLog(this.db, activity);
+  async upsertGroupActivityLog(activity: GroupActivityLog) {
+    await insertGroupActivityLog(this.db, activity);
     return activity;
   }
 
@@ -2392,7 +2388,7 @@ export class DebtulatorRepository {
 
   async createPaymentSettlement(input: CreatePaymentInput) {
     const timestamp = nowIso();
-    const eventScoped = Boolean(input.eventId);
+    const groupScoped = Boolean(input.groupId);
     const payment: Payment = {
       id: createId('payment'),
       localId: null,
@@ -2400,30 +2396,30 @@ export class DebtulatorRepository {
       createdByUserId: cleanOptional(input.createdByUserId),
       payerUserId: null,
       payeeUserId: null,
-      payerMemberId: eventScoped || input.payerId === 'me' ? null : input.payerId,
-      payeeMemberId: eventScoped || input.payeeId === 'me' ? null : input.payeeId,
-      payerEventMemberId: eventScoped ? input.payerId : null,
-      payeeEventMemberId: eventScoped ? input.payeeId : null,
-      eventId: input.eventId ?? null,
-      relatedMemberId: input.relatedMemberId ?? (!eventScoped && input.payerId !== 'me' ? input.payerId : input.payeeId !== 'me' ? input.payeeId : null),
+      payerMemberId: groupScoped || input.payerId === 'me' ? null : input.payerId,
+      payeeMemberId: groupScoped || input.payeeId === 'me' ? null : input.payeeId,
+      payerGroupMemberId: groupScoped ? input.payerId : null,
+      payeeGroupMemberId: groupScoped ? input.payeeId : null,
+      groupId: input.groupId ?? null,
+      relatedMemberId: input.relatedMemberId ?? (!groupScoped && input.payerId !== 'me' ? input.payerId : input.payeeId !== 'me' ? input.payeeId : null),
       amount: toAmount(input.amount),
       currency: input.currency,
       paymentDate: input.paymentDate || todayIsoDate(),
       notes: cleanOptional(input.notes),
       status: input.status ?? 'recorded',
-      confirmationStatus: input.confirmationStatus ?? (eventScoped ? 'pending_confirmation' : 'local_only'),
-      visibility: input.visibility ?? (eventScoped ? 'shared_event' : 'private'),
+      confirmationStatus: input.confirmationStatus ?? (groupScoped ? 'pending_confirmation' : 'local_only'),
+      visibility: input.visibility ?? (groupScoped ? 'shared_group' : 'private'),
       createdAt: timestamp,
       updatedAt: timestamp,
       archivedAt: null,
-      syncStatus: eventScoped ? 'pending_upload' : 'local_only',
+      syncStatus: groupScoped ? 'pending_upload' : 'local_only',
     };
     const settlement: Settlement = {
       id: createId('settlement'),
       localId: null,
       remoteId: null,
       createdByUserId: payment.createdByUserId,
-      eventId: input.eventId ?? null,
+      groupId: input.groupId ?? null,
       memberId: payment.relatedMemberId,
       type: input.settlementType ?? 'manual',
       currency: payment.currency,
@@ -2470,9 +2466,9 @@ export class DebtulatorRepository {
         createdByUserId: payment.createdByUserId,
         payerMemberId: payment.payerMemberId,
         payeeMemberId: payment.payeeMemberId,
-        payerEventMemberId: payment.payerEventMemberId,
-        payeeEventMemberId: payment.payeeEventMemberId,
-        eventId: payment.eventId,
+        payerGroupMemberId: payment.payerGroupMemberId,
+        payeeGroupMemberId: payment.payeeGroupMemberId,
+        groupId: payment.groupId,
         amount: overpaymentAmount,
         currency: payment.currency,
         sourcePaymentId: payment.id,
@@ -2492,8 +2488,8 @@ export class DebtulatorRepository {
       paymentId: payment.id,
       lineCount: lines.length,
     });
-    if (payment.eventId) {
-      await this.logEventActivity(payment.eventId, 'settlement_record_created', payment.createdByUserId, 'settlement', settlement.id, {
+    if (payment.groupId) {
+      await this.logGroupActivity(payment.groupId, 'settlement_record_created', payment.createdByUserId, 'settlement', settlement.id, {
         paymentId: payment.id,
         lineCount: lines.length,
         overpaymentAmount,
@@ -2506,9 +2502,9 @@ export class DebtulatorRepository {
         operation: 'create',
         payload: payment,
         dependencyIds: [
-          payment.eventId,
-          payment.payerEventMemberId,
-          payment.payeeEventMemberId,
+          payment.groupId,
+          payment.payerGroupMemberId,
+          payment.payeeGroupMemberId,
         ].filter(Boolean) as string[],
       });
       await this.queueSyncOperation({
@@ -2527,7 +2523,7 @@ export class DebtulatorRepository {
     const template: RecurringTemplate = {
       id: createId('recurring'),
       createdByUserId: cleanOptional(input.createdByUserId),
-      eventId: cleanOptional(input.eventId),
+      groupId: cleanOptional(input.groupId),
       memberId: cleanOptional(input.memberId),
       type: input.type,
       title: input.title.trim(),
@@ -2617,7 +2613,7 @@ export class DebtulatorRepository {
         });
       } else if (template.type === 'shared_expense') {
         await this.createSharedExpense({
-          eventId: String(template.payload.eventId ?? template.eventId ?? ''),
+          groupId: String(template.payload.groupId ?? template.groupId ?? ''),
           creatorUserId: template.createdByUserId,
           payerId: String(template.payload.payerId ?? 'me'),
           amount: template.amount,
@@ -2629,7 +2625,7 @@ export class DebtulatorRepository {
           splitMethod: (template.payload.splitMethod as SharedExpense['splitMethod'] | undefined) ?? 'equal',
           splitAllocations: (template.payload.splitAllocations as Record<ParticipantId, number> | undefined) ?? {},
           expensePayers: Array.isArray(template.payload.expensePayers)
-            ? (template.payload.expensePayers as { eventMemberId: ParticipantId; amountPaid: number }[])
+            ? (template.payload.expensePayers as { groupMemberId: ParticipantId; amountPaid: number }[])
             : undefined,
           recurringTemplateId: template.id,
           tags: Array.isArray(template.payload.tags) ? (template.payload.tags as string[]) : ['Recurring'],
@@ -2678,7 +2674,7 @@ export class DebtulatorRepository {
     await insertSoftReminder(this.db, reminder);
     await this.logActivity('soft_reminder', reminder.id, 'reminder_sent', reminder.senderUserId, {
       relatedMemberId: reminder.relatedMemberId,
-      relatedEventId: reminder.relatedEventId,
+      relatedGroupId: reminder.relatedGroupId,
       relatedRecordId: reminder.relatedRecordId,
     });
     return reminder;
@@ -2797,8 +2793,8 @@ export class DebtulatorRepository {
     });
   }
 
-  async logEventActivity(
-    eventId: string,
+  async logGroupActivity(
+    groupId: string,
     action: string,
     actorUserId: string | null,
     targetType: string,
@@ -2806,31 +2802,31 @@ export class DebtulatorRepository {
     metadata: Record<string, unknown>,
   ) {
     const snapshot = await loadSnapshot(this.db);
-    const event = snapshot.events.find((item) => item.id === eventId);
-    await insertEventActivityLog(this.db, {
-      id: createId('event_activity'),
+    const group = snapshot.groups.find((item) => item.id === groupId);
+    await insertGroupActivityLog(this.db, {
+      id: createId('group_activity'),
       remoteId: null,
-      eventId,
-      remoteEventId: event?.remoteId ?? null,
+      groupId,
+      remoteGroupId: group?.remoteId ?? null,
       actorUserId,
       action,
       targetType,
       targetId,
       metadata,
       createdAt: nowIso(),
-      syncStatus: event?.syncStatus === 'synced' ? 'pending_upload' : event?.syncStatus ?? 'local_only',
+      syncStatus: group?.syncStatus === 'synced' ? 'pending_upload' : group?.syncStatus ?? 'local_only',
     });
   }
 
-  private async reconcileEventDuplicateWarnings(eventId: string) {
+  private async reconcileGroupDuplicateWarnings(groupId: string) {
     const snapshot = await loadSnapshot(this.db);
-    const drafts = findSharedEventDuplicateWarningDrafts(eventId, snapshot.sharedEventMembers);
+    const drafts = findSharedGroupDuplicateWarningDrafts(groupId, snapshot.sharedGroupMembers);
     const existingByPair = new Map(
-      snapshot.eventDuplicateWarnings.map((warning) => [
+      snapshot.groupDuplicateWarnings.map((warning) => [
         duplicatePairKey({
-          eventId: warning.eventId,
-          eventMemberIdA: warning.eventMemberIdA,
-          eventMemberIdB: warning.eventMemberIdB,
+          groupId: warning.groupId,
+          groupMemberIdA: warning.groupMemberIdA,
+          groupMemberIdB: warning.groupMemberIdB,
           reason: warning.reason,
         }),
         warning,
@@ -2843,18 +2839,18 @@ export class DebtulatorRepository {
       if (existing?.status === 'ignored' || existing?.status === 'resolved') {
         continue;
       }
-      await insertEventDuplicateWarning(this.db, buildDuplicateWarning(draft, existing));
+      await insertGroupDuplicateWarning(this.db, buildDuplicateWarning(draft, existing));
     }
   }
 
-  private async deriveEventTargetVerification(
-    eventId: string,
-    targetType: EventVerificationResponse['targetType'],
+  private async deriveGroupTargetVerification(
+    groupId: string,
+    targetType: GroupVerificationResponse['targetType'],
     targetId: string,
   ) {
     const snapshot = await loadSnapshot(this.db);
-    const responses = snapshot.eventVerificationResponses.filter(
-      (response) => response.eventId === eventId && response.targetType === targetType && response.targetId === targetId,
+    const responses = snapshot.groupVerificationResponses.filter(
+      (response) => response.groupId === groupId && response.targetType === targetType && response.targetId === targetId,
     );
     const responseStatuses = responses.map((response) => response.responseStatus);
     const nextStatus: VerificationStatus =
@@ -2877,9 +2873,9 @@ export class DebtulatorRepository {
         });
       }
     } else if (targetType === 'debt') {
-      const debt = snapshot.eventDebts.find((item) => item.id === targetId);
+      const debt = snapshot.groupDebts.find((item) => item.id === targetId);
       if (debt) {
-        await insertEventDebt(this.db, {
+        await insertGroupDebt(this.db, {
           ...debt,
           verificationStatus: nextStatus,
           updatedAt: nowIso(),
@@ -2948,16 +2944,16 @@ function withoutConflictBlockers(payload: Record<string, unknown>) {
 
 function buildExpensePayers(
   expenseId: string,
-  payers: { eventMemberId: ParticipantId; amountPaid: number }[],
+  payers: { groupMemberId: ParticipantId; amountPaid: number }[],
   currency: CurrencyCode,
   timestamp: string,
 ): ExpensePayer[] {
   return payers
-    .filter((payer) => payer.eventMemberId && toAmount(payer.amountPaid) > 0)
+    .filter((payer) => payer.groupMemberId && toAmount(payer.amountPaid) > 0)
     .map((payer, index) => ({
-      id: `${expenseId}_payer_${payer.eventMemberId}_${index}`,
+      id: `${expenseId}_payer_${payer.groupMemberId}_${index}`,
       expenseId,
-      eventMemberId: payer.eventMemberId,
+      groupMemberId: payer.groupMemberId,
       amountPaid: toAmount(payer.amountPaid),
       currency,
       createdAt: timestamp,
@@ -2983,7 +2979,7 @@ function nextOccurrenceDate(currentDate: string, recurrenceRule: string) {
   return date.toISOString().slice(0, 10);
 }
 
-function hasEventUpdate(input: Partial<EventInput> & { archived?: boolean; ignoredDuplicateKeys?: string[] }) {
+function hasGroupUpdate(input: Partial<GroupInput> & { archived?: boolean; ignoredDuplicateKeys?: string[] }) {
   return [
     input.name,
     input.notes,

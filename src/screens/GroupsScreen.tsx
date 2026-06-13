@@ -24,32 +24,32 @@ import { palette, spacing, typefaces,
 typography,
 } from "@/src/constants/design";
 import { estimateMoneyMap } from "@/src/services/currency";
-import { explainEventSettlement } from "@/src/services/ledger";
+import { explainGroupSettlement } from "@/src/services/ledger";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
 import { formatMoney } from "@/src/utils/money";
 
-type EventFilter = "all" | "planning" | "active" | "settled";
+type GroupFilter = "all" | "planning" | "active" | "settled";
 
-export function EventsScreen() {
+export function GroupsScreen() {
   const data = useAppData();
   const auth = useAuth();
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<EventFilter>("all");
+  const [filter, setFilter] = useState<GroupFilter>("all");
   const [filterOpen, setFilterOpen] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
 
-  const events = useMemo(() => {
+  const groups = useMemo(() => {
     const normalized = query.trim().toLowerCase();
 
-    return data.events.filter((event) => {
-      if (event.archived) {
+    return data.groups.filter((group) => {
+      if (group.archived) {
         return false;
       }
       const matchesQuery =
         !normalized ||
-        event.name.toLowerCase().includes(normalized) ||
-        (event.notes ?? "").toLowerCase().includes(normalized);
+        group.name.toLowerCase().includes(normalized) ||
+        (group.notes ?? "").toLowerCase().includes(normalized);
       if (!matchesQuery) {
         return false;
       }
@@ -57,20 +57,20 @@ export function EventsScreen() {
         return true;
       }
       if (filter === "settled") {
-        return event.status === "settled";
+        return group.status === "settled";
       }
-      return event.status === filter;
+      return group.status === filter;
     });
-  }, [data.events, filter, query]);
+  }, [data.groups, filter, query]);
 
-  const sharedCount = data.events.filter(
-    (event) => !event.archived && event.visibility === "shared",
+  const sharedCount = data.groups.filter(
+    (group) => !group.archived && group.visibility === "shared",
   ).length;
-  const activeCount = data.events.filter(
-    (event) => !event.archived && event.status === "active",
+  const activeCount = data.groups.filter(
+    (group) => !group.archived && group.status === "active",
   ).length;
-  const settledCount = data.events.filter(
-    (event) => !event.archived && event.status === "settled",
+  const settledCount = data.groups.filter(
+    (group) => !group.archived && group.status === "settled",
   ).length;
 
   if (data.loading || auth.loading) {
@@ -80,30 +80,30 @@ export function EventsScreen() {
   return (
     <Screen>
       <PageHeader
-        title="Events"
+        title="Groups"
         showBackButton={false}
         action={
           <IconButton
             icon="ellipsis-horizontal"
-            label="Event options"
+            label="Group options"
             onPress={() => setOptionsOpen(true)}
           />
         }
       />
 
       <Button
-        title="Add event"
+        title="Add group"
         icon="add"
-        onPress={() => router.push("/event/form")}
+        onPress={() => router.push("/group/form")}
       />
 
       <SearchFilterBar
         value={query}
         onChangeText={setQuery}
-        placeholder="Search events"
+        placeholder="Search groups"
         onPressFilter={() => setFilterOpen(true)}
         filterActive={filter !== "all"}
-        filterLabel="Open event filters"
+        filterLabel="Open group filters"
       />
 
       <GlassCard tone="peach" allowOverflow>
@@ -129,7 +129,7 @@ export function EventsScreen() {
           <StatCard
             label="Settled"
             value={String(settledCount)}
-            subtitle="Closed out events"
+            subtitle="Closed out groups"
             tone="teal"
             compact
             compactDensity="tight"
@@ -139,15 +139,15 @@ export function EventsScreen() {
 
       <FilterSheet
         visible={filterOpen}
-        title="Event filters"
-        subtitle="Choose which groups and event states appear here."
+        title="Group filters"
+        subtitle="Choose which groups and group states appear here."
         onClose={() => setFilterOpen(false)}
       >
         <SingleSelectFilterList
           value={filter}
           options={FILTERS}
           onChange={(value) => {
-            setFilter(value as EventFilter);
+            setFilter(value as GroupFilter);
             setFilterOpen(false);
           }}
         />
@@ -155,14 +155,14 @@ export function EventsScreen() {
 
       <MobileMenuModal
         visible={optionsOpen}
-        title="Event options"
+        title="Group options"
         onClose={() => setOptionsOpen(false)}
         sections={[
           {
             items: [
               {
                 label: "Open filters",
-                subtitle: "Change which events are shown",
+                subtitle: "Change which groups are shown",
                 icon: "options-outline",
                 onPress: () => {
                   setOptionsOpen(false);
@@ -178,24 +178,24 @@ export function EventsScreen() {
         title="Your groups"
         subtitle="Warm, readable summaries for plans and shared expense spaces."
       />
-      {events.length ? (
-        <View style={styles.eventColumn}>
-          {events.map((event) => {
-            const explanation = explainEventSettlement(
-              event.id,
+      {groups.length ? (
+        <View style={styles.groupColumn}>
+          {groups.map((group) => {
+            const explanation = explainGroupSettlement(
+              group.id,
               data.ledgerEntries,
             );
             const memberLabels =
-              event.visibility === "shared"
-                ? data.sharedEventMembers
+              group.visibility === "shared"
+                ? data.sharedGroupMembers
                     .filter(
                       (member) =>
-                        member.eventId === event.id &&
+                        member.groupId === group.id &&
                         member.status !== "merged",
                     )
                     .map((member) => member.alias || member.displayName)
-                : data.eventMembers
-                    .filter((member) => member.eventId === event.id)
+                : data.groupMembers
+                    .filter((member) => member.groupId === group.id)
                     .map((member) => member.memberId);
             const myBalance = explanation.participantNets.me ?? {};
             const amountLabel = formatMoney(
@@ -207,48 +207,48 @@ export function EventsScreen() {
 
             return (
               <Pressable
-                key={event.id}
+                key={group.id}
                 accessibilityRole="button"
-                accessibilityLabel={`${event.name}, ${event.visibility} event, ${event.status}, ${amountLabel}`}
+                accessibilityLabel={`${group.name}, ${group.visibility} group, ${group.status}, ${amountLabel}`}
                 accessibilityHint={
                   explanation.suggestions.length
-                    ? `${explanation.suggestions.length} settlement ideas. Opens event details.`
-                    : "Balanced. Opens event details."
+                    ? `${explanation.suggestions.length} settlement ideas. Opens group details.`
+                    : "Balanced. Opens group details."
                 }
                 onPress={() =>
                   router.push({
-                    pathname: "/event/[id]",
-                    params: { id: event.id },
+                    pathname: "/group/[id]",
+                    params: { id: group.id },
                   })
                 }
                 style={({ pressed }) => [
-                  styles.eventPressable,
+                  styles.groupPressable,
                   pressed && styles.pressed,
                 ]}
               >
-                <GlassCard tone="peach" style={styles.eventCard}>
-                  <View style={styles.eventBody}>
-                    <View style={styles.eventHeader}>
-                      <View style={styles.eventCopy}>
-                        <Text style={styles.eventTitle}>{event.name}</Text>
-                        <Text style={styles.eventMeta}>
-                          {event.createdAt.slice(0, 10)} ·{" "}
-                          {event.visibility === "shared"
-                            ? "Shared event"
-                            : "Private event"}
+                <GlassCard tone="peach" style={styles.groupCard}>
+                  <View style={styles.groupBody}>
+                    <View style={styles.groupHeader}>
+                      <View style={styles.groupCopy}>
+                        <Text style={styles.groupTitle}>{group.name}</Text>
+                        <Text style={styles.groupMeta}>
+                          {group.createdAt.slice(0, 10)} ·{" "}
+                          {group.visibility === "shared"
+                            ? "Shared group"
+                            : "Private group"}
                         </Text>
                       </View>
-                      <Text style={styles.eventAmount}>{amountLabel}</Text>
+                      <Text style={styles.groupAmount}>{amountLabel}</Text>
                     </View>
-                    <Text style={styles.eventNotes} numberOfLines={2}>
-                      {event.notes ||
+                    <Text style={styles.groupNotes} numberOfLines={2}>
+                      {group.notes ||
                         "Shared plans and expense tracking in one calm thread."}
                     </Text>
-                    <View style={styles.eventFooter}>
+                    <View style={styles.groupFooter}>
                       <AvatarStack
                         labels={memberLabels.length ? memberLabels : ["You"]}
                       />
-                      <Text style={styles.eventProgress}>
+                      <Text style={styles.groupProgress}>
                         {explanation.suggestions.length
                           ? `${explanation.suggestions.length} settlement ideas`
                           : "Balanced"}
@@ -271,8 +271,8 @@ export function EventsScreen() {
       ) : (
         <GlassCard tone="peach">
           <EmptyState
-            title="No events found"
-            body="Try another filter or create a shared event from the add button."
+            title="No groups found"
+            body="Try another filter or create a shared group from the add button."
           />
         </GlassCard>
       )}
@@ -280,11 +280,11 @@ export function EventsScreen() {
   );
 }
 
-const FILTERS: { label: string; value: EventFilter; description: string }[] = [
+const FILTERS: { label: string; value: GroupFilter; description: string }[] = [
   {
     label: "All",
     value: "all",
-    description: "Every visible event, no matter where it is in the flow.",
+    description: "Every visible group, no matter where it is in the flow.",
   },
   {
     label: "Planning",
@@ -294,7 +294,7 @@ const FILTERS: { label: string; value: EventFilter; description: string }[] = [
   {
     label: "Active",
     value: "active",
-    description: "Events with ongoing balances and shared activity.",
+    description: "Groups with ongoing balances and shared activity.",
   },
   {
     label: "Settled",
@@ -309,58 +309,58 @@ const styles = StyleSheet.create({
     alignItems: "stretch",
     gap: 0,
   },
-  eventColumn: {
+  groupColumn: {
     gap: spacing.md,
   },
-  eventPressable: {
+  groupPressable: {
     borderRadius: 28,
   },
-  eventCard: {
+  groupCard: {
     padding: 0,
     overflow: "hidden",
   },
-  eventBody: {
+  groupBody: {
     padding: spacing.lg,
     gap: spacing.sm,
   },
-  eventHeader: {
+  groupHeader: {
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
     gap: spacing.md,
   },
-  eventCopy: {
+  groupCopy: {
     flex: 1,
     gap: 2,
   },
-  eventTitle: {
+  groupTitle: {
     color: palette.textPrimary,
     fontSize: typography.size.xxl,
     fontFamily: typefaces.displayMedium,
   },
-  eventMeta: {
+  groupMeta: {
     color: palette.muted,
     fontSize: typography.size.sm,
     fontFamily: typefaces.body,
   },
-  eventAmount: {
+  groupAmount: {
     color: palette.primaryDeep,
     fontSize: typography.size.xl,
     fontFamily: typefaces.bodyHeavy,
   },
-  eventNotes: {
+  groupNotes: {
     color: palette.muted,
     fontSize: typography.size.base,
     lineHeight: typography.line.xl,
     fontFamily: typefaces.body,
   },
-  eventFooter: {
+  groupFooter: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.md,
   },
-  eventProgress: {
+  groupProgress: {
     color: palette.primary,
     fontSize: typography.size.sm,
     fontFamily: typefaces.bodyStrong,

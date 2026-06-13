@@ -43,8 +43,8 @@ export function RecurringTemplateFormScreen() {
       data.members.find((member) => !member.archived)?.id ??
       "",
   );
-  const [eventId, setEventId] = useState(
-    template?.eventId ?? data.events.find((event) => !event.archived)?.id ?? "",
+  const [groupId, setGroupId] = useState(
+    template?.groupId ?? data.groups.find((group) => !group.archived)?.id ?? "",
   );
   const [direction, setDirection] = useState<DebtDirection>(
     (template?.payload.direction as DebtDirection | undefined) ?? "they_owe_me",
@@ -59,12 +59,12 @@ export function RecurringTemplateFormScreen() {
       type === "simple_debt"
         ? { memberId, direction, tags: ["Recurring"] }
         : {
-            eventId,
+            groupId,
             payerId: "me",
             participantIds: [
               "me",
-              ...data.eventMembers
-                .filter((member) => member.eventId === eventId)
+              ...data.groupMembers
+                .filter((member) => member.groupId === groupId)
                 .map((member) => member.memberId),
             ],
             splitMethod: "equal",
@@ -79,7 +79,7 @@ export function RecurringTemplateFormScreen() {
         recurrenceRule,
         nextOccurrenceDate,
         memberId: type === "simple_debt" ? memberId : null,
-        eventId: type === "shared_expense" ? eventId : null,
+        groupId: type === "shared_expense" ? groupId : null,
         payload,
       });
     } else {
@@ -92,7 +92,7 @@ export function RecurringTemplateFormScreen() {
         startDate: nextOccurrenceDate,
         nextOccurrenceDate,
         memberId: type === "simple_debt" ? memberId : null,
-        eventId: type === "shared_expense" ? eventId : null,
+        groupId: type === "shared_expense" ? groupId : null,
         payload,
       });
     }
@@ -208,12 +208,12 @@ export function RecurringTemplateFormScreen() {
           </>
         ) : (
           <SelectChips
-            label="Event"
-            value={eventId}
-            options={data.events
-              .filter((event) => !event.archived)
-              .map((event) => ({ label: event.name, value: event.id }))}
-            onChange={setEventId}
+            label="Group"
+            value={groupId}
+            options={data.groups
+              .filter((group) => !group.archived)
+              .map((group) => ({ label: group.name, value: group.id }))}
+            onChange={setGroupId}
           />
         )}
       </Card>

@@ -78,7 +78,7 @@ export function DebtHistoryScreen() {
                   entryDirectionText(
                     item.entry,
                     data.members,
-                    data.sharedEventMembers,
+                    data.sharedGroupMembers,
                   ),
                   item.method,
                   `Settled ${formatDate(item.settledAt)}`,
@@ -87,8 +87,8 @@ export function DebtHistoryScreen() {
                 status={settlementStatusLabel(item)}
                 statusTone="teal"
                 meta={historyMeta(item)}
-                icon={item.entry.eventId ? "people-outline" : "wallet-outline"}
-                iconTone={item.entry.eventId ? "teal" : "indigo"}
+                icon={item.entry.groupId ? "people-outline" : "wallet-outline"}
+                iconTone={item.entry.groupId ? "teal" : "indigo"}
                 showDivider={index < historyItems.length - 1}
                 onPress={() => openEntry(item.entry)}
               />
@@ -207,14 +207,14 @@ function formatDate(value: string) {
 }
 
 function openEntry(
-  entry: Pick<LedgerEntry, "kind" | "sourceId" | "expenseId" | "eventId">,
+  entry: Pick<LedgerEntry, "kind" | "sourceId" | "expenseId" | "groupId">,
 ) {
   if (entry.kind === "simple_debt") {
     router.push({ pathname: "/debt/[id]", params: { id: entry.sourceId } });
     return;
   }
-  if (entry.kind === "event_direct_debt" && entry.eventId) {
-    router.push({ pathname: "/event/[id]", params: { id: entry.eventId } });
+  if (entry.kind === "group_direct_debt" && entry.groupId) {
+    router.push({ pathname: "/group/[id]", params: { id: entry.groupId } });
     return;
   }
   router.push({

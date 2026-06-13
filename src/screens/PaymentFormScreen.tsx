@@ -36,13 +36,13 @@ import { formatMoney, roundMoney } from "@/src/utils/money";
 export function PaymentFormScreen() {
   const {
     debtId,
-    eventId,
+    groupId,
     memberId,
     payerId: initialPayerId,
     payeeId: initialPayeeId,
   } = useLocalSearchParams<{
     debtId?: string;
-    eventId?: string;
+    groupId?: string;
     memberId?: string;
     payerId?: string;
     payeeId?: string;
@@ -67,8 +67,8 @@ export function PaymentFormScreen() {
         ) {
           return false;
         }
-        if (eventId || focusedEntry?.eventId) {
-          return entry.eventId === (eventId ?? focusedEntry?.eventId);
+        if (groupId || focusedEntry?.groupId) {
+          return entry.groupId === (groupId ?? focusedEntry?.groupId);
         }
         if (memberId || focusedEntry) {
           const targetMemberId =
@@ -84,7 +84,7 @@ export function PaymentFormScreen() {
         }
         return true;
       }),
-    [data.ledgerEntries, eventId, focusedEntry, memberId],
+    [data.ledgerEntries, groupId, focusedEntry, memberId],
   );
   const defaultPayer = initialPayerId ?? focusedEntry?.fromId ?? "me";
   const defaultPayee = initialPayeeId ?? focusedEntry?.toId ?? "me";
@@ -104,8 +104,8 @@ export function PaymentFormScreen() {
 
   const participantOptions = useMemo(
     () =>
-      buildParticipantOptions(data, eventId ?? focusedEntry?.eventId ?? null),
-    [data, eventId, focusedEntry?.eventId],
+      buildParticipantOptions(data, groupId ?? focusedEntry?.groupId ?? null),
+    [data, groupId, focusedEntry?.groupId],
   );
   const selectedEntries = candidateEntries.filter((entry) =>
     selectedEntryIds.includes(entry.id),
@@ -146,10 +146,10 @@ export function PaymentFormScreen() {
       currency,
       paymentDate,
       notes,
-      eventId: eventId ?? focusedEntry?.eventId ?? null,
+      groupId: groupId ?? focusedEntry?.groupId ?? null,
       relatedMemberId:
         memberId ??
-        (!eventId && payerId !== "me"
+        (!groupId && payerId !== "me"
           ? payerId
           : payeeId !== "me"
             ? payeeId
@@ -269,7 +269,7 @@ export function PaymentFormScreen() {
                 {entryDirectionText(
                   line.entry,
                   data.members,
-                  data.sharedEventMembers,
+                  data.sharedGroupMembers,
                 )}
               </Text>
             </View>
@@ -293,8 +293,8 @@ export function PaymentFormScreen() {
         {overpayment > 0 ? (
           <Text style={styles.body}>
             This creates an unallocated credit from{" "}
-            {participantName(payeeId, data.members, data.sharedEventMembers)} to{" "}
-            {participantName(payerId, data.members, data.sharedEventMembers)}.
+            {participantName(payeeId, data.members, data.sharedGroupMembers)} to{" "}
+            {participantName(payerId, data.members, data.sharedGroupMembers)}.
           </Text>
         ) : null}
       </Card>
@@ -318,11 +318,11 @@ function autoApplyLines(entries: LedgerEntry[], amount: number) {
 
 function buildParticipantOptions(
   data: ReturnType<typeof useAppData>,
-  eventId: string | null,
+  groupId: string | null,
 ) {
-  if (eventId) {
-    const members = data.sharedEventMembers.filter(
-      (member) => member.eventId === eventId && member.status !== "merged",
+  if (groupId) {
+    const members = data.sharedGroupMembers.filter(
+      (member) => member.groupId === groupId && member.status !== "merged",
     );
     return members.map((member) => ({
       label: member.alias || member.displayName,

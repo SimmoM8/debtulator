@@ -15,10 +15,10 @@ export const ATTACHMENT_KIND_LABELS: Record<AttachmentKind, string> = {
 export const ATTACHMENT_TARGET_LABELS: Record<AttachmentTargetType, string> = {
   debt: 'Debt',
   shared_expense: 'Expense',
-  event_debt: 'Event debt',
+  group_debt: 'Group debt',
   payment: 'Payment',
   settlement: 'Settlement',
-  event: 'Event',
+  group: 'Group',
   comment: 'Comment',
 };
 
@@ -138,20 +138,20 @@ export function validateAttachmentCandidate(input: {
 
 export function inferAttachmentVisibility(parentVisibility: string | null | undefined): AttachmentVisibility {
   return parentVisibility === 'shared' ||
-    parentVisibility === 'shared_event' ||
+    parentVisibility === 'shared_group' ||
     parentVisibility === 'shared_with_involved_member'
     ? 'shared'
     : 'private';
 }
 
 export function storagePathForAttachment(input: {
-  eventId?: string | null;
+  groupId?: string | null;
   targetType: AttachmentTargetType;
   targetId: string;
   fileName: string;
 }) {
   const safeFileName = input.fileName.replace(/[^a-z0-9._-]+/gi, '-').toLowerCase();
-  const prefix = input.eventId ? `events/${input.eventId}` : 'private';
+  const prefix = input.groupId ? `groups/${input.groupId}` : 'private';
   return `${prefix}/${input.targetType}/${input.targetId}/${Date.now()}-${safeFileName}`;
 }
 

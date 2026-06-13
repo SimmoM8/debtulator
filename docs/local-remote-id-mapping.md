@@ -11,22 +11,22 @@ Debtulator is local-first. SQLite IDs are the canonical relationship keys inside
 - Mapper functions in `src/services/sync/mappers.ts` are the only sync boundary for relationship conversion.
 - Missing mappings throw `SyncMappingError`; financial records are not pushed with mixed local/remote relationship IDs.
 
-## Shared Event Member Mapping
+## Shared Group Member Mapping
 
-`event_members.id` in Supabase maps to `shared_event_members.remote_id` locally.
+`group_members.id` in Supabase maps to `shared_group_members.remote_id` locally.
 
 Local expense fields:
 
 - `shared_expenses.payer_id`
 - `shared_expenses.participant_ids_json`
-- `expense_payers.event_member_id`
-- `event_debts.debtor_event_member_id`
-- `event_debts.creditor_event_member_id`
-- `event_verification_responses.event_member_id`
+- `expense_payers.group_member_id`
+- `group_debts.debtor_group_member_id`
+- `group_debts.creditor_group_member_id`
+- `group_verification_responses.group_member_id`
 
-all store local event member IDs. Remote DTOs convert those values to Supabase `event_members.id`.
+all store local group member IDs. Remote DTOs convert those values to Supabase `group_members.id`.
 
-This fixes the previous risk where pulled rows used local IDs like `event_member_remote_${uuid}` inconsistently and ledger calculations could see unknown participant IDs.
+This fixes the previous risk where pulled rows used local IDs like `group_member_remote_${uuid}` inconsistently and ledger calculations could see unknown participant IDs.
 
 ## Helpers
 
@@ -35,14 +35,14 @@ Implemented helpers:
 - `getLocalIdForRemoteId`
 - `getRemoteIdForLocalId`
 - `ensureLocalRecordForRemote`
-- `mapLocalEventToRemote`
-- `mapRemoteEventToLocal`
-- `mapLocalEventMemberToRemote`
-- `mapRemoteEventMemberToLocal`
+- `mapLocalGroupToRemote`
+- `mapRemoteGroupToLocal`
+- `mapLocalGroupMemberToRemote`
+- `mapRemoteGroupMemberToLocal`
 - `mapLocalExpenseToRemote`
 - `mapRemoteExpenseToLocal`
 - `mapLocalPaymentToRemote`
 - `mapRemotePaymentToLocal`
 
-The mapper layer also covers event participants, invites, claims, duplicate warnings, event debts, verification responses, settlements, settlement lines, comments, attachments, and activity logs.
+The mapper layer also covers group participants, invites, claims, duplicate warnings, group debts, verification responses, settlements, settlement lines, comments, attachments, and activity logs.
 

@@ -17,7 +17,7 @@ typography,
 } from "@/src/constants/design";
 import {
     debtsToCsv,
-    eventsToCsv,
+    groupsToCsv,
     membersToCsv,
     paymentsToCsv,
     recurringTemplatesToCsv,
@@ -25,14 +25,14 @@ import {
     tagsToCsv,
 } from "@/src/services/csv";
 import {
-    eventPdfLines,
-    eventTextSummary,
+    groupPdfLines,
+    groupTextSummary,
     shareExport,
     writePdfExport,
     writeTextExport,
     type PrivacyExportOptions,
 } from "@/src/services/export";
-import { explainEventSettlement } from "@/src/services/ledger";
+import { explainGroupSettlement } from "@/src/services/ledger";
 import {
   addTelemetryBreadcrumb,
   captureTelemetryException,
@@ -44,7 +44,7 @@ import { useAuth } from "@/src/state/AuthProvider";
 type Scope =
   | "debts"
   | "members"
-  | "events"
+  | "groups"
   | "payments"
   | "settlements"
   | "recurring"
@@ -95,8 +95,8 @@ export function ExportDataScreen() {
         targetType:
           scope === "members"
             ? "member"
-            : scope === "events"
-              ? "event"
+            : scope === "groups"
+              ? "group"
               : "ledger",
         metadata: {
           scope,
@@ -119,21 +119,21 @@ export function ExportDataScreen() {
     }
   }
 
-  async function exportFirstEventPdf() {
-    const event = data.events.find((item) => !item.archived) ?? data.events[0];
-    if (!event) {
+  async function exportFirstGroupPdf() {
+    const group = data.groups.find((item) => !item.archived) ?? data.groups[0];
+    if (!group) {
       Alert.alert(
-        "No event to export",
-        "Create an event before exporting an event PDF.",
+        "No group to export",
+        "Create an group before exporting an group PDF.",
       );
       return;
     }
     try {
-      const explanation = explainEventSettlement(event.id, data.ledgerEntries);
+      const explanation = explainGroupSettlement(group.id, data.ledgerEntries);
       const uri = await writePdfExport(
-        `debtulator-${event.name}-summary.pdf`,
-        eventPdfLines({
-          event,
+        `debtulator-${group.name}-summary.pdf`,
+        groupPdfLines({
+          group,
           explanation,
           snapshot: data,
           options: privacyOptions,
@@ -142,8 +142,8 @@ export function ExportDataScreen() {
       await data.createExportLog({
         userId: auth.identity.authenticatedUserId,
         exportType: "pdf",
-        targetType: "event",
-        targetId: event.id,
+        targetType: "group",
+        targetId: group.id,
         metadata: {
           includeNotes,
           includeComments,
@@ -153,42 +153,42 @@ export function ExportDataScreen() {
           uri,
         },
       });
-      addTelemetryBreadcrumb("export", "event_pdf_generated", { result: "success" });
-      trackTelemetryEvent("export_event_pdf_generated", { result: "success" });
-      await shareExport(uri, `${event.name} PDF summary`);
+      addTelemetryBreadcrumb("export", "group_pdf_generated", { result: "success" });
+      trackTelemetryEvent("export_group_pdf_generated", { result: "success" });
+      await shareExport(uri, `${group.name} PDF summary`);
     } catch (error) {
-      addTelemetryBreadcrumb("export", "event_pdf_failed", { result: "failure" });
-      trackTelemetryEvent("export_event_pdf_failed", { result: "failure" });
-      captureTelemetryException(error, "export_event_pdf", {});
+      addTelemetryBreadcrumb("export", "group_pdf_failed", { result: "failure" });
+      trackTelemetryEvent("export_group_pdf_failed", { result: "failure" });
+      captureTelemetryException(error, "export_group_pdf", {});
       throw error;
     }
   }
 
-  async function shareFirstEventText() {
-    const event = data.events.find((item) => !item.archived) ?? data.events[0];
-    if (!event) {
+  async function shareFirstGroupText() {
+    const group = data.groups.find((item) => !item.archived) ?? data.groups[0];
+    if (!group) {
       Alert.alert(
-        "No event to share",
-        "Create an event before sharing a summary.",
+        "No group to share",
+        "Create an group before sharing a summary.",
       );
       return;
     }
     try {
-      const text = eventTextSummary({
-        event,
-        explanation: explainEventSettlement(event.id, data.ledgerEntries),
+      const text = groupTextSummary({
+        group,
+        explanation: explainGroupSettlement(group.id, data.ledgerEntries),
         snapshot: data,
         options: privacyOptions,
       });
       const uri = await writeTextExport(
-        `debtulator-${event.name}-summary.txt`,
+        `debtulator-${group.name}-summary.txt`,
         text,
       );
       await data.createExportLog({
         userId: auth.identity.authenticatedUserId,
         exportType: "text_summary",
-        targetType: "event",
-        targetId: event.id,
+        targetType: "group",
+        targetId: group.id,
         metadata: {
           includeNotes,
           includeComments,
@@ -198,13 +198,13 @@ export function ExportDataScreen() {
           uri,
         },
       });
-      addTelemetryBreadcrumb("export", "event_text_shared", { result: "success" });
-      trackTelemetryEvent("export_event_text_shared", { result: "success" });
-      await shareExport(uri, `${event.name} text summary`, text);
+      addTelemetryBreadcrumb("export", "group_text_shared", { result: "success" });
+      trackTelemetryEvent("export_group_text_shared", { result: "success" });
+      await shareExport(uri, `${group.name} text summary`, text);
     } catch (error) {
-      addTelemetryBreadcrumb("export", "event_text_share_failed", { result: "failure" });
-      trackTelemetryEvent("export_event_text_share_failed", { result: "failure" });
-      captureTelemetryException(error, "export_event_text", {});
+      addTelemetryBreadcrumb("export", "group_text_share_failed", { result: "failure" });
+      trackTelemetryEvent("export_group_text_share_failed", { result: "failure" });
+      captureTelemetryException(error, "export_group_text", {});
       throw error;
     }
   }
@@ -218,8 +218,8 @@ export function ExportDataScreen() {
     switch (selectedScope) {
       case "members":
         return membersToCsv(data.members, options);
-      case "events":
-        return eventsToCsv(data.events, options);
+      case "groups":
+        return groupsToCsv(data.groups, options);
       case "payments":
         return paymentsToCsv(data.payments, options);
       case "settlements":
@@ -315,7 +315,7 @@ export function ExportDataScreen() {
           options={[
             { label: "Debts", value: "debts" },
             { label: "Members", value: "members" },
-            { label: "Events", value: "events" },
+            { label: "Groups", value: "groups" },
             { label: "Payments", value: "payments" },
             { label: "Settlements", value: "settlements" },
             { label: "Recurring", value: "recurring" },
@@ -328,20 +328,20 @@ export function ExportDataScreen() {
 
       <Card>
         <SectionTitle
-          title="Event summaries"
+          title="Group summaries"
           subtitle="PDF includes balances, suggestions, included/excluded records, and calculation settings."
         />
         <View style={styles.buttonRow}>
           <Button
-            title="Export event PDF"
+            title="Export group PDF"
             icon="document-text"
-            onPress={exportFirstEventPdf}
+            onPress={exportFirstGroupPdf}
           />
           <Button
-            title="Share event text"
+            title="Share group text"
             icon="share"
             variant="secondary"
-            onPress={shareFirstEventText}
+            onPress={shareFirstGroupText}
           />
         </View>
       </Card>

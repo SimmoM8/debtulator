@@ -1,6 +1,6 @@
 # Debtulator
 
-Debtulator is a local-first debt, shared expense, event ledger, payment, settlement, and export app for iOS and Android. It is built with React Native, Expo Router, TypeScript, SQLite on-device persistence, and optional Supabase auth/sync/storage.
+Debtulator is a local-first debt, shared expense, group ledger, payment, settlement, and export app for iOS and Android. It is built with React Native, Expo Router, TypeScript, SQLite on-device persistence, and optional Supabase auth/sync/storage.
 
 ## Tech Stack
 
@@ -8,7 +8,7 @@ Debtulator is a local-first debt, shared expense, event ledger, payment, settlem
 - Expo Router file-based navigation
 - TypeScript
 - SQLite via `expo-sqlite`
-- Supabase auth/database/storage for linked members, shared events, verification, and backend-ready Stage 6 sync/notification records
+- Supabase auth/database/storage for linked members, shared groups, verification, and backend-ready Stage 6 sync/notification records
 - Expo Secure Store for sensitive session storage support
 
 ## Setup
@@ -52,7 +52,7 @@ Apply migrations in order from the [`supabase`](/Users/benjaminsimmons/Documents
 4. `stage5_schema.sql`
 5. `stage6_schema.sql`
 
-RLS must remain enabled. Storage policies must restrict receipt/proof attachments to owners or shared event participants.
+RLS must remain enabled. Storage policies must restrict receipt/proof attachments to owners or shared group participants.
 
 ## Run
 
@@ -113,7 +113,7 @@ Stage 6 hardens Debtulator for production:
 - Backup/restore with private-by-default restore semantics
 - Full data export and deliberate account deletion flow
 - Advanced permission helpers and backend/RLS migration
-- SQLite indexes for large ledgers/events
+- SQLite indexes for large ledgers/groups
 - English/Swedish localization support
 - Accessibility checklist and production error types
 
@@ -131,9 +131,9 @@ Detailed docs:
 
 ## QA Checklist
 
-- Signed-out local member/debt/event/payment usage works offline.
+- Signed-out local member/debt/group/payment usage works offline.
 - Signing in does not upload private local-only records.
-- Shared event cached data remains viewable offline.
+- Shared group cached data remains viewable offline.
 - Safe shared edits create queue entries; unsafe shared financial actions are blocked or reviewed.
 - Conflicts can be reviewed and resolved without silently overwriting financial history.
 - Backup export works and restore preview defaults records to private/local copies.

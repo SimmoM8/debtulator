@@ -29,7 +29,7 @@ import {
     respondRemoteDebtVerification,
     updateRemoteLinkRequest,
 } from "@/src/services/stage2Sync";
-import { updateRemoteEventInvite } from "@/src/services/stage3Sync";
+import { updateRemoteGroupInvite } from "@/src/services/stage3Sync";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
 import { formatMoney } from "@/src/utils/money";
@@ -66,15 +66,15 @@ export function RequestsScreen() {
       ),
     [data.debtVerifications, userId],
   );
-  const incomingEventInvites = useMemo(
+  const incomingGroupInvites = useMemo(
     () =>
-      data.eventInvites.filter(
+      data.groupInvites.filter(
         (invite) =>
           invite.status === "pending" &&
           ((userId && invite.invitedUserId === userId) ||
             (email && invite.invitedEmail?.toLowerCase() === email)),
       ),
-    [data.eventInvites, email, userId],
+    [data.groupInvites, email, userId],
   );
   const completedItems = useMemo(
     () => [
@@ -90,13 +90,13 @@ export function RequestsScreen() {
           (verification.requesterUserId === userId ||
             verification.responderUserId === userId),
       ),
-      ...data.eventInvites.filter(
+      ...data.groupInvites.filter(
         (invite) =>
           invite.status !== "pending" &&
           (invite.inviterUserId === userId || invite.invitedUserId === userId),
       ),
     ],
-    [data.debtVerifications, data.eventInvites, data.linkRequests, userId],
+    [data.debtVerifications, data.groupInvites, data.linkRequests, userId],
   );
   const disputeCount =
     data.debts.filter(
@@ -138,19 +138,19 @@ export function RequestsScreen() {
       }),
     [data.debts, data.members, incomingVerifications, normalizedQuery],
   );
-  const visibleEventInvites = useMemo(
+  const visibleGroupInvites = useMemo(
     () =>
-      incomingEventInvites.filter((invite) => {
-        const event = data.events.find((item) => item.id === invite.eventId);
+      incomingGroupInvites.filter((invite) => {
+        const group = data.groups.find((item) => item.id === invite.groupId);
 
         return matchesQuery(normalizedQuery, [
-          event?.name,
+          group?.name,
           invite.invitedDisplayName,
           invite.message,
           invite.offeredRole,
         ]);
       }),
-    [data.events, incomingEventInvites, normalizedQuery],
+    [data.groups, incomingGroupInvites, normalizedQuery],
   );
   const visibleCompletedItems = useMemo(
     () =>
@@ -213,7 +213,7 @@ export function RequestsScreen() {
             value={String(
               incomingLinks.length +
                 incomingVerifications.length +
-                incomingEventInvites.length,
+                incomingGroupInvites.length,
             )}
             subtitle="Needs your answer"
             tone="amber"
@@ -383,19 +383,19 @@ export function RequestsScreen() {
           </RequestSection>
 
           <RequestSection
-            title="Event invites"
+            title="Group invites"
             subtitle="Group spaces waiting for your yes or no."
-            emptyTitle="No event invites"
-            emptyBody="New event invites will show up here."
+            emptyTitle="No group invites"
+            emptyBody="New group invites will show up here."
           >
-            {visibleEventInvites.map((invite) => {
-              const event = data.events.find(
-                (item) => item.id === invite.eventId,
+            {visibleGroupInvites.map((invite) => {
+              const group = data.groups.find(
+                (item) => item.id === invite.groupId,
               );
               return (
                 <RequestCard
                   key={invite.id}
-                  title={event?.name ?? invite.invitedDisplayName}
+                  title={group?.name ?? invite.invitedDisplayName}
                   body={`Role offered: ${invite.offeredRole}${invite.message ? ` · ${invite.message}` : ""}`}
                   status="Pending"
                   tone="amber"
@@ -406,12 +406,12 @@ export function RequestsScreen() {
                         if (!userId) {
                           return;
                         }
-                        await updateRemoteEventInvite(
+                        await updateRemoteGroupInvite(
                           invite,
                           "accepted",
                           userId,
                         );
-                        await data.respondToEventInvite(
+                        await data.respondToGroupInvite(
                           invite.id,
                           "accepted",
                           userId,
@@ -427,12 +427,12 @@ export function RequestsScreen() {
                         if (!userId) {
                           return;
                         }
-                        await updateRemoteEventInvite(
+                        await updateRemoteGroupInvite(
                           invite,
                           "rejected",
                           userId,
                         );
-                        await data.respondToEventInvite(
+                        await data.respondToGroupInvite(
                           invite.id,
                           "rejected",
                           userId,

@@ -2,7 +2,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import React, { useMemo, useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 
-import { DebtRow, EventRow } from "@/src/components/EntityRows";
+import { DebtRow, GroupRow } from "@/src/components/EntityRows";
 import { DebtulatorOrbitIllustration } from "@/src/components/illustrations/DebtulatorOrbitIllustration";
 import { LinkStatusBadge, TagChips } from "@/src/components/ui/Badges";
 import { BalanceStack } from "@/src/components/ui/Money";
@@ -30,7 +30,7 @@ import {
 } from "@/src/services/export";
 import {
     entriesForMember,
-    explainEventSettlement,
+    explainGroupSettlement,
 } from "@/src/services/ledger";
 import { createRemoteLinkRequest } from "@/src/services/stage2Sync";
 import { useAppData } from "@/src/state/AppDataProvider";
@@ -52,17 +52,17 @@ export function MemberDetailScreen() {
     () => (member ? entriesForMember(member.id, data.ledgerEntries) : []),
     [data.ledgerEntries, member],
   );
-  const memberEvents = useMemo(
+  const memberGroups = useMemo(
     () =>
       member
-        ? data.eventMembers
-            .filter((eventMember) => eventMember.memberId === member.id)
-            .map((eventMember) =>
-              data.events.find((event) => event.id === eventMember.eventId),
+        ? data.groupMembers
+            .filter((groupMember) => groupMember.memberId === member.id)
+            .map((groupMember) =>
+              data.groups.find((group) => group.id === groupMember.groupId),
             )
             .filter(Boolean)
         : [],
-    [data.eventMembers, data.events, member],
+    [data.groupMembers, data.groups, member],
   );
   const trustBalances = useMemo(
     () => calculateTrustBalances(member?.id ?? "", memberEntries),
@@ -226,7 +226,7 @@ export function MemberDetailScreen() {
                 senderUserId: auth.identity.authenticatedUserId,
                 recipientUserId: member.linkedUserId,
                 relatedMemberId: member.id,
-                relatedEventId: null,
+                relatedGroupId: null,
                 relatedRecordId: null,
                 message: `${auth.identity.displayName} shared a reminder about an open balance.`,
               })
@@ -379,7 +379,7 @@ export function MemberDetailScreen() {
 
       <SectionTitle
         title="Debt history"
-        subtitle="Includes direct debts and event split obligations involving this member."
+        subtitle="Includes direct debts and group split obligations involving this member."
       />
       <Card>
         {memberEntries.length > 0 ? (
@@ -388,9 +388,9 @@ export function MemberDetailScreen() {
               key={entry.id}
               entry={entry}
               members={data.members}
-              event={
-                entry.eventId
-                  ? data.events.find((event) => event.id === entry.eventId)
+              group={
+                entry.groupId
+                  ? data.groups.find((group) => group.id === entry.groupId)
                   : undefined
               }
             />
@@ -398,7 +398,7 @@ export function MemberDetailScreen() {
         ) : (
           <EmptyState
             title="No debt history"
-            body="Add a simple debt or include this member in an event expense."
+            body="Add a simple debt or include this member in an group expense."
           />
         )}
       </Card>
@@ -439,26 +439,26 @@ export function MemberDetailScreen() {
       </Card>
 
       <SectionTitle
-        title="Events"
+        title="Groups"
         subtitle="Structured groups this member belongs to."
       />
       <Card>
-        {memberEvents.length > 0 ? (
-          memberEvents.map((event) => {
-            if (!event) {
+        {memberGroups.length > 0 ? (
+          memberGroups.map((group) => {
+            if (!group) {
               return null;
             }
-            const explanation = explainEventSettlement(
-              event.id,
+            const explanation = explainGroupSettlement(
+              group.id,
               data.ledgerEntries,
             );
             return (
-              <View key={event.id}>
-                <EventRow
-                  event={event}
+              <View key={group.id}>
+                <GroupRow
+                  group={group}
                   memberCount={
-                    data.eventMembers.filter(
-                      (eventMember) => eventMember.eventId === event.id,
+                    data.groupMembers.filter(
+                      (groupMember) => groupMember.groupId === group.id,
                     ).length
                   }
                   balance={explanation.participantNets[member.id] ?? {}}
@@ -471,8 +471,8 @@ export function MemberDetailScreen() {
           })
         ) : (
           <EmptyState
-            title="No events yet"
-            body="Add this member to a group or event to split expenses."
+            title="No groups yet"
+            body="Add this member to a group or group to split expenses."
           />
         )}
       </Card>

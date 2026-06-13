@@ -6,20 +6,20 @@ import type {
   CurrencyCode,
   Debt,
   EntityKind,
-  Event,
-  EventActivityLog,
-  EventDebt,
-  EventDuplicateWarning,
-  EventInvite,
-  EventMemberClaim,
-  EventParticipant,
-  EventVerificationResponse,
+  Group,
+  GroupActivityLog,
+  GroupDebt,
+  GroupDuplicateWarning,
+  GroupInvite,
+  GroupMemberClaim,
+  GroupParticipant,
+  GroupVerificationResponse,
   ExpensePayer,
   ParticipantId,
   Payment,
   Settlement,
   SettlementLine,
-  SharedEventMember,
+  SharedGroupMember,
   SharedExpense,
 } from '@/src/types/models';
 import { createId } from '@/src/utils/id';
@@ -41,7 +41,7 @@ type RemoteRow = Record<string, any>;
 type RemoteExpenseSplit = RemoteRow & {
   id: string;
   expense_id: string;
-  event_member_id: string;
+  group_member_id: string;
   included?: boolean | null;
   share_amount?: number | string | null;
   share_percentage?: number | string | null;
@@ -52,7 +52,7 @@ type RemoteExpenseSplit = RemoteRow & {
 type RemoteExpensePayer = RemoteRow & {
   id: string;
   expense_id: string;
-  event_member_id: string;
+  group_member_id: string;
   amount_paid: number | string;
   currency: CurrencyCode;
 };
@@ -88,26 +88,26 @@ export function ensureLocalRecordForRemote(
   return getLocalIdForRemoteId(snapshot, entityType, remoteId) ?? createId(String(prefix));
 }
 
-export function mapLocalEventToRemote(event: Event) {
+export function mapLocalGroupToRemote(group: Group) {
   return {
-    owner_user_id: event.ownerUserId,
-    name: event.name,
-    description: event.notes,
-    default_currency: event.defaultCurrency,
-    allowed_currencies: event.allowedCurrencies,
-    tags: event.tags,
-    visibility: event.visibility,
-    status: event.status,
-    archived_at: event.archivedAt,
-    finalised_at: event.finalisedAt,
-    locked_at: event.lockedAt,
+    owner_user_id: group.ownerUserId,
+    name: group.name,
+    description: group.notes,
+    default_currency: group.defaultCurrency,
+    allowed_currencies: group.allowedCurrencies,
+    tags: group.tags,
+    visibility: group.visibility,
+    status: group.status,
+    archived_at: group.archivedAt,
+    finalised_at: group.finalisedAt,
+    locked_at: group.lockedAt,
   };
 }
 
-export function mapRemoteEventToLocal(row: RemoteRow, snapshot: DatabaseSnapshot): Event {
-  const existing = snapshot.events.find((event) => event.remoteId === row.id);
+export function mapRemoteGroupToLocal(row: RemoteRow, snapshot: DatabaseSnapshot): Group {
+  const existing = snapshot.groups.find((group) => group.remoteId === row.id);
   return {
-    id: existing?.id ?? createId('event'),
+    id: existing?.id ?? createId('group'),
     localId: existing?.localId ?? null,
     remoteId: row.id,
     ownerUserId: row.owner_user_id,
@@ -129,14 +129,14 @@ export function mapRemoteEventToLocal(row: RemoteRow, snapshot: DatabaseSnapshot
   };
 }
 
-export function mapRemoteEventParticipantToLocal(row: RemoteRow, snapshot: DatabaseSnapshot): EventParticipant {
-  const eventId = requiredLocalId(snapshot, 'event', row.event_id, 'event_participants.event_id');
-  const existing = snapshot.eventParticipants.find((participant) => participant.remoteId === row.id);
+export function mapRemoteGroupParticipantToLocal(row: RemoteRow, snapshot: DatabaseSnapshot): GroupParticipant {
+  const groupId = requiredLocalId(snapshot, 'group', row.group_id, 'group_participants.group_id');
+  const existing = snapshot.groupParticipants.find((participant) => participant.remoteId === row.id);
   return {
-    id: existing?.id ?? createId('event_participant'),
+    id: existing?.id ?? createId('group_participant'),
     remoteId: row.id,
-    eventId,
-    remoteEventId: row.event_id,
+    groupId,
+    remoteGroupId: row.group_id,
     userId: row.user_id,
     role: row.role,
     status: row.status,
@@ -147,9 +147,9 @@ export function mapRemoteEventParticipantToLocal(row: RemoteRow, snapshot: Datab
   };
 }
 
-export function mapLocalEventMemberToRemote(member: SharedEventMember, snapshot: DatabaseSnapshot) {
+export function mapLocalGroupMemberToRemote(member: SharedGroupMember, snapshot: DatabaseSnapshot) {
   return {
-    event_id: requiredRemoteId(snapshot, 'event', member.eventId, 'event_members.event_id'),
+    group_id: requiredRemoteId(snapshot, 'group', member.groupId, 'group_members.group_id'),
     type: member.type,
     linked_user_id: member.linkedUserId,
     display_name: member.displayName,
@@ -159,23 +159,23 @@ export function mapLocalEventMemberToRemote(member: SharedEventMember, snapshot:
     notes: member.notes,
     created_by_user_id: member.createdByUserId,
     status: member.status,
-    merged_into_event_member_id: member.mergedIntoEventMemberId
-      ? requiredRemoteId(snapshot, 'event_member', member.mergedIntoEventMemberId, 'event_members.merged_into_event_member_id')
+    merged_into_group_member_id: member.mergedIntoGroupMemberId
+      ? requiredRemoteId(snapshot, 'group_member', member.mergedIntoGroupMemberId, 'group_members.merged_into_group_member_id')
       : null,
   };
 }
 
-export function mapRemoteEventMemberToLocal(row: RemoteRow, snapshot: DatabaseSnapshot): SharedEventMember {
-  const eventId = requiredLocalId(snapshot, 'event', row.event_id, 'event_members.event_id');
-  const existing = snapshot.sharedEventMembers.find((member) => member.remoteId === row.id);
-  const mergedIntoEventMemberId = row.merged_into_event_member_id
-    ? getLocalIdForRemoteId(snapshot, 'event_member', row.merged_into_event_member_id)
+export function mapRemoteGroupMemberToLocal(row: RemoteRow, snapshot: DatabaseSnapshot): SharedGroupMember {
+  const groupId = requiredLocalId(snapshot, 'group', row.group_id, 'group_members.group_id');
+  const existing = snapshot.sharedGroupMembers.find((member) => member.remoteId === row.id);
+  const mergedIntoGroupMemberId = row.merged_into_group_member_id
+    ? getLocalIdForRemoteId(snapshot, 'group_member', row.merged_into_group_member_id)
     : null;
   return {
-    id: existing?.id ?? createId('event_member'),
+    id: existing?.id ?? createId('group_member'),
     remoteId: row.id,
-    eventId,
-    remoteEventId: row.event_id,
+    groupId,
+    remoteGroupId: row.group_id,
     type: row.type,
     linkedUserId: row.linked_user_id ?? null,
     displayName: row.display_name,
@@ -185,7 +185,7 @@ export function mapRemoteEventMemberToLocal(row: RemoteRow, snapshot: DatabaseSn
     notes: row.notes ?? null,
     createdByUserId: row.created_by_user_id ?? null,
     status: row.status,
-    mergedIntoEventMemberId,
+    mergedIntoGroupMemberId,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     syncStatus: shouldKeepLocalPending(existing) ? existing!.syncStatus : 'synced',
@@ -193,13 +193,13 @@ export function mapRemoteEventMemberToLocal(row: RemoteRow, snapshot: DatabaseSn
 }
 
 export function mapLocalExpenseToRemote(expense: SharedExpense, snapshot: DatabaseSnapshot) {
-  const remoteEventId = requiredRemoteId(snapshot, 'event', expense.eventId, 'event_expenses.event_id');
-  const remotePayerId = requiredRemoteId(snapshot, 'event_member', String(expense.payerId), 'event_expenses.payer_event_member_id');
+  const remoteGroupId = requiredRemoteId(snapshot, 'group', expense.groupId, 'group_expenses.group_id');
+  const remotePayerId = requiredRemoteId(snapshot, 'group_member', String(expense.payerId), 'group_expenses.payer_group_member_id');
   return {
     expense: {
-      event_id: remoteEventId,
+      group_id: remoteGroupId,
       creator_user_id: expense.creatorUserId,
-      payer_event_member_id: remotePayerId,
+      payer_group_member_id: remotePayerId,
       amount: expense.amount,
       currency: expense.currency,
       title: expense.title,
@@ -213,7 +213,7 @@ export function mapLocalExpenseToRemote(expense: SharedExpense, snapshot: Databa
       archived_at: expense.status === 'archived' ? expense.updatedAt : null,
     },
     splits: expense.participantIds.map((participantId) => ({
-      event_member_id: requiredRemoteId(snapshot, 'event_member', String(participantId), 'event_expense_splits.event_member_id'),
+      group_member_id: requiredRemoteId(snapshot, 'group_member', String(participantId), 'group_expense_splits.group_member_id'),
       included: true,
       share_amount: expense.splitMethod === 'custom_amount' ? expense.splitAllocations[participantId] ?? null : null,
       share_percentage: expense.splitMethod === 'custom_percentage' ? expense.splitAllocations[participantId] ?? null : null,
@@ -224,7 +224,7 @@ export function mapLocalExpenseToRemote(expense: SharedExpense, snapshot: Databa
           .reduce((total, obligation) => total + obligation.amount, 0) || 0,
     })),
     payers: normalisedExpensePayers(expense).map((payer) => ({
-      event_member_id: requiredRemoteId(snapshot, 'event_member', String(payer.eventMemberId), 'expense_payers.event_member_id'),
+      group_member_id: requiredRemoteId(snapshot, 'group_member', String(payer.groupMemberId), 'expense_payers.group_member_id'),
       amount_paid: payer.amountPaid,
       currency: payer.currency,
     })),
@@ -237,16 +237,16 @@ export function mapRemoteExpenseToLocal(
   payers: RemoteExpensePayer[],
   snapshot: DatabaseSnapshot,
 ): SharedExpense {
-  const eventId = requiredLocalId(snapshot, 'event', row.event_id, 'event_expenses.event_id');
+  const groupId = requiredLocalId(snapshot, 'group', row.group_id, 'group_expenses.group_id');
   const existing = snapshot.sharedExpenses.find((expense) => expense.remoteId === row.id);
   const localExpenseId = existing?.id ?? createId('expense');
   const participantIds = splits
     .filter((split) => split.included !== false)
-    .map((split) => requiredLocalId(snapshot, 'event_member', split.event_member_id, 'event_expense_splits.event_member_id'));
-  const payerId = requiredLocalId(snapshot, 'event_member', row.payer_event_member_id, 'event_expenses.payer_event_member_id');
+    .map((split) => requiredLocalId(snapshot, 'group_member', split.group_member_id, 'group_expense_splits.group_member_id'));
+  const payerId = requiredLocalId(snapshot, 'group_member', row.payer_group_member_id, 'group_expenses.payer_group_member_id');
   const splitAllocations = Object.fromEntries(
     splits.map((split) => {
-      const localMemberId = requiredLocalId(snapshot, 'event_member', split.event_member_id, 'event_expense_splits.event_member_id');
+      const localMemberId = requiredLocalId(snapshot, 'group_member', split.group_member_id, 'group_expense_splits.group_member_id');
       return [localMemberId, Number(split.share_amount ?? split.share_percentage ?? split.share_weight ?? 0)];
     }),
   ) as Record<ParticipantId, number>;
@@ -254,13 +254,13 @@ export function mapRemoteExpenseToLocal(
   return withGeneratedObligations({
     id: localExpenseId,
     remoteId: row.id,
-    eventId,
+    groupId,
     creatorUserId: row.creator_user_id ?? null,
     payerId,
     expensePayers: payers.map((payer) => ({
       id: getLocalIdForRemoteId(snapshot, 'expense_payer', payer.id) ?? createId('expense_payer'),
       expenseId: localExpenseId,
-      eventMemberId: requiredLocalId(snapshot, 'event_member', payer.event_member_id, 'expense_payers.event_member_id'),
+      groupMemberId: requiredLocalId(snapshot, 'group_member', payer.group_member_id, 'expense_payers.group_member_id'),
       amountPaid: Number(payer.amount_paid),
       currency: payer.currency,
       createdAt: payer.created_at,
@@ -279,7 +279,7 @@ export function mapRemoteExpenseToLocal(
     tags: Array.isArray(row.tags) ? row.tags : [],
     status: row.status,
     verificationStatus: row.verification_status,
-    visibility: 'shared_event',
+    visibility: 'shared_group',
     syncStatus: shouldKeepLocalPending(existing) ? existing!.syncStatus : 'synced',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -290,7 +290,7 @@ export function mapRemoteExpensePayerToLocal(row: RemoteExpensePayer, snapshot: 
   return {
     id: getLocalIdForRemoteId(snapshot, 'expense_payer', row.id) ?? createId('expense_payer'),
     expenseId: requiredLocalId(snapshot, 'shared_expense', row.expense_id, 'expense_payers.expense_id'),
-    eventMemberId: requiredLocalId(snapshot, 'event_member', row.event_member_id, 'expense_payers.event_member_id'),
+    groupMemberId: requiredLocalId(snapshot, 'group_member', row.group_member_id, 'expense_payers.group_member_id'),
     amountPaid: Number(row.amount_paid),
     currency: row.currency,
     createdAt: row.created_at,
@@ -327,12 +327,12 @@ export function mapLocalDebtToRemote(debt: Debt, snapshot: DatabaseSnapshot, cre
   };
 }
 
-export function mapLocalEventDebtToRemote(debt: EventDebt, snapshot: DatabaseSnapshot) {
+export function mapLocalGroupDebtToRemote(debt: GroupDebt, snapshot: DatabaseSnapshot) {
   return {
-    event_id: requiredRemoteId(snapshot, 'event', debt.eventId, 'event_debts.event_id'),
+    group_id: requiredRemoteId(snapshot, 'group', debt.groupId, 'group_debts.group_id'),
     creator_user_id: debt.creatorUserId,
-    debtor_event_member_id: requiredRemoteId(snapshot, 'event_member', debt.debtorEventMemberId, 'event_debts.debtor_event_member_id'),
-    creditor_event_member_id: requiredRemoteId(snapshot, 'event_member', debt.creditorEventMemberId, 'event_debts.creditor_event_member_id'),
+    debtor_group_member_id: requiredRemoteId(snapshot, 'group_member', debt.debtorGroupMemberId, 'group_debts.debtor_group_member_id'),
+    creditor_group_member_id: requiredRemoteId(snapshot, 'group_member', debt.creditorGroupMemberId, 'group_debts.creditor_group_member_id'),
     amount: debt.amount,
     currency: debt.currency,
     title: debt.title,
@@ -346,16 +346,16 @@ export function mapLocalEventDebtToRemote(debt: EventDebt, snapshot: DatabaseSna
   };
 }
 
-export function mapRemoteEventDebtToLocal(row: RemoteRow, snapshot: DatabaseSnapshot): EventDebt {
-  const existing = snapshot.eventDebts.find((debt) => debt.remoteId === row.id);
+export function mapRemoteGroupDebtToLocal(row: RemoteRow, snapshot: DatabaseSnapshot): GroupDebt {
+  const existing = snapshot.groupDebts.find((debt) => debt.remoteId === row.id);
   return {
-    id: existing?.id ?? createId('event_debt'),
+    id: existing?.id ?? createId('group_debt'),
     remoteId: row.id,
-    eventId: requiredLocalId(snapshot, 'event', row.event_id, 'event_debts.event_id'),
-    remoteEventId: row.event_id,
+    groupId: requiredLocalId(snapshot, 'group', row.group_id, 'group_debts.group_id'),
+    remoteGroupId: row.group_id,
     creatorUserId: row.creator_user_id ?? null,
-    debtorEventMemberId: requiredLocalId(snapshot, 'event_member', row.debtor_event_member_id, 'event_debts.debtor_event_member_id'),
-    creditorEventMemberId: requiredLocalId(snapshot, 'event_member', row.creditor_event_member_id, 'event_debts.creditor_event_member_id'),
+    debtorGroupMemberId: requiredLocalId(snapshot, 'group_member', row.debtor_group_member_id, 'group_debts.debtor_group_member_id'),
+    creditorGroupMemberId: requiredLocalId(snapshot, 'group_member', row.creditor_group_member_id, 'group_debts.creditor_group_member_id'),
     amount: Number(row.amount),
     currency: row.currency,
     title: row.title,
@@ -373,12 +373,12 @@ export function mapRemoteEventDebtToLocal(row: RemoteRow, snapshot: DatabaseSnap
   };
 }
 
-export function mapLocalEventVerificationToRemote(response: EventVerificationResponse, snapshot: DatabaseSnapshot) {
+export function mapLocalGroupVerificationToRemote(response: GroupVerificationResponse, snapshot: DatabaseSnapshot) {
   return {
-    event_id: requiredRemoteId(snapshot, 'event', response.eventId, 'event_verification_responses.event_id'),
+    group_id: requiredRemoteId(snapshot, 'group', response.groupId, 'group_verification_responses.group_id'),
     target_type: response.targetType,
     target_id: requiredRemoteTargetId(snapshot, response.targetType, response.targetId),
-    event_member_id: requiredRemoteId(snapshot, 'event_member', response.eventMemberId, 'event_verification_responses.event_member_id'),
+    group_member_id: requiredRemoteId(snapshot, 'group_member', response.groupMemberId, 'group_verification_responses.group_member_id'),
     linked_user_id: response.linkedUserId,
     response_status: response.responseStatus,
     rejection_reason: response.rejectionReason,
@@ -386,17 +386,17 @@ export function mapLocalEventVerificationToRemote(response: EventVerificationRes
   };
 }
 
-export function mapRemoteEventVerificationToLocal(row: RemoteRow, snapshot: DatabaseSnapshot): EventVerificationResponse {
-  const existing = snapshot.eventVerificationResponses.find((response) => response.remoteId === row.id);
+export function mapRemoteGroupVerificationToLocal(row: RemoteRow, snapshot: DatabaseSnapshot): GroupVerificationResponse {
+  const existing = snapshot.groupVerificationResponses.find((response) => response.remoteId === row.id);
   return {
-    id: existing?.id ?? createId('event_verify'),
+    id: existing?.id ?? createId('group_verify'),
     remoteId: row.id,
-    eventId: requiredLocalId(snapshot, 'event', row.event_id, 'event_verification_responses.event_id'),
-    remoteEventId: row.event_id,
+    groupId: requiredLocalId(snapshot, 'group', row.group_id, 'group_verification_responses.group_id'),
+    remoteGroupId: row.group_id,
     targetType: row.target_type,
     targetId: requiredLocalTargetId(snapshot, row.target_type, row.target_id),
     remoteTargetId: row.target_id,
-    eventMemberId: requiredLocalId(snapshot, 'event_member', row.event_member_id, 'event_verification_responses.event_member_id'),
+    groupMemberId: requiredLocalId(snapshot, 'group_member', row.group_member_id, 'group_verification_responses.group_member_id'),
     linkedUserId: row.linked_user_id ?? null,
     responseStatus: row.response_status,
     rejectionReason: row.rejection_reason ?? null,
@@ -414,13 +414,13 @@ export function mapLocalPaymentToRemote(payment: Payment, snapshot: DatabaseSnap
     payee_user_id: payment.payeeUserId,
     payer_member_id: payment.payerMemberId,
     payee_member_id: payment.payeeMemberId,
-    payer_event_member_id: payment.payerEventMemberId
-      ? requiredRemoteId(snapshot, 'event_member', payment.payerEventMemberId, 'payments.payer_event_member_id')
+    payer_group_member_id: payment.payerGroupMemberId
+      ? requiredRemoteId(snapshot, 'group_member', payment.payerGroupMemberId, 'payments.payer_group_member_id')
       : null,
-    payee_event_member_id: payment.payeeEventMemberId
-      ? requiredRemoteId(snapshot, 'event_member', payment.payeeEventMemberId, 'payments.payee_event_member_id')
+    payee_group_member_id: payment.payeeGroupMemberId
+      ? requiredRemoteId(snapshot, 'group_member', payment.payeeGroupMemberId, 'payments.payee_group_member_id')
       : null,
-    event_id: payment.eventId ? requiredRemoteId(snapshot, 'event', payment.eventId, 'payments.event_id') : null,
+    group_id: payment.groupId ? requiredRemoteId(snapshot, 'group', payment.groupId, 'payments.group_id') : null,
     amount: payment.amount,
     currency: payment.currency,
     payment_date: payment.paymentDate,
@@ -443,13 +443,13 @@ export function mapRemotePaymentToLocal(row: RemoteRow, snapshot: DatabaseSnapsh
     payeeUserId: row.payee_user_id ?? null,
     payerMemberId: row.payer_member_id ?? null,
     payeeMemberId: row.payee_member_id ?? null,
-    payerEventMemberId: row.payer_event_member_id
-      ? requiredLocalId(snapshot, 'event_member', row.payer_event_member_id, 'payments.payer_event_member_id')
+    payerGroupMemberId: row.payer_group_member_id
+      ? requiredLocalId(snapshot, 'group_member', row.payer_group_member_id, 'payments.payer_group_member_id')
       : null,
-    payeeEventMemberId: row.payee_event_member_id
-      ? requiredLocalId(snapshot, 'event_member', row.payee_event_member_id, 'payments.payee_event_member_id')
+    payeeGroupMemberId: row.payee_group_member_id
+      ? requiredLocalId(snapshot, 'group_member', row.payee_group_member_id, 'payments.payee_group_member_id')
       : null,
-    eventId: row.event_id ? requiredLocalId(snapshot, 'event', row.event_id, 'payments.event_id') : null,
+    groupId: row.group_id ? requiredLocalId(snapshot, 'group', row.group_id, 'payments.group_id') : null,
     relatedMemberId: existing?.relatedMemberId ?? null,
     amount: Number(row.amount),
     currency: row.currency,
@@ -468,7 +468,7 @@ export function mapRemotePaymentToLocal(row: RemoteRow, snapshot: DatabaseSnapsh
 export function mapLocalSettlementToRemote(settlement: Settlement, snapshot: DatabaseSnapshot) {
   return {
     created_by_user_id: settlement.createdByUserId,
-    event_id: settlement.eventId ? requiredRemoteId(snapshot, 'event', settlement.eventId, 'settlements.event_id') : null,
+    group_id: settlement.groupId ? requiredRemoteId(snapshot, 'group', settlement.groupId, 'settlements.group_id') : null,
     member_id: settlement.memberId,
     type: settlement.type,
     currency: settlement.currency,
@@ -494,7 +494,7 @@ export function mapRemoteSettlementToLocal(row: RemoteRow, snapshot: DatabaseSna
     localId: existing?.localId ?? null,
     remoteId: row.id,
     createdByUserId: row.created_by_user_id ?? null,
-    eventId: row.event_id ? requiredLocalId(snapshot, 'event', row.event_id, 'settlements.event_id') : null,
+    groupId: row.group_id ? requiredLocalId(snapshot, 'group', row.group_id, 'settlements.group_id') : null,
     memberId: row.member_id ?? null,
     type: row.type,
     currency: row.currency,
@@ -548,7 +548,7 @@ export function mapLocalCommentToRemote(comment: Comment, snapshot: DatabaseSnap
   return {
     target_type: comment.targetType,
     target_id: mapCommentAttachmentTargetToRemote(snapshot, comment.targetType, comment.targetId),
-    event_id: comment.eventId ? requiredRemoteId(snapshot, 'event', comment.eventId, 'comments.event_id') : null,
+    group_id: comment.groupId ? requiredRemoteId(snapshot, 'group', comment.groupId, 'comments.group_id') : null,
     author_user_id: comment.authorUserId,
     body: comment.body,
     visibility: comment.visibility,
@@ -563,7 +563,7 @@ export function mapRemoteCommentToLocal(row: RemoteRow, snapshot: DatabaseSnapsh
     remoteId: row.id,
     targetType: row.target_type,
     targetId: mapCommentAttachmentTargetToLocal(snapshot, row.target_type, row.target_id),
-    eventId: row.event_id ? requiredLocalId(snapshot, 'event', row.event_id, 'comments.event_id') : null,
+    groupId: row.group_id ? requiredLocalId(snapshot, 'group', row.group_id, 'comments.group_id') : null,
     authorUserId: row.author_user_id ?? null,
     localAuthorLabel: existing?.localAuthorLabel ?? null,
     body: row.body,
@@ -579,7 +579,7 @@ export function mapLocalAttachmentToRemote(attachment: Attachment, snapshot: Dat
   return {
     target_type: attachment.targetType,
     target_id: mapCommentAttachmentTargetToRemote(snapshot, attachment.targetType, attachment.targetId),
-    event_id: attachment.eventId ? requiredRemoteId(snapshot, 'event', attachment.eventId, 'attachments.event_id') : null,
+    group_id: attachment.groupId ? requiredRemoteId(snapshot, 'group', attachment.groupId, 'attachments.group_id') : null,
     created_by_user_id: attachment.createdByUserId,
     storage_path: attachment.storagePath,
     file_name: attachment.fileName,
@@ -600,7 +600,7 @@ export function mapRemoteAttachmentToLocal(row: RemoteRow, snapshot: DatabaseSna
     remoteId: row.id,
     targetType: row.target_type,
     targetId: mapCommentAttachmentTargetToLocal(snapshot, row.target_type, row.target_id),
-    eventId: row.event_id ? requiredLocalId(snapshot, 'event', row.event_id, 'attachments.event_id') : null,
+    groupId: row.group_id ? requiredLocalId(snapshot, 'group', row.group_id, 'attachments.group_id') : null,
     createdByUserId: row.created_by_user_id ?? null,
     localUri: existing?.localUri ?? null,
     remoteUrl: existing?.remoteUrl ?? null,
@@ -619,13 +619,13 @@ export function mapRemoteAttachmentToLocal(row: RemoteRow, snapshot: DatabaseSna
   };
 }
 
-export function mapRemoteEventInviteToLocal(row: RemoteRow, snapshot: DatabaseSnapshot): EventInvite {
-  const existing = snapshot.eventInvites.find((invite) => invite.remoteId === row.id);
+export function mapRemoteGroupInviteToLocal(row: RemoteRow, snapshot: DatabaseSnapshot): GroupInvite {
+  const existing = snapshot.groupInvites.find((invite) => invite.remoteId === row.id);
   return {
-    id: existing?.id ?? createId('event_invite'),
+    id: existing?.id ?? createId('group_invite'),
     remoteId: row.id,
-    eventId: requiredLocalId(snapshot, 'event', row.event_id, 'event_invites.event_id'),
-    remoteEventId: row.event_id,
+    groupId: requiredLocalId(snapshot, 'group', row.group_id, 'group_invites.group_id'),
+    remoteGroupId: row.group_id,
     inviterUserId: row.inviter_user_id,
     invitedUserId: row.invited_user_id ?? null,
     invitedEmail: row.invited_email ?? null,
@@ -641,16 +641,16 @@ export function mapRemoteEventInviteToLocal(row: RemoteRow, snapshot: DatabaseSn
   };
 }
 
-export function mapRemoteEventClaimToLocal(row: RemoteRow, snapshot: DatabaseSnapshot): EventMemberClaim {
-  const existing = snapshot.eventMemberClaims.find((claim) => claim.remoteId === row.id);
-  const eventMemberId = requiredLocalId(snapshot, 'event_member', row.event_member_id, 'event_member_claims.event_member_id');
+export function mapRemoteGroupClaimToLocal(row: RemoteRow, snapshot: DatabaseSnapshot): GroupMemberClaim {
+  const existing = snapshot.groupMemberClaims.find((claim) => claim.remoteId === row.id);
+  const groupMemberId = requiredLocalId(snapshot, 'group_member', row.group_member_id, 'group_member_claims.group_member_id');
   return {
-    id: existing?.id ?? createId('event_claim'),
+    id: existing?.id ?? createId('group_claim'),
     remoteId: row.id,
-    eventId: requiredLocalId(snapshot, 'event', row.event_id, 'event_member_claims.event_id'),
-    remoteEventId: row.event_id,
-    eventMemberId,
-    remoteEventMemberId: row.event_member_id,
+    groupId: requiredLocalId(snapshot, 'group', row.group_id, 'group_member_claims.group_id'),
+    remoteGroupId: row.group_id,
+    groupMemberId,
+    remoteGroupMemberId: row.group_member_id,
     claimantUserId: row.claimant_user_id,
     status: row.status,
     message: row.message ?? null,
@@ -662,14 +662,14 @@ export function mapRemoteEventClaimToLocal(row: RemoteRow, snapshot: DatabaseSna
   };
 }
 
-export function mapRemoteDuplicateWarningToLocal(row: RemoteRow, snapshot: DatabaseSnapshot): EventDuplicateWarning {
-  const existing = snapshot.eventDuplicateWarnings.find((warning) => warning.remoteId === row.id);
+export function mapRemoteDuplicateWarningToLocal(row: RemoteRow, snapshot: DatabaseSnapshot): GroupDuplicateWarning {
+  const existing = snapshot.groupDuplicateWarnings.find((warning) => warning.remoteId === row.id);
   return {
-    id: existing?.id ?? createId('event_duplicate'),
+    id: existing?.id ?? createId('group_duplicate'),
     remoteId: row.id,
-    eventId: requiredLocalId(snapshot, 'event', row.event_id, 'event_duplicate_warnings.event_id'),
-    eventMemberIdA: requiredLocalId(snapshot, 'event_member', row.event_member_id_a, 'event_duplicate_warnings.event_member_id_a'),
-    eventMemberIdB: requiredLocalId(snapshot, 'event_member', row.event_member_id_b, 'event_duplicate_warnings.event_member_id_b'),
+    groupId: requiredLocalId(snapshot, 'group', row.group_id, 'group_duplicate_warnings.group_id'),
+    groupMemberIdA: requiredLocalId(snapshot, 'group_member', row.group_member_id_a, 'group_duplicate_warnings.group_member_id_a'),
+    groupMemberIdB: requiredLocalId(snapshot, 'group_member', row.group_member_id_b, 'group_duplicate_warnings.group_member_id_b'),
     reason: row.reason,
     confidence: row.confidence,
     status: row.status,
@@ -680,13 +680,13 @@ export function mapRemoteDuplicateWarningToLocal(row: RemoteRow, snapshot: Datab
   };
 }
 
-export function mapRemoteActivityToLocal(row: RemoteRow, snapshot: DatabaseSnapshot): EventActivityLog {
-  const existing = snapshot.eventActivityLogs.find((activity) => activity.remoteId === row.id);
+export function mapRemoteActivityToLocal(row: RemoteRow, snapshot: DatabaseSnapshot): GroupActivityLog {
+  const existing = snapshot.groupActivityLogs.find((activity) => activity.remoteId === row.id);
   return {
-    id: existing?.id ?? createId('event_activity'),
+    id: existing?.id ?? createId('group_activity'),
     remoteId: row.id,
-    eventId: requiredLocalId(snapshot, 'event', row.event_id, 'event_activity_logs.event_id'),
-    remoteEventId: row.event_id,
+    groupId: requiredLocalId(snapshot, 'group', row.group_id, 'group_activity_logs.group_id'),
+    remoteGroupId: row.group_id,
     actorUserId: row.actor_user_id ?? null,
     action: row.action,
     targetType: row.target_type,
@@ -725,27 +725,27 @@ function requiredLocalId(
 
 function requiredRemoteTargetId(snapshot: DatabaseSnapshot, targetType: string, localId: string) {
   if (targetType === 'expense') {
-    return requiredRemoteId(snapshot, 'shared_expense', localId, 'event_verification_responses.target_id');
+    return requiredRemoteId(snapshot, 'shared_expense', localId, 'group_verification_responses.target_id');
   }
   if (targetType === 'debt') {
-    return requiredRemoteId(snapshot, 'event_debt', localId, 'event_verification_responses.target_id');
+    return requiredRemoteId(snapshot, 'group_debt', localId, 'group_verification_responses.target_id');
   }
   return localId;
 }
 
 function requiredLocalTargetId(snapshot: DatabaseSnapshot, targetType: string, remoteId: string) {
   if (targetType === 'expense') {
-    return requiredLocalId(snapshot, 'shared_expense', remoteId, 'event_verification_responses.target_id');
+    return requiredLocalId(snapshot, 'shared_expense', remoteId, 'group_verification_responses.target_id');
   }
   if (targetType === 'debt') {
-    return requiredLocalId(snapshot, 'event_debt', remoteId, 'event_verification_responses.target_id');
+    return requiredLocalId(snapshot, 'group_debt', remoteId, 'group_verification_responses.target_id');
   }
   return remoteId;
 }
 
 function mapSourceRecordIdToRemote(snapshot: DatabaseSnapshot, sourceRecordType: string, localId: string) {
-  if (sourceRecordType === 'event_debt') {
-    return getRemoteIdForLocalId(snapshot, 'event_debt', localId) ?? localId;
+  if (sourceRecordType === 'group_debt') {
+    return getRemoteIdForLocalId(snapshot, 'group_debt', localId) ?? localId;
   }
   if (sourceRecordType === 'simple_debt') {
     return getRemoteIdForLocalId(snapshot, 'debt', localId) ?? localId;
@@ -754,8 +754,8 @@ function mapSourceRecordIdToRemote(snapshot: DatabaseSnapshot, sourceRecordType:
 }
 
 function mapSourceRecordIdToLocal(snapshot: DatabaseSnapshot, sourceRecordType: string, remoteOrLocalId: string) {
-  if (sourceRecordType === 'event_debt') {
-    return getLocalIdForRemoteId(snapshot, 'event_debt', remoteOrLocalId) ?? remoteOrLocalId;
+  if (sourceRecordType === 'group_debt') {
+    return getLocalIdForRemoteId(snapshot, 'group_debt', remoteOrLocalId) ?? remoteOrLocalId;
   }
   if (sourceRecordType === 'simple_debt') {
     return getLocalIdForRemoteId(snapshot, 'debt', remoteOrLocalId) ?? remoteOrLocalId;
@@ -765,18 +765,18 @@ function mapSourceRecordIdToLocal(snapshot: DatabaseSnapshot, sourceRecordType: 
 
 function mapCommentAttachmentTargetToRemote(snapshot: DatabaseSnapshot, targetType: string, localId: string) {
   switch (targetType) {
-    case 'event':
-      return getRemoteIdForLocalId(snapshot, 'event', localId) ?? localId;
+    case 'group':
+      return getRemoteIdForLocalId(snapshot, 'group', localId) ?? localId;
     case 'shared_expense':
       return getRemoteIdForLocalId(snapshot, 'shared_expense', localId) ?? localId;
-    case 'event_debt':
-      return getRemoteIdForLocalId(snapshot, 'event_debt', localId) ?? localId;
+    case 'group_debt':
+      return getRemoteIdForLocalId(snapshot, 'group_debt', localId) ?? localId;
     case 'payment':
       return getRemoteIdForLocalId(snapshot, 'payment', localId) ?? localId;
     case 'settlement':
       return getRemoteIdForLocalId(snapshot, 'settlement', localId) ?? localId;
-    case 'event_member':
-      return getRemoteIdForLocalId(snapshot, 'event_member', localId) ?? localId;
+    case 'group_member':
+      return getRemoteIdForLocalId(snapshot, 'group_member', localId) ?? localId;
     default:
       return localId;
   }
@@ -784,25 +784,25 @@ function mapCommentAttachmentTargetToRemote(snapshot: DatabaseSnapshot, targetTy
 
 function mapCommentAttachmentTargetToLocal(snapshot: DatabaseSnapshot, targetType: string, remoteOrLocalId: string) {
   switch (targetType) {
-    case 'event':
-      return getLocalIdForRemoteId(snapshot, 'event', remoteOrLocalId) ?? remoteOrLocalId;
+    case 'group':
+      return getLocalIdForRemoteId(snapshot, 'group', remoteOrLocalId) ?? remoteOrLocalId;
     case 'shared_expense':
       return getLocalIdForRemoteId(snapshot, 'shared_expense', remoteOrLocalId) ?? remoteOrLocalId;
-    case 'event_debt':
-      return getLocalIdForRemoteId(snapshot, 'event_debt', remoteOrLocalId) ?? remoteOrLocalId;
+    case 'group_debt':
+      return getLocalIdForRemoteId(snapshot, 'group_debt', remoteOrLocalId) ?? remoteOrLocalId;
     case 'payment':
       return getLocalIdForRemoteId(snapshot, 'payment', remoteOrLocalId) ?? remoteOrLocalId;
     case 'settlement':
       return getLocalIdForRemoteId(snapshot, 'settlement', remoteOrLocalId) ?? remoteOrLocalId;
-    case 'event_member':
-      return getLocalIdForRemoteId(snapshot, 'event_member', remoteOrLocalId) ?? remoteOrLocalId;
+    case 'group_member':
+      return getLocalIdForRemoteId(snapshot, 'group_member', remoteOrLocalId) ?? remoteOrLocalId;
     default:
       return remoteOrLocalId;
   }
 }
 
 function mapActivityTargetToLocal(snapshot: DatabaseSnapshot, targetType: string, remoteOrLocalId: string) {
-  return mapCommentAttachmentTargetToLocal(snapshot, targetType === 'event_member' ? 'event_member' : targetType, remoteOrLocalId);
+  return mapCommentAttachmentTargetToLocal(snapshot, targetType === 'group_member' ? 'group_member' : targetType, remoteOrLocalId);
 }
 
 function normalisedExpensePayers(expense: SharedExpense) {
@@ -812,7 +812,7 @@ function normalisedExpensePayers(expense: SharedExpense) {
         {
           id: `${expense.id}_payer_${expense.payerId}`,
           expenseId: expense.id,
-          eventMemberId: expense.payerId,
+          groupMemberId: expense.payerId,
           amountPaid: expense.amount,
           currency: expense.currency,
           createdAt: expense.createdAt,
@@ -833,22 +833,22 @@ function shouldKeepLocalPending(record: { syncStatus?: string | null } | null | 
 
 function collectionForEntity(snapshot: DatabaseSnapshot, entityType: EntityKind | 'expense_payer' | 'settlement_line') {
   switch (entityType) {
-    case 'event':
-      return snapshot.events;
-    case 'event_invite':
-      return snapshot.eventInvites;
-    case 'event_member':
-      return snapshot.sharedEventMembers;
-    case 'event_member_claim':
-      return snapshot.eventMemberClaims;
-    case 'event_duplicate_warning':
-      return snapshot.eventDuplicateWarnings;
+    case 'group':
+      return snapshot.groups;
+    case 'group_invite':
+      return snapshot.groupInvites;
+    case 'group_member':
+      return snapshot.sharedGroupMembers;
+    case 'group_member_claim':
+      return snapshot.groupMemberClaims;
+    case 'group_duplicate_warning':
+      return snapshot.groupDuplicateWarnings;
     case 'shared_expense':
       return snapshot.sharedExpenses;
-    case 'event_debt':
-      return snapshot.eventDebts;
-    case 'event_verification':
-      return snapshot.eventVerificationResponses;
+    case 'group_debt':
+      return snapshot.groupDebts;
+    case 'group_verification':
+      return snapshot.groupVerificationResponses;
     case 'payment':
       return snapshot.payments;
     case 'settlement':

@@ -43,7 +43,7 @@ Concrete gaps or probable unfinished areas found in the repo:
 - [ ] Decide whether beta users are testing:
   - [ ] local-only debt tracking
   - [ ] account/auth flows
-  - [ ] shared-event sync
+  - [ ] shared-group sync
   - [ ] backup/export/delete-account compliance flows
   - [ ] notifications
 - [ ] Define what should stay disabled or explicitly labeled beta-only.
@@ -91,7 +91,7 @@ Current repo state: the delete-account screen records `account_deletion_requeste
   - [ ] preserve shared financial history where needed for other participants
   - [ ] sever account-linked references safely without corrupting shared ledgers
 - [ ] Decide what happens to:
-  - [ ] event ownership
+  - [ ] group ownership
   - [ ] linked-member relationships
   - [ ] comments
   - [ ] attachments
@@ -102,7 +102,7 @@ Current repo state: the delete-account screen records `account_deletion_requeste
   - [ ] completed
   - [ ] failed
 - [ ] Add automated tests for deletion policy edge cases:
-  - [ ] sole owner of a shared event
+  - [ ] sole owner of a shared group
   - [ ] user with uploaded attachments
   - [ ] user with unresolved conflicts
   - [ ] user with private local backup enabled
@@ -125,7 +125,7 @@ Current repo state: settings and notification-center UI exist, but no push imple
 - [ ] Respect quiet hours and per-category notification toggles.
 - [ ] Decide whether beta supports:
   - [ ] local reminder notifications only
-  - [ ] server-triggered push for shared events
+  - [ ] server-triggered push for shared groups
   - [ ] both
 - [ ] Add local testing utilities for notifications so QA can trigger representative payloads.
 - [ ] Add failure handling for:
@@ -156,7 +156,7 @@ Current repo state: no crash-reporting or product-analytics integration was foun
 - [ ] Add minimal product analytics for beta learning:
   - [ ] onboarding started/completed
   - [ ] first debt created
-  - [ ] first shared event created
+  - [ ] first shared group created
   - [ ] first sync success/failure
   - [ ] export used
   - [ ] delete-account request used
@@ -176,7 +176,7 @@ Current repo state: sync architecture is substantial, but automated coverage app
 - [ ] Add tests for attachment upload sync behavior.
 - [ ] Add tests for settlement and payment sync edge cases.
 - [ ] Add tests for conflict classification so financial conflicts remain high-safety.
-- [ ] Add tests for duplicate-warning and claim flows in shared events.
+- [ ] Add tests for duplicate-warning and claim flows in shared groups.
 - [ ] Add tests for offline mutation queues across sign-in/sign-out boundaries.
 - [ ] Add regression tests for mixed visibility data so private records never leak into shared sync.
 - [ ] Add QA seed scenarios that intentionally generate:
@@ -223,7 +223,7 @@ Current repo state: import CSV and attachments still expose manual file URI inpu
 
 - [ ] Remove or update any copy that still frames release surfaces as placeholders.
 - [ ] Audit screens for beta-quality empty states, loading states, and error messages.
-- [ ] Review screen titles and wording for consistency across debts, events, exports, sync, privacy, and settings.
+- [ ] Review screen titles and wording for consistency across debts, groups, exports, sync, privacy, and settings.
 - [ ] Check whether the app should expose a `dark` theme option yet, since settings currently suggest it is deferred.
 - [ ] Review all destructive actions for confirmation, undo, and post-action state refresh.
 - [ ] Improve tablet and large-screen layouts if `supportsTablet` remains enabled.
@@ -250,7 +250,7 @@ Current repo state: import CSV and attachments still expose manual file URI inpu
 - [ ] Add tests for restore preview validation.
 - [ ] Add at least one integration-style happy path covering:
   - [ ] sign in
-  - [ ] create shared event
+  - [ ] create shared group
   - [ ] add expense
   - [ ] sync to second user
   - [ ] resolve a conflict
@@ -273,7 +273,7 @@ Current repo state: import CSV and attachments still expose manual file URI inpu
 - [ ] Add a clearer first-run explanation of local-first behavior.
 - [ ] Explain the difference between private records, shared records, and account backup.
 - [ ] Add guidance for when users should sign in versus stay local-only.
-- [ ] Add sample empty-state prompts for first debt, first member, first event, and first shared event.
+- [ ] Add sample empty-state prompts for first debt, first member, first group, and first shared group.
 - [ ] Add a tester-facing beta banner or changelog entry if behavior is still shifting.
 
 ### 2.3 Trust and safety product work
@@ -320,7 +320,7 @@ Current repo state: import CSV and attachments still expose manual file URI inpu
 - [ ] Expand the illustration set beyond the current orbit/shield motifs if more variety is needed.
 - [ ] Create consistent empty-state illustrations for:
   - [ ] no debts
-  - [ ] no events
+  - [ ] no groups
   - [ ] no notifications
   - [ ] no conflicts
   - [ ] no analytics data
@@ -343,7 +343,7 @@ Current repo state: import CSV and attachments still expose manual file URI inpu
 - [ ] Confirm store disclosures align with actual implementation for:
   - [ ] auth sessions
   - [ ] financial records
-  - [ ] shared-event sync
+  - [ ] shared-group sync
   - [ ] attachments
   - [ ] exports/backups
   - [ ] notifications and push tokens
@@ -360,7 +360,7 @@ Current repo state: import CSV and attachments still expose manual file URI inpu
 - [ ] Write a concise list of key differentiators, such as:
   - [ ] local-first privacy model
   - [ ] explicit sharing model
-  - [ ] shared event workflow
+  - [ ] shared group workflow
   - [ ] backup/export/delete-account controls
 - [ ] Write release notes for the first beta.
 
@@ -412,7 +412,7 @@ Current repo state: import CSV and attachments still expose manual file URI inpu
 
 - [ ] Signed-out local-only flow.
 - [ ] Authenticated personal flow.
-- [ ] Shared-event creation and collaboration flow across two accounts.
+- [ ] Shared-group creation and collaboration flow across two accounts.
 - [ ] Payment and settlement flow.
 - [ ] Conflict generation and resolution flow.
 - [ ] Backup, restore, full export, and CSV import flow.

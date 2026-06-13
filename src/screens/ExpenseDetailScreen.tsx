@@ -48,8 +48,8 @@ export function ExpenseDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const data = useAppData();
   const expense = data.sharedExpenses.find((item) => item.id === id);
-  const event = expense
-    ? data.events.find((item) => item.id === expense.eventId)
+  const group = expense
+    ? data.groups.find((item) => item.id === expense.groupId)
     : undefined;
   const attachments = expense
     ? activeAttachmentsForTarget(data.attachments, "shared_expense", expense.id)
@@ -60,7 +60,7 @@ export function ExpenseDetailScreen() {
     return <LoadingState />;
   }
 
-  if (!expense || !event) {
+  if (!expense || !group) {
     return (
       <Screen>
         <EmptyState
@@ -116,10 +116,10 @@ export function ExpenseDetailScreen() {
         title: currentExpense.title,
         entries,
         payments: data.payments.filter(
-          (payment) => payment.eventId === currentExpense.eventId,
+          (payment) => payment.groupId === currentExpense.groupId,
         ),
         settlements: data.settlements.filter(
-          (settlement) => settlement.eventId === currentExpense.eventId,
+          (settlement) => settlement.groupId === currentExpense.groupId,
         ),
         snapshot: data,
         options: {
@@ -196,7 +196,7 @@ export function ExpenseDetailScreen() {
                   participantName(
                     participantId,
                     data.members,
-                    data.sharedEventMembers,
+                    data.sharedGroupMembers,
                   ),
                 )
                 .join(", ")}
@@ -224,7 +224,7 @@ export function ExpenseDetailScreen() {
       <AttachmentsSection
         targetType="shared_expense"
         targetId={expense.id}
-        eventId={expense.eventId}
+        groupId={expense.groupId}
         parentVisibility={expense.visibility}
         preferredKind="receipt"
       />
@@ -232,8 +232,8 @@ export function ExpenseDetailScreen() {
       <CommentsSection
         targetType="shared_expense"
         targetId={expense.id}
-        eventId={expense.eventId}
-        sharedAvailable={expense.visibility === "shared_event"}
+        groupId={expense.groupId}
+        sharedAvailable={expense.visibility === "shared_group"}
       />
 
       {expense.verificationStatus === "rejected" ||
@@ -249,7 +249,7 @@ export function ExpenseDetailScreen() {
           />
           <Text style={styles.body}>
             This expense remains in your private local ledger. Rejected and
-            disputed records are omitted from default event settlement
+            disputed records are omitted from default group settlement
             suggestions until they are resolved or kept privately.
           </Text>
           <View style={styles.actionRow}>
@@ -285,9 +285,9 @@ export function ExpenseDetailScreen() {
           <View key={payer.id} style={styles.infoRow}>
             <Text style={styles.infoValue}>
               {participantName(
-                payer.eventMemberId,
+                payer.groupMemberId,
                 data.members,
-                data.sharedEventMembers,
+                data.sharedGroupMembers,
               )}
             </Text>
             <Text style={styles.money}>
@@ -303,7 +303,7 @@ export function ExpenseDetailScreen() {
                 {participantName(
                   participantId,
                   data.members,
-                  data.sharedEventMembers,
+                  data.sharedGroupMembers,
                 )}
               </Text>
               <Text style={styles.money}>
@@ -319,13 +319,13 @@ export function ExpenseDetailScreen() {
               {participantName(
                 obligation.fromParticipantId,
                 data.members,
-                data.sharedEventMembers,
+                data.sharedGroupMembers,
               )}{" "}
               pays{" "}
               {participantName(
                 obligation.toParticipantId,
                 data.members,
-                data.sharedEventMembers,
+                data.sharedGroupMembers,
               )}
             </Text>
             <Text style={styles.money}>

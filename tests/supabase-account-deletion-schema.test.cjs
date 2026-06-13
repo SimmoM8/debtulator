@@ -30,7 +30,7 @@ test('mobile deletion RPC is authenticated and service role owns fulfillment', (
 
 test('shared ledger auth foreign keys are deletion-safe', () => {
   assert.match(sql, /alter table public\.shared_debt_records[\s\S]*alter column creator_user_id drop not null/i);
-  assert.match(sql, /alter table public\.events[\s\S]*alter column owner_user_id drop not null/i);
+  assert.match(sql, /alter table public\.groups[\s\S]*alter column owner_user_id drop not null/i);
   assert.match(sql, /foreign key \(creator_user_id\) references auth\.users\(id\) on delete set null/i);
   assert.match(sql, /foreign key \(involved_user_id\) references auth\.users\(id\) on delete set null/i);
   assert.match(sql, /foreign key \(owner_user_id\) references auth\.users\(id\) on delete set null/i);
@@ -45,7 +45,7 @@ test('admin anonymization covers personal and shared reference tables', () => {
     'delete from public.sync_conflicts',
     'update public.profiles',
     'update public.shared_debt_records',
-    'update public.event_members',
+    'update public.group_members',
     'update public.payments',
     'update public.attachments',
     'update public.comments',

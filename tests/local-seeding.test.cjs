@@ -43,7 +43,7 @@ class FakeDatabase {
     this.domainRows = {
       members: 0,
       debts: 0,
-      events: 0,
+      groups: 0,
       shared_expenses: 0,
     };
   }
@@ -111,7 +111,7 @@ test('no-demo reset persists demo seeding opt-out across later empty database op
   assert.deepEqual(db.domainRows, {
     members: 0,
     debts: 0,
-    events: 0,
+    groups: 0,
     shared_expenses: 0,
   });
 });
@@ -123,6 +123,6 @@ test('empty first-run database still seeds demo data when demo seeding was not d
 
   assert.notEqual(db.settings.get('__demoSeeding'), 'disabled');
   assert.ok(db.domainRows.members > 0);
-  assert.ok(db.domainRows.events > 0);
+  assert.ok(db.domainRows.groups > 0);
   assert.ok(db.domainRows.debts > 0 || db.domainRows.shared_expenses > 0);
 });
