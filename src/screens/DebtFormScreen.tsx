@@ -199,20 +199,35 @@ export function DebtFormScreen() {
         />
         <View style={styles.amountRow}>
           <TextField
-            label="Amount"
+            label={debt ? "Debt amount" : "Amount"}
             value={amount}
             onChangeText={(value) => setAmount(sanitizeCurrencyAmount(value))}
             placeholder="0.00"
             keyboardType="decimal-pad"
             style={styles.amountField}
           />
-          <CurrencySelect
-            label="Currency"
-            value={currency}
-            onChange={setCurrency}
-            style={styles.currencyField}
-          />
+          {debt ? (
+            <View style={styles.currencyReadOnly}>
+              <Text style={styles.currencyReadOnlyLabel}>Currency</Text>
+              <View style={styles.currencyReadOnlyValue}>
+                <Text style={styles.currencyReadOnlyText}>{debt.currency}</Text>
+              </View>
+            </View>
+          ) : (
+            <CurrencySelect
+              label="Currency"
+              value={currency}
+              onChange={setCurrency}
+              style={styles.currencyField}
+            />
+          )}
         </View>
+        {debt ? (
+          <Text style={styles.amountEditHint}>
+            Changing the amount is logged and recalculates the balance against
+            all recorded payments.
+          </Text>
+        ) : null}
         {isSharedEventDebt ? (
           <>
             <DropdownSelect
@@ -404,6 +419,35 @@ const styles = StyleSheet.create({
   },
   currencyField: {
     width: 128,
+  },
+  currencyReadOnly: {
+    width: 128,
+    gap: 8,
+  },
+  currencyReadOnlyLabel: {
+    color: palette.muted,
+    fontSize: typography.size.sm,
+    fontFamily: typefaces.bodyStrong,
+  },
+  currencyReadOnlyValue: {
+    minHeight: 52,
+    justifyContent: "center",
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.border,
+    backgroundColor: palette.surfaceMuted,
+  },
+  currencyReadOnlyText: {
+    color: palette.ink,
+    fontSize: typography.size.base,
+    fontFamily: typefaces.bodyStrong,
+  },
+  amountEditHint: {
+    color: palette.faint,
+    fontSize: typography.size.xs,
+    fontFamily: typefaces.body,
+    marginTop: -4,
   },
   pressed: {
     opacity: 0.76,

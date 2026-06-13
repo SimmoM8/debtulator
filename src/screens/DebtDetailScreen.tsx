@@ -40,6 +40,7 @@ import { createRemoteDebtVerification } from "@/src/services/stage2Sync";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
 import type { CurrencyCode, DebtStatus } from "@/src/types/models";
+import { todayIsoDate } from "@/src/utils/id";
 import { formatMoney } from "@/src/utils/money";
 
 type ActivityItem = {
@@ -54,6 +55,7 @@ export function DebtDetailScreen() {
   const data = useAppData();
   const auth = useAuth();
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const [settlingUp, setSettlingUp] = useState(false);
   const debt = data.debts.find((item) => item.id === id);
   const member = debt
     ? data.members.find((item) => item.id === debt.memberId)
@@ -61,17 +63,22 @@ export function DebtDetailScreen() {
   const event = debt?.eventId
     ? data.events.find((item) => item.id === debt.eventId)
     : undefined;
-  const entry = debt ? buildLedgerEntries([debt], [])[0] : undefined;
-  const currentEntry =
-    data.ledgerEntries.find(
-      (item) => item.kind === "simple_debt" && item.sourceId === id,
-    ) ?? entry;
+  const currentEntry = debt
+    ? buildLedgerEntries(
+        [debt],
+        [],
+        [],
+        data.settlementLines,
+        data.payments,
+        data.overpaymentCredits,
+      )[0]
+    : undefined;
 
   if (data.loading) {
     return <LoadingState />;
   }
 
-  if (!debt || !entry || !currentEntry) {
+  if (!debt || !currentEntry) {
     return (
       <Screen>
         <EmptyState
@@ -83,6 +90,7 @@ export function DebtDetailScreen() {
   }
 
   const currentDebt = debt;
+  const debtEntry = currentEntry;
   const paymentLines = data.settlementLines.filter(
     (line) =>
       line.sourceRecordType === "simple_debt" &&
@@ -164,18 +172,23 @@ export function DebtDetailScreen() {
           createdAt: activity.createdAt,
         };
       }),
-    ...payments.map((payment) => ({
-      id: `payment-${payment.id}`,
-      title: `${activityActorName(payment.createdByUserId)} recorded a payment`,
-      detail: `${formatMoney(payment.amount, payment.currency)} · ${payment.status.replaceAll("_", " ")}`,
-      createdAt: payment.paymentDate,
-    })),
+    ...payments.map((payment) => {
+      const appliedAmount = paymentLines
+        .filter((line) => line.paymentId === payment.id)
+        .reduce((total, line) => total + line.appliedAmount, 0);
+      return {
+        id: `payment-${payment.id}`,
+        title: `${activityActorName(payment.createdByUserId)} recorded a payment`,
+        detail: `${formatMoney(appliedAmount, currentDebt.currency)} applied · ${payment.status.replaceAll("_", " ")}`,
+        createdAt: payment.createdAt,
+      };
+    }),
   ].sort((a, b) => {
     const aTime = new Date(a.createdAt).getTime();
     const bTime = new Date(b.createdAt).getTime();
-    return (
+    const chronologicalOrder =
       (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime)
-    );
+    return chronologicalOrder || b.id.localeCompare(a.id);
   });
 
   async function updateStatus(status: DebtStatus) {
@@ -184,6 +197,42 @@ export function DebtDetailScreen() {
       { status },
       auth.identity.authenticatedUserId,
     );
+  }
+
+  async function settleUp() {
+    if (settlingUp || debtEntry.remainingAmount <= 0.005) {
+      return;
+    }
+
+    setSettlingUp(true);
+    try {
+      await data.createPaymentSettlement({
+        payerId: debtEntry.fromId,
+        payeeId: debtEntry.toId,
+        amount: debtEntry.remainingAmount,
+        currency: debtEntry.currency,
+        paymentDate: todayIsoDate(),
+        notes: "Settled from debt details",
+        relatedMemberId: currentDebt.memberId,
+        visibility: currentDebt.visibility,
+        createdByUserId: auth.identity.authenticatedUserId,
+        lines: [
+          {
+            sourceRecordType: "simple_debt",
+            sourceRecordId: currentDebt.id,
+            appliedAmount: debtEntry.remainingAmount,
+          },
+        ],
+        settlementType: "manual",
+      });
+    } catch {
+      Alert.alert(
+        "Could not settle debt",
+        "The payment could not be recorded. Please try again.",
+      );
+    } finally {
+      setSettlingUp(false);
+    }
   }
 
   function confirmArchiveDebt() {
@@ -279,9 +328,6 @@ export function DebtDetailScreen() {
   const isOwedToMe = currentDebt.direction === "they_owe_me";
   const directionColor = isOwedToMe ? palette.positive : palette.negative;
 
-  const isPartiallyPaid =
-    currentEntry.paymentStatus === "partially_paid" &&
-    currentEntry.amountPaid > 0;
   const isFullyPaid =
     currentEntry.paymentStatus === "paid" ||
     currentEntry.paymentStatus === "overpaid";
@@ -291,12 +337,7 @@ export function DebtDetailScreen() {
       : formatDueRelative(currentDebt.dueDate)
     : "No deadline has been set";
 
-  const displayAmount = isPartiallyPaid
-    ? currentEntry.remainingAmount
-    : currentEntry.originalAmount;
-
-  const isManuallySettled =
-    currentEntry.status === "settled" && currentEntry.amountPaid <= 0;
+  const displayAmount = currentEntry.remainingAmount;
   const paidFraction = isFullyPaid
     ? 1
     : currentEntry.originalAmount > 0
@@ -315,12 +356,16 @@ export function DebtDetailScreen() {
       footer={
         <View style={styles.footerActions}>
           <Button
-            title="Settle up"
+            title={settlingUp ? "Settling..." : "Settle up"}
             icon="checkmark-circle"
             onPress={() => {
-              void updateStatus("settled");
+              void settleUp();
             }}
-            disabled={currentDebt.status === "settled"}
+            disabled={
+              currentDebt.status === "archived" ||
+              currentEntry.remainingAmount <= 0.005 ||
+              settlingUp
+            }
             style={styles.footerButton}
           />
           <Button
@@ -453,11 +498,11 @@ export function DebtDetailScreen() {
             size="lg"
             color={directionColor}
           />
-          {isPartiallyPaid ? (
+          {!isFullyPaid ? (
             <Text style={styles.amountSubtext}>
               of{" "}
               {formatMoney(currentEntry.originalAmount, currentDebt.currency)}{" "}
-              remaining
+              original
             </Text>
           ) : isFullyPaid ? (
             <View style={styles.settledPill}>
@@ -509,11 +554,6 @@ export function DebtDetailScreen() {
               </Text>
             </View>
           </View>
-          {isManuallySettled ? (
-            <Text style={styles.progressNote}>
-              Settled manually without a recorded payment
-            </Text>
-          ) : null}
         </View>
 
         <View style={styles.dueRow}>
@@ -894,8 +934,10 @@ function describeDebtActivity(
       return {
         phrase: "changed the amount",
         detail:
-          typeof nextValue === "number"
-            ? formatMoney(nextValue, currency)
+          typeof previousValue === "number" && typeof nextValue === "number"
+            ? `${formatMoney(previousValue, currency)} → ${formatMoney(nextValue, currency)}`
+            : typeof nextValue === "number"
+              ? formatMoney(nextValue, currency)
             : "",
       };
     }
@@ -1093,11 +1135,6 @@ const styles = StyleSheet.create({
     color: palette.muted,
     fontSize: typography.size.sm,
     fontFamily: typefaces.bodyStrong,
-  },
-  progressNote: {
-    color: palette.faint,
-    fontSize: typography.size.xs,
-    fontFamily: typefaces.body,
   },
   dueRow: {
     flexDirection: "row",
