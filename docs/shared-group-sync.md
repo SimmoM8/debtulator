@@ -1,6 +1,6 @@
 # Shared Group Sync
 
-Shared group sync is local-first and queue-backed. The UI writes to SQLite first, then the Stage 7 sync engine pushes shared records to Supabase and pulls remote changes back into the local cache.
+Shared group sync is local-first and queue-backed. The UI writes to SQLite first, then the sync engine pushes shared records to Supabase and pulls remote changes back into the local cache.
 
 ## Supported Flow
 
@@ -11,7 +11,7 @@ Shared group sync is local-first and queue-backed. The UI writes to SQLite first
 5. The sync engine creates the remote group, owner participant, and owner group member, then stores returned `remote_id` values locally.
 6. User A adds unlinked group members and shared expenses.
 7. Expense splits and payer rows are pushed with remote group member UUIDs.
-8. User B signs in and accepts/pulls an group invite.
+8. User B signs in and accepts/pulls a group invite.
 9. Remote pull hydrates group, participants, group members, expenses, splits, debts, verification responses, payments, settlements, comments, attachments, and activity.
 10. Pulled relationships are converted back to local IDs before ledger calculations run.
 
@@ -36,11 +36,10 @@ Group payments and settlements are persisted records. Settlement suggestions rem
 
 - Private comments and attachments remain local.
 - Shared comment and attachment metadata syncs.
-- File upload still depends on the existing attachment upload service; Stage 7 does not add a new storage pipeline.
+- File upload depends on the attachment upload service and Supabase Storage policy setup.
 
 ## Current Limitations
 
 - Sync is one-shot when auth state or queue state changes; there is no background daemon.
-- Backup restore, account deletion, push, and email workflows remain outside Stage 7.
+- Backup restore, full account deletion fulfillment, push, and email workflows still need production-level hardening.
 - Settlement line source IDs for generated expense obligations remain explanatory text IDs because obligations are derived, not remote rows.
-
