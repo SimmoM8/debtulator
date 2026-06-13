@@ -359,11 +359,10 @@ export function DebtDetailScreen() {
     ? isFullyPaid
       ? "Payment complete"
       : formatDueRelative(currentDebt.dueDate)
-    : "No deadline has been set";
+    : null;
   const isOverdue =
-    Boolean(currentDebt.dueDate) &&
     !isFullyPaid &&
-    dueRelativeLabel.includes("overdue");
+    Boolean(dueRelativeLabel?.includes("overdue"));
   const notesValue =
     notesDraft?.debtId === currentDebt.id
       ? notesDraft.value
@@ -564,51 +563,53 @@ export function DebtDetailScreen() {
               setTagsOpen(false);
             }}
           />
-          <Card style={styles.tagsModalCard}>
-            <View style={styles.tagsModalHeader}>
-              <View style={styles.tagsModalTitleCopy}>
-                <Text style={styles.tagsModalTitle}>Edit tags</Text>
-                <Text style={styles.tagsModalSubtitle}>
-                  Add or remove tags for this debt.
-                </Text>
+          <View style={styles.tagsModalPanel}>
+            <Card style={styles.tagsModalCard}>
+              <View style={styles.tagsModalHeader}>
+                <View style={styles.tagsModalTitleCopy}>
+                  <Text style={styles.tagsModalTitle}>Tags</Text>
+                  <Text style={styles.tagsModalSubtitle}>
+                    Add or remove tags for this debt.
+                  </Text>
+                </View>
+                <IconButton
+                  icon="close"
+                  label="Close tags editor"
+                  onPress={() => {
+                    setTagsDraft(null);
+                    setTagsOpen(false);
+                  }}
+                />
               </View>
-              <IconButton
-                icon="close"
-                label="Close tags editor"
-                onPress={() => {
-                  setTagsDraft(null);
-                  setTagsOpen(false);
-                }}
+              <TagInput
+                label="Tags"
+                value={tagsValue}
+                onChange={(value) =>
+                  setTagsDraft({ debtId: currentDebt.id, value })
+                }
+                usedTags={usedTagNames}
               />
-            </View>
-            <TagInput
-              label="Tags"
-              value={tagsValue}
-              onChange={(value) =>
-                setTagsDraft({ debtId: currentDebt.id, value })
-              }
-              usedTags={usedTagNames}
-            />
-            <View style={styles.tagsModalActions}>
-              <Button
-                title="Cancel"
-                variant="ghost"
-                onPress={() => {
-                  setTagsDraft(null);
-                  setTagsOpen(false);
-                }}
-                style={styles.tagsModalButton}
-              />
-              <Button
-                title={savingTags ? "Saving..." : "Save"}
-                onPress={() => {
-                  void saveTags();
-                }}
-                disabled={!tagsChanged || savingTags}
-                style={styles.tagsModalButton}
-              />
-            </View>
-          </Card>
+              <View style={styles.tagsModalActions}>
+                <Button
+                  title="Cancel"
+                  variant="ghost"
+                  onPress={() => {
+                    setTagsDraft(null);
+                    setTagsOpen(false);
+                  }}
+                  style={styles.tagsModalButton}
+                />
+                <Button
+                  title={savingTags ? "Saving..." : "Save"}
+                  onPress={() => {
+                    void saveTags();
+                  }}
+                  disabled={!tagsChanged || savingTags}
+                  style={styles.tagsModalButton}
+                />
+              </View>
+            </Card>
+          </View>
         </View>
       </Modal>
 
@@ -729,25 +730,27 @@ export function DebtDetailScreen() {
           value={
             <View style={styles.dueValue}>
               <Text style={styles.dueValueDate}>
-                {currentDebt.dueDate ? dueLabel : "Not set"}
+                {dueLabel}
               </Text>
-              <View style={styles.dueValueStatus}>
-                {isOverdue ? (
-                  <Ionicons
-                    name="alert-circle-outline"
-                    size={13}
-                    color={palette.negative}
-                  />
-                ) : null}
-                <Text
-                  style={[
-                    styles.dueValueMeta,
-                    isOverdue && styles.dueValueMetaOverdue,
-                  ]}
-                >
-                  {dueRelativeLabel}
-                </Text>
-              </View>
+              {dueRelativeLabel ? (
+                <View style={styles.dueValueStatus}>
+                  {isOverdue ? (
+                    <Ionicons
+                      name="alert-circle-outline"
+                      size={13}
+                      color={palette.negative}
+                    />
+                  ) : null}
+                  <Text
+                    style={[
+                      styles.dueValueMeta,
+                      isOverdue && styles.dueValueMetaOverdue,
+                    ]}
+                  >
+                    {dueRelativeLabel}
+                  </Text>
+                </View>
+              ) : null}
             </View>
           }
         />
@@ -1503,10 +1506,14 @@ const styles = StyleSheet.create({
     left: 0,
     backgroundColor: palette.overlayStrong,
   },
+  tagsModalPanel: {
+    width: "100%",
+    maxWidth: 480,
+  },
   tagsModalCard: {
     width: "100%",
-    maxWidth: 420,
-    gap: spacing.xl,
+    padding: spacing.xxl,
+    gap: spacing.xxl,
   },
   tagsModalHeader: {
     flexDirection: "row",
@@ -1531,6 +1538,7 @@ const styles = StyleSheet.create({
   tagsModalActions: {
     flexDirection: "row",
     gap: spacing.sm,
+    paddingTop: spacing.sm,
   },
   tagsModalButton: {
     flex: 1,
