@@ -151,7 +151,11 @@ export function DebtFormScreen() {
 
   async function persist(input: Parameters<typeof data.createDebt>[0]) {
     if (debt) {
-      await data.updateDebt(debt.id, input);
+      await data.updateDebt(
+        debt.id,
+        input,
+        auth.identity.authenticatedUserId,
+      );
     } else {
       await data.createDebt(input);
     }

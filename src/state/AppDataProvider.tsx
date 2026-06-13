@@ -342,7 +342,11 @@ type AppDataContextValue = DatabaseSnapshot & {
   ) => Promise<LinkRequest>;
   unlinkMember: (memberId: string, actorUserId?: string | null) => Promise<Member>;
   createDebt: (input: CreateDebtInput) => Promise<Debt>;
-  updateDebt: (debtId: string, input: Partial<CreateDebtInput>) => Promise<Debt>;
+  updateDebt: (
+    debtId: string,
+    input: Partial<CreateDebtInput>,
+    actorUserId?: string | null,
+  ) => Promise<Debt>;
   requestDebtVerification: (
     debtId: string,
     input: {
@@ -722,13 +726,13 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           return repo.unlinkMember(member, actorUserId);
         }),
       createDebt: (input) => runAndRefresh((repo) => repo.createDebt(input)),
-      updateDebt: (debtId, input) =>
+      updateDebt: (debtId, input, actorUserId = null) =>
         runAndRefresh((repo) => {
           const debt = snapshot.debts.find((item) => item.id === debtId);
           if (!debt) {
             throw new Error('Debt not found.');
           }
-          return repo.updateDebt(debt, input);
+          return repo.updateDebt(debt, input, actorUserId);
         }),
       requestDebtVerification: (debtId, input) =>
         runAndRefresh((repo) => {
