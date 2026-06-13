@@ -119,7 +119,18 @@ function statusLabel(status: DebtStatus | GroupStatus) {
 }
 
 export function verificationLabel(status: VerificationStatus) {
-  return status === "local_only" ? "local only" : status.replace("_", " ");
+  switch (status) {
+    case "local_only":
+      return "local only";
+    case "pending":
+      return "awaiting confirmation";
+    case "verified":
+      return "confirmed";
+    case "rejected":
+      return "contested";
+    default:
+      return status.replaceAll("_", " ");
+  }
 }
 
 export function linkStatusLabel(status: MemberLinkStatus) {

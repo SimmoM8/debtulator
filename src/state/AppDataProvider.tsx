@@ -27,7 +27,9 @@ import type {
   CsvImportBatch,
   CurrencyCode,
   Debt,
+  DebtChangeSummary,
   DebtVerification,
+  DebtVerificationRequestType,
   DebtStatus,
   Group,
   GroupActivityLog,
@@ -355,6 +357,8 @@ type AppDataContextValue = DatabaseSnapshot & {
       remoteDebtId?: string | null;
       remoteVerificationId?: string | null;
       sharedNotes?: string | null;
+      requestType?: DebtVerificationRequestType;
+      changeSummary?: DebtChangeSummary | null;
     },
   ) => Promise<{ debt: Debt; verification: DebtVerification }>;
   respondToDebtVerification: (
@@ -727,20 +731,22 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         }),
       createDebt: (input) => runAndRefresh((repo) => repo.createDebt(input)),
       updateDebt: (debtId, input, actorUserId = null) =>
-        runAndRefresh((repo) => {
-          const debt = snapshot.debts.find((item) => item.id === debtId);
+        runAndRefresh(async (repo) => {
+          const latest = await repo.load();
+          const debt = latest.debts.find((item) => item.id === debtId);
           if (!debt) {
             throw new Error('Debt not found.');
           }
           return repo.updateDebt(debt, input, actorUserId);
         }),
       requestDebtVerification: (debtId, input) =>
-        runAndRefresh((repo) => {
-          const debt = snapshot.debts.find((item) => item.id === debtId);
+        runAndRefresh(async (repo) => {
+          const latest = await repo.load();
+          const debt = latest.debts.find((item) => item.id === debtId);
           if (!debt) {
             throw new Error('Debt not found.');
           }
-          const member = snapshot.members.find((item) => item.id === debt.memberId);
+          const member = latest.members.find((item) => item.id === debt.memberId);
           if (!member) {
             throw new Error('Member not found.');
           }

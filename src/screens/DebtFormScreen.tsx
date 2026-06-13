@@ -22,9 +22,16 @@ import {
   TextField,
 } from "@/src/components/ui/Primitives";
 import { palette, shadows, typefaces, typography } from "@/src/constants/design";
+import { createRemoteDebtVerification } from "@/src/services/stage2Sync";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
-import type { CurrencyCode, DebtDirection } from "@/src/types/models";
+import type {
+  CurrencyCode,
+  Debt,
+  DebtChangeSummary,
+  DebtDirection,
+  Member,
+} from "@/src/types/models";
 import { todayIsoDate } from "@/src/utils/id";
 
 export function DebtFormScreen() {
@@ -136,41 +143,142 @@ export function DebtFormScreen() {
       ...(debt ? {} : { groupId: groupId ?? null }),
     };
 
-    const financialFieldsChanged =
+    const approvalFieldsChanged =
       debt &&
-      debt.verificationStatus === "verified" &&
       (selectedMemberId !== debt.memberId ||
         direction !== debt.direction ||
         Number(amount) !== debt.amount ||
-        currency !== debt.currency);
+        title.trim() !== debt.title ||
+        (dueDate || null) !== debt.dueDate);
+    const memberChanged = Boolean(
+      debt && selectedMemberId !== debt.memberId,
+    );
+    const originalVerification = debt
+      ? data.debtVerifications
+          .filter((verification) => verification.debtId === debt.id)
+          .sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0]
+      : undefined;
+    const currentUserId = auth.identity.authenticatedUserId;
+    if (
+      memberChanged &&
+      debt?.visibility === "shared_with_involved_member" &&
+      originalVerification &&
+      originalVerification.requesterUserId !== currentUserId
+    ) {
+      Alert.alert(
+        "Member cannot be changed",
+        "Only the person who originally shared this debt can move it to another linked member.",
+      );
+      return;
+    }
 
-    if (financialFieldsChanged) {
+    if (approvalFieldsChanged && debt.verificationStatus === "verified") {
       Alert.alert(
         "Verification required again",
-        "Changing financial details will require verification again.",
+        "The linked member will be asked to confirm these changes.",
         [
           { text: "Cancel", style: "cancel" },
-          { text: "Save", style: "destructive", onPress: () => persist(input) },
+          {
+            text: "Save and request",
+            onPress: () => persist(input, true),
+          },
         ],
       );
       return;
     }
 
-    await persist(input);
+    await persist(input, Boolean(approvalFieldsChanged));
   }
 
-  async function persist(input: Parameters<typeof data.createDebt>[0]) {
-    if (debt) {
-      await data.updateDebt(
+  async function persist(
+    input: Parameters<typeof data.createDebt>[0],
+    requestAmendment = false,
+  ) {
+    const savedDebt = debt
+      ? await data.updateDebt(
         debt.id,
         input,
         auth.identity.authenticatedUserId,
-      );
-    } else {
-      await data.createDebt(input);
+      )
+      : await data.createDebt(input);
+
+    const linkedMember = data.members.find(
+      (member) => member.id === savedDebt.memberId,
+    );
+    const shouldRequestConfirmation =
+      Boolean(auth.identity.authenticatedUserId) &&
+      linkedMember?.linkStatus === "linked" &&
+      Boolean(linkedMember.linkedUserId) &&
+      (!debt || requestAmendment);
+
+    if (shouldRequestConfirmation && linkedMember) {
+      try {
+        await sendConfirmationRequest(
+          savedDebt,
+          linkedMember,
+          debt &&
+            savedDebt.remoteId &&
+            savedDebt.memberId === debt.memberId
+            ? "amendment"
+            : "creation",
+          buildChangeSummary(debt, savedDebt),
+        );
+      } catch {
+        if (debt) {
+          try {
+            await data.updateDebt(
+              savedDebt.id,
+              { verificationStatus: debt.verificationStatus },
+              auth.identity.authenticatedUserId,
+            );
+          } catch {
+            // The debt remains local and can be retried from its options.
+          }
+        }
+        Alert.alert(
+          "Debt saved locally",
+          "The confirmation request could not be sent. You can retry it from the debt options.",
+        );
+      }
     }
 
     router.back();
+  }
+
+  async function sendConfirmationRequest(
+    savedDebt: Debt,
+    linkedMember: Member,
+    requestType: "creation" | "amendment",
+    changeSummary: DebtChangeSummary,
+  ) {
+    const requesterUserId = auth.identity.authenticatedUserId;
+    const responderUserId = linkedMember.linkedUserId;
+    if (!requesterUserId || !responderUserId) {
+      return;
+    }
+
+    const remote = await createRemoteDebtVerification({
+      debt: savedDebt,
+      member: linkedMember,
+      requesterUserId,
+      responderUserId,
+      sharedNotes: savedDebt.sharedNotes ?? savedDebt.notes,
+      requestType,
+      changeSummary,
+    });
+    if (!remote) {
+      throw new Error("Cloud confirmation is unavailable.");
+    }
+
+    await data.requestDebtVerification(savedDebt.id, {
+      requesterUserId,
+      responderUserId,
+      remoteDebtId: remote.remoteDebtId,
+      remoteVerificationId: remote.remoteVerificationId,
+      sharedNotes: savedDebt.sharedNotes ?? savedDebt.notes,
+      requestType,
+      changeSummary,
+    });
   }
 
   return (
@@ -284,6 +392,31 @@ export function DebtFormScreen() {
       </Card>
     </Screen>
   );
+}
+
+function buildChangeSummary(
+  previousDebt: Debt | undefined,
+  proposedDebt: Debt,
+): DebtChangeSummary {
+  const previous = {
+    member: previousDebt?.memberId ?? null,
+    direction: previousDebt?.direction ?? null,
+    amount: previousDebt?.amount ?? null,
+    title: previousDebt?.title ?? null,
+    dueDate: previousDebt?.dueDate ?? null,
+  };
+  const proposed = {
+    member: proposedDebt.memberId,
+    direction: proposedDebt.direction,
+    amount: proposedDebt.amount,
+    title: proposedDebt.title,
+    dueDate: proposedDebt.dueDate,
+  };
+  const changedFields = (
+    Object.keys(proposed) as DebtChangeSummary["changedFields"]
+  ).filter((field) => !previousDebt || previous[field] !== proposed[field]);
+
+  return { changedFields, previous, proposed };
 }
 
 function DirectionToggle({
