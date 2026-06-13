@@ -1,20 +1,20 @@
 # Debtulator Supabase setup
 
-Debtulator is local-first. The app can run with only the local SQLite database. Supabase is optional cloud infrastructure for auth, shared groups, sync, attachments, notifications, and later account deletion.
+Debtulator is local-first. The app can run with only the local SQLite database. Supabase is optional cloud infrastructure for auth, shared groups, sync, attachments, notifications, and account deletion request records.
 
-This folder now has a simplified prelaunch setup:
+This folder has a simplified prelaunch setup:
 
 | File | Purpose |
 | --- | --- |
 | `schema.sql` | Destructive reset file that creates the latest cloud schema from scratch. |
 | `seed.sql` | Optional demo data for one signed-up Supabase Auth user. |
-| `stage*_schema.sql` | Older staged migration history kept for reference. Do not use these for a fresh prelaunch setup unless you specifically want to test the old staged flow. |
+| `README.md` | Setup notes for the development backend. |
 
 ## Important
 
 `schema.sql` is destructive.
 
-It drops and recreates Debtulator cloud tables, helper functions, policies, and the attachment storage bucket. This is exactly what we want during early development, because preserving cloud data is not currently required.
+It drops and recreates Debtulator cloud tables, helper functions, policies, and the attachment storage bucket. This is intentional during early development because preserving cloud data is not currently required.
 
 Do not use this reset file against production data after launch.
 
