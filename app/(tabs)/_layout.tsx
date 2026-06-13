@@ -30,9 +30,9 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="events"
+        name="groups"
         options={{
-          title: "Events",
+          title: "Groups",
         }}
       />
       <Tabs.Screen

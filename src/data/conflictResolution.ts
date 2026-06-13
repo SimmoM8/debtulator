@@ -12,14 +12,14 @@ type ConflictResolutionSnapshot = {
 type EntityCollectionName =
   | 'members'
   | 'debts'
-  | 'events'
+  | 'groups'
   | 'sharedExpenses'
-  | 'eventInvites'
-  | 'sharedEventMembers'
-  | 'eventMemberClaims'
-  | 'eventDuplicateWarnings'
-  | 'eventDebts'
-  | 'eventVerificationResponses'
+  | 'groupInvites'
+  | 'sharedGroupMembers'
+  | 'groupMemberClaims'
+  | 'groupDuplicateWarnings'
+  | 'groupDebts'
+  | 'groupVerificationResponses'
   | 'payments'
   | 'settlements'
   | 'attachments'
@@ -30,14 +30,14 @@ export type ConflictResolutionAvailability = Record<ConflictResolution, boolean>
 const APPLY_REMOTE_COLLECTIONS: Partial<Record<EntityKind, EntityCollectionName>> = {
   member: 'members',
   debt: 'debts',
-  event: 'events',
+  group: 'groups',
   shared_expense: 'sharedExpenses',
-  event_invite: 'eventInvites',
-  event_member: 'sharedEventMembers',
-  event_member_claim: 'eventMemberClaims',
-  event_duplicate_warning: 'eventDuplicateWarnings',
-  event_debt: 'eventDebts',
-  event_verification: 'eventVerificationResponses',
+  group_invite: 'groupInvites',
+  group_member: 'sharedGroupMembers',
+  group_member_claim: 'groupMemberClaims',
+  group_duplicate_warning: 'groupDuplicateWarnings',
+  group_debt: 'groupDebts',
+  group_verification: 'groupVerificationResponses',
   payment: 'payments',
   settlement: 'settlements',
   attachment: 'attachments',

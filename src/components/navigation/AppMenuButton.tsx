@@ -43,9 +43,9 @@ const sections: MenuSection[] = [
         icon: "people-outline",
       },
       {
-        label: "Events",
+        label: "Groups",
         subtitle: "Trips, groups, and shared expense spaces",
-        href: "/events",
+        href: "/groups",
         icon: "calendar-outline",
       },
       {

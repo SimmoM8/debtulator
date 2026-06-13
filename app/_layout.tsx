@@ -103,8 +103,8 @@ export default function RootLayout() {
                   <Stack.Screen name="debt/[id]" />
                   <Stack.Screen name="debt/form" />
                   <Stack.Screen name="debt/history" />
-                  <Stack.Screen name="event/[id]" />
-                  <Stack.Screen name="event/form" />
+                  <Stack.Screen name="group/[id]" />
+                  <Stack.Screen name="group/form" />
                   <Stack.Screen name="expense/[id]" />
                   <Stack.Screen name="expense/form" />
                   <Stack.Screen name="attachment/[id]" />

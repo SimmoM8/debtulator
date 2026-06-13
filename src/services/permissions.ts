@@ -3,26 +3,26 @@ import type {
   Attachment,
   Comment,
   Debt,
-  Event,
-  EventDebt,
-  EventParticipant,
+  Group,
+  GroupDebt,
+  GroupParticipant,
   SharedExpense,
 } from '@/src/types/models';
 import {
-  canArchiveEvent,
-  canEditEvent,
+  canArchiveGroup,
+  canEditGroup,
   canEditExpense,
   canInviteMembers,
   canManageRoles,
-  canMergeEventMembers,
+  canMergeGroupMembers,
   participantForUser,
-} from '@/src/services/eventPermissions';
+} from '@/src/services/groupPermissions';
 
 export type PermissionContext = {
   userId?: string | null;
   settings: AppSettings;
-  events: Event[];
-  eventParticipants: EventParticipant[];
+  groups: Group[];
+  groupParticipants: GroupParticipant[];
 };
 
 export function canViewRecord(record: Record<string, unknown>, context: PermissionContext) {
@@ -30,26 +30,26 @@ export function canViewRecord(record: Record<string, unknown>, context: Permissi
   if (!visibility || visibility === 'private') {
     return true;
   }
-  const event = eventForRecord(record, context.events);
-  if (!event) {
+  const group = groupForRecord(record, context.groups);
+  if (!group) {
     return Boolean(context.userId);
   }
-  return Boolean(participantForUser(event, context.eventParticipants, context.userId)) || event.ownerUserId === context.userId;
+  return Boolean(participantForUser(group, context.groupParticipants, context.userId)) || group.ownerUserId === context.userId;
 }
 
-export function canEditRecord(record: Debt | SharedExpense | EventDebt | Event, context: PermissionContext) {
+export function canEditRecord(record: Debt | SharedExpense | GroupDebt | Group, context: PermissionContext) {
   if ('visibility' in record && record.visibility === 'private') {
     return !isProtectedFinancialRecord(record);
   }
   if ('defaultCurrency' in record) {
-    return canEditEvent({
-      event: record,
-      participant: participantForUser(record, context.eventParticipants, context.userId),
+    return canEditGroup({
+      group: record,
+      participant: participantForUser(record, context.groupParticipants, context.userId),
       userId: context.userId,
     });
   }
-  const event = eventForRecord(record, context.events);
-  if (!event) {
+  const group = groupForRecord(record, context.groups);
+  if (!group) {
     return false;
   }
   if ('type' in record && record.type === 'simple') {
@@ -57,26 +57,26 @@ export function canEditRecord(record: Debt | SharedExpense | EventDebt | Event, 
   }
   return canEditExpense(
     {
-      event,
-      participant: participantForUser(event, context.eventParticipants, context.userId),
+      group,
+      participant: participantForUser(group, context.groupParticipants, context.userId),
       userId: context.userId,
     },
-    record as SharedExpense | EventDebt,
+    record as SharedExpense | GroupDebt,
   );
 }
 
-export function canArchiveRecord(record: Debt | SharedExpense | EventDebt | Event, context: PermissionContext) {
+export function canArchiveRecord(record: Debt | SharedExpense | GroupDebt | Group, context: PermissionContext) {
   if ('defaultCurrency' in record) {
-    return canArchiveEvent({
-      event: record,
-      participant: participantForUser(record, context.eventParticipants, context.userId),
+    return canArchiveGroup({
+      group: record,
+      participant: participantForUser(record, context.groupParticipants, context.userId),
       userId: context.userId,
     });
   }
   return canEditRecord(record, context);
 }
 
-export function canVoidFinancialRecord(record: Debt | SharedExpense | EventDebt, context: PermissionContext) {
+export function canVoidFinancialRecord(record: Debt | SharedExpense | GroupDebt, context: PermissionContext) {
   return canEditRecord(record, context) && isProtectedFinancialRecord(record);
 }
 
@@ -106,26 +106,26 @@ export function canViewComment(comment: Comment, context: PermissionContext) {
   return canViewRecord(comment, context);
 }
 
-export function canManageEvent(event: Event, context: PermissionContext) {
-  return canEditEvent({
-    event,
-    participant: participantForUser(event, context.eventParticipants, context.userId),
+export function canManageGroup(group: Group, context: PermissionContext) {
+  return canEditGroup({
+    group,
+    participant: participantForUser(group, context.groupParticipants, context.userId),
     userId: context.userId,
   });
 }
 
-export function canManageParticipants(event: Event, context: PermissionContext) {
+export function canManageParticipants(group: Group, context: PermissionContext) {
   return canInviteMembers({
-    event,
-    participant: participantForUser(event, context.eventParticipants, context.userId),
+    group,
+    participant: participantForUser(group, context.groupParticipants, context.userId),
     userId: context.userId,
   });
 }
 
-export function canManageAdvancedRoles(event: Event, context: PermissionContext) {
+export function canManageAdvancedRoles(group: Group, context: PermissionContext) {
   return canManageRoles({
-    event,
-    participant: participantForUser(event, context.eventParticipants, context.userId),
+    group,
+    participant: participantForUser(group, context.groupParticipants, context.userId),
     userId: context.userId,
   });
 }
@@ -134,10 +134,10 @@ export function canResolveConflict(context: PermissionContext) {
   return Boolean(context.userId);
 }
 
-export function canMergeDuplicateMembers(event: Event, context: PermissionContext) {
-  return canMergeEventMembers({
-    event,
-    participant: participantForUser(event, context.eventParticipants, context.userId),
+export function canMergeDuplicateMembers(group: Group, context: PermissionContext) {
+  return canMergeGroupMembers({
+    group,
+    participant: participantForUser(group, context.groupParticipants, context.userId),
     userId: context.userId,
   });
 }
@@ -146,9 +146,9 @@ export function canRestoreBackupToSharedRecord(record: Record<string, unknown>, 
   return isSharedRecord(record) && Boolean(context.userId) && canViewRecord(record, context);
 }
 
-function eventForRecord(record: Record<string, unknown>, events: Event[]) {
-  const eventId = typeof record.eventId === 'string' ? record.eventId : null;
-  return eventId ? events.find((event) => event.id === eventId) ?? null : null;
+function groupForRecord(record: Record<string, unknown>, groups: Group[]) {
+  const groupId = typeof record.groupId === 'string' ? record.groupId : null;
+  return groupId ? groups.find((group) => group.id === groupId) ?? null : null;
 }
 
 function isProtectedFinancialRecord(record: Record<string, unknown>) {
@@ -163,7 +163,7 @@ function isProtectedFinancialRecord(record: Record<string, unknown>) {
 function isSharedRecord(record: Record<string, unknown>) {
   return (
     record.visibility === 'shared' ||
-    record.visibility === 'shared_event' ||
+    record.visibility === 'shared_group' ||
     record.visibility === 'shared_with_involved_member'
   );
 }

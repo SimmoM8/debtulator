@@ -63,7 +63,7 @@ export function BackupRestoreScreen() {
         action: "backup_exported",
         targetType: "backup",
         targetId: null,
-        eventId: null,
+        groupId: null,
         metadata: { includeAttachments, includePrivateNotes },
       });
       addTelemetryBreadcrumb("backup", "audit_logged", { result: "success" });
@@ -116,7 +116,7 @@ export function BackupRestoreScreen() {
       const result = await data.restoreBackup(restoreJson, restoreMode);
       Alert.alert(
         "Restore complete",
-        `${result.restored.members} members, ${result.restored.debts} debts, ${result.restored.events} events, ${result.restored.payments} payments, and ${result.restored.settlements} settlements restored. ${result.skipped} records skipped.`,
+        `${result.restored.members} members, ${result.restored.debts} debts, ${result.restored.groups} groups, ${result.restored.payments} payments, and ${result.restored.settlements} settlements restored. ${result.skipped} records skipped.`,
       );
       trackFirstSuccess("restore", { mode: restoreMode, result: "success" });
       setRestoreJson("");
@@ -224,7 +224,7 @@ export function BackupRestoreScreen() {
             />
             <Text style={styles.body}>
               {preview.memberCount} members · {preview.debtCount} debts ·{" "}
-              {preview.eventCount} events · {preview.paymentCount} payments ·{" "}
+              {preview.groupCount} groups · {preview.paymentCount} payments ·{" "}
               {preview.settlementCount} settlements
             </Text>
             {preview.warnings.map((warning) => (

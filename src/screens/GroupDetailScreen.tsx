@@ -36,49 +36,49 @@ import {
     typefaces,
     typography,
 } from "@/src/constants/design";
-import { eventSpendingBreakdown } from "@/src/services/analytics";
+import { groupSpendingBreakdown } from "@/src/services/analytics";
 import { convertCurrency, estimateMoneyMap } from "@/src/services/currency";
 import { findDuplicateWarnings } from "@/src/services/duplicates";
 import {
     canAddExpense,
-    canArchiveEvent,
-    canFinaliseEvent,
+    canArchiveGroup,
+    canFinaliseGroup,
     canInviteMembers,
-    canMergeEventMembers,
-    canReopenEvent,
+    canMergeGroupMembers,
+    canReopenGroup,
     participantForUser,
-} from "@/src/services/eventPermissions";
+} from "@/src/services/groupPermissions";
 import {
-    eventPdfLines,
-    eventTextSummary,
+    groupPdfLines,
+    groupTextSummary,
     shareExport,
     writePdfExport,
     writeTextExport,
 } from "@/src/services/export";
 import {
-    DEFAULT_EVENT_SETTLEMENT_SETTINGS,
-    entriesForEvent,
-    explainEventSettlement,
+    DEFAULT_GROUP_SETTLEMENT_SETTINGS,
+    entriesForGroup,
+    explainGroupSettlement,
     participantName,
 } from "@/src/services/ledger";
 import {
-    createRemoteEventInvite,
-    createRemoteSharedEventMember,
+    createRemoteGroupInvite,
+    createRemoteSharedGroupMember,
 } from "@/src/services/stage3Sync";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
 import type {
     CurrencyCode,
-    EventRole,
-    EventSettlementSettings,
-    EventStatus,
-    EventVerificationResponse,
+    GroupRole,
+    GroupSettlementSettings,
+    GroupStatus,
+    GroupVerificationResponse,
     LedgerEntry,
-    SharedEventMember,
+    SharedGroupMember,
 } from "@/src/types/models";
 import { formatMoney } from "@/src/utils/money";
 
-type EventTab =
+type GroupTab =
   | "overview"
   | "expenses"
   | "balances"
@@ -89,21 +89,21 @@ type EventTab =
   | "activity";
 const MINIMUM_BALANCE_THRESHOLD = 0.005;
 
-export function EventDetailScreen() {
+export function GroupDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const data = useAppData();
   const auth = useAuth();
-  const event = data.events.find((item) => item.id === id);
-  const [tab, setTab] = useState<EventTab>("overview");
+  const group = data.groups.find((item) => item.id === id);
+  const [tab, setTab] = useState<GroupTab>("overview");
   const [settlementSettings, setSettlementSettings] =
-    useState<EventSettlementSettings>(DEFAULT_EVENT_SETTLEMENT_SETTINGS);
+    useState<GroupSettlementSettings>(DEFAULT_GROUP_SETTLEMENT_SETTINGS);
   const [newMemberName, setNewMemberName] = useState("");
   const [newMemberEmail, setNewMemberEmail] = useState("");
   const [newMemberPhone, setNewMemberPhone] = useState("");
   const [inviteDisplayName, setInviteDisplayName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] =
-    useState<Exclude<EventRole, "owner">>("member");
+    useState<Exclude<GroupRole, "owner">>("member");
   const [claimMessage, setClaimMessage] = useState("");
   const [rejectionReasons, setRejectionReasons] = useState<
     Record<string, string>
@@ -113,48 +113,48 @@ export function EventDetailScreen() {
   const currentUserId = auth.identity.authenticatedUserId;
   const participant = useMemo(
     () =>
-      event
-        ? participantForUser(event, data.eventParticipants, currentUserId)
+      group
+        ? participantForUser(group, data.groupParticipants, currentUserId)
         : null,
-    [currentUserId, data.eventParticipants, event],
+    [currentUserId, data.groupParticipants, group],
   );
-  const permissionContext = event
-    ? { event, participant, userId: currentUserId }
+  const permissionContext = group
+    ? { group, participant, userId: currentUserId }
     : null;
-  const sharedEventMembers = useMemo(
-    () => data.sharedEventMembers.filter((member) => member.eventId === id),
-    [data.sharedEventMembers, id],
+  const sharedGroupMembers = useMemo(
+    () => data.sharedGroupMembers.filter((member) => member.groupId === id),
+    [data.sharedGroupMembers, id],
   );
-  const activeSharedMembers = sharedEventMembers.filter(
+  const activeSharedMembers = sharedGroupMembers.filter(
     (member) => member.status !== "archived" && member.status !== "merged",
   );
-  const currentEventMember = sharedEventMembers.find(
+  const currentGroupMember = sharedGroupMembers.find(
     (member) =>
       currentUserId &&
       member.linkedUserId === currentUserId &&
       member.status !== "merged",
   );
-  const eventMemberIds = useMemo(
+  const groupMemberIds = useMemo(
     () =>
-      data.eventMembers
-        .filter((eventMember) => eventMember.eventId === id)
-        .map((eventMember) => eventMember.memberId),
-    [data.eventMembers, id],
+      data.groupMembers
+        .filter((groupMember) => groupMember.groupId === id)
+        .map((groupMember) => groupMember.memberId),
+    [data.groupMembers, id],
   );
-  const eventEntries = useMemo(
-    () => (event ? entriesForEvent(event.id, data.ledgerEntries) : []),
-    [data.ledgerEntries, event],
+  const groupEntries = useMemo(
+    () => (group ? entriesForGroup(group.id, data.ledgerEntries) : []),
+    [data.ledgerEntries, group],
   );
   const explanation = useMemo(
     () =>
-      event
-        ? explainEventSettlement(
-            event.id,
+      group
+        ? explainGroupSettlement(
+            group.id,
             data.ledgerEntries,
             settlementSettings,
           )
         : null,
-    [data.ledgerEntries, event, settlementSettings],
+    [data.ledgerEntries, group, settlementSettings],
   );
   const convertedSuggestions = useMemo(
     () =>
@@ -174,40 +174,40 @@ export function EventDetailScreen() {
   );
   const duplicateWarnings = useMemo(
     () =>
-      event
-        ? findDuplicateWarnings(event, data.eventMembers, data.members)
+      group
+        ? findDuplicateWarnings(group, data.groupMembers, data.members)
         : [],
-    [data.eventMembers, data.members, event],
+    [data.groupMembers, data.members, group],
   );
-  const sharedDuplicateWarnings = data.eventDuplicateWarnings.filter(
-    (warning) => warning.eventId === id && warning.status === "active",
+  const sharedDuplicateWarnings = data.groupDuplicateWarnings.filter(
+    (warning) => warning.groupId === id && warning.status === "active",
   );
-  const eventActivity = data.eventActivityLogs.filter(
-    (activity) => activity.eventId === id,
+  const groupActivity = data.groupActivityLogs.filter(
+    (activity) => activity.groupId === id,
   );
-  const pendingInvites = data.eventInvites.filter(
-    (invite) => invite.eventId === id && invite.status === "pending",
+  const pendingInvites = data.groupInvites.filter(
+    (invite) => invite.groupId === id && invite.status === "pending",
   );
-  const pendingClaims = data.eventMemberClaims.filter(
-    (claim) => claim.eventId === id && claim.status === "pending",
+  const pendingClaims = data.groupMemberClaims.filter(
+    (claim) => claim.groupId === id && claim.status === "pending",
   );
   const analytics = useMemo(
     () =>
-      event
-        ? eventSpendingBreakdown({
-            event,
+      group
+        ? groupSpendingBreakdown({
+            group,
             entries: data.ledgerEntries,
             sharedExpenses: data.sharedExpenses,
             members: data.members,
-            sharedEventMembers: data.sharedEventMembers,
+            sharedGroupMembers: data.sharedGroupMembers,
           })
         : null,
     [
       data.ledgerEntries,
       data.members,
-      data.sharedEventMembers,
+      data.sharedGroupMembers,
       data.sharedExpenses,
-      event,
+      group,
     ],
   );
 
@@ -215,24 +215,24 @@ export function EventDetailScreen() {
     return <LoadingState />;
   }
 
-  if (!event || !explanation || !permissionContext) {
+  if (!group || !explanation || !permissionContext) {
     return (
       <Screen>
         <EmptyState
-          title="Event not found"
-          body="This event may have been archived or removed."
+          title="Group not found"
+          body="This group may have been archived or removed."
         />
       </Screen>
     );
   }
 
-  const currentEvent = event;
+  const currentGroup = group;
   const currentExplanation = explanation;
-  const isShared = currentEvent.visibility === "shared";
+  const isShared = currentGroup.visibility === "shared";
   const canAddRecords = canAddExpense(permissionContext);
-  const canManagePeople = canMergeEventMembers(permissionContext);
+  const canManagePeople = canMergeGroupMembers(permissionContext);
   const canInvite = canInviteMembers(permissionContext);
-  const myBalanceId = isShared ? currentEventMember?.id : "me";
+  const myBalanceId = isShared ? currentGroupMember?.id : "me";
   const myBalance = estimateMoneyMap(
     (myBalanceId ? currentExplanation.participantNets[myBalanceId] : undefined) ??
       {},
@@ -241,53 +241,53 @@ export function EventDetailScreen() {
   );
   const myBalanceIsOwing = myBalance < -MINIMUM_BALANCE_THRESHOLD;
   const myBalanceSubtext = myBalanceIsOwing
-    ? "You owe to members in this event a total of"
-    : "Members in this event owe you a total of";
-  const eventMemberCount = isShared
+    ? "You owe to members in this group a total of"
+    : "Members in this group owe you a total of";
+  const groupMemberCount = isShared
     ? activeSharedMembers.length
-    : eventMemberIds.length + 1;
+    : groupMemberIds.length + 1;
 
   async function togglePrivateMember(memberId: string) {
-    const nextIds = eventMemberIds.includes(memberId)
-      ? eventMemberIds.filter((id) => id !== memberId)
-      : [...eventMemberIds, memberId];
-    await data.setEventMembers(currentEvent.id, nextIds);
+    const nextIds = groupMemberIds.includes(memberId)
+      ? groupMemberIds.filter((id) => id !== memberId)
+      : [...groupMemberIds, memberId];
+    await data.setGroupMembers(currentGroup.id, nextIds);
   }
 
-  async function updateStatus(status: EventStatus) {
+  async function updateStatus(status: GroupStatus) {
     if (status === "finalising") {
       Alert.alert(
-        "Finalise event",
-        "Finalised events are locked for normal editing.",
+        "Finalise group",
+        "Finalised groups are locked for normal editing.",
         [
           { text: "Cancel", style: "cancel" },
           {
-            text: "Finalise event",
-            onPress: () => data.updateEvent(currentEvent.id, { status }),
+            text: "Finalise group",
+            onPress: () => data.updateGroup(currentGroup.id, { status }),
           },
         ],
       );
       return;
     }
-    await data.updateEvent(currentEvent.id, {
+    await data.updateGroup(currentGroup.id, {
       status,
       archived:
         status === "archived"
           ? true
           : status === "active"
             ? false
-            : currentEvent.archived,
+            : currentGroup.archived,
     });
   }
 
-  function confirmArchiveEvent() {
+  function confirmArchiveGroup() {
     Alert.alert(
-      "Archive event?",
-      "This hides the event from active event lists and keeps existing ledger history available where needed.",
+      "Archive group?",
+      "This hides the group from active group lists and keeps existing ledger history available where needed.",
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: "Archive event",
+          text: "Archive group",
           style: "destructive",
           onPress: () => {
             void updateStatus("archived");
@@ -297,29 +297,29 @@ export function EventDetailScreen() {
     );
   }
 
-  async function addUnlinkedEventMember() {
+  async function addUnlinkedGroupMember() {
     if (!newMemberName.trim() || !currentUserId) {
       return;
     }
-    const member = await data.createSharedEventMember({
-      eventId: currentEvent.id,
-      remoteEventId: currentEvent.remoteId,
+    const member = await data.createSharedGroupMember({
+      groupId: currentGroup.id,
+      remoteGroupId: currentGroup.remoteId,
       displayName: newMemberName,
       email: newMemberEmail,
       phone: newMemberPhone,
       createdByUserId: currentUserId,
     });
     try {
-      const remoteId = await createRemoteSharedEventMember(member);
+      const remoteId = await createRemoteSharedGroupMember(member);
       if (remoteId) {
-        await data.upsertSharedEventMember({
+        await data.upsertSharedGroupMember({
           ...member,
           remoteId,
           syncStatus: "synced",
         });
       }
     } catch {
-      await data.upsertSharedEventMember({
+      await data.upsertSharedGroupMember({
         ...member,
         syncStatus: "sync_error",
       });
@@ -333,45 +333,45 @@ export function EventDetailScreen() {
     if (!currentUserId || !inviteDisplayName.trim()) {
       return;
     }
-    const invite = await data.createEventInvite({
-      eventId: currentEvent.id,
-      remoteEventId: currentEvent.remoteId,
+    const invite = await data.createGroupInvite({
+      groupId: currentGroup.id,
+      remoteGroupId: currentGroup.remoteId,
       inviterUserId: currentUserId,
       invitedEmail: inviteEmail,
       invitedDisplayName: inviteDisplayName,
       offeredRole: inviteRole,
     });
     try {
-      const remoteId = await createRemoteEventInvite(invite);
+      const remoteId = await createRemoteGroupInvite(invite);
       if (remoteId) {
-        await data.upsertEventInvite({
+        await data.upsertGroupInvite({
           ...invite,
           remoteId,
           syncStatus: "synced",
         });
       }
     } catch {
-      await data.upsertEventInvite({ ...invite, syncStatus: "sync_error" });
+      await data.upsertGroupInvite({ ...invite, syncStatus: "sync_error" });
     }
     setInviteDisplayName("");
     setInviteEmail("");
     setInviteRole("member");
   }
 
-  async function claimMember(member: SharedEventMember) {
+  async function claimMember(member: SharedGroupMember) {
     if (!currentUserId) {
       router.push("/auth");
       return;
     }
-    await data.createEventMemberClaim(member.id, currentUserId, claimMessage);
+    await data.createGroupMemberClaim(member.id, currentUserId, claimMessage);
     setClaimMessage("");
   }
 
-  async function exportEventPdf() {
+  async function exportGroupPdf() {
     const uri = await writePdfExport(
-      `debtulator-${currentEvent.name}-summary.pdf`,
-      eventPdfLines({
-        event: currentEvent,
+      `debtulator-${currentGroup.name}-summary.pdf`,
+      groupPdfLines({
+        group: currentGroup,
         explanation: currentExplanation,
         snapshot: data,
         options: {
@@ -387,16 +387,16 @@ export function EventDetailScreen() {
     await data.createExportLog({
       userId: auth.identity.authenticatedUserId,
       exportType: "pdf",
-      targetType: "event",
-      targetId: currentEvent.id,
+      targetType: "group",
+      targetId: currentGroup.id,
       metadata: { uri },
     });
-    await shareExport(uri, `${currentEvent.name} PDF summary`);
+    await shareExport(uri, `${currentGroup.name} PDF summary`);
   }
 
-  async function shareEventSummary() {
-    const summary = eventTextSummary({
-      event: currentEvent,
+  async function shareGroupSummary() {
+    const summary = groupTextSummary({
+      group: currentGroup,
       explanation: currentExplanation,
       snapshot: data,
       options: {
@@ -408,17 +408,17 @@ export function EventDetailScreen() {
       },
     });
     const uri = await writeTextExport(
-      `debtulator-${currentEvent.name}-summary.txt`,
+      `debtulator-${currentGroup.name}-summary.txt`,
       summary,
     );
     await data.createExportLog({
       userId: auth.identity.authenticatedUserId,
       exportType: "text_summary",
-      targetType: "event",
-      targetId: currentEvent.id,
+      targetType: "group",
+      targetId: currentGroup.id,
       metadata: { uri, privateNotesIncluded: false },
     });
-    await shareExport(uri, `${currentEvent.name} summary`, summary);
+    await shareExport(uri, `${currentGroup.name} summary`, summary);
   }
 
   return (
@@ -433,7 +433,7 @@ export function EventDetailScreen() {
               onPress: () =>
                 router.push({
                   pathname: "/expense/form",
-                  params: { eventId: event.id },
+                  params: { groupId: group.id },
                 }),
             },
             {
@@ -444,7 +444,7 @@ export function EventDetailScreen() {
               onPress: () =>
                 router.push({
                   pathname: "/payment/form",
-                  params: { eventId: event.id },
+                  params: { groupId: group.id },
                 }),
             },
           ]}
@@ -452,11 +452,11 @@ export function EventDetailScreen() {
       }
     >
       <PageHeader
-        title="Event details"
+        title="Group details"
         action={
           <IconButton
             icon="ellipsis-horizontal"
-            label="Event actions"
+            label="Group actions"
             onPress={() => setOptionsOpen(true)}
           />
         }
@@ -478,42 +478,42 @@ export function EventDetailScreen() {
           {formatMoney(Math.abs(myBalance), data.settings.baseCurrency)}
         </Text>
         <View style={styles.memberCountRow}>
-          <Text style={styles.memberCountNumber}>{eventMemberCount}</Text>
+          <Text style={styles.memberCountNumber}>{groupMemberCount}</Text>
           <Text style={styles.memberCountLabel}>members</Text>
         </View>
-        <TagChips tags={event.tags} />
+        <TagChips tags={group.tags} />
       </Card>
 
       <MobileMenuModal
         visible={optionsOpen}
-        title="Event actions"
+        title="Group actions"
         onClose={() => setOptionsOpen(false)}
         sections={[
           {
             items: [
               {
                 label: "Add direct debt",
-                subtitle: "Create a debt inside this event",
+                subtitle: "Create a debt inside this group",
                 icon: "receipt-outline",
                 disabled: !canAddRecords,
                 onPress: () => {
                   setOptionsOpen(false);
                   router.push({
                     pathname: "/debt/form",
-                    params: { eventId: event.id },
+                    params: { groupId: group.id },
                   });
                 },
               },
               {
                 label: "Record settlement",
-                subtitle: "Record a repayment for this event",
+                subtitle: "Record a repayment for this group",
                 icon: "card-outline",
                 disabled: !canAddRecords,
                 onPress: () => {
                   setOptionsOpen(false);
                   router.push({
                     pathname: "/payment/form",
-                    params: { eventId: event.id },
+                    params: { groupId: group.id },
                   });
                 },
               },
@@ -528,19 +528,19 @@ export function EventDetailScreen() {
                     senderUserId: currentUserId,
                     recipientUserId: null,
                     relatedMemberId: null,
-                    relatedEventId: event.id,
+                    relatedGroupId: group.id,
                     relatedRecordId: null,
-                    message: `${event.name} has unsettled balances.`,
+                    message: `${group.name} has unsettled balances.`,
                   });
                 },
               },
               {
                 label: "Share summary",
-                subtitle: "Share a plain-text event summary",
+                subtitle: "Share a plain-text group summary",
                 icon: "share-outline",
                 onPress: () => {
                   setOptionsOpen(false);
-                  void shareEventSummary();
+                  void shareGroupSummary();
                 },
               },
               {
@@ -549,7 +549,7 @@ export function EventDetailScreen() {
                 icon: "document-text-outline",
                 onPress: () => {
                   setOptionsOpen(false);
-                  void exportEventPdf();
+                  void exportGroupPdf();
                 },
               },
             ],
@@ -576,7 +576,7 @@ export function EventDetailScreen() {
         <>
           <Card>
             <SectionTitle
-              title="Event status"
+              title="Group status"
               subtitle="Lifecycle controls respect role and lock state."
             />
             <View style={styles.infoRow}>
@@ -587,7 +587,7 @@ export function EventDetailScreen() {
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Default currency</Text>
-              <Text style={styles.infoValue}>{event.defaultCurrency}</Text>
+              <Text style={styles.infoValue}>{group.defaultCurrency}</Text>
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Included records</Text>
@@ -602,23 +602,23 @@ export function EventDetailScreen() {
               </Text>
             </View>
             <View style={styles.actionRow}>
-              {canFinaliseEvent(permissionContext) ? (
+              {canFinaliseGroup(permissionContext) ? (
                 <Button
-                  title="Finalise event"
+                  title="Finalise group"
                   icon="lock-closed"
                   variant="secondary"
                   onPress={() => updateStatus("finalising")}
                 />
               ) : null}
-              {canReopenEvent(permissionContext) ? (
+              {canReopenGroup(permissionContext) ? (
                 <Button
-                  title="Reopen event"
+                  title="Reopen group"
                   icon="lock-open"
                   variant="secondary"
                   onPress={() => updateStatus("active")}
                 />
               ) : null}
-              {canFinaliseEvent(permissionContext) ? (
+              {canFinaliseGroup(permissionContext) ? (
                 <Button
                   title="Mark settled"
                   icon="checkmark-circle"
@@ -626,12 +626,12 @@ export function EventDetailScreen() {
                   onPress={() => updateStatus("settled")}
                 />
               ) : null}
-              {canArchiveEvent(permissionContext) ? (
+              {canArchiveGroup(permissionContext) ? (
                 <Button
-                  title="Archive event"
+                  title="Archive group"
                   icon="archive"
                   variant="danger"
-                  onPress={confirmArchiveEvent}
+                  onPress={confirmArchiveGroup}
                 />
               ) : null}
             </View>
@@ -668,16 +668,16 @@ export function EventDetailScreen() {
       {tab === "expenses" ? (
         <Card>
           <SectionTitle
-            title="Event ledger"
-            subtitle="Expenses and direct event debts are verified at event level."
+            title="Group ledger"
+            subtitle="Expenses and direct group debts are verified at group level."
           />
-          {eventEntries.length > 0 ? (
-            eventEntries.map((entry) => (
-              <EventLedgerRow
+          {groupEntries.length > 0 ? (
+            groupEntries.map((entry) => (
+              <GroupLedgerRow
                 key={entry.id}
                 entry={entry}
-                sharedMembers={sharedEventMembers}
-                currentEventMember={currentEventMember}
+                sharedMembers={sharedGroupMembers}
+                currentGroupMember={currentGroupMember}
                 canVerify={isShared && Boolean(currentUserId)}
                 rejectionReason={rejectionReasons[targetKey(entry)] ?? ""}
                 onReasonChange={(value) =>
@@ -688,28 +688,28 @@ export function EventDetailScreen() {
                 }
                 onVerify={() => {
                   const target = targetForEntry(entry);
-                  if (!currentUserId || !currentEventMember || !target) {
+                  if (!currentUserId || !currentGroupMember || !target) {
                     return;
                   }
-                  data.respondToEventVerification({
-                    eventId: event.id,
+                  data.respondToGroupVerification({
+                    groupId: group.id,
                     targetType: target.type,
                     targetId: target.id,
-                    eventMemberId: currentEventMember.id,
+                    groupMemberId: currentGroupMember.id,
                     linkedUserId: currentUserId,
                     status: "verified",
                   });
                 }}
                 onReject={() => {
                   const target = targetForEntry(entry);
-                  if (!currentUserId || !currentEventMember || !target) {
+                  if (!currentUserId || !currentGroupMember || !target) {
                     return;
                   }
-                  data.respondToEventVerification({
-                    eventId: event.id,
+                  data.respondToGroupVerification({
+                    groupId: group.id,
                     targetType: target.type,
                     targetId: target.id,
-                    eventMemberId: currentEventMember.id,
+                    groupMemberId: currentGroupMember.id,
                     linkedUserId: currentUserId,
                     status: "rejected",
                     rejectionReason: rejectionReasons[targetKey(entry)] ?? "",
@@ -719,8 +719,8 @@ export function EventDetailScreen() {
             ))
           ) : (
             <EmptyState
-              title="No event records"
-              body="Add a shared expense or direct event debt."
+              title="No group records"
+              body="Add a shared expense or direct group debt."
             />
           )}
         </Card>
@@ -739,7 +739,7 @@ export function EventDetailScreen() {
                   {participantName(
                     participantId,
                     data.members,
-                    sharedEventMembers,
+                    sharedGroupMembers,
                   )}
                 </Text>
                 <Text style={styles.infoValue}>
@@ -762,7 +762,7 @@ export function EventDetailScreen() {
       {tab === "analytics" && analytics ? (
         <>
           <MoneyMapListCard
-            title="Event spending totals"
+            title="Group spending totals"
             subtitle={`Converted totals in ${data.settings.baseCurrency}.`}
             rows={[
               {
@@ -798,7 +798,7 @@ export function EventDetailScreen() {
           />
           <MoneyMapListCard
             title="Paid vs unpaid"
-            subtitle="Open, paid, partial, and overpaid totals for this event."
+            subtitle="Open, paid, partial, and overpaid totals for this group."
             rows={[
               {
                 label: "Original",
@@ -825,7 +825,7 @@ export function EventDetailScreen() {
             currencyRates={data.currencyRates}
           />
           <BarChartCard
-            title="Top event balances"
+            title="Top group balances"
             subtitle={`Ranked by converted balance magnitude in ${data.settings.baseCurrency}.`}
             currency={data.settings.baseCurrency}
             data={analytics.byMember
@@ -847,7 +847,7 @@ export function EventDetailScreen() {
           <Card>
             <SectionTitle
               title="Settlement suggestions"
-              subtitle={`Generated from event balances and shown in ${data.settings.baseCurrency}.`}
+              subtitle={`Generated from group balances and shown in ${data.settings.baseCurrency}.`}
             />
             <SettingToggle
               settings={settlementSettings}
@@ -860,13 +860,13 @@ export function EventDetailScreen() {
                     {participantName(
                       suggestion.fromId,
                       data.members,
-                      sharedEventMembers,
+                      sharedGroupMembers,
                     )}{" "}
                     pays{" "}
                     {participantName(
                       suggestion.toId,
                       data.members,
-                      sharedEventMembers,
+                      sharedGroupMembers,
                     )}
                   </Text>
                   <Text style={styles.money}>
@@ -888,7 +888,7 @@ export function EventDetailScreen() {
                       router.push({
                         pathname: "/payment/form",
                         params: {
-                          eventId: event.id,
+                          groupId: group.id,
                           payerId: suggestion.fromId,
                           payeeId: suggestion.toId,
                         },
@@ -919,13 +919,13 @@ export function EventDetailScreen() {
                       {participantName(
                         suggestion.fromId,
                         data.members,
-                        sharedEventMembers,
+                        sharedGroupMembers,
                       )}{" "}
                       pays{" "}
                       {participantName(
                         suggestion.toId,
                         data.members,
-                        sharedEventMembers,
+                        sharedGroupMembers,
                       )}
                     </Text>
                     <Text style={styles.money}>
@@ -971,9 +971,9 @@ export function EventDetailScreen() {
             <Text style={styles.label}>Matching steps</Text>
             {explanation.settlementSteps.map((step, index) => (
               <Text key={`${step.currency}-${index}`} style={styles.body}>
-                {participantName(step.fromId, data.members, sharedEventMembers)}
+                {participantName(step.fromId, data.members, sharedGroupMembers)}
                 {" -> "}
-                {participantName(step.toId, data.members, sharedEventMembers)}
+                {participantName(step.toId, data.members, sharedGroupMembers)}
                 {" - "}
                 {formatMoney(
                   convertCurrency(
@@ -994,25 +994,25 @@ export function EventDetailScreen() {
         <Card>
           <SectionTitle
             title="Payment history"
-            subtitle="Payments and settlement records for this event."
+            subtitle="Payments and settlement records for this group."
           />
-          {data.payments.filter((payment) => payment.eventId === event.id)
+          {data.payments.filter((payment) => payment.groupId === group.id)
             .length > 0 ? (
             data.payments
-              .filter((payment) => payment.eventId === event.id)
+              .filter((payment) => payment.groupId === group.id)
               .map((payment) => (
                 <View key={payment.id} style={styles.settlementRow}>
                   <Text style={styles.settlementText}>
                     {participantName(
-                      payment.payerEventMemberId ?? "me",
+                      payment.payerGroupMemberId ?? "me",
                       data.members,
-                      sharedEventMembers,
+                      sharedGroupMembers,
                     )}{" "}
                     paid{" "}
                     {participantName(
-                      payment.payeeEventMemberId ?? "me",
+                      payment.payeeGroupMemberId ?? "me",
                       data.members,
-                      sharedEventMembers,
+                      sharedGroupMembers,
                     )}
                   </Text>
                   <Text style={styles.money}>
@@ -1040,7 +1040,7 @@ export function EventDetailScreen() {
       {tab === "members" ? (
         isShared ? (
           <SharedMembersPanel
-            eventMembers={sharedEventMembers}
+            groupMembers={sharedGroupMembers}
             warnings={sharedDuplicateWarnings}
             claims={pendingClaims}
             canManage={canManagePeople}
@@ -1060,17 +1060,17 @@ export function EventDetailScreen() {
             setInviteEmail={setInviteEmail}
             setInviteRole={setInviteRole}
             setClaimMessage={setClaimMessage}
-            addUnlinkedEventMember={addUnlinkedEventMember}
+            addUnlinkedGroupMember={addUnlinkedGroupMember}
             sendInvite={sendInvite}
             claimMember={claimMember}
             ignoreWarning={(warningId) =>
               currentUserId
-                ? data.ignoreEventDuplicateWarning(warningId, currentUserId)
+                ? data.ignoreGroupDuplicateWarning(warningId, currentUserId)
                 : undefined
             }
             mergeMembers={(sourceId, targetId) =>
               currentUserId
-                ? data.mergeSharedEventMembers(
+                ? data.mergeSharedGroupMembers(
                     sourceId,
                     targetId,
                     currentUserId,
@@ -1079,7 +1079,7 @@ export function EventDetailScreen() {
             }
             approveClaim={(claimId) =>
               currentUserId
-                ? data.respondToEventMemberClaim(
+                ? data.respondToGroupMemberClaim(
                     claimId,
                     "approved",
                     currentUserId,
@@ -1088,7 +1088,7 @@ export function EventDetailScreen() {
             }
             rejectClaim={(claimId) =>
               currentUserId
-                ? data.respondToEventMemberClaim(
+                ? data.respondToGroupMemberClaim(
                     claimId,
                     "rejected",
                     currentUserId,
@@ -1098,15 +1098,15 @@ export function EventDetailScreen() {
           />
         ) : (
           <PrivateMembersPanel
-            eventId={event.id}
-            eventMemberIds={eventMemberIds}
+            groupId={group.id}
+            groupMemberIds={groupMemberIds}
             members={data.members}
             duplicateWarnings={duplicateWarnings}
-            ignoredDuplicateKeys={event.ignoredDuplicateKeys}
+            ignoredDuplicateKeys={group.ignoredDuplicateKeys}
             toggleMember={togglePrivateMember}
             ignoreWarning={(key) =>
-              data.updateEvent(event.id, {
-                ignoredDuplicateKeys: [...event.ignoredDuplicateKeys, key],
+              data.updateGroup(group.id, {
+                ignoredDuplicateKeys: [...group.ignoredDuplicateKeys, key],
               })
             }
           />
@@ -1117,10 +1117,10 @@ export function EventDetailScreen() {
         <Card>
           <SectionTitle
             title="Activity"
-            subtitle="Shared event changes are recorded for participants."
+            subtitle="Shared group changes are recorded for participants."
           />
-          {eventActivity.length > 0 ? (
-            eventActivity.map((activity) => (
+          {groupActivity.length > 0 ? (
+            groupActivity.map((activity) => (
               <View key={activity.id} style={styles.activityRow}>
                 <Text style={styles.rowTitle}>
                   {activity.action.replaceAll("_", " ")}
@@ -1132,8 +1132,8 @@ export function EventDetailScreen() {
             ))
           ) : (
             <EmptyState
-              title="No event activity"
-              body="Shared event actions will appear here."
+              title="No group activity"
+              body="Shared group actions will appear here."
             />
           )}
         </Card>
@@ -1142,17 +1142,17 @@ export function EventDetailScreen() {
       {tab === "overview" ? (
         <>
           <AttachmentsSection
-            targetType="event"
-            targetId={event.id}
-            eventId={event.id}
-            parentVisibility={event.visibility}
+            targetType="group"
+            targetId={group.id}
+            groupId={group.id}
+            parentVisibility={group.visibility}
             preferredKind="other"
           />
           <CommentsSection
-            targetType="event"
-            targetId={event.id}
-            eventId={event.id}
-            sharedAvailable={event.visibility === "shared"}
+            targetType="group"
+            targetId={group.id}
+            groupId={group.id}
+            sharedAvailable={group.visibility === "shared"}
           />
         </>
       ) : null}
@@ -1160,10 +1160,10 @@ export function EventDetailScreen() {
   );
 }
 
-function EventLedgerRow({
+function GroupLedgerRow({
   entry,
   sharedMembers,
-  currentEventMember,
+  currentGroupMember,
   canVerify,
   rejectionReason,
   onReasonChange,
@@ -1171,8 +1171,8 @@ function EventLedgerRow({
   onReject,
 }: {
   entry: LedgerEntry;
-  sharedMembers: SharedEventMember[];
-  currentEventMember?: SharedEventMember;
+  sharedMembers: SharedGroupMember[];
+  currentGroupMember?: SharedGroupMember;
   canVerify: boolean;
   rejectionReason: string;
   onReasonChange: (value: string) => void;
@@ -1180,12 +1180,12 @@ function EventLedgerRow({
   onReject: () => void;
 }) {
   const currentMemberInvolved =
-    currentEventMember &&
-    (entry.fromId === currentEventMember.id ||
-      entry.toId === currentEventMember.id);
+    currentGroupMember &&
+    (entry.fromId === currentGroupMember.id ||
+      entry.toId === currentGroupMember.id);
   return (
     <View style={styles.verificationBlock}>
-      <DebtRow entry={entry} members={[]} sharedEventMembers={sharedMembers} />
+      <DebtRow entry={entry} members={[]} sharedGroupMembers={sharedMembers} />
       <View style={styles.badgeLine}>
         <VerificationBadge status={entry.verificationStatus} />
         <Text style={styles.body}>
@@ -1222,8 +1222,8 @@ function SettingToggle({
   settings,
   onChange,
 }: {
-  settings: EventSettlementSettings;
-  onChange: (settings: EventSettlementSettings) => void;
+  settings: GroupSettlementSettings;
+  onChange: (settings: GroupSettlementSettings) => void;
 }) {
   return (
     <View style={styles.toggleGrid}>
@@ -1236,7 +1236,7 @@ function SettingToggle({
         ["verifiedOnly", "Verified records only"],
         ["convertedCurrency", "Estimated converted settlement"],
       ].map(([key, label]) => {
-        const typedKey = key as keyof EventSettlementSettings;
+        const typedKey = key as keyof GroupSettlementSettings;
         return (
           <Button
             key={key}
@@ -1254,7 +1254,7 @@ function SettingToggle({
 }
 
 function SharedMembersPanel({
-  eventMembers,
+  groupMembers,
   warnings,
   claims,
   canManage,
@@ -1274,7 +1274,7 @@ function SharedMembersPanel({
   setInviteEmail,
   setInviteRole,
   setClaimMessage,
-  addUnlinkedEventMember,
+  addUnlinkedGroupMember,
   sendInvite,
   claimMember,
   ignoreWarning,
@@ -1282,17 +1282,17 @@ function SharedMembersPanel({
   approveClaim,
   rejectClaim,
 }: {
-  eventMembers: SharedEventMember[];
+  groupMembers: SharedGroupMember[];
   warnings: {
     id: string;
-    eventMemberIdA: string;
-    eventMemberIdB: string;
+    groupMemberIdA: string;
+    groupMemberIdB: string;
     reason: string;
     confidence: string;
   }[];
   claims: {
     id: string;
-    eventMemberId: string;
+    groupMemberId: string;
     claimantUserId: string;
     message: string | null;
   }[];
@@ -1304,32 +1304,32 @@ function SharedMembersPanel({
   newMemberPhone: string;
   inviteDisplayName: string;
   inviteEmail: string;
-  inviteRole: Exclude<EventRole, "owner">;
+  inviteRole: Exclude<GroupRole, "owner">;
   claimMessage: string;
   setNewMemberName: (value: string) => void;
   setNewMemberEmail: (value: string) => void;
   setNewMemberPhone: (value: string) => void;
   setInviteDisplayName: (value: string) => void;
   setInviteEmail: (value: string) => void;
-  setInviteRole: (value: Exclude<EventRole, "owner">) => void;
+  setInviteRole: (value: Exclude<GroupRole, "owner">) => void;
   setClaimMessage: (value: string) => void;
-  addUnlinkedEventMember: () => void;
+  addUnlinkedGroupMember: () => void;
   sendInvite: () => void;
-  claimMember: (member: SharedEventMember) => void;
+  claimMember: (member: SharedGroupMember) => void;
   ignoreWarning: (warningId: string) => void | Promise<unknown>;
   mergeMembers: (sourceId: string, targetId: string) => void | Promise<unknown>;
   approveClaim: (claimId: string) => void | Promise<unknown>;
   rejectClaim: (claimId: string) => void | Promise<unknown>;
 }) {
-  const activeMembers = eventMembers.filter(
+  const activeMembers = groupMembers.filter(
     (member) => member.status !== "merged",
   );
   return (
     <>
       <Card>
         <SectionTitle
-          title="Event members"
-          subtitle="Linked users and shared placeholders are event-specific."
+          title="Group members"
+          subtitle="Linked users and shared placeholders are group-specific."
         />
         {activeMembers.map((member) => (
           <View key={member.id} style={styles.memberRow}>
@@ -1373,7 +1373,7 @@ function SharedMembersPanel({
         <Card>
           <SectionTitle
             title="Add unlinked member"
-            subtitle="Shared placeholders are visible to all event participants."
+            subtitle="Shared placeholders are visible to all group participants."
           />
           <TextField
             label="Display name"
@@ -1397,7 +1397,7 @@ function SharedMembersPanel({
             title="Add unlinked member"
             icon="person-add"
             disabled={!newMemberName.trim()}
-            onPress={addUnlinkedEventMember}
+            onPress={addUnlinkedGroupMember}
           />
         </Card>
       ) : null}
@@ -1406,7 +1406,7 @@ function SharedMembersPanel({
         <Card>
           <SectionTitle
             title="Invite members"
-            subtitle="Accepting an invite shares only event-specific records."
+            subtitle="Accepting an invite shares only group-specific records."
           />
           <TextField
             label="Display name"
@@ -1446,14 +1446,14 @@ function SharedMembersPanel({
             subtitle="Owner/admin approval links a placeholder to a real user."
           />
           {claims.map((claim) => {
-            const member = eventMembers.find(
-              (item) => item.id === claim.eventMemberId,
+            const member = groupMembers.find(
+              (item) => item.id === claim.groupMemberId,
             );
             return (
               <View key={claim.id} style={styles.warningRow}>
                 <Text style={styles.body}>
                   {claim.claimantUserId} wants to claim{" "}
-                  {member?.displayName ?? "an event member"}.
+                  {member?.displayName ?? "an group member"}.
                 </Text>
                 {claim.message ? (
                   <Text style={styles.body}>{claim.message}</Text>
@@ -1486,11 +1486,11 @@ function SharedMembersPanel({
             subtitle="Warnings never auto-merge members."
           />
           {warnings.map((warning) => {
-            const first = eventMembers.find(
-              (member) => member.id === warning.eventMemberIdA,
+            const first = groupMembers.find(
+              (member) => member.id === warning.groupMemberIdA,
             );
-            const second = eventMembers.find(
-              (member) => member.id === warning.eventMemberIdB,
+            const second = groupMembers.find(
+              (member) => member.id === warning.groupMemberIdB,
             );
             return (
               <View key={warning.id} style={styles.warningRow}>
@@ -1524,14 +1524,14 @@ function SharedMembersPanel({
 }
 
 function PrivateMembersPanel({
-  eventMemberIds,
+  groupMemberIds,
   members,
   duplicateWarnings,
   toggleMember,
   ignoreWarning,
 }: {
-  eventId: string;
-  eventMemberIds: string[];
+  groupId: string;
+  groupMemberIds: string[];
   members: { id: string; displayName: string; archived: boolean }[];
   duplicateWarnings: { key: string; message: string }[];
   ignoredDuplicateKeys: string[];
@@ -1542,8 +1542,8 @@ function PrivateMembersPanel({
     <>
       <Card>
         <SectionTitle
-          title="Private event members"
-          subtitle="Private events use local/manual members only."
+          title="Private group members"
+          subtitle="Private groups use local/manual members only."
         />
         <View style={styles.memberWrap}>
           <View style={[styles.memberChip, styles.memberChipSelected]}>
@@ -1552,7 +1552,7 @@ function PrivateMembersPanel({
           {members
             .filter((member) => !member.archived)
             .map((member) => {
-              const selected = eventMemberIds.includes(member.id);
+              const selected = groupMemberIds.includes(member.id);
               return (
                 <Pressable
                   key={member.id}
@@ -1656,8 +1656,8 @@ function buildConvertedEstimate(
 
 function targetForEntry(
   entry: LedgerEntry,
-): { type: EventVerificationResponse["targetType"]; id: string } | null {
-  if (entry.kind === "event_direct_debt") {
+): { type: GroupVerificationResponse["targetType"]; id: string } | null {
+  if (entry.kind === "group_direct_debt") {
     return { type: "debt", id: entry.sourceId };
   }
   if (entry.kind === "expense_obligation" && entry.expenseId) {

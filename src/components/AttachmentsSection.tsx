@@ -39,14 +39,14 @@ type PickedAttachment = {
 export function AttachmentsSection({
   targetType,
   targetId,
-  eventId,
+  groupId,
   parentVisibility,
   preferredKind = 'receipt',
   title = 'Attachments',
 }: {
   targetType: AttachmentTargetType;
   targetId: string;
-  eventId?: string | null;
+  groupId?: string | null;
   parentVisibility?: string | null;
   preferredKind?: AttachmentKind;
   title?: string;
@@ -94,12 +94,12 @@ export function AttachmentsSection({
     }
     const storagePath =
       visibility === 'shared'
-        ? storagePathForAttachment({ eventId, targetType, targetId, fileName: cleanName })
+        ? storagePathForAttachment({ groupId, targetType, targetId, fileName: cleanName })
         : null;
     const attachment = await data.createAttachment({
       targetType,
       targetId,
-      eventId,
+      groupId,
       createdByUserId: auth.identity.authenticatedUserId,
       localUri: selectedFile.uri,
       fileName: cleanName,

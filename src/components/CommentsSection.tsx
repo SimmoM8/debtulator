@@ -13,12 +13,12 @@ import type { Comment, CommentTargetType, CommentVisibility } from '@/src/types/
 export function CommentsSection({
   targetType,
   targetId,
-  eventId,
+  groupId,
   sharedAvailable,
 }: {
   targetType: CommentTargetType;
   targetId: string;
-  eventId?: string | null;
+  groupId?: string | null;
   sharedAvailable?: boolean;
 }) {
   const data = useAppData();
@@ -44,7 +44,7 @@ export function CommentsSection({
     await data.createComment({
       targetType,
       targetId,
-      eventId,
+      groupId,
       authorUserId: visibility === 'shared' ? auth.identity.authenticatedUserId : null,
       localAuthorLabel: auth.identity.displayName || 'You',
       body,

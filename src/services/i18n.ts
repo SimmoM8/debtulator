@@ -9,10 +9,10 @@ export type TranslationKey =
   | 'rejected'
   | 'disputed'
   | 'member'
-  | 'event'
+  | 'group'
   | 'owedToYou'
   | 'youOwe'
-  | 'sharedEvent'
+  | 'sharedGroup'
   | 'private'
   | 'localOnly'
   | 'estimated'
@@ -31,10 +31,10 @@ const translations: Record<'en' | 'sv', Record<TranslationKey, string>> = {
     rejected: 'Rejected',
     disputed: 'Disputed',
     member: 'Member',
-    event: 'Event',
+    group: 'Group',
     owedToYou: 'Owed to you',
     youOwe: 'You owe',
-    sharedEvent: 'Shared event',
+    sharedGroup: 'Shared group',
     private: 'Private',
     localOnly: 'Local only',
     estimated: 'Estimated',
@@ -52,10 +52,10 @@ const translations: Record<'en' | 'sv', Record<TranslationKey, string>> = {
     rejected: 'Avvisad',
     disputed: 'Omstridd',
     member: 'Medlem',
-    event: 'Event',
+    group: 'Group',
     owedToYou: 'Du ska få',
     youOwe: 'Du är skyldig',
-    sharedEvent: 'Delat event',
+    sharedGroup: 'Delat group',
     private: 'Privat',
     localOnly: 'Endast lokalt',
     estimated: 'Uppskattat',

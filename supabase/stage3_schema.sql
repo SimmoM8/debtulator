@@ -10,7 +10,7 @@ begin
 end;
 $$;
 
-create or replace function public.is_event_participant(target_event_id uuid)
+create or replace function public.is_group_participant(target_group_id uuid)
 returns boolean
 language sql
 security definer
@@ -18,31 +18,31 @@ set search_path = public
 as $$
   select exists (
     select 1
-    from public.event_participants
-    where event_id = target_event_id
+    from public.group_participants
+    where group_id = target_group_id
       and user_id = auth.uid()
       and status = 'active'
   )
   or exists (
     select 1
-    from public.events
-    where id = target_event_id
+    from public.groups
+    where id = target_group_id
       and owner_user_id = auth.uid()
   );
 $$;
 
-create or replace function public.event_role(target_event_id uuid)
+create or replace function public.group_role(target_group_id uuid)
 returns text
 language sql
 security definer
 set search_path = public
 as $$
   select coalesce(
-    (select 'owner' from public.events where id = target_event_id and owner_user_id = auth.uid()),
+    (select 'owner' from public.groups where id = target_group_id and owner_user_id = auth.uid()),
     (
       select role
-      from public.event_participants
-      where event_id = target_event_id
+      from public.group_participants
+      where group_id = target_group_id
         and user_id = auth.uid()
         and status = 'active'
       limit 1
@@ -51,26 +51,26 @@ as $$
   );
 $$;
 
-create or replace function public.can_manage_event(target_event_id uuid)
+create or replace function public.can_manage_group(target_group_id uuid)
 returns boolean
 language sql
 security definer
 set search_path = public
 as $$
-  select public.event_role(target_event_id) in ('owner', 'admin');
+  select public.group_role(target_group_id) in ('owner', 'admin');
 $$;
 
-create or replace function public.can_write_event_ledger(target_event_id uuid)
+create or replace function public.can_write_group_ledger(target_group_id uuid)
 returns boolean
 language sql
 security definer
 set search_path = public
 as $$
-  select public.event_role(target_event_id) in ('owner', 'admin', 'member')
+  select public.group_role(target_group_id) in ('owner', 'admin', 'member')
     and not exists (
       select 1
-      from public.events
-      where id = target_event_id
+      from public.groups
+      where id = target_group_id
         and (
           status in ('settled', 'archived')
           or locked_at is not null
@@ -79,7 +79,7 @@ as $$
     );
 $$;
 
-create table if not exists public.events (
+create table if not exists public.groups (
   id uuid primary key default gen_random_uuid(),
   owner_user_id uuid not null references auth.users(id) on delete cascade,
   name text not null,
@@ -96,21 +96,21 @@ create table if not exists public.events (
   updated_at timestamptz not null default now()
 );
 
-create table if not exists public.event_participants (
+create table if not exists public.group_participants (
   id uuid primary key default gen_random_uuid(),
-  event_id uuid not null references public.events(id) on delete cascade,
+  group_id uuid not null references public.groups(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
   role text not null check (role in ('owner', 'admin', 'member', 'viewer')),
   status text not null default 'active' check (status in ('active', 'removed', 'left', 'invited')),
   joined_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  unique (event_id, user_id)
+  unique (group_id, user_id)
 );
 
-create table if not exists public.event_invites (
+create table if not exists public.group_invites (
   id uuid primary key default gen_random_uuid(),
-  event_id uuid not null references public.events(id) on delete cascade,
+  group_id uuid not null references public.groups(id) on delete cascade,
   inviter_user_id uuid not null references auth.users(id) on delete cascade,
   invited_user_id uuid references auth.users(id) on delete set null,
   invited_email text,
@@ -124,9 +124,9 @@ create table if not exists public.event_invites (
   responded_at timestamptz
 );
 
-create table if not exists public.event_members (
+create table if not exists public.group_members (
   id uuid primary key default gen_random_uuid(),
-  event_id uuid not null references public.events(id) on delete cascade,
+  group_id uuid not null references public.groups(id) on delete cascade,
   type text not null check (type in ('linked_user', 'unlinked_placeholder')),
   linked_user_id uuid references auth.users(id) on delete set null,
   display_name text not null,
@@ -136,19 +136,19 @@ create table if not exists public.event_members (
   notes text,
   created_by_user_id uuid references auth.users(id) on delete set null,
   status text not null default 'active' check (status in ('active', 'archived', 'merged', 'claim_pending')),
-  merged_into_event_member_id uuid references public.event_members(id) on delete set null,
+  merged_into_group_member_id uuid references public.group_members(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
-create unique index if not exists event_members_linked_unique
-on public.event_members(event_id, linked_user_id)
+create unique index if not exists group_members_linked_unique
+on public.group_members(group_id, linked_user_id)
 where linked_user_id is not null and status <> 'merged';
 
-create table if not exists public.event_member_claims (
+create table if not exists public.group_member_claims (
   id uuid primary key default gen_random_uuid(),
-  event_id uuid not null references public.events(id) on delete cascade,
-  event_member_id uuid not null references public.event_members(id) on delete cascade,
+  group_id uuid not null references public.groups(id) on delete cascade,
+  group_member_id uuid not null references public.group_members(id) on delete cascade,
   claimant_user_id uuid not null references auth.users(id) on delete cascade,
   status text not null default 'pending' check (status in ('pending', 'approved', 'rejected', 'cancelled')),
   message text,
@@ -158,11 +158,11 @@ create table if not exists public.event_member_claims (
   updated_at timestamptz not null default now()
 );
 
-create table if not exists public.event_duplicate_warnings (
+create table if not exists public.group_duplicate_warnings (
   id uuid primary key default gen_random_uuid(),
-  event_id uuid not null references public.events(id) on delete cascade,
-  event_member_id_a uuid not null references public.event_members(id) on delete cascade,
-  event_member_id_b uuid not null references public.event_members(id) on delete cascade,
+  group_id uuid not null references public.groups(id) on delete cascade,
+  group_member_id_a uuid not null references public.group_members(id) on delete cascade,
+  group_member_id_b uuid not null references public.group_members(id) on delete cascade,
   reason text not null,
   confidence text not null check (confidence in ('low', 'medium', 'high')),
   status text not null default 'active' check (status in ('active', 'ignored', 'resolved')),
@@ -171,11 +171,11 @@ create table if not exists public.event_duplicate_warnings (
   updated_at timestamptz not null default now()
 );
 
-create table if not exists public.event_expenses (
+create table if not exists public.group_expenses (
   id uuid primary key default gen_random_uuid(),
-  event_id uuid not null references public.events(id) on delete cascade,
+  group_id uuid not null references public.groups(id) on delete cascade,
   creator_user_id uuid references auth.users(id) on delete set null,
-  payer_event_member_id uuid not null references public.event_members(id),
+  payer_group_member_id uuid not null references public.group_members(id),
   amount numeric(14, 2) not null check (amount >= 0),
   currency text not null,
   title text not null,
@@ -193,10 +193,10 @@ create table if not exists public.event_expenses (
   updated_at timestamptz not null default now()
 );
 
-create table if not exists public.event_expense_splits (
+create table if not exists public.group_expense_splits (
   id uuid primary key default gen_random_uuid(),
-  expense_id uuid not null references public.event_expenses(id) on delete cascade,
-  event_member_id uuid not null references public.event_members(id),
+  expense_id uuid not null references public.group_expenses(id) on delete cascade,
+  group_member_id uuid not null references public.group_members(id),
   included boolean not null default true,
   share_amount numeric(14, 2),
   share_percentage numeric(7, 4),
@@ -204,15 +204,15 @@ create table if not exists public.event_expense_splits (
   calculated_share_amount numeric(14, 2) not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  unique (expense_id, event_member_id)
+  unique (expense_id, group_member_id)
 );
 
-create table if not exists public.event_debts (
+create table if not exists public.group_debts (
   id uuid primary key default gen_random_uuid(),
-  event_id uuid not null references public.events(id) on delete cascade,
+  group_id uuid not null references public.groups(id) on delete cascade,
   creator_user_id uuid references auth.users(id) on delete set null,
-  debtor_event_member_id uuid not null references public.event_members(id),
-  creditor_event_member_id uuid not null references public.event_members(id),
+  debtor_group_member_id uuid not null references public.group_members(id),
+  creditor_group_member_id uuid not null references public.group_members(id),
   amount numeric(14, 2) not null check (amount >= 0),
   currency text not null,
   title text not null,
@@ -228,12 +228,12 @@ create table if not exists public.event_debts (
   updated_at timestamptz not null default now()
 );
 
-create table if not exists public.event_verification_responses (
+create table if not exists public.group_verification_responses (
   id uuid primary key default gen_random_uuid(),
-  event_id uuid not null references public.events(id) on delete cascade,
+  group_id uuid not null references public.groups(id) on delete cascade,
   target_type text not null check (target_type in ('expense', 'debt', 'split')),
   target_id uuid not null,
-  event_member_id uuid not null references public.event_members(id) on delete cascade,
+  group_member_id uuid not null references public.group_members(id) on delete cascade,
   linked_user_id uuid references auth.users(id) on delete set null,
   response_status text not null default 'pending'
     check (response_status in ('local_only', 'pending', 'partially_verified', 'verified', 'rejected', 'disputed', 'resolved', 'cancelled')),
@@ -241,12 +241,12 @@ create table if not exists public.event_verification_responses (
   responded_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  unique (event_id, target_type, target_id, event_member_id)
+  unique (group_id, target_type, target_id, group_member_id)
 );
 
-create table if not exists public.event_activity_logs (
+create table if not exists public.group_activity_logs (
   id uuid primary key default gen_random_uuid(),
-  event_id uuid not null references public.events(id) on delete cascade,
+  group_id uuid not null references public.groups(id) on delete cascade,
   actor_user_id uuid references auth.users(id) on delete set null,
   action text not null,
   target_type text not null,
@@ -260,16 +260,16 @@ declare
   table_name text;
 begin
   foreach table_name in array array[
-    'events',
-    'event_participants',
-    'event_invites',
-    'event_members',
-    'event_member_claims',
-    'event_duplicate_warnings',
-    'event_expenses',
-    'event_expense_splits',
-    'event_debts',
-    'event_verification_responses'
+    'groups',
+    'group_participants',
+    'group_invites',
+    'group_members',
+    'group_member_claims',
+    'group_duplicate_warnings',
+    'group_expenses',
+    'group_expense_splits',
+    'group_debts',
+    'group_verification_responses'
   ]
   loop
     execute format('drop trigger if exists %I_set_updated_at on public.%I', table_name, table_name);
@@ -277,229 +277,229 @@ begin
   end loop;
 end $$;
 
-alter table public.events enable row level security;
-alter table public.event_participants enable row level security;
-alter table public.event_invites enable row level security;
-alter table public.event_members enable row level security;
-alter table public.event_member_claims enable row level security;
-alter table public.event_duplicate_warnings enable row level security;
-alter table public.event_expenses enable row level security;
-alter table public.event_expense_splits enable row level security;
-alter table public.event_debts enable row level security;
-alter table public.event_verification_responses enable row level security;
-alter table public.event_activity_logs enable row level security;
+alter table public.groups enable row level security;
+alter table public.group_participants enable row level security;
+alter table public.group_invites enable row level security;
+alter table public.group_members enable row level security;
+alter table public.group_member_claims enable row level security;
+alter table public.group_duplicate_warnings enable row level security;
+alter table public.group_expenses enable row level security;
+alter table public.group_expense_splits enable row level security;
+alter table public.group_debts enable row level security;
+alter table public.group_verification_responses enable row level security;
+alter table public.group_activity_logs enable row level security;
 
-drop policy if exists "Event participants can read events" on public.events;
-create policy "Event participants can read events"
-on public.events for select
+drop policy if exists "Group participants can read groups" on public.groups;
+create policy "Group participants can read groups"
+on public.groups for select
 using (
   owner_user_id = auth.uid()
-  or public.is_event_participant(id)
+  or public.is_group_participant(id)
   or exists (
-    select 1 from public.event_invites
-    where event_id = events.id
+    select 1 from public.group_invites
+    where group_id = groups.id
       and status = 'pending'
       and (invited_user_id = auth.uid() or lower(invited_email) = lower(coalesce(auth.jwt() ->> 'email', '')))
   )
 );
 
-drop policy if exists "Authenticated users can create shared events" on public.events;
-create policy "Authenticated users can create shared events"
-on public.events for insert
+drop policy if exists "Authenticated users can create shared groups" on public.groups;
+create policy "Authenticated users can create shared groups"
+on public.groups for insert
 with check (owner_user_id = auth.uid() and visibility = 'shared');
 
-drop policy if exists "Owner admins can update events" on public.events;
-create policy "Owner admins can update events"
-on public.events for update
-using (public.can_manage_event(id))
-with check (public.can_manage_event(id));
+drop policy if exists "Owner admins can update groups" on public.groups;
+create policy "Owner admins can update groups"
+on public.groups for update
+using (public.can_manage_group(id))
+with check (public.can_manage_group(id));
 
-drop policy if exists "Participants can read participants" on public.event_participants;
+drop policy if exists "Participants can read participants" on public.group_participants;
 create policy "Participants can read participants"
-on public.event_participants for select
-using (public.is_event_participant(event_id) or user_id = auth.uid());
+on public.group_participants for select
+using (public.is_group_participant(group_id) or user_id = auth.uid());
 
-drop policy if exists "Owners admins can manage participants" on public.event_participants;
+drop policy if exists "Owners admins can manage participants" on public.group_participants;
 create policy "Owners admins can manage participants"
-on public.event_participants for all
-using (public.can_manage_event(event_id))
+on public.group_participants for all
+using (public.can_manage_group(group_id))
 with check (
-  public.can_manage_event(event_id)
-  and not (role = 'owner' and public.event_role(event_id) <> 'owner')
+  public.can_manage_group(group_id)
+  and not (role = 'owner' and public.group_role(group_id) <> 'owner')
 );
 
-drop policy if exists "Users can read relevant invites" on public.event_invites;
+drop policy if exists "Users can read relevant invites" on public.group_invites;
 create policy "Users can read relevant invites"
-on public.event_invites for select
+on public.group_invites for select
 using (
-  public.is_event_participant(event_id)
+  public.is_group_participant(group_id)
   or inviter_user_id = auth.uid()
   or invited_user_id = auth.uid()
   or lower(invited_email) = lower(coalesce(auth.jwt() ->> 'email', ''))
 );
 
-drop policy if exists "Owners admins can invite" on public.event_invites;
+drop policy if exists "Owners admins can invite" on public.group_invites;
 create policy "Owners admins can invite"
-on public.event_invites for insert
-with check (inviter_user_id = auth.uid() and public.can_manage_event(event_id));
+on public.group_invites for insert
+with check (inviter_user_id = auth.uid() and public.can_manage_group(group_id));
 
-drop policy if exists "Invite participants can update invites" on public.event_invites;
+drop policy if exists "Invite participants can update invites" on public.group_invites;
 create policy "Invite participants can update invites"
-on public.event_invites for update
+on public.group_invites for update
 using (
-  public.can_manage_event(event_id)
+  public.can_manage_group(group_id)
   or invited_user_id = auth.uid()
   or lower(invited_email) = lower(coalesce(auth.jwt() ->> 'email', ''))
 )
 with check (
-  public.can_manage_event(event_id)
+  public.can_manage_group(group_id)
   or invited_user_id = auth.uid()
   or lower(invited_email) = lower(coalesce(auth.jwt() ->> 'email', ''))
 );
 
-drop policy if exists "Participants can read event members" on public.event_members;
-create policy "Participants can read event members"
-on public.event_members for select
-using (public.is_event_participant(event_id));
+drop policy if exists "Participants can read group members" on public.group_members;
+create policy "Participants can read group members"
+on public.group_members for select
+using (public.is_group_participant(group_id));
 
-drop policy if exists "Owners admins can manage event members" on public.event_members;
-create policy "Owners admins can manage event members"
-on public.event_members for all
-using (public.can_manage_event(event_id))
+drop policy if exists "Owners admins can manage group members" on public.group_members;
+create policy "Owners admins can manage group members"
+on public.group_members for all
+using (public.can_manage_group(group_id))
 with check (
-  public.can_manage_event(event_id)
+  public.can_manage_group(group_id)
   and (
     linked_user_id is null
     or not exists (
-      select 1 from public.event_members existing
-      where existing.event_id = event_members.event_id
-        and existing.linked_user_id = event_members.linked_user_id
-        and existing.id <> event_members.id
+      select 1 from public.group_members existing
+      where existing.group_id = group_members.group_id
+        and existing.linked_user_id = group_members.linked_user_id
+        and existing.id <> group_members.id
         and existing.status <> 'merged'
     )
   )
 );
 
-drop policy if exists "Participants can read claims" on public.event_member_claims;
+drop policy if exists "Participants can read claims" on public.group_member_claims;
 create policy "Participants can read claims"
-on public.event_member_claims for select
-using (public.is_event_participant(event_id) or claimant_user_id = auth.uid());
+on public.group_member_claims for select
+using (public.is_group_participant(group_id) or claimant_user_id = auth.uid());
 
-drop policy if exists "Users can create own claims" on public.event_member_claims;
+drop policy if exists "Users can create own claims" on public.group_member_claims;
 create policy "Users can create own claims"
-on public.event_member_claims for insert
-with check (claimant_user_id = auth.uid() and public.is_event_participant(event_id));
+on public.group_member_claims for insert
+with check (claimant_user_id = auth.uid() and public.is_group_participant(group_id));
 
-drop policy if exists "Owners admins can answer claims" on public.event_member_claims;
+drop policy if exists "Owners admins can answer claims" on public.group_member_claims;
 create policy "Owners admins can answer claims"
-on public.event_member_claims for update
-using (public.can_manage_event(event_id) or claimant_user_id = auth.uid())
-with check (public.can_manage_event(event_id) or claimant_user_id = auth.uid());
+on public.group_member_claims for update
+using (public.can_manage_group(group_id) or claimant_user_id = auth.uid())
+with check (public.can_manage_group(group_id) or claimant_user_id = auth.uid());
 
-drop policy if exists "Participants can read duplicate warnings" on public.event_duplicate_warnings;
+drop policy if exists "Participants can read duplicate warnings" on public.group_duplicate_warnings;
 create policy "Participants can read duplicate warnings"
-on public.event_duplicate_warnings for select
-using (public.is_event_participant(event_id));
+on public.group_duplicate_warnings for select
+using (public.is_group_participant(group_id));
 
-drop policy if exists "Owners admins can manage duplicate warnings" on public.event_duplicate_warnings;
+drop policy if exists "Owners admins can manage duplicate warnings" on public.group_duplicate_warnings;
 create policy "Owners admins can manage duplicate warnings"
-on public.event_duplicate_warnings for all
-using (public.can_manage_event(event_id))
-with check (public.can_manage_event(event_id));
+on public.group_duplicate_warnings for all
+using (public.can_manage_group(group_id))
+with check (public.can_manage_group(group_id));
 
-drop policy if exists "Participants can read event expenses" on public.event_expenses;
-create policy "Participants can read event expenses"
-on public.event_expenses for select
-using (public.is_event_participant(event_id));
+drop policy if exists "Participants can read group expenses" on public.group_expenses;
+create policy "Participants can read group expenses"
+on public.group_expenses for select
+using (public.is_group_participant(group_id));
 
-drop policy if exists "Members can write event expenses" on public.event_expenses;
-create policy "Members can write event expenses"
-on public.event_expenses for insert
-with check (creator_user_id = auth.uid() and public.can_write_event_ledger(event_id));
+drop policy if exists "Members can write group expenses" on public.group_expenses;
+create policy "Members can write group expenses"
+on public.group_expenses for insert
+with check (creator_user_id = auth.uid() and public.can_write_group_ledger(group_id));
 
-drop policy if exists "Creators admins can update event expenses" on public.event_expenses;
-create policy "Creators admins can update event expenses"
-on public.event_expenses for update
-using (public.can_manage_event(event_id) or creator_user_id = auth.uid())
-with check (public.can_manage_event(event_id) or creator_user_id = auth.uid());
+drop policy if exists "Creators admins can update group expenses" on public.group_expenses;
+create policy "Creators admins can update group expenses"
+on public.group_expenses for update
+using (public.can_manage_group(group_id) or creator_user_id = auth.uid())
+with check (public.can_manage_group(group_id) or creator_user_id = auth.uid());
 
-drop policy if exists "Participants can read expense splits" on public.event_expense_splits;
+drop policy if exists "Participants can read expense splits" on public.group_expense_splits;
 create policy "Participants can read expense splits"
-on public.event_expense_splits for select
+on public.group_expense_splits for select
 using (
   exists (
-    select 1 from public.event_expenses expense
-    where expense.id = event_expense_splits.expense_id
-      and public.is_event_participant(expense.event_id)
+    select 1 from public.group_expenses expense
+    where expense.id = group_expense_splits.expense_id
+      and public.is_group_participant(expense.group_id)
   )
 );
 
-drop policy if exists "Ledger writers can manage expense splits" on public.event_expense_splits;
+drop policy if exists "Ledger writers can manage expense splits" on public.group_expense_splits;
 create policy "Ledger writers can manage expense splits"
-on public.event_expense_splits for all
+on public.group_expense_splits for all
 using (
   exists (
-    select 1 from public.event_expenses expense
-    where expense.id = event_expense_splits.expense_id
-      and public.can_write_event_ledger(expense.event_id)
+    select 1 from public.group_expenses expense
+    where expense.id = group_expense_splits.expense_id
+      and public.can_write_group_ledger(expense.group_id)
   )
 )
 with check (
   exists (
-    select 1 from public.event_expenses expense
-    where expense.id = event_expense_splits.expense_id
-      and public.can_write_event_ledger(expense.event_id)
+    select 1 from public.group_expenses expense
+    where expense.id = group_expense_splits.expense_id
+      and public.can_write_group_ledger(expense.group_id)
   )
 );
 
-drop policy if exists "Participants can read event debts" on public.event_debts;
-create policy "Participants can read event debts"
-on public.event_debts for select
-using (public.is_event_participant(event_id));
+drop policy if exists "Participants can read group debts" on public.group_debts;
+create policy "Participants can read group debts"
+on public.group_debts for select
+using (public.is_group_participant(group_id));
 
-drop policy if exists "Members can create event debts" on public.event_debts;
-create policy "Members can create event debts"
-on public.event_debts for insert
-with check (creator_user_id = auth.uid() and public.can_write_event_ledger(event_id));
+drop policy if exists "Members can create group debts" on public.group_debts;
+create policy "Members can create group debts"
+on public.group_debts for insert
+with check (creator_user_id = auth.uid() and public.can_write_group_ledger(group_id));
 
-drop policy if exists "Creators admins can update event debts" on public.event_debts;
-create policy "Creators admins can update event debts"
-on public.event_debts for update
-using (public.can_manage_event(event_id) or creator_user_id = auth.uid())
-with check (public.can_manage_event(event_id) or creator_user_id = auth.uid());
+drop policy if exists "Creators admins can update group debts" on public.group_debts;
+create policy "Creators admins can update group debts"
+on public.group_debts for update
+using (public.can_manage_group(group_id) or creator_user_id = auth.uid())
+with check (public.can_manage_group(group_id) or creator_user_id = auth.uid());
 
-drop policy if exists "Participants can read event verification responses" on public.event_verification_responses;
-create policy "Participants can read event verification responses"
-on public.event_verification_responses for select
-using (public.is_event_participant(event_id));
+drop policy if exists "Participants can read group verification responses" on public.group_verification_responses;
+create policy "Participants can read group verification responses"
+on public.group_verification_responses for select
+using (public.is_group_participant(group_id));
 
-drop policy if exists "Linked involved users can verify event records" on public.event_verification_responses;
-create policy "Linked involved users can verify event records"
-on public.event_verification_responses for insert
+drop policy if exists "Linked involved users can verify group records" on public.group_verification_responses;
+create policy "Linked involved users can verify group records"
+on public.group_verification_responses for insert
 with check (
   linked_user_id = auth.uid()
-  and public.is_event_participant(event_id)
+  and public.is_group_participant(group_id)
   and exists (
-    select 1 from public.event_members member
-    where member.id = event_verification_responses.event_member_id
-      and member.event_id = event_verification_responses.event_id
+    select 1 from public.group_members member
+    where member.id = group_verification_responses.group_member_id
+      and member.group_id = group_verification_responses.group_id
       and member.linked_user_id = auth.uid()
       and member.status <> 'merged'
   )
 );
 
-drop policy if exists "Linked users can update own verification responses" on public.event_verification_responses;
+drop policy if exists "Linked users can update own verification responses" on public.group_verification_responses;
 create policy "Linked users can update own verification responses"
-on public.event_verification_responses for update
-using (linked_user_id = auth.uid() or public.can_manage_event(event_id))
-with check (linked_user_id = auth.uid() or public.can_manage_event(event_id));
+on public.group_verification_responses for update
+using (linked_user_id = auth.uid() or public.can_manage_group(group_id))
+with check (linked_user_id = auth.uid() or public.can_manage_group(group_id));
 
-drop policy if exists "Participants can read activity" on public.event_activity_logs;
+drop policy if exists "Participants can read activity" on public.group_activity_logs;
 create policy "Participants can read activity"
-on public.event_activity_logs for select
-using (public.is_event_participant(event_id));
+on public.group_activity_logs for select
+using (public.is_group_participant(group_id));
 
-drop policy if exists "Participants can create activity" on public.event_activity_logs;
+drop policy if exists "Participants can create activity" on public.group_activity_logs;
 create policy "Participants can create activity"
-on public.event_activity_logs for insert
-with check (public.is_event_participant(event_id) and (actor_user_id is null or actor_user_id = auth.uid()));
+on public.group_activity_logs for insert
+with check (public.is_group_participant(group_id) and (actor_user_id is null or actor_user_id = auth.uid()));

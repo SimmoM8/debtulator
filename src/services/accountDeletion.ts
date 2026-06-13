@@ -3,13 +3,13 @@ import type { AccountDeletionState, AuditLog, SyncConflict } from '@/src/types/m
 
 type AccountDeletionPlan = {
   blockers: string[];
-  ownedEventCount: number;
+  ownedGroupCount: number;
   ownedAttachmentCount: number;
   unresolvedOwnedConflictCount: number;
 };
 
 export function buildAccountDeletionPlan(snapshot: DatabaseSnapshot, userId: string): AccountDeletionPlan {
-  const ownedEventCount = snapshot.events.filter((event) => event.ownerUserId === userId).length;
+  const ownedGroupCount = snapshot.groups.filter((group) => group.ownerUserId === userId).length;
   const ownedAttachmentCount = snapshot.attachments.filter((attachment) => attachment.createdByUserId === userId).length;
   const unresolvedOwnedConflictCount = snapshot.syncConflicts.filter(
     (conflict) => conflict.status === 'unresolved' && conflictTouchesOwnedData(conflict, snapshot, userId),
@@ -22,7 +22,7 @@ export function buildAccountDeletionPlan(snapshot: DatabaseSnapshot, userId: str
 
   return {
     blockers,
-    ownedEventCount,
+    ownedGroupCount,
     ownedAttachmentCount,
     unresolvedOwnedConflictCount,
   };
@@ -88,16 +88,16 @@ export function getLatestAccountDeletionState(auditLogs: AuditLog[], userId: str
 }
 
 function conflictTouchesOwnedData(conflict: SyncConflict, snapshot: DatabaseSnapshot, userId: string) {
-  if (conflict.entityType === 'event') {
-    return snapshot.events.some((event) => event.id === conflict.localEntityId && event.ownerUserId === userId);
+  if (conflict.entityType === 'group') {
+    return snapshot.groups.some((group) => group.id === conflict.localEntityId && group.ownerUserId === userId);
   }
   if (conflict.entityType === 'shared_expense') {
     return snapshot.sharedExpenses.some(
       (expense) => expense.id === conflict.localEntityId && expense.creatorUserId === userId,
     );
   }
-  if (conflict.entityType === 'event_debt') {
-    return snapshot.eventDebts.some((debt) => debt.id === conflict.localEntityId && debt.creatorUserId === userId);
+  if (conflict.entityType === 'group_debt') {
+    return snapshot.groupDebts.some((debt) => debt.id === conflict.localEntityId && debt.creatorUserId === userId);
   }
   if (conflict.entityType === 'attachment') {
     return snapshot.attachments.some(

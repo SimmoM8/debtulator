@@ -1,13 +1,13 @@
 import type {
   DebtFilters,
-  Event,
-  EventFilters,
-  EventParticipant,
+  Group,
+  GroupFilters,
+  GroupParticipant,
   LedgerEntry,
   Member,
   MemberFilters,
   MoneyMap,
-  SharedEventMember,
+  SharedGroupMember,
   Attachment,
   Comment,
   SmartSuggestion,
@@ -43,9 +43,9 @@ export function filterMembers(members: Member[], balances: Record<string, MoneyM
 export function filterDebtEntries(
   entries: LedgerEntry[],
   members: Member[],
-  events: Event[],
+  groups: Group[],
   filters: DebtFilters,
-  sharedEventMembers: SharedEventMember[] = [],
+  sharedGroupMembers: SharedGroupMember[] = [],
   stage5?: {
     attachments?: Attachment[];
     comments?: Comment[];
@@ -54,8 +54,8 @@ export function filterDebtEntries(
 ) {
   const query = normalizeText(filters.query);
   const memberById = new Map(members.map((member) => [member.id, member]));
-  const sharedMemberById = new Map(sharedEventMembers.map((member) => [member.id, member]));
-  const eventById = new Map(events.map((event) => [event.id, event]));
+  const sharedMemberById = new Map(sharedGroupMembers.map((member) => [member.id, member]));
+  const groupById = new Map(groups.map((group) => [group.id, group]));
   const minAmount = Number(filters.minAmount);
   const maxAmount = Number(filters.maxAmount);
   const today = new Date().toISOString().slice(0, 10);
@@ -68,12 +68,12 @@ export function filterDebtEntries(
       .filter((id) => id !== 'me')
       .map((id) => memberById.get(id)?.displayName ?? sharedMemberById.get(id)?.displayName ?? '')
       .join(' ');
-    const eventName = entry.eventId ? eventById.get(entry.eventId)?.name ?? '' : '';
-    const text = normalizeText([entry.title, entry.notes, memberNames, eventName, entry.tags.join(' ')].join(' '));
+    const groupName = entry.groupId ? groupById.get(entry.groupId)?.name ?? '' : '';
+    const text = normalizeText([entry.title, entry.notes, memberNames, groupName, entry.tags.join(' ')].join(' '));
     const textMatch = !query || text.includes(query);
     const memberMatch =
       !filters.memberId || entry.fromId === filters.memberId || entry.toId === filters.memberId;
-    const eventMatch = !filters.eventId || entry.eventId === filters.eventId;
+    const groupMatch = !filters.groupId || entry.groupId === filters.groupId;
     const currencyMatch = filters.currency === 'all' || entry.currency === filters.currency;
     const statusMatch = filters.status === 'all' || entry.status === filters.status;
     const verificationMatch =
@@ -135,7 +135,7 @@ export function filterDebtEntries(
     return (
       textMatch &&
       memberMatch &&
-      eventMatch &&
+      groupMatch &&
       currencyMatch &&
       statusMatch &&
       verificationMatch &&
@@ -174,40 +174,40 @@ export function filterDebtEntries(
   });
 }
 
-export function filterEvents(
-  events: Event[],
-  eventBalances: Record<string, MoneyMap>,
-  filters: EventFilters,
+export function filterGroups(
+  groups: Group[],
+  groupBalances: Record<string, MoneyMap>,
+  filters: GroupFilters,
   context?: {
-    participants?: EventParticipant[];
+    participants?: GroupParticipant[];
     userId?: string | null;
-    pendingInviteEventIds?: Set<string>;
-    rejectedOrDisputedEventIds?: Set<string>;
-    unsettledEventIds?: Set<string>;
+    pendingInviteGroupIds?: Set<string>;
+    rejectedOrDisputedGroupIds?: Set<string>;
+    unsettledGroupIds?: Set<string>;
   },
 ) {
   const query = normalizeText(filters.query);
 
-  const filtered = events.filter((event) => {
-    const textMatch = !query || normalizeText([event.name, event.notes, event.tags.join(' ')].join(' ')).includes(query);
-    const statusMatch = filters.status === 'all' || event.status === filters.status;
-    const visibilityMatch = filters.visibility === 'all' || event.visibility === filters.visibility;
+  const filtered = groups.filter((group) => {
+    const textMatch = !query || normalizeText([group.name, group.notes, group.tags.join(' ')].join(' ')).includes(query);
+    const statusMatch = filters.status === 'all' || group.status === filters.status;
+    const visibilityMatch = filters.visibility === 'all' || group.visibility === filters.visibility;
     const role =
       context?.participants?.find(
-        (participant) => participant.eventId === event.id && participant.userId === context.userId && participant.status === 'active',
-      )?.role ?? (event.ownerUserId && context?.userId === event.ownerUserId ? 'owner' : event.visibility === 'private' ? 'owner' : 'viewer');
+        (participant) => participant.groupId === group.id && participant.userId === context.userId && participant.status === 'active',
+      )?.role ?? (group.ownerUserId && context?.userId === group.ownerUserId ? 'owner' : group.visibility === 'private' ? 'owner' : 'viewer');
     const roleMatch = filters.role === 'all' || role === filters.role;
     const attentionMatch =
       filters.attention === 'all' ||
-      (filters.attention === 'pending_invites' && context?.pendingInviteEventIds?.has(event.id)) ||
-      (filters.attention === 'rejected_or_disputed' && context?.rejectedOrDisputedEventIds?.has(event.id)) ||
-      (filters.attention === 'unsettled' && context?.unsettledEventIds?.has(event.id));
-    const tagMatch = !filters.tag || event.tags.includes(filters.tag);
+      (filters.attention === 'pending_invites' && context?.pendingInviteGroupIds?.has(group.id)) ||
+      (filters.attention === 'rejected_or_disputed' && context?.rejectedOrDisputedGroupIds?.has(group.id)) ||
+      (filters.attention === 'unsettled' && context?.unsettledGroupIds?.has(group.id));
+    const tagMatch = !filters.tag || group.tags.includes(filters.tag);
     const archivedMatch =
       filters.archivedMode === 'all' ||
-      (filters.archivedMode === 'active' && !event.archived) ||
-      (filters.archivedMode === 'archived' && event.archived);
-    const currencyMatch = filters.currency === 'all' || event.defaultCurrency === filters.currency;
+      (filters.archivedMode === 'active' && !group.archived) ||
+      (filters.archivedMode === 'archived' && group.archived);
+    const currencyMatch = filters.currency === 'all' || group.defaultCurrency === filters.currency;
 
     return textMatch && statusMatch && visibilityMatch && roleMatch && attentionMatch && tagMatch && archivedMatch && currencyMatch;
   });
@@ -215,7 +215,7 @@ export function filterEvents(
   return filtered.sort((first, second) => {
     switch (filters.sort) {
       case 'balance_desc':
-        return sumMoneyMap(eventBalances[second.id] ?? {}) - sumMoneyMap(eventBalances[first.id] ?? {});
+        return sumMoneyMap(groupBalances[second.id] ?? {}) - sumMoneyMap(groupBalances[first.id] ?? {});
       case 'name_asc':
         return first.name.localeCompare(second.name);
       case 'date_asc':

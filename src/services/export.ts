@@ -7,13 +7,13 @@ import type {
   Comment,
   CurrencyRate,
   Debt,
-  Event,
-  EventSettlementExplanation,
+  Group,
+  GroupSettlementExplanation,
   LedgerEntry,
   Member,
   Payment,
   Settlement,
-  SharedEventMember,
+  SharedGroupMember,
   SharedExpense,
 } from '@/src/types/models';
 import { estimateMoneyMap } from '@/src/services/currency';
@@ -31,7 +31,7 @@ export type PrivacyExportOptions = {
 
 export type ExportSnapshot = {
   members: Member[];
-  sharedEventMembers: SharedEventMember[];
+  sharedGroupMembers: SharedGroupMember[];
   debts: Debt[];
   sharedExpenses: SharedExpense[];
   payments: Payment[];
@@ -64,24 +64,24 @@ export function sanitizeAttachmentsForPortableExport(attachments: Attachment[]) 
   }));
 }
 
-export function eventTextSummary(input: {
-  event: Event;
-  explanation: EventSettlementExplanation;
+export function groupTextSummary(input: {
+  group: Group;
+  explanation: GroupSettlementExplanation;
   snapshot: ExportSnapshot;
   options: PrivacyExportOptions;
 }) {
   const generated = new Date().toLocaleString();
   const lines = [
-    `Debtulator summary for ${input.event.name}`,
+    `Debtulator summary for ${input.group.name}`,
     `Generated: ${generated}`,
-    `Status: ${input.event.status}`,
+    `Status: ${input.group.status}`,
     '',
     'Balances:',
   ];
 
   for (const [participantId, moneyMap] of Object.entries(input.explanation.participantNets)) {
     lines.push(
-      `${participantName(participantId, input.snapshot.members, input.snapshot.sharedEventMembers)}: ${formatMoneyMap(moneyMap)}`,
+      `${participantName(participantId, input.snapshot.members, input.snapshot.sharedGroupMembers)}: ${formatMoneyMap(moneyMap)}`,
     );
   }
 
@@ -94,10 +94,10 @@ export function eventTextSummary(input: {
   } else {
     for (const suggestion of suggestions) {
       lines.push(
-        `${participantName(suggestion.fromId, input.snapshot.members, input.snapshot.sharedEventMembers)} pays ${participantName(
+        `${participantName(suggestion.fromId, input.snapshot.members, input.snapshot.sharedGroupMembers)} pays ${participantName(
           suggestion.toId,
           input.snapshot.members,
-          input.snapshot.sharedEventMembers,
+          input.snapshot.sharedGroupMembers,
         )} ${formatMoney(suggestion.amount, suggestion.currency)}`,
       );
     }
@@ -110,23 +110,23 @@ export function eventTextSummary(input: {
   return lines.join('\n');
 }
 
-export function eventPdfLines(input: {
-  event: Event;
-  explanation: EventSettlementExplanation;
+export function groupPdfLines(input: {
+  group: Group;
+  explanation: GroupSettlementExplanation;
   snapshot: ExportSnapshot;
   options: PrivacyExportOptions;
 }) {
-  const eventEntries = input.explanation.includedEntries.concat(input.explanation.excludedEntries.map((item) => item.entry));
-  const currencies = new Set(eventEntries.map((entry) => entry.currency));
+  const groupEntries = input.explanation.includedEntries.concat(input.explanation.excludedEntries.map((item) => item.entry));
+  const currencies = new Set(groupEntries.map((entry) => entry.currency));
   const lines = [
-    `Debtulator Event Summary: ${input.event.name}`,
+    `Debtulator Group Summary: ${input.group.name}`,
     `Generated: ${new Date().toLocaleString()}`,
-    `Status: ${input.event.status} | Visibility: ${input.event.visibility}`,
-    `Currencies: ${Array.from(currencies).join(', ') || input.event.defaultCurrency}`,
+    `Status: ${input.group.status} | Visibility: ${input.group.visibility}`,
+    `Currencies: ${Array.from(currencies).join(', ') || input.group.defaultCurrency}`,
     '',
     'Members',
     ...Object.keys(input.explanation.participantNets).map((participantId) =>
-      `- ${participantName(participantId, input.snapshot.members, input.snapshot.sharedEventMembers)}`,
+      `- ${participantName(participantId, input.snapshot.members, input.snapshot.sharedGroupMembers)}`,
     ),
     '',
     'Included records',
@@ -140,17 +140,17 @@ export function eventPdfLines(input: {
     'Balances by member and currency',
     ...Object.entries(input.explanation.participantNets).map(
       ([participantId, moneyMap]) =>
-        `- ${participantName(participantId, input.snapshot.members, input.snapshot.sharedEventMembers)}: ${formatMoneyMap(moneyMap)}`,
+        `- ${participantName(participantId, input.snapshot.members, input.snapshot.sharedGroupMembers)}: ${formatMoneyMap(moneyMap)}`,
     ),
     '',
     'Settlement suggestions by currency',
     ...(input.explanation.suggestions.length
       ? input.explanation.suggestions.map(
           (suggestion) =>
-            `- ${participantName(suggestion.fromId, input.snapshot.members, input.snapshot.sharedEventMembers)} pays ${participantName(
+            `- ${participantName(suggestion.fromId, input.snapshot.members, input.snapshot.sharedGroupMembers)} pays ${participantName(
               suggestion.toId,
               input.snapshot.members,
-              input.snapshot.sharedEventMembers,
+              input.snapshot.sharedGroupMembers,
             )} ${formatMoney(suggestion.amount, suggestion.currency)}`,
         )
       : ['- No suggestions']),
@@ -166,7 +166,7 @@ export function eventPdfLines(input: {
     'Native currencies are kept separate. Converted balances, when shown, are approximate.',
   ];
 
-  return includeSupplementalLines(lines, eventEntries, input.snapshot, input.options);
+  return includeSupplementalLines(lines, groupEntries, input.snapshot, input.options);
 }
 
 export function memberPdfLines(input: {
@@ -288,10 +288,10 @@ export async function shareExport(uri: string, title: string, message?: string) 
 
 function recordLine(entry: LedgerEntry, snapshot: ExportSnapshot, options: PrivacyExportOptions) {
   const notes = options.includePrivateNotes && entry.notes ? ` | notes: ${entry.notes}` : '';
-  return `- ${entry.title}: ${participantName(entry.fromId, snapshot.members, snapshot.sharedEventMembers)} pays ${participantName(
+  return `- ${entry.title}: ${participantName(entry.fromId, snapshot.members, snapshot.sharedGroupMembers)} pays ${participantName(
     entry.toId,
     snapshot.members,
-    snapshot.sharedEventMembers,
+    snapshot.sharedGroupMembers,
   )} ${formatMoney(entry.remainingAmount, entry.currency)} | original ${formatMoney(entry.originalAmount, entry.currency)} | paid ${formatMoney(
     entry.amountPaid,
     entry.currency,

@@ -38,10 +38,10 @@ const {
   getRemoteIdForLocalId,
   mapLocalDebtToRemote,
   mapLocalExpenseToRemote,
-  mapRemoteEventMemberToLocal,
+  mapRemoteGroupMemberToLocal,
   mapRemoteAttachmentToLocal,
   mapRemoteExpenseToLocal,
-  mapRemoteEventVerificationToLocal,
+  mapRemoteGroupVerificationToLocal,
   mapLocalPaymentToRemote,
   mapRemotePaymentToLocal,
   mapRemoteSettlementToLocal,
@@ -69,10 +69,10 @@ function snapshot(overrides = {}) {
     profiles: [],
     members: [],
     debts: [],
-    events: [
+    groups: [
       {
-        id: 'event_local',
-        remoteId: 'event_remote',
+        id: 'group_local',
+        remoteId: 'group_remote',
         ownerUserId: 'user_a',
         name: 'Trip',
         notes: null,
@@ -91,17 +91,17 @@ function snapshot(overrides = {}) {
         updatedAt: '2026-01-01T00:00:00.000Z',
       },
     ],
-    eventMembers: [],
-    eventParticipants: [],
-    eventInvites: [],
-    sharedEventMembers: [
-      eventMember('member_a', 'remote_member_a', 'Alice'),
-      eventMember('member_b', 'remote_member_b', 'Bob'),
+    groupMembers: [],
+    groupParticipants: [],
+    groupInvites: [],
+    sharedGroupMembers: [
+      groupMember('member_a', 'remote_member_a', 'Alice'),
+      groupMember('member_b', 'remote_member_b', 'Bob'),
     ],
-    eventMemberClaims: [],
-    eventDuplicateWarnings: [],
+    groupMemberClaims: [],
+    groupDuplicateWarnings: [],
     sharedExpenses: [],
-    eventDebts: [],
+    groupDebts: [],
     payments: [],
     settlements: [],
     settlementLines: [],
@@ -110,8 +110,8 @@ function snapshot(overrides = {}) {
     reminders: [],
     softReminders: [],
     overpaymentCredits: [],
-    eventVerificationResponses: [],
-    eventActivityLogs: [],
+    groupVerificationResponses: [],
+    groupActivityLogs: [],
     linkRequests: [],
     debtVerifications: [],
     activityLogs: [],
@@ -131,12 +131,12 @@ function snapshot(overrides = {}) {
   };
 }
 
-function eventMember(id, remoteId, displayName) {
+function groupMember(id, remoteId, displayName) {
   return {
     id,
     remoteId,
-    eventId: 'event_local',
-    remoteEventId: 'event_remote',
+    groupId: 'group_local',
+    remoteGroupId: 'group_remote',
     type: 'linked_user',
     linkedUserId: id === 'member_a' ? 'user_a' : 'user_b',
     displayName,
@@ -146,7 +146,7 @@ function eventMember(id, remoteId, displayName) {
     notes: null,
     createdByUserId: 'user_a',
     status: 'active',
-    mergedIntoEventMemberId: null,
+    mergedIntoGroupMemberId: null,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
     syncStatus: 'synced',
@@ -157,14 +157,14 @@ function sharedExpense(overrides = {}) {
   return {
     id: 'expense_local',
     remoteId: 'expense_remote',
-    eventId: 'event_local',
+    groupId: 'group_local',
     creatorUserId: 'user_a',
     payerId: 'member_a',
     expensePayers: [
       {
         id: 'payer_local',
         expenseId: 'expense_local',
-        eventMemberId: 'member_a',
+        groupMemberId: 'member_a',
         amountPaid: 100,
         currency: 'SEK',
         createdAt: '2026-01-01T00:00:00.000Z',
@@ -183,7 +183,7 @@ function sharedExpense(overrides = {}) {
       {
         id: 'expense_local_obligation_member_b_member_a',
         expenseId: 'expense_local',
-        eventId: 'event_local',
+        groupId: 'group_local',
         fromParticipantId: 'member_b',
         toParticipantId: 'member_a',
         amount: 50,
@@ -195,7 +195,7 @@ function sharedExpense(overrides = {}) {
     tags: [],
     status: 'active',
     verificationStatus: 'pending',
-    visibility: 'shared_event',
+    visibility: 'shared_group',
     syncStatus: 'synced',
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
@@ -208,11 +208,11 @@ function backupSnapshot(overrides = {}) {
     profiles: [],
     members: [],
     debts: [],
-    events: [],
-    eventMembers: [],
-    sharedEventMembers: [],
+    groups: [],
+    groupMembers: [],
+    sharedGroupMembers: [],
     sharedExpenses: [],
-    eventDebts: [],
+    groupDebts: [],
     payments: [],
     settlements: [],
     settlementLines: [],
@@ -312,7 +312,7 @@ function simpleDebt(overrides = {}) {
     dueDate: '2026-02-03',
     recurringTemplateId: null,
     tags: [],
-    eventId: null,
+    groupId: null,
     status: 'active',
     verificationStatus: 'pending',
     verifiedByUserId: null,
@@ -329,11 +329,11 @@ function simpleDebt(overrides = {}) {
   };
 }
 
-test('remote event member maps to a stable local event member without using the remote UUID as the local relationship id', () => {
-  const local = mapRemoteEventMemberToLocal(
+test('remote group member maps to a stable local group member without using the remote UUID as the local relationship id', () => {
+  const local = mapRemoteGroupMemberToLocal(
     {
       id: 'remote_member_b',
-      event_id: 'event_remote',
+      group_id: 'group_remote',
       type: 'linked_user',
       linked_user_id: 'user_b',
       display_name: 'Bob Remote',
@@ -343,7 +343,7 @@ test('remote event member maps to a stable local event member without using the 
       notes: null,
       created_by_user_id: 'user_a',
       status: 'active',
-      merged_into_event_member_id: null,
+      merged_into_group_member_id: null,
       created_at: '2026-01-01T00:00:00.000Z',
       updated_at: '2026-01-02T00:00:00.000Z',
     },
@@ -352,16 +352,16 @@ test('remote event member maps to a stable local event member without using the 
 
   assert.equal(local.id, 'member_b');
   assert.equal(local.remoteId, 'remote_member_b');
-  assert.equal(local.eventId, 'event_local');
+  assert.equal(local.groupId, 'group_local');
 });
 
 test('shared expense push DTO uses remote ids while local relationships remain local ids', () => {
   const local = sharedExpense();
   const remote = mapLocalExpenseToRemote(local, snapshot({ sharedExpenses: [local] }));
 
-  assert.equal(remote.expense.event_id, 'event_remote');
-  assert.equal(remote.expense.payer_event_member_id, 'remote_member_a');
-  assert.deepEqual(remote.splits.map((split) => split.event_member_id), ['remote_member_a', 'remote_member_b']);
+  assert.equal(remote.expense.group_id, 'group_remote');
+  assert.equal(remote.expense.payer_group_member_id, 'remote_member_a');
+  assert.deepEqual(remote.splits.map((split) => split.group_member_id), ['remote_member_a', 'remote_member_b']);
   assert.deepEqual(local.participantIds, ['member_a', 'member_b']);
 });
 
@@ -369,9 +369,9 @@ test('remote expense pull hydrates local participant ids and generated ledger ba
   const local = mapRemoteExpenseToLocal(
     {
       id: 'expense_remote',
-      event_id: 'event_remote',
+      group_id: 'group_remote',
       creator_user_id: 'user_a',
-      payer_event_member_id: 'remote_member_a',
+      payer_group_member_id: 'remote_member_a',
       amount: '100',
       currency: 'SEK',
       title: 'Dinner',
@@ -385,8 +385,8 @@ test('remote expense pull hydrates local participant ids and generated ledger ba
       updated_at: '2026-01-01T00:00:00.000Z',
     },
     [
-      { id: 'split_a', expense_id: 'expense_remote', event_member_id: 'remote_member_a', included: true, calculated_share_amount: '50' },
-      { id: 'split_b', expense_id: 'expense_remote', event_member_id: 'remote_member_b', included: true, calculated_share_amount: '50' },
+      { id: 'split_a', expense_id: 'expense_remote', group_member_id: 'remote_member_a', included: true, calculated_share_amount: '50' },
+      { id: 'split_b', expense_id: 'expense_remote', group_member_id: 'remote_member_b', included: true, calculated_share_amount: '50' },
     ],
     [],
     snapshot(),
@@ -404,13 +404,13 @@ test('remote expense pull hydrates local participant ids and generated ledger ba
 
 test('remote verification response maps remote target and member ids to local ids', () => {
   const expense = sharedExpense();
-  const local = mapRemoteEventVerificationToLocal(
+  const local = mapRemoteGroupVerificationToLocal(
     {
       id: 'verify_remote',
-      event_id: 'event_remote',
+      group_id: 'group_remote',
       target_type: 'expense',
       target_id: 'expense_remote',
-      event_member_id: 'remote_member_b',
+      group_member_id: 'remote_member_b',
       linked_user_id: 'user_b',
       response_status: 'verified',
       rejection_reason: null,
@@ -422,11 +422,11 @@ test('remote verification response maps remote target and member ids to local id
   );
 
   assert.equal(local.targetId, 'expense_local');
-  assert.equal(local.eventMemberId, 'member_b');
+  assert.equal(local.groupMemberId, 'member_b');
   assert.equal(local.remoteTargetId, 'expense_remote');
 });
 
-test('payment push maps event participants to remote ids', () => {
+test('payment push maps group participants to remote ids', () => {
   const payment = {
     id: 'payment_local',
     remoteId: null,
@@ -436,9 +436,9 @@ test('payment push maps event participants to remote ids', () => {
     payeeUserId: null,
     payerMemberId: null,
     payeeMemberId: null,
-    payerEventMemberId: 'member_b',
-    payeeEventMemberId: 'member_a',
-    eventId: 'event_local',
+    payerGroupMemberId: 'member_b',
+    payeeGroupMemberId: 'member_a',
+    groupId: 'group_local',
     relatedMemberId: null,
     amount: 50,
     currency: 'SEK',
@@ -446,7 +446,7 @@ test('payment push maps event participants to remote ids', () => {
     notes: null,
     status: 'recorded',
     confirmationStatus: 'pending_confirmation',
-    visibility: 'shared_event',
+    visibility: 'shared_group',
     createdAt: '2026-01-02T00:00:00.000Z',
     updatedAt: '2026-01-02T00:00:00.000Z',
     archivedAt: null,
@@ -454,9 +454,9 @@ test('payment push maps event participants to remote ids', () => {
   };
 
   const remote = mapLocalPaymentToRemote(payment, snapshot());
-  assert.equal(remote.event_id, 'event_remote');
-  assert.equal(remote.payer_event_member_id, 'remote_member_b');
-  assert.equal(remote.payee_event_member_id, 'remote_member_a');
+  assert.equal(remote.group_id, 'group_remote');
+  assert.equal(remote.payer_group_member_id, 'remote_member_b');
+  assert.equal(remote.payee_group_member_id, 'remote_member_a');
 });
 
 test('shared simple debt push DTO uses the linked involved user and a safe member reference', () => {
@@ -523,7 +523,7 @@ test('sync engine creates queued shared simple debts in shared_debt_records and 
       return { supabase: fakeSupabase };
     }
     if (request === '@/src/services/sync/pullRemote') {
-      return { pullRemoteData: async () => ({ pulledCount: 0, eventIds: [], mappingErrors: [] }) };
+      return { pullRemoteData: async () => ({ pulledCount: 0, groupIds: [], mappingErrors: [] }) };
     }
     return originalLoad.call(this, request, parent, isMain);
   };
@@ -629,7 +629,7 @@ test('backup attachment toggle excludes attachments when disabled and sanitizes 
     id: 'attachment_1',
     targetType: 'debt',
     targetId: 'debt_1',
-    eventId: null,
+    groupId: null,
     createdByUserId: null,
     localUri: 'file:///private/path/receipt.png',
     remoteUrl: 'https://cdn.example.com/receipt.png',
@@ -668,7 +668,7 @@ test('backup fails clearly when attachments are unsafe for export', () => {
     id: 'attachment_big',
     targetType: 'debt',
     targetId: 'debt_1',
-    eventId: null,
+    groupId: null,
     createdByUserId: null,
     localUri: null,
     remoteUrl: null,
@@ -715,7 +715,7 @@ test('restore preview keeps version-skew payloads valid with warnings and malfor
       data: {
         members: [{ id: 'member_1' }],
         debts: 'not-an-array',
-        events: [],
+        groups: [],
         payments: [],
         settlements: [],
       },
@@ -735,7 +735,7 @@ function notificationSettings(overrides = {}) {
     pushNotificationsEnabled: true,
     emailNotificationsEnabled: false,
     notificationVerificationEnabled: true,
-    notificationEventEnabled: true,
+    notificationGroupEnabled: true,
     notificationPaymentSettlementEnabled: true,
     notificationReminderEnabled: true,
     notificationCommentEnabled: false,
@@ -749,14 +749,14 @@ function notificationSettings(overrides = {}) {
 test('notification category toggles gate delivery categories', () => {
   const settings = notificationSettings({
     notificationVerificationEnabled: false,
-    notificationEventEnabled: false,
+    notificationGroupEnabled: false,
     notificationPaymentSettlementEnabled: false,
     notificationReminderEnabled: false,
     notificationCommentEnabled: true,
   });
 
   assert.equal(notificationEnabled('verification_request', settings), false);
-  assert.equal(notificationEnabled('event_update', settings), false);
+  assert.equal(notificationEnabled('group_update', settings), false);
   assert.equal(notificationEnabled('payment', settings), false);
   assert.equal(notificationEnabled('reminder', settings), false);
   assert.equal(notificationEnabled('comment', settings), true);

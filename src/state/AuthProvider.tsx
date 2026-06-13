@@ -211,7 +211,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         dueDate: row.due_date,
         recurringTemplateId: null,
         tags: existingDebt?.tags ?? [],
-        eventId: null,
+        groupId: null,
         status: row.settlement_status,
         verificationStatus: row.verification_status,
         verifiedByUserId: existingDebt?.verifiedByUserId ?? null,

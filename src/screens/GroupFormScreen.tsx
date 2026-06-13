@@ -15,23 +15,23 @@ import {
 import { useAppData } from "@/src/state/AppDataProvider";
 import type { CurrencyCode } from "@/src/types/models";
 
-export function EventFormScreen() {
+export function GroupFormScreen() {
   const { id } = useLocalSearchParams<{
     id?: string;
   }>();
   const data = useAppData();
-  const event = data.events.find((item) => item.id === id);
-  const isPrivateEvent = event?.visibility !== "shared";
-  const currentMemberIds = data.eventMembers
-    .filter((eventMember) => eventMember.eventId === event?.id)
-    .map((eventMember) => eventMember.memberId);
+  const group = data.groups.find((item) => item.id === id);
+  const isPrivateGroup = group?.visibility !== "shared";
+  const currentMemberIds = data.groupMembers
+    .filter((groupMember) => groupMember.groupId === group?.id)
+    .map((groupMember) => groupMember.memberId);
 
-  const [name, setName] = useState(event?.name ?? "");
-  const [notes, setNotes] = useState(event?.notes ?? "");
+  const [name, setName] = useState(group?.name ?? "");
+  const [notes, setNotes] = useState(group?.notes ?? "");
   const [defaultCurrency, setDefaultCurrency] = useState<CurrencyCode>(
-    event?.defaultCurrency ?? data.settings.baseCurrency,
+    group?.defaultCurrency ?? data.settings.baseCurrency,
   );
-  const [selectedTags, setSelectedTags] = useState<string[]>(event?.tags ?? []);
+  const [selectedTags, setSelectedTags] = useState<string[]>(group?.tags ?? []);
   const [memberIds, setMemberIds] = useState<string[]>(currentMemberIds);
 
   const memberOptions = useMemo(
@@ -57,13 +57,13 @@ export function EventFormScreen() {
       defaultCurrency,
       allowedCurrencies: [defaultCurrency],
       tags: selectedTags,
-      memberIds: isPrivateEvent ? memberIds : [],
+      memberIds: isPrivateGroup ? memberIds : [],
     };
 
-    if (event) {
-      await data.updateEvent(event.id, input);
+    if (group) {
+      await data.updateGroup(group.id, input);
     } else {
-      await data.createEvent(input);
+      await data.createGroup(input);
     }
 
     router.back();
@@ -73,14 +73,14 @@ export function EventFormScreen() {
     <Screen
       footer={
         <Button
-          title={event ? "Save event" : "Create event"}
+          title={group ? "Save group" : "Create group"}
           icon="checkmark"
           onPress={save}
           disabled={!name.trim()}
         />
       }
     >
-      <PageHeader eyebrow="Event" title={event ? "Edit event" : "Add event"} />
+      <PageHeader eyebrow="Group" title={group ? "Edit group" : "Add group"} />
 
       <Card tone="peach">
         <TextField
@@ -89,7 +89,7 @@ export function EventFormScreen() {
           onChangeText={setName}
           placeholder="Ski Trip Sweden"
         />
-        {isPrivateEvent ? (
+        {isPrivateGroup ? (
           <MemberMultiSelect
             label="Members"
             values={memberIds}

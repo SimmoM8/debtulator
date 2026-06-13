@@ -150,7 +150,7 @@ Why now:
 
 ### Validation
 
-- Manual test event or forced exception path.
+- Manual test group or forced exception path.
 - Confirm crashes are attributed with enough context to reproduce.
 
 ### Workstream E: Minimal product telemetry
@@ -201,7 +201,7 @@ Goal: remove avoidable friction before opening beta widely.
 
 - Improve environment/configuration error presentation.
 - Verify session restoration and token refresh behavior.
-- Prevent confusing state transitions between local-only and authenticated modes.
+- Prgroup confusing state transitions between local-only and authenticated modes.
 
 ### Workstream I: Production-surface cleanup
 

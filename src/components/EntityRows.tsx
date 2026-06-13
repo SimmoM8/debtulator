@@ -24,11 +24,11 @@ import { entryDirectionText } from "@/src/services/ledger";
 import type {
     AppSettings,
     CurrencyRate,
-    Event,
+    Group,
     LedgerEntry,
     Member,
     MoneyMap,
-    SharedEventMember,
+    SharedGroupMember,
 } from "@/src/types/models";
 import { formatMoney } from "@/src/utils/money";
 import { initials } from "@/src/utils/text";
@@ -81,13 +81,13 @@ export function MemberRow({
 export function DebtRow({
   entry,
   members,
-  sharedEventMembers = [],
-  event,
+  sharedGroupMembers = [],
+  group,
 }: {
   entry: LedgerEntry;
   members: Member[];
-  sharedEventMembers?: SharedEventMember[];
-  event?: Event;
+  sharedGroupMembers?: SharedGroupMember[];
+  group?: Group;
 }) {
   const rejected =
     entry.verificationStatus === "rejected" ||
@@ -112,10 +112,10 @@ export function DebtRow({
               pathname: "/debt/[id]",
               params: { id: entry.sourceId },
             })
-          : entry.kind === "event_direct_debt" && entry.eventId
+          : entry.kind === "group_direct_debt" && entry.groupId
             ? router.push({
-                pathname: "/event/[id]",
-                params: { id: entry.eventId },
+                pathname: "/group/[id]",
+                params: { id: entry.groupId },
               })
             : router.push({
                 pathname: "/expense/[id]",
@@ -146,12 +146,12 @@ export function DebtRow({
           <View style={styles.rowTitleBlock}>
             <Text style={styles.rowTitle}>{entry.title}</Text>
             <Text style={styles.rowSubtitle}>
-              {entryDirectionText(entry, members, sharedEventMembers)}
+              {entryDirectionText(entry, members, sharedGroupMembers)}
             </Text>
           </View>
           <Text style={styles.dateText}>{entry.date}</Text>
         </View>
-        {event ? <Text style={styles.rowMeta}>{event.name}</Text> : null}
+        {group ? <Text style={styles.rowMeta}>{group.name}</Text> : null}
         <TagChips tags={entry.tags} limit={3} />
         <View style={styles.badgeLine}>
           <StatusBadge status={entry.status} />
@@ -179,8 +179,8 @@ export function DebtRow({
         <Text style={styles.kindText}>
           {entry.kind === "simple_debt"
             ? "Debt"
-            : entry.kind === "event_direct_debt"
-              ? "Event debt"
+            : entry.kind === "group_direct_debt"
+              ? "Group debt"
               : "Split"}
         </Text>
       </View>
@@ -188,15 +188,15 @@ export function DebtRow({
   );
 }
 
-export function EventRow({
-  event,
+export function GroupRow({
+  group,
   memberCount,
   balance,
   settings,
   currencyRates,
   unsettled,
 }: {
-  event: Event;
+  group: Group;
   memberCount: number;
   balance: MoneyMap;
   settings: AppSettings;
@@ -206,13 +206,13 @@ export function EventRow({
   return (
     <Pressable
       onPress={() =>
-        router.push({ pathname: "/event/[id]", params: { id: event.id } })
+        router.push({ pathname: "/group/[id]", params: { id: group.id } })
       }
       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
     >
       <View style={styles.rowLead}>
         <View
-          style={[styles.eventMark, unsettled ? styles.eventMarkHot : null]}
+          style={[styles.groupMark, unsettled ? styles.groupMarkHot : null]}
         >
           <Ionicons
             name="people"
@@ -224,15 +224,15 @@ export function EventRow({
       <View style={styles.rowMain}>
         <View style={styles.rowHeader}>
           <View style={styles.rowTitleBlock}>
-            <Text style={styles.rowTitle}>{event.name}</Text>
+            <Text style={styles.rowTitle}>{group.name}</Text>
             <Text style={styles.rowSubtitle}>
-              {memberCount} members · {event.defaultCurrency} ·{" "}
-              {event.visibility === "shared" ? "Shared event" : "Private event"}
+              {memberCount} members · {group.defaultCurrency} ·{" "}
+              {group.visibility === "shared" ? "Shared group" : "Private group"}
             </Text>
           </View>
-          <StatusBadge status={event.status} />
+          <StatusBadge status={group.status} />
         </View>
-        <TagChips tags={event.tags} limit={3} />
+        <TagChips tags={group.tags} limit={3} />
       </View>
       <BalanceStack
         balances={balance}
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
     fontSize: typography.size.lg,
     fontFamily: typefaces.bodyHeavy,
   },
-  eventMark: {
+  groupMark: {
     width: 52,
     height: 52,
     borderRadius: 18,
@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  eventMarkHot: {
+  groupMarkHot: {
     backgroundColor: palette.amberSoft,
     borderColor: "rgba(245,158,11,0.28)",
   },

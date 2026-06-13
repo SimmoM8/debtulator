@@ -1,21 +1,21 @@
 import type {
-  EventDuplicateWarning,
-  EventDuplicateWarningConfidence,
-  SharedEventMember,
+  GroupDuplicateWarning,
+  GroupDuplicateWarningConfidence,
+  SharedGroupMember,
   SyncStatus,
 } from '@/src/types/models';
 import { createId, nowIso } from '@/src/utils/id';
 import { compactPhone, normalizeText } from '@/src/utils/text';
 
-type WarningDraft = Omit<EventDuplicateWarning, 'id' | 'remoteId' | 'createdAt' | 'updatedAt' | 'syncStatus'>;
+type WarningDraft = Omit<GroupDuplicateWarning, 'id' | 'remoteId' | 'createdAt' | 'updatedAt' | 'syncStatus'>;
 
-export function findSharedEventDuplicateWarningDrafts(
-  eventId: string,
-  members: SharedEventMember[],
+export function findSharedGroupDuplicateWarningDrafts(
+  groupId: string,
+  members: SharedGroupMember[],
 ): WarningDraft[] {
   const activeUnlinked = members.filter(
     (member) =>
-      member.eventId === eventId &&
+      member.groupId === groupId &&
       member.type === 'unlinked_placeholder' &&
       member.status !== 'archived' &&
       member.status !== 'merged',
@@ -26,7 +26,7 @@ export function findSharedEventDuplicateWarningDrafts(
     for (let innerIndex = outerIndex + 1; innerIndex < activeUnlinked.length; innerIndex += 1) {
       const first = activeUnlinked[outerIndex];
       const second = activeUnlinked[innerIndex];
-      const warning = compareSharedEventMembers(eventId, first, second);
+      const warning = compareSharedGroupMembers(groupId, first, second);
       if (warning) {
         warnings.push(warning);
       }
@@ -38,13 +38,13 @@ export function findSharedEventDuplicateWarningDrafts(
 
 export function buildDuplicateWarning(
   draft: WarningDraft,
-  existing?: EventDuplicateWarning,
+  existing?: GroupDuplicateWarning,
   syncStatus: SyncStatus = 'pending_upload',
-): EventDuplicateWarning {
+): GroupDuplicateWarning {
   const timestamp = nowIso();
   return {
     ...draft,
-    id: existing?.id ?? createId('event_duplicate'),
+    id: existing?.id ?? createId('group_duplicate'),
     remoteId: existing?.remoteId ?? null,
     status: existing?.status ?? draft.status,
     ignoredByUserId: existing?.ignoredByUserId ?? draft.ignoredByUserId,
@@ -55,18 +55,18 @@ export function buildDuplicateWarning(
 }
 
 export function duplicatePairKey(input: {
-  eventId: string;
-  eventMemberIdA: string;
-  eventMemberIdB: string;
+  groupId: string;
+  groupMemberIdA: string;
+  groupMemberIdB: string;
   reason: string;
 }) {
-  return [input.eventId, ...[input.eventMemberIdA, input.eventMemberIdB].sort(), input.reason].join(':');
+  return [input.groupId, ...[input.groupMemberIdA, input.groupMemberIdB].sort(), input.reason].join(':');
 }
 
-function compareSharedEventMembers(
-  eventId: string,
-  first: SharedEventMember,
-  second: SharedEventMember,
+function compareSharedGroupMembers(
+  groupId: string,
+  first: SharedGroupMember,
+  second: SharedGroupMember,
 ): WarningDraft | null {
   const firstName = normalizeText(first.displayName);
   const secondName = normalizeText(second.displayName);
@@ -76,39 +76,39 @@ function compareSharedEventMembers(
   const secondPhone = compactPhone(second.phone);
 
   if (firstEmail && secondEmail && firstEmail === secondEmail) {
-    return warning(eventId, first, second, 'Same email address.', 'high');
+    return warning(groupId, first, second, 'Same email address.', 'high');
   }
 
   if (firstPhone && secondPhone && firstPhone === secondPhone) {
-    return warning(eventId, first, second, 'Same phone number.', 'high');
+    return warning(groupId, first, second, 'Same phone number.', 'high');
   }
 
   if (firstName && firstName === secondName) {
-    return warning(eventId, first, second, 'Same normalised name.', 'high');
+    return warning(groupId, first, second, 'Same normalised name.', 'high');
   }
 
   if (hasSimilarName(firstName, secondName)) {
-    return warning(eventId, first, second, 'Names are very similar.', 'medium');
+    return warning(groupId, first, second, 'Names are very similar.', 'medium');
   }
 
   if (hasSimilarInitials(firstName, secondName)) {
-    return warning(eventId, first, second, 'Initials and name shape look similar.', 'low');
+    return warning(groupId, first, second, 'Initials and name shape look similar.', 'low');
   }
 
   return null;
 }
 
 function warning(
-  eventId: string,
-  first: SharedEventMember,
-  second: SharedEventMember,
+  groupId: string,
+  first: SharedGroupMember,
+  second: SharedGroupMember,
   reason: string,
-  confidence: EventDuplicateWarningConfidence,
+  confidence: GroupDuplicateWarningConfidence,
 ): WarningDraft {
   return {
-    eventId,
-    eventMemberIdA: first.id < second.id ? first.id : second.id,
-    eventMemberIdB: first.id < second.id ? second.id : first.id,
+    groupId,
+    groupMemberIdA: first.id < second.id ? first.id : second.id,
+    groupMemberIdB: first.id < second.id ? second.id : first.id,
     reason,
     confidence,
     status: 'active',

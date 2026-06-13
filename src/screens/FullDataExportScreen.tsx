@@ -36,7 +36,7 @@ export function FullDataExportScreen() {
       const exportedAt = new Date().toISOString();
       const payload = {
         app: "Debtulator",
-        schemaVersion: 6,
+        schemaVersion: 7,
         exportedAt,
         format: "json",
         labels: {
@@ -50,9 +50,9 @@ export function FullDataExportScreen() {
           members: data.members,
           debts: data.debts,
           expenses: data.sharedExpenses,
-          events: data.events,
-          eventMembers: data.sharedEventMembers,
-          eventParticipants: data.eventParticipants,
+          groups: data.groups,
+          groupMembers: data.sharedGroupMembers,
+          groupParticipants: data.groupParticipants,
           payments: data.payments,
           settlements: data.settlements,
           tags: data.tags,
@@ -91,7 +91,7 @@ export function FullDataExportScreen() {
         action: "export_generated",
         targetType: "backup",
         targetId: null,
-        eventId: null,
+        groupId: null,
         metadata: { format: "json", includeAttachments, includePrivateNotes },
       });
       addTelemetryBreadcrumb("export", "full_export_generated", { result: "success", mode: "json" });
@@ -144,7 +144,7 @@ export function FullDataExportScreen() {
         <Text style={styles.body}>
           Full account export is generated as JSON. CSV and PDF exports remain
           available from the scoped export screen for specific ledgers, members,
-          events, payments, and settlements.
+          groups, payments, and settlements.
         </Text>
         <ToggleRow
           title="Include attachment metadata"
@@ -157,7 +157,7 @@ export function FullDataExportScreen() {
           onValueChange={setIncludePrivateNotes}
         />
         <Text style={styles.body}>
-          Shared event data is included only from the local permission cache.
+          Shared group data is included only from the local permission cache.
           Estimated currency values remain labelled approximate.
         </Text>
         <Button title="Generate export" icon="download" onPress={exportData} />

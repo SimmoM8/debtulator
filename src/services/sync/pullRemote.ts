@@ -5,13 +5,13 @@ import {
   mapRemoteAttachmentToLocal,
   mapRemoteCommentToLocal,
   mapRemoteDuplicateWarningToLocal,
-  mapRemoteEventClaimToLocal,
-  mapRemoteEventDebtToLocal,
-  mapRemoteEventInviteToLocal,
-  mapRemoteEventMemberToLocal,
-  mapRemoteEventParticipantToLocal,
-  mapRemoteEventToLocal,
-  mapRemoteEventVerificationToLocal,
+  mapRemoteGroupClaimToLocal,
+  mapRemoteGroupDebtToLocal,
+  mapRemoteGroupInviteToLocal,
+  mapRemoteGroupMemberToLocal,
+  mapRemoteGroupParticipantToLocal,
+  mapRemoteGroupToLocal,
+  mapRemoteGroupVerificationToLocal,
   mapRemoteExpenseToLocal,
   mapRemotePaymentToLocal,
   mapRemoteSettlementLineToLocal,
@@ -21,32 +21,32 @@ import {
 import type {
   Attachment,
   Comment,
-  Event,
-  EventActivityLog,
-  EventDebt,
-  EventDuplicateWarning,
-  EventInvite,
-  EventMemberClaim,
-  EventParticipant,
-  EventVerificationResponse,
+  Group,
+  GroupActivityLog,
+  GroupDebt,
+  GroupDuplicateWarning,
+  GroupInvite,
+  GroupMemberClaim,
+  GroupParticipant,
+  GroupVerificationResponse,
   Payment,
   Settlement,
   SettlementLine,
-  SharedEventMember,
+  SharedGroupMember,
   SharedExpense,
 } from '@/src/types/models';
 
 export type RemotePullStore = DatabaseSnapshot & {
-  upsertEvent: (event: Event) => Promise<Event>;
-  upsertEventParticipant: (participant: EventParticipant) => Promise<EventParticipant>;
-  upsertEventInvite: (invite: EventInvite) => Promise<EventInvite>;
-  upsertSharedEventMember: (member: SharedEventMember) => Promise<SharedEventMember>;
-  upsertEventMemberClaim: (claim: EventMemberClaim) => Promise<EventMemberClaim>;
-  upsertEventDuplicateWarning: (warning: EventDuplicateWarning) => Promise<EventDuplicateWarning>;
+  upsertGroup: (group: Group) => Promise<Group>;
+  upsertGroupParticipant: (participant: GroupParticipant) => Promise<GroupParticipant>;
+  upsertGroupInvite: (invite: GroupInvite) => Promise<GroupInvite>;
+  upsertSharedGroupMember: (member: SharedGroupMember) => Promise<SharedGroupMember>;
+  upsertGroupMemberClaim: (claim: GroupMemberClaim) => Promise<GroupMemberClaim>;
+  upsertGroupDuplicateWarning: (warning: GroupDuplicateWarning) => Promise<GroupDuplicateWarning>;
   upsertSharedExpense: (expense: SharedExpense) => Promise<SharedExpense>;
-  upsertEventDebt: (debt: EventDebt) => Promise<EventDebt>;
-  upsertEventVerificationResponse: (response: EventVerificationResponse) => Promise<EventVerificationResponse>;
-  upsertEventActivityLog: (activity: EventActivityLog) => Promise<EventActivityLog>;
+  upsertGroupDebt: (debt: GroupDebt) => Promise<GroupDebt>;
+  upsertGroupVerificationResponse: (response: GroupVerificationResponse) => Promise<GroupVerificationResponse>;
+  upsertGroupActivityLog: (activity: GroupActivityLog) => Promise<GroupActivityLog>;
   upsertPayment: (payment: Payment) => Promise<Payment>;
   upsertSettlement: (settlement: Settlement) => Promise<Settlement>;
   upsertSettlementLine: (line: SettlementLine) => Promise<SettlementLine>;
@@ -55,7 +55,7 @@ export type RemotePullStore = DatabaseSnapshot & {
 
 export type RemotePullResult = {
   pulledCount: number;
-  eventIds: string[];
+  groupIds: string[];
   mappingErrors: SyncMappingError[];
 };
 
@@ -68,7 +68,7 @@ export async function pullRemoteData(input: {
   email?: string | null;
 }): Promise<RemotePullResult> {
   if (!supabase) {
-    return { pulledCount: 0, eventIds: [], mappingErrors: [] };
+    return { pulledCount: 0, groupIds: [], mappingErrors: [] };
   }
 
   let snapshot = cloneSnapshot(input.store);
@@ -77,7 +77,7 @@ export async function pullRemoteData(input: {
 
   const inviteClause = input.email ? `,invited_email.eq.${input.email}` : '';
   const { data: invites, error: inviteError } = await supabase
-    .from('event_invites')
+    .from('group_invites')
     .select('*')
     .or(`invited_user_id.eq.${input.userId},inviter_user_id.eq.${input.userId}${inviteClause}`);
   if (inviteError) {
@@ -85,26 +85,26 @@ export async function pullRemoteData(input: {
   }
 
   const { data: participants, error: participantError } = await supabase
-    .from('event_participants')
+    .from('group_participants')
     .select('*')
     .eq('user_id', input.userId);
   if (participantError) {
     throw participantError;
   }
 
-  const remoteEventIds = Array.from(
+  const remoteGroupIds = Array.from(
     new Set([
-      ...(participants ?? []).map((row) => row.event_id as string),
-      ...(invites ?? []).map((row) => row.event_id as string),
+      ...(participants ?? []).map((row) => row.group_id as string),
+      ...(invites ?? []).map((row) => row.group_id as string),
     ]),
   );
 
-  if (remoteEventIds.length === 0) {
-    return { pulledCount: 0, eventIds: [], mappingErrors: [] };
+  if (remoteGroupIds.length === 0) {
+    return { pulledCount: 0, groupIds: [], mappingErrors: [] };
   }
 
   const [
-    eventsResult,
+    groupsResult,
     allParticipantsResult,
     membersResult,
     expensesResult,
@@ -120,25 +120,25 @@ export async function pullRemoteData(input: {
     attachmentsResult,
     activityResult,
   ] = await Promise.all([
-    supabase.from('events').select('*').in('id', remoteEventIds),
-    supabase.from('event_participants').select('*').in('event_id', remoteEventIds),
-    supabase.from('event_members').select('*').in('event_id', remoteEventIds),
-    supabase.from('event_expenses').select('*').in('event_id', remoteEventIds),
-    supabase.from('event_expense_splits').select('*, event_expenses!inner(event_id)').in('event_expenses.event_id', remoteEventIds),
-    supabase.from('expense_payers').select('*, event_expenses!inner(event_id)').in('event_expenses.event_id', remoteEventIds),
-    supabase.from('event_debts').select('*').in('event_id', remoteEventIds),
-    supabase.from('event_member_claims').select('*').in('event_id', remoteEventIds),
-    supabase.from('event_verification_responses').select('*').in('event_id', remoteEventIds),
-    supabase.from('event_duplicate_warnings').select('*').in('event_id', remoteEventIds),
-    supabase.from('payments').select('*').in('event_id', remoteEventIds),
-    supabase.from('settlements').select('*').in('event_id', remoteEventIds),
-    supabase.from('comments').select('*').in('event_id', remoteEventIds),
-    supabase.from('attachments').select('*').in('event_id', remoteEventIds),
-    supabase.from('event_activity_logs').select('*').in('event_id', remoteEventIds).order('created_at', { ascending: false }),
+    supabase.from('groups').select('*').in('id', remoteGroupIds),
+    supabase.from('group_participants').select('*').in('group_id', remoteGroupIds),
+    supabase.from('group_members').select('*').in('group_id', remoteGroupIds),
+    supabase.from('group_expenses').select('*').in('group_id', remoteGroupIds),
+    supabase.from('group_expense_splits').select('*, group_expenses!inner(group_id)').in('group_expenses.group_id', remoteGroupIds),
+    supabase.from('expense_payers').select('*, group_expenses!inner(group_id)').in('group_expenses.group_id', remoteGroupIds),
+    supabase.from('group_debts').select('*').in('group_id', remoteGroupIds),
+    supabase.from('group_member_claims').select('*').in('group_id', remoteGroupIds),
+    supabase.from('group_verification_responses').select('*').in('group_id', remoteGroupIds),
+    supabase.from('group_duplicate_warnings').select('*').in('group_id', remoteGroupIds),
+    supabase.from('payments').select('*').in('group_id', remoteGroupIds),
+    supabase.from('settlements').select('*').in('group_id', remoteGroupIds),
+    supabase.from('comments').select('*').in('group_id', remoteGroupIds),
+    supabase.from('attachments').select('*').in('group_id', remoteGroupIds),
+    supabase.from('group_activity_logs').select('*').in('group_id', remoteGroupIds).order('created_at', { ascending: false }),
   ]);
 
   for (const result of [
-    eventsResult,
+    groupsResult,
     allParticipantsResult,
     membersResult,
     expensesResult,
@@ -159,18 +159,18 @@ export async function pullRemoteData(input: {
     }
   }
 
-  for (const row of eventsResult.data ?? []) {
-    const event = mapRemoteEventToLocal(row, snapshot);
-    await input.store.upsertEvent(event);
-    snapshot = replace(snapshot, 'events', event);
+  for (const row of groupsResult.data ?? []) {
+    const group = mapRemoteGroupToLocal(row, snapshot);
+    await input.store.upsertGroup(group);
+    snapshot = replace(snapshot, 'groups', group);
     pulledCount += 1;
   }
 
   for (const row of allParticipantsResult.data ?? []) {
     try {
-      const participant = mapRemoteEventParticipantToLocal(row, snapshot);
-      await input.store.upsertEventParticipant(participant);
-      snapshot = replace(snapshot, 'eventParticipants', participant);
+      const participant = mapRemoteGroupParticipantToLocal(row, snapshot);
+      await input.store.upsertGroupParticipant(participant);
+      snapshot = replace(snapshot, 'groupParticipants', participant);
       pulledCount += 1;
     } catch (error) {
       collectMappingError(error, mappingErrors);
@@ -179,9 +179,9 @@ export async function pullRemoteData(input: {
 
   for (const row of invites ?? []) {
     try {
-      const invite = mapRemoteEventInviteToLocal(row, snapshot);
-      await input.store.upsertEventInvite(invite);
-      snapshot = replace(snapshot, 'eventInvites', invite);
+      const invite = mapRemoteGroupInviteToLocal(row, snapshot);
+      await input.store.upsertGroupInvite(invite);
+      snapshot = replace(snapshot, 'groupInvites', invite);
       pulledCount += 1;
     } catch (error) {
       collectMappingError(error, mappingErrors);
@@ -190,9 +190,9 @@ export async function pullRemoteData(input: {
 
   for (const row of membersResult.data ?? []) {
     try {
-      const member = mapRemoteEventMemberToLocal(row, snapshot);
-      await input.store.upsertSharedEventMember(member);
-      snapshot = replace(snapshot, 'sharedEventMembers', member);
+      const member = mapRemoteGroupMemberToLocal(row, snapshot);
+      await input.store.upsertSharedGroupMember(member);
+      snapshot = replace(snapshot, 'sharedGroupMembers', member);
       pulledCount += 1;
     } catch (error) {
       collectMappingError(error, mappingErrors);
@@ -214,9 +214,9 @@ export async function pullRemoteData(input: {
 
   for (const row of debtsResult.data ?? []) {
     try {
-      const debt = mapRemoteEventDebtToLocal(row, snapshot);
-      await input.store.upsertEventDebt(debt);
-      snapshot = replace(snapshot, 'eventDebts', debt);
+      const debt = mapRemoteGroupDebtToLocal(row, snapshot);
+      await input.store.upsertGroupDebt(debt);
+      snapshot = replace(snapshot, 'groupDebts', debt);
       pulledCount += 1;
     } catch (error) {
       collectMappingError(error, mappingErrors);
@@ -225,9 +225,9 @@ export async function pullRemoteData(input: {
 
   for (const row of claimsResult.data ?? []) {
     try {
-      const claim = mapRemoteEventClaimToLocal(row, snapshot);
-      await input.store.upsertEventMemberClaim(claim);
-      snapshot = replace(snapshot, 'eventMemberClaims', claim);
+      const claim = mapRemoteGroupClaimToLocal(row, snapshot);
+      await input.store.upsertGroupMemberClaim(claim);
+      snapshot = replace(snapshot, 'groupMemberClaims', claim);
       pulledCount += 1;
     } catch (error) {
       collectMappingError(error, mappingErrors);
@@ -237,8 +237,8 @@ export async function pullRemoteData(input: {
   for (const row of warningsResult.data ?? []) {
     try {
       const warning = mapRemoteDuplicateWarningToLocal(row, snapshot);
-      await input.store.upsertEventDuplicateWarning(warning);
-      snapshot = replace(snapshot, 'eventDuplicateWarnings', warning);
+      await input.store.upsertGroupDuplicateWarning(warning);
+      snapshot = replace(snapshot, 'groupDuplicateWarnings', warning);
       pulledCount += 1;
     } catch (error) {
       collectMappingError(error, mappingErrors);
@@ -247,9 +247,9 @@ export async function pullRemoteData(input: {
 
   for (const row of verificationsResult.data ?? []) {
     try {
-      const response = mapRemoteEventVerificationToLocal(row, snapshot);
-      await input.store.upsertEventVerificationResponse(response);
-      snapshot = replace(snapshot, 'eventVerificationResponses', response);
+      const response = mapRemoteGroupVerificationToLocal(row, snapshot);
+      await input.store.upsertGroupVerificationResponse(response);
+      snapshot = replace(snapshot, 'groupVerificationResponses', response);
       pulledCount += 1;
     } catch (error) {
       collectMappingError(error, mappingErrors);
@@ -324,15 +324,15 @@ export async function pullRemoteData(input: {
   for (const row of activityResult.data ?? []) {
     try {
       const activity = mapRemoteActivityToLocal(row, snapshot);
-      await input.store.upsertEventActivityLog(activity);
-      snapshot = replace(snapshot, 'eventActivityLogs', activity);
+      await input.store.upsertGroupActivityLog(activity);
+      snapshot = replace(snapshot, 'groupActivityLogs', activity);
       pulledCount += 1;
     } catch (error) {
       collectMappingError(error, mappingErrors);
     }
   }
 
-  return { pulledCount, eventIds: remoteEventIds, mappingErrors };
+  return { pulledCount, groupIds: remoteGroupIds, mappingErrors };
 }
 
 function cloneSnapshot(snapshot: DatabaseSnapshot): DatabaseSnapshot {
@@ -341,21 +341,21 @@ function cloneSnapshot(snapshot: DatabaseSnapshot): DatabaseSnapshot {
     profiles: [...snapshot.profiles],
     members: [...snapshot.members],
     debts: [...snapshot.debts],
-    events: [...snapshot.events],
-    eventMembers: [...snapshot.eventMembers],
-    eventParticipants: [...snapshot.eventParticipants],
-    eventInvites: [...snapshot.eventInvites],
-    sharedEventMembers: [...snapshot.sharedEventMembers],
-    eventMemberClaims: [...snapshot.eventMemberClaims],
-    eventDuplicateWarnings: [...snapshot.eventDuplicateWarnings],
+    groups: [...snapshot.groups],
+    groupMembers: [...snapshot.groupMembers],
+    groupParticipants: [...snapshot.groupParticipants],
+    groupInvites: [...snapshot.groupInvites],
+    sharedGroupMembers: [...snapshot.sharedGroupMembers],
+    groupMemberClaims: [...snapshot.groupMemberClaims],
+    groupDuplicateWarnings: [...snapshot.groupDuplicateWarnings],
     sharedExpenses: [...snapshot.sharedExpenses],
-    eventDebts: [...snapshot.eventDebts],
+    groupDebts: [...snapshot.groupDebts],
     payments: [...snapshot.payments],
     settlements: [...snapshot.settlements],
     settlementLines: [...snapshot.settlementLines],
     expensePayers: [...snapshot.expensePayers],
-    eventVerificationResponses: [...snapshot.eventVerificationResponses],
-    eventActivityLogs: [...snapshot.eventActivityLogs],
+    groupVerificationResponses: [...snapshot.groupVerificationResponses],
+    groupActivityLogs: [...snapshot.groupActivityLogs],
     attachments: [...snapshot.attachments],
     comments: [...snapshot.comments],
   };

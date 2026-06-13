@@ -9,8 +9,8 @@ export function notificationEnabled(type: NotificationType, settings: AppSetting
   if (type.startsWith('verification')) {
     return settings.notificationVerificationEnabled;
   }
-  if (type.startsWith('event') || type === 'claim_request' || type === 'duplicate_warning') {
-    return settings.notificationEventEnabled;
+  if (type.startsWith('group') || type === 'claim_request' || type === 'duplicate_warning') {
+    return settings.notificationGroupEnabled;
   }
   if (type === 'payment' || type === 'settlement') {
     return settings.notificationPaymentSettlementEnabled;

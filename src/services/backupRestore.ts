@@ -8,9 +8,9 @@ import type {
   Comment,
   CurrencyRate,
   Debt,
-  Event,
-  EventDebt,
-  EventMember,
+  Group,
+  GroupDebt,
+  GroupMember,
   ExpensePayer,
   Member,
   OverpaymentCredit,
@@ -19,7 +19,7 @@ import type {
   Reminder,
   Settlement,
   SettlementLine,
-  SharedEventMember,
+  SharedGroupMember,
   SharedExpense,
   SmartSuggestion,
   SoftReminder,
@@ -35,7 +35,7 @@ export type BackupOptions = {
 
 export type DebtulatorBackup = {
   app: 'Debtulator';
-  schemaVersion: 6;
+  schemaVersion: 7;
   exportedAt: string;
   privacy: {
     includesAttachments: boolean;
@@ -45,19 +45,24 @@ export type DebtulatorBackup = {
   data: Record<string, unknown>;
 };
 
+type ParsedBackup = Omit<Partial<DebtulatorBackup>, 'schemaVersion'> & {
+  schemaVersion?: number;
+};
+
 export type RestorePreview = {
   valid: boolean;
   schemaVersion: number | null;
   memberCount: number;
   debtCount: number;
-  eventCount: number;
+  groupCount: number;
   paymentCount: number;
   settlementCount: number;
   warnings: string[];
 };
 
 export const RESTORE_PREVIEW_MAX_BYTES = 5 * 1024 * 1024;
-export const BACKUP_SCHEMA_VERSION = 6;
+export const BACKUP_SCHEMA_VERSION = 7;
+const LEGACY_EVENT_BACKUP_SCHEMA_VERSION = 6;
 
 export type RestoreResult = {
   mode: BackupMode;
@@ -65,11 +70,11 @@ export type RestoreResult = {
     profiles: number;
     members: number;
     debts: number;
-    events: number;
-    eventMembers: number;
-    sharedEventMembers: number;
+    groups: number;
+    groupMembers: number;
+    sharedGroupMembers: number;
     sharedExpenses: number;
-    eventDebts: number;
+    groupDebts: number;
     payments: number;
     settlements: number;
     settlementLines: number;
@@ -94,11 +99,11 @@ export type RestoreApplyPlan = {
     profiles: UserProfile[];
     members: Member[];
     debts: Debt[];
-    events: Event[];
-    eventMembers: EventMember[];
-    sharedEventMembers: SharedEventMember[];
+    groups: Group[];
+    groupMembers: GroupMember[];
+    sharedGroupMembers: SharedGroupMember[];
     sharedExpenses: SharedExpense[];
-    eventDebts: EventDebt[];
+    groupDebts: GroupDebt[];
     payments: Payment[];
     settlements: Settlement[];
     settlementLines: SettlementLine[];
@@ -118,11 +123,11 @@ type BackupData = {
   profiles: UserProfile[];
   members: Member[];
   debts: Debt[];
-  events: Event[];
-  eventMembers: EventMember[];
-  sharedEventMembers: SharedEventMember[];
+  groups: Group[];
+  groupMembers: GroupMember[];
+  sharedGroupMembers: SharedGroupMember[];
   sharedExpenses: SharedExpense[];
-  eventDebts: EventDebt[];
+  groupDebts: GroupDebt[];
   payments: Payment[];
   settlements: Settlement[];
   settlementLines: SettlementLine[];
@@ -157,13 +162,13 @@ export function buildBackup(snapshot: DatabaseSnapshot, options: BackupOptions):
       profiles: snapshot.profiles,
       members: snapshot.members.map((member) => scrubNotes(member, options.includePrivateNotes)),
       debts: snapshot.debts.map((debt) => scrubNotes({ ...debt, visibility: 'private', syncStatus: 'local_only' }, options.includePrivateNotes)),
-      events: snapshot.events.map((event) => scrubNotes({ ...event, visibility: 'private', syncStatus: 'local_only' }, options.includePrivateNotes)),
-      eventMembers: snapshot.eventMembers,
-      sharedEventMembers: snapshot.sharedEventMembers.map((member) => scrubNotes({ ...member, syncStatus: 'local_only' }, options.includePrivateNotes)),
+      groups: snapshot.groups.map((group) => scrubNotes({ ...group, visibility: 'private', syncStatus: 'local_only' }, options.includePrivateNotes)),
+      groupMembers: snapshot.groupMembers,
+      sharedGroupMembers: snapshot.sharedGroupMembers.map((member) => scrubNotes({ ...member, syncStatus: 'local_only' }, options.includePrivateNotes)),
       sharedExpenses: snapshot.sharedExpenses.map((expense) =>
         scrubNotes({ ...expense, visibility: 'private', syncStatus: 'local_only' }, options.includePrivateNotes),
       ),
-      eventDebts: snapshot.eventDebts.map((debt) => scrubNotes({ ...debt, syncStatus: 'local_only' }, options.includePrivateNotes)),
+      groupDebts: snapshot.groupDebts.map((debt) => scrubNotes({ ...debt, syncStatus: 'local_only' }, options.includePrivateNotes)),
       payments: snapshot.payments.map((payment) => scrubNotes({ ...payment, visibility: 'private', syncStatus: 'local_only' }, options.includePrivateNotes)),
       settlements: snapshot.settlements.map((settlement) => scrubNotes({ ...settlement, syncStatus: 'local_only' }, options.includePrivateNotes)),
       settlementLines: snapshot.settlementLines,
@@ -221,11 +226,15 @@ export function previewRestore(rawJson: string): RestorePreview {
     return invalidPreview(`Backup payload exceeds ${Math.round(RESTORE_PREVIEW_MAX_BYTES / 1024 / 1024)} MB preview limit.`);
   }
   try {
-    const parsed = JSON.parse(rawJson) as Partial<DebtulatorBackup>;
+    const parsed = JSON.parse(rawJson) as ParsedBackup;
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
       return invalidPreview('Backup JSON must be an object payload.');
     }
-    const data = isRecord(parsed.data) ? parsed.data : null;
+    const rawData = isRecord(parsed.data) ? parsed.data : null;
+    const data =
+      rawData && parsed.schemaVersion === LEGACY_EVENT_BACKUP_SCHEMA_VERSION
+        ? migrateLegacyEventBackupValue(rawData) as Record<string, unknown>
+        : rawData;
     const warnings: string[] = [];
     const valid = parsed.app === 'Debtulator' && Boolean(data);
     if (parsed.app !== 'Debtulator') {
@@ -242,7 +251,7 @@ export function previewRestore(rawJson: string): RestorePreview {
     }
     pushNonArrayWarning(data, 'members', warnings);
     pushNonArrayWarning(data, 'debts', warnings);
-    pushNonArrayWarning(data, 'events', warnings);
+    pushNonArrayWarning(data, 'groups', warnings);
     pushNonArrayWarning(data, 'payments', warnings);
     pushNonArrayWarning(data, 'settlements', warnings);
     const preview: RestorePreview = {
@@ -250,7 +259,7 @@ export function previewRestore(rawJson: string): RestorePreview {
       schemaVersion: typeof parsed.schemaVersion === 'number' ? parsed.schemaVersion : null,
       memberCount: countArray(data?.members),
       debtCount: countArray(data?.debts),
-      eventCount: countArray(data?.events),
+      groupCount: countArray(data?.groups),
       paymentCount: countArray(data?.payments),
       settlementCount: countArray(data?.settlements),
       warnings,
@@ -260,7 +269,7 @@ export function previewRestore(rawJson: string): RestorePreview {
       schemaVersion: preview.schemaVersion ?? 0,
       memberCount: preview.memberCount,
       debtCount: preview.debtCount,
-      eventCount: preview.eventCount,
+      groupCount: preview.groupCount,
       paymentCount: preview.paymentCount,
       settlementCount: preview.settlementCount,
       warningsCount: preview.warnings.length,
@@ -289,11 +298,11 @@ export function buildRestorePlan(rawJson: string, current: DatabaseSnapshot, mod
     profiles: [],
     members: [],
     debts: [],
-    events: [],
-    eventMembers: [],
-    sharedEventMembers: [],
+    groups: [],
+    groupMembers: [],
+    sharedGroupMembers: [],
     sharedExpenses: [],
-    eventDebts: [],
+    groupDebts: [],
     payments: [],
     settlements: [],
     settlementLines: [],
@@ -360,13 +369,13 @@ export function buildRestorePlan(rawJson: string, current: DatabaseSnapshot, mod
     });
   }
 
-  for (const event of source.events) {
-    if (!isEvent(event) || !shouldInsert('events', event.id)) {
+  for (const group of source.groups) {
+    if (!isGroup(group) || !shouldInsert('groups', group.id)) {
       continue;
     }
-    records.events.push({
-      ...event,
-      id: mapEntityId(event.id, 'event'),
+    records.groups.push({
+      ...group,
+      id: mapEntityId(group.id, 'group'),
       localId: null,
       remoteId: null,
       ownerUserId: null,
@@ -377,32 +386,32 @@ export function buildRestorePlan(rawJson: string, current: DatabaseSnapshot, mod
     });
   }
 
-  for (const eventMember of source.eventMembers) {
-    const eventId = restoreRef(eventMember.eventId, idMap, existing.events);
-    const memberId = restoreRef(eventMember.memberId, idMap, existing.members);
-    if (!eventId || !memberId || !shouldInsert('eventMembers', `${eventMember.eventId}:${eventMember.memberId}`)) {
-      skipped += eventId && memberId ? 0 : 1;
+  for (const groupMember of source.groupMembers) {
+    const groupId = restoreRef(groupMember.groupId, idMap, existing.groups);
+    const memberId = restoreRef(groupMember.memberId, idMap, existing.members);
+    if (!groupId || !memberId || !shouldInsert('groupMembers', `${groupMember.groupId}:${groupMember.memberId}`)) {
+      skipped += groupId && memberId ? 0 : 1;
       continue;
     }
-    records.eventMembers.push({ ...eventMember, eventId, memberId });
+    records.groupMembers.push({ ...groupMember, groupId, memberId });
   }
 
-  for (const member of source.sharedEventMembers) {
-    if (!isSharedEventMember(member) || !shouldInsert('sharedEventMembers', member.id)) {
+  for (const member of source.sharedGroupMembers) {
+    if (!isSharedGroupMember(member) || !shouldInsert('sharedGroupMembers', member.id)) {
       continue;
     }
-    const eventId = restoreRef(member.eventId, idMap, existing.events);
-    if (!eventId) {
+    const groupId = restoreRef(member.groupId, idMap, existing.groups);
+    if (!groupId) {
       skipped += 1;
       continue;
     }
-    const id = mapEntityId(member.id, 'event_member');
-    records.sharedEventMembers.push({
+    const id = mapEntityId(member.id, 'group_member');
+    records.sharedGroupMembers.push({
       ...member,
       id,
       remoteId: null,
-      eventId,
-      remoteEventId: null,
+      groupId,
+      remoteGroupId: null,
       type: 'unlinked_placeholder',
       linkedUserId: null,
       createdByUserId: null,
@@ -416,8 +425,8 @@ export function buildRestorePlan(rawJson: string, current: DatabaseSnapshot, mod
       continue;
     }
     const memberId = restoreRef(debt.memberId, idMap, existing.members);
-    const eventId = debt.eventId ? restoreRef(debt.eventId, idMap, existing.events) : null;
-    if (!memberId || (debt.eventId && !eventId)) {
+    const groupId = debt.groupId ? restoreRef(debt.groupId, idMap, existing.groups) : null;
+    if (!memberId || (debt.groupId && !groupId)) {
       skipped += 1;
       continue;
     }
@@ -425,7 +434,7 @@ export function buildRestorePlan(rawJson: string, current: DatabaseSnapshot, mod
       ...debt,
       id: mapEntityId(debt.id, 'debt'),
       memberId,
-      eventId,
+      groupId,
       remoteId: null,
       verificationRequestId: null,
       visibility: 'private',
@@ -447,16 +456,16 @@ export function buildRestorePlan(rawJson: string, current: DatabaseSnapshot, mod
     if (!isSharedExpense(expense) || !shouldInsert('sharedExpenses', expense.id)) {
       continue;
     }
-    const eventId = restoreRef(expense.eventId, idMap, existing.events);
-    if (!eventId) {
+    const groupId = restoreRef(expense.groupId, idMap, existing.groups);
+    if (!groupId) {
       skipped += 1;
       continue;
     }
     const id = mapEntityId(expense.id, 'expense');
     const participantIds = expense.participantIds
-      .map((participantId) => restoreParticipantId(participantId, idMap, existing.sharedEventMembers))
+      .map((participantId) => restoreParticipantId(participantId, idMap, existing.sharedGroupMembers))
       .filter(Boolean) as string[];
-    const payerId = restoreParticipantId(expense.payerId, idMap, existing.sharedEventMembers);
+    const payerId = restoreParticipantId(expense.payerId, idMap, existing.sharedGroupMembers);
     if (!payerId || participantIds.length === 0) {
       skipped += 1;
       continue;
@@ -468,12 +477,12 @@ export function buildRestorePlan(rawJson: string, current: DatabaseSnapshot, mod
         ...obligation,
         id: obligationId,
         expenseId: id,
-        eventId,
+        groupId,
         fromParticipantId:
-          restoreParticipantId(obligation.fromParticipantId, idMap, existing.sharedEventMembers) ??
+          restoreParticipantId(obligation.fromParticipantId, idMap, existing.sharedGroupMembers) ??
           obligation.fromParticipantId,
         toParticipantId:
-          restoreParticipantId(obligation.toParticipantId, idMap, existing.sharedEventMembers) ??
+          restoreParticipantId(obligation.toParticipantId, idMap, existing.sharedGroupMembers) ??
           obligation.toParticipantId,
       };
     });
@@ -481,11 +490,11 @@ export function buildRestorePlan(rawJson: string, current: DatabaseSnapshot, mod
       ...expense,
       id,
       remoteId: null,
-      eventId,
+      groupId,
       creatorUserId: null,
       payerId,
       participantIds,
-      splitAllocations: remapNumberMap(expense.splitAllocations, idMap, existing.sharedEventMembers),
+      splitAllocations: remapNumberMap(expense.splitAllocations, idMap, existing.sharedGroupMembers),
       generatedObligations,
       expensePayers: expense.expensePayers.map((payer) => sanitizeExpensePayer(payer, id, idMap, existing)),
       visibility: 'private',
@@ -495,26 +504,26 @@ export function buildRestorePlan(rawJson: string, current: DatabaseSnapshot, mod
     });
   }
 
-  for (const debt of source.eventDebts) {
-    if (!isEventDebt(debt) || !shouldInsert('eventDebts', debt.id)) {
+  for (const debt of source.groupDebts) {
+    if (!isGroupDebt(debt) || !shouldInsert('groupDebts', debt.id)) {
       continue;
     }
-    const eventId = restoreRef(debt.eventId, idMap, existing.events);
-    const debtorEventMemberId = restoreRef(debt.debtorEventMemberId, idMap, existing.sharedEventMembers);
-    const creditorEventMemberId = restoreRef(debt.creditorEventMemberId, idMap, existing.sharedEventMembers);
-    if (!eventId || !debtorEventMemberId || !creditorEventMemberId) {
+    const groupId = restoreRef(debt.groupId, idMap, existing.groups);
+    const debtorGroupMemberId = restoreRef(debt.debtorGroupMemberId, idMap, existing.sharedGroupMembers);
+    const creditorGroupMemberId = restoreRef(debt.creditorGroupMemberId, idMap, existing.sharedGroupMembers);
+    if (!groupId || !debtorGroupMemberId || !creditorGroupMemberId) {
       skipped += 1;
       continue;
     }
-    records.eventDebts.push({
+    records.groupDebts.push({
       ...debt,
-      id: mapEntityId(debt.id, 'event_debt'),
+      id: mapEntityId(debt.id, 'group_debt'),
       remoteId: null,
-      eventId,
-      remoteEventId: null,
+      groupId,
+      remoteGroupId: null,
       creatorUserId: null,
-      debtorEventMemberId,
-      creditorEventMemberId,
+      debtorGroupMemberId,
+      creditorGroupMemberId,
       syncStatus: 'local_only',
       verificationStatus: 'local_only',
       updatedAt: nowIso(),
@@ -567,9 +576,9 @@ export function buildRestorePlan(rawJson: string, current: DatabaseSnapshot, mod
     if (!isRecurringTemplate(template) || !shouldInsert('recurringTemplates', template.id)) {
       continue;
     }
-    const eventId = template.eventId ? restoreRef(template.eventId, idMap, existing.events) : null;
+    const groupId = template.groupId ? restoreRef(template.groupId, idMap, existing.groups) : null;
     const memberId = template.memberId ? restoreRef(template.memberId, idMap, existing.members) : null;
-    if ((template.eventId && !eventId) || (template.memberId && !memberId)) {
+    if ((template.groupId && !groupId) || (template.memberId && !memberId)) {
       skipped += 1;
       continue;
     }
@@ -577,7 +586,7 @@ export function buildRestorePlan(rawJson: string, current: DatabaseSnapshot, mod
       ...template,
       id: mapEntityId(template.id, 'recurring'),
       createdByUserId: null,
-      eventId,
+      groupId,
       memberId,
       payload: remapPayload(template.payload, idMap, existing),
       updatedAt: nowIso(),
@@ -612,7 +621,7 @@ export function buildRestorePlan(rawJson: string, current: DatabaseSnapshot, mod
       senderUserId: null,
       recipientUserId: null,
       relatedMemberId: reminder.relatedMemberId ? restoreRef(reminder.relatedMemberId, idMap, existing.members) : null,
-      relatedEventId: reminder.relatedEventId ? restoreRef(reminder.relatedEventId, idMap, existing.events) : null,
+      relatedGroupId: reminder.relatedGroupId ? restoreRef(reminder.relatedGroupId, idMap, existing.groups) : null,
       relatedRecordId: reminder.relatedRecordId ? idMap.get(reminder.relatedRecordId) ?? reminder.relatedRecordId : null,
       updatedAt: nowIso(),
     });
@@ -633,13 +642,13 @@ export function buildRestorePlan(rawJson: string, current: DatabaseSnapshot, mod
       createdByUserId: null,
       payerMemberId: credit.payerMemberId ? restoreRef(credit.payerMemberId, idMap, existing.members) : null,
       payeeMemberId: credit.payeeMemberId ? restoreRef(credit.payeeMemberId, idMap, existing.members) : null,
-      payerEventMemberId: credit.payerEventMemberId
-        ? restoreRef(credit.payerEventMemberId, idMap, existing.sharedEventMembers)
+      payerGroupMemberId: credit.payerGroupMemberId
+        ? restoreRef(credit.payerGroupMemberId, idMap, existing.sharedGroupMembers)
         : null,
-      payeeEventMemberId: credit.payeeEventMemberId
-        ? restoreRef(credit.payeeEventMemberId, idMap, existing.sharedEventMembers)
+      payeeGroupMemberId: credit.payeeGroupMemberId
+        ? restoreRef(credit.payeeGroupMemberId, idMap, existing.sharedGroupMembers)
         : null,
-      eventId: credit.eventId ? restoreRef(credit.eventId, idMap, existing.events) : null,
+      groupId: credit.groupId ? restoreRef(credit.groupId, idMap, existing.groups) : null,
       sourcePaymentId,
       updatedAt: nowIso(),
     });
@@ -656,8 +665,8 @@ export function buildRestorePlan(rawJson: string, current: DatabaseSnapshot, mod
       continue;
     }
     const targetId = restoreTargetRef(attachment.targetType, attachment.targetId, idMap, existing);
-    const eventId = attachment.eventId ? restoreRef(attachment.eventId, idMap, existing.events) : null;
-    if (!targetId || (attachment.eventId && !eventId)) {
+    const groupId = attachment.groupId ? restoreRef(attachment.groupId, idMap, existing.groups) : null;
+    if (!targetId || (attachment.groupId && !groupId)) {
       skipped += 1;
       continue;
     }
@@ -666,7 +675,7 @@ export function buildRestorePlan(rawJson: string, current: DatabaseSnapshot, mod
       id: mapEntityId(attachment.id, 'attachment'),
       remoteId: null,
       targetId,
-      eventId,
+      groupId,
       createdByUserId: null,
       localUri: null,
       remoteUrl: null,
@@ -683,8 +692,8 @@ export function buildRestorePlan(rawJson: string, current: DatabaseSnapshot, mod
       continue;
     }
     const targetId = restoreTargetRef(comment.targetType, comment.targetId, idMap, existing);
-    const eventId = comment.eventId ? restoreRef(comment.eventId, idMap, existing.events) : null;
-    if (!targetId || (comment.eventId && !eventId)) {
+    const groupId = comment.groupId ? restoreRef(comment.groupId, idMap, existing.groups) : null;
+    if (!targetId || (comment.groupId && !groupId)) {
       skipped += 1;
       continue;
     }
@@ -693,7 +702,7 @@ export function buildRestorePlan(rawJson: string, current: DatabaseSnapshot, mod
       id: mapEntityId(comment.id, 'comment'),
       remoteId: null,
       targetId,
-      eventId,
+      groupId,
       authorUserId: null,
       visibility: 'private',
       syncStatus: 'local_only',
@@ -723,7 +732,7 @@ export function buildRestorePlan(rawJson: string, current: DatabaseSnapshot, mod
       id: mapEntityId(auditLog.id, 'audit'),
       actorUserId: null,
       targetId: auditLog.targetId ? idMap.get(auditLog.targetId) ?? auditLog.targetId : null,
-      eventId: auditLog.eventId ? restoreRef(auditLog.eventId, idMap, existing.events) : null,
+      groupId: auditLog.groupId ? restoreRef(auditLog.groupId, idMap, existing.groups) : null,
       metadata: { ...auditLog.metadata, restoredFromBackup: true },
       deviceId: null,
     });
@@ -736,11 +745,11 @@ export function buildRestorePlan(rawJson: string, current: DatabaseSnapshot, mod
         profiles: records.profiles.length,
         members: records.members.length,
         debts: records.debts.length,
-        events: records.events.length,
-        eventMembers: records.eventMembers.length,
-        sharedEventMembers: records.sharedEventMembers.length,
+        groups: records.groups.length,
+        groupMembers: records.groupMembers.length,
+        sharedGroupMembers: records.sharedGroupMembers.length,
         sharedExpenses: records.sharedExpenses.length,
-        eventDebts: records.eventDebts.length,
+        groupDebts: records.groupDebts.length,
         payments: records.payments.length,
         settlements: records.settlements.length,
         settlementLines: records.settlementLines.length,
@@ -783,7 +792,7 @@ function invalidPreview(warning: string): RestorePreview {
     schemaVersion: null,
     memberCount: 0,
     debtCount: 0,
-    eventCount: 0,
+    groupCount: 0,
     paymentCount: 0,
     settlementCount: 0,
     warnings: [warning],
@@ -808,14 +817,21 @@ function schemaWarning(schemaVersion: unknown) {
 }
 
 function parseBackup(rawJson: string): DebtulatorBackup {
-  let parsed: Partial<DebtulatorBackup>;
+  let parsed: ParsedBackup;
   try {
-    parsed = JSON.parse(rawJson) as Partial<DebtulatorBackup>;
+    parsed = JSON.parse(rawJson) as ParsedBackup;
   } catch {
     throw new Error('Backup file is not valid JSON.');
   }
   if (parsed.app !== 'Debtulator') {
     throw new Error('This does not look like a Debtulator backup.');
+  }
+  if (parsed.schemaVersion === LEGACY_EVENT_BACKUP_SCHEMA_VERSION && isRecord(parsed.data)) {
+    parsed = {
+      ...parsed,
+      schemaVersion: BACKUP_SCHEMA_VERSION,
+      data: migrateLegacyEventBackupValue(parsed.data) as Record<string, unknown>,
+    };
   }
   if (parsed.schemaVersion !== BACKUP_SCHEMA_VERSION) {
     throw new Error('Backup schema differs from this app version.');
@@ -826,16 +842,45 @@ function parseBackup(rawJson: string): DebtulatorBackup {
   return parsed as DebtulatorBackup;
 }
 
+function migrateLegacyEventBackupValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(migrateLegacyEventBackupValue);
+  }
+  if (isRecord(value)) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nestedValue]) => [
+        key.replaceAll('Events', 'Groups').replaceAll('events', 'groups').replaceAll('Event', 'Group').replaceAll('event', 'group'),
+        migrateLegacyEventBackupValue(nestedValue),
+      ]),
+    );
+  }
+  if (typeof value !== 'string') {
+    return value;
+  }
+  return LEGACY_EVENT_VALUE_MAP[value] ?? value;
+}
+
+const LEGACY_EVENT_VALUE_MAP: Record<string, string> = {
+  event: 'group',
+  event_debt: 'group_debt',
+  event_direct_debt: 'group_direct_debt',
+  event_invite: 'group_invite',
+  event_locked: 'group_locked',
+  event_update: 'group_update',
+  future_event_shared: 'future_group_shared',
+  shared_event: 'shared_group',
+};
+
 function readBackupData(data: Record<string, unknown>): BackupData {
   return {
     profiles: readArray(data.profiles),
     members: readArray(data.members),
     debts: readArray(data.debts),
-    events: readArray(data.events),
-    eventMembers: readArray(data.eventMembers),
-    sharedEventMembers: readArray(data.sharedEventMembers),
+    groups: readArray(data.groups),
+    groupMembers: readArray(data.groupMembers),
+    sharedGroupMembers: readArray(data.sharedGroupMembers),
     sharedExpenses: readArray(data.sharedExpenses),
-    eventDebts: readArray(data.eventDebts),
+    groupDebts: readArray(data.groupDebts),
     payments: readArray(data.payments),
     settlements: readArray(data.settlements),
     settlementLines: readArray(data.settlementLines),
@@ -854,7 +899,7 @@ function readBackupData(data: Record<string, unknown>): BackupData {
 
 function validateBackupData(data: Record<string, unknown>) {
   const warnings: string[] = [];
-  for (const key of ['members', 'debts', 'events', 'payments', 'settlements']) {
+  for (const key of ['members', 'debts', 'groups', 'payments', 'settlements']) {
     if (data[key] !== undefined && !Array.isArray(data[key])) {
       warnings.push(`Backup ${key} section is not an array and will be ignored.`);
     }
@@ -862,7 +907,7 @@ function validateBackupData(data: Record<string, unknown>) {
   if (
     !countArray(data.members) &&
     !countArray(data.debts) &&
-    !countArray(data.events) &&
+    !countArray(data.groups) &&
     !countArray(data.payments) &&
     !countArray(data.settlements)
   ) {
@@ -875,11 +920,11 @@ type ExistingIds = {
   profiles: Set<string>;
   members: Set<string>;
   debts: Set<string>;
-  events: Set<string>;
-  eventMembers: Set<string>;
-  sharedEventMembers: Set<string>;
+  groups: Set<string>;
+  groupMembers: Set<string>;
+  sharedGroupMembers: Set<string>;
   sharedExpenses: Set<string>;
-  eventDebts: Set<string>;
+  groupDebts: Set<string>;
   payments: Set<string>;
   settlements: Set<string>;
   settlementLines: Set<string>;
@@ -898,11 +943,11 @@ function buildExistingIds(snapshot: DatabaseSnapshot): ExistingIds {
     profiles: ids(snapshot.profiles),
     members: ids(snapshot.members),
     debts: ids(snapshot.debts),
-    events: ids(snapshot.events),
-    eventMembers: new Set(snapshot.eventMembers.map((member) => `${member.eventId}:${member.memberId}`)),
-    sharedEventMembers: ids(snapshot.sharedEventMembers),
+    groups: ids(snapshot.groups),
+    groupMembers: new Set(snapshot.groupMembers.map((member) => `${member.groupId}:${member.memberId}`)),
+    sharedGroupMembers: ids(snapshot.sharedGroupMembers),
     sharedExpenses: ids(snapshot.sharedExpenses),
-    eventDebts: ids(snapshot.eventDebts),
+    groupDebts: ids(snapshot.groupDebts),
     payments: ids(snapshot.payments),
     settlements: ids(snapshot.settlements),
     settlementLines: ids(snapshot.settlementLines),
@@ -922,11 +967,11 @@ function emptyExistingIds(): ExistingIds {
     profiles: new Set(),
     members: new Set(),
     debts: new Set(),
-    events: new Set(),
-    eventMembers: new Set(),
-    sharedEventMembers: new Set(),
+    groups: new Set(),
+    groupMembers: new Set(),
+    sharedGroupMembers: new Set(),
     sharedExpenses: new Set(),
-    eventDebts: new Set(),
+    groupDebts: new Set(),
     payments: new Set(),
     settlements: new Set(),
     settlementLines: new Set(),
@@ -964,14 +1009,14 @@ function restoreTargetRef(
       return restoreRef(targetId, idMap, existing.debts);
     case 'shared_expense':
       return restoreRef(targetId, idMap, existing.sharedExpenses);
-    case 'event_debt':
-      return restoreRef(targetId, idMap, existing.eventDebts);
+    case 'group_debt':
+      return restoreRef(targetId, idMap, existing.groupDebts);
     case 'payment':
       return restoreRef(targetId, idMap, existing.payments);
     case 'settlement':
       return restoreRef(targetId, idMap, existing.settlements);
-    case 'event':
-      return restoreRef(targetId, idMap, existing.events);
+    case 'group':
+      return restoreRef(targetId, idMap, existing.groups);
     case 'recurring_template':
       return restoreRef(targetId, idMap, existing.recurringTemplates);
     default:
@@ -989,8 +1034,8 @@ function sanitizeExpensePayer(
     ...payer,
     id: idMap.has(payer.id) ? idMap.get(payer.id)! : createId('expense_payer'),
     expenseId,
-    eventMemberId:
-      restoreParticipantId(payer.eventMemberId, idMap, existing.sharedEventMembers) ?? payer.eventMemberId,
+    groupMemberId:
+      restoreParticipantId(payer.groupMemberId, idMap, existing.sharedGroupMembers) ?? payer.groupMemberId,
     updatedAt: nowIso(),
   };
 }
@@ -1001,23 +1046,23 @@ function sanitizePayment(
   existing: ExistingIds,
   mode: BackupMode,
 ): Payment | null {
-  const eventId = payment.eventId ? restoreRef(payment.eventId, idMap, existing.events) : null;
+  const groupId = payment.groupId ? restoreRef(payment.groupId, idMap, existing.groups) : null;
   const relatedMemberId = payment.relatedMemberId ? restoreRef(payment.relatedMemberId, idMap, existing.members) : null;
   const payerMemberId = payment.payerMemberId ? restoreRef(payment.payerMemberId, idMap, existing.members) : null;
   const payeeMemberId = payment.payeeMemberId ? restoreRef(payment.payeeMemberId, idMap, existing.members) : null;
-  const payerEventMemberId = payment.payerEventMemberId
-    ? restoreRef(payment.payerEventMemberId, idMap, existing.sharedEventMembers)
+  const payerGroupMemberId = payment.payerGroupMemberId
+    ? restoreRef(payment.payerGroupMemberId, idMap, existing.sharedGroupMembers)
     : null;
-  const payeeEventMemberId = payment.payeeEventMemberId
-    ? restoreRef(payment.payeeEventMemberId, idMap, existing.sharedEventMembers)
+  const payeeGroupMemberId = payment.payeeGroupMemberId
+    ? restoreRef(payment.payeeGroupMemberId, idMap, existing.sharedGroupMembers)
     : null;
   if (
-    (payment.eventId && !eventId) ||
+    (payment.groupId && !groupId) ||
     (payment.relatedMemberId && !relatedMemberId) ||
     (payment.payerMemberId && !payerMemberId) ||
     (payment.payeeMemberId && !payeeMemberId) ||
-    (payment.payerEventMemberId && !payerEventMemberId) ||
-    (payment.payeeEventMemberId && !payeeEventMemberId)
+    (payment.payerGroupMemberId && !payerGroupMemberId) ||
+    (payment.payeeGroupMemberId && !payeeGroupMemberId)
   ) {
     return null;
   }
@@ -1031,9 +1076,9 @@ function sanitizePayment(
     payeeUserId: null,
     payerMemberId,
     payeeMemberId,
-    payerEventMemberId,
-    payeeEventMemberId,
-    eventId,
+    payerGroupMemberId,
+    payeeGroupMemberId,
+    groupId,
     relatedMemberId,
     visibility: 'private',
     confirmationStatus: 'local_only',
@@ -1058,9 +1103,9 @@ function sanitizeSettlement(
   existing: ExistingIds,
   mode: BackupMode,
 ): Settlement | null {
-  const eventId = settlement.eventId ? restoreRef(settlement.eventId, idMap, existing.events) : null;
+  const groupId = settlement.groupId ? restoreRef(settlement.groupId, idMap, existing.groups) : null;
   const memberId = settlement.memberId ? restoreRef(settlement.memberId, idMap, existing.members) : null;
-  if ((settlement.eventId && !eventId) || (settlement.memberId && !memberId)) {
+  if ((settlement.groupId && !groupId) || (settlement.memberId && !memberId)) {
     return null;
   }
   const id = mode === 'duplicate_private' ? idMap.get(settlement.id) ?? createId('settlement') : settlement.id;
@@ -1071,7 +1116,7 @@ function sanitizeSettlement(
     localId: null,
     remoteId: null,
     createdByUserId: null,
-    eventId,
+    groupId,
     memberId,
     confirmationStatus: 'local_only',
     syncStatus: 'local_only',
@@ -1112,8 +1157,8 @@ function restoreSourceRecordRef(
   switch (sourceRecordType) {
     case 'simple_debt':
       return restoreRef(sourceRecordId, idMap, existing.debts);
-    case 'event_debt':
-      return restoreRef(sourceRecordId, idMap, existing.eventDebts);
+    case 'group_debt':
+      return restoreRef(sourceRecordId, idMap, existing.groupDebts);
     case 'shared_expense_obligation':
     case 'overpayment_credit':
       return idMap.get(sourceRecordId) ?? sourceRecordId;
@@ -1143,8 +1188,8 @@ function remapPayload(
       next[key] = restoreParticipantId(next[key], idMap, existing.members) ?? next[key];
     }
   }
-  if (typeof next.eventId === 'string') {
-    next.eventId = restoreRef(next.eventId, idMap, existing.events) ?? next.eventId;
+  if (typeof next.groupId === 'string') {
+    next.groupId = restoreRef(next.groupId, idMap, existing.groups) ?? next.groupId;
   }
   return next;
 }
@@ -1156,7 +1201,7 @@ function sanitizeRestoredSettings(settings: Partial<AppSettings> | null): Partia
   return {
     ...settings,
     defaultDebtVisibility: 'private',
-    defaultEventVisibility: 'private',
+    defaultGroupVisibility: 'private',
     syncPrivateLocalDataToAccountBackup: false,
     uploadAttachmentsForSharedRecords: false,
   };
@@ -1186,19 +1231,19 @@ function isDebt(value: unknown): value is Debt {
   return isRecord(value) && hasString(value, 'id') && hasString(value, 'memberId');
 }
 
-function isEvent(value: unknown): value is Event {
+function isGroup(value: unknown): value is Group {
   return isRecord(value) && hasString(value, 'id') && hasString(value, 'name');
 }
 
-function isSharedEventMember(value: unknown): value is SharedEventMember {
-  return isRecord(value) && hasString(value, 'id') && hasString(value, 'eventId');
+function isSharedGroupMember(value: unknown): value is SharedGroupMember {
+  return isRecord(value) && hasString(value, 'id') && hasString(value, 'groupId');
 }
 
 function isSharedExpense(value: unknown): value is SharedExpense {
   return (
     isRecord(value) &&
     hasString(value, 'id') &&
-    hasString(value, 'eventId') &&
+    hasString(value, 'groupId') &&
     Array.isArray(value.participantIds) &&
     Array.isArray(value.expensePayers) &&
     Array.isArray(value.generatedObligations) &&
@@ -1206,8 +1251,8 @@ function isSharedExpense(value: unknown): value is SharedExpense {
   );
 }
 
-function isEventDebt(value: unknown): value is EventDebt {
-  return isRecord(value) && hasString(value, 'id') && hasString(value, 'eventId');
+function isGroupDebt(value: unknown): value is GroupDebt {
+  return isRecord(value) && hasString(value, 'id') && hasString(value, 'groupId');
 }
 
 function isPayment(value: unknown): value is Payment {

@@ -14,7 +14,7 @@ import { palette, spacing, typefaces,
 typography,
 } from "@/src/constants/design";
 import { useAppData } from "@/src/state/AppDataProvider";
-import type { DebtVisibility, EventVisibility } from "@/src/types/models";
+import type { DebtVisibility, GroupVisibility } from "@/src/types/models";
 
 export function PrivacyControlsScreen() {
   const data = useAppData();
@@ -63,10 +63,10 @@ export function PrivacyControlsScreen() {
           ]}
         />
         <SelectChips
-          label="Default event visibility"
-          value={data.settings.defaultEventVisibility}
-          onChange={(defaultEventVisibility: EventVisibility) =>
-            data.updateSettings({ defaultEventVisibility })
+          label="Default group visibility"
+          value={data.settings.defaultGroupVisibility}
+          onChange={(defaultGroupVisibility: GroupVisibility) =>
+            data.updateSettings({ defaultGroupVisibility })
           }
           options={[
             { label: "Private", value: "private" },
@@ -122,7 +122,7 @@ export function PrivacyControlsScreen() {
         />
         <ToggleRow
           title="Beta telemetry milestones"
-          body="Shares privacy-safe milestone events and breadcrumbs for beta diagnostics."
+          body="Shares privacy-safe milestone groups and breadcrumbs for beta diagnostics."
           value={data.settings.betaTelemetryEnabled}
           onValueChange={(betaTelemetryEnabled) =>
             data.updateSettings({ betaTelemetryEnabled })
@@ -187,18 +187,18 @@ export function PrivacyControlsScreen() {
             }
           />
           <Button
-            title="Events"
+            title="Groups"
             icon="people"
             accessibilityState={{
-              selected: data.settings.notificationEventEnabled,
+              selected: data.settings.notificationGroupEnabled,
             }}
             variant={
-              data.settings.notificationEventEnabled ? "primary" : "secondary"
+              data.settings.notificationGroupEnabled ? "primary" : "secondary"
             }
             onPress={() =>
               data.updateSettings({
-                notificationEventEnabled:
-                  !data.settings.notificationEventEnabled,
+                notificationGroupEnabled:
+                  !data.settings.notificationGroupEnabled,
               })
             }
           />

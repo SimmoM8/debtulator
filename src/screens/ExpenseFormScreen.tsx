@@ -40,73 +40,73 @@ import { createId, todayIsoDate } from "@/src/utils/id";
 import { formatMoney } from "@/src/utils/money";
 
 export function ExpenseFormScreen() {
-  const { id, eventId } = useLocalSearchParams<{
+  const { id, groupId } = useLocalSearchParams<{
     id?: string;
-    eventId?: string;
+    groupId?: string;
   }>();
   const data = useAppData();
   const auth = useAuth();
   const expense = data.sharedExpenses.find((item) => item.id === id);
-  const initialEventId =
-    expense?.eventId ??
-    eventId ??
-    data.events.find((event) => !event.archived)?.id ??
+  const initialGroupId =
+    expense?.groupId ??
+    groupId ??
+    data.groups.find((group) => !group.archived)?.id ??
     "";
 
-  const [selectedEventId, setSelectedEventId] = useState(initialEventId);
-  const selectedEvent = data.events.find(
-    (event) => event.id === selectedEventId,
+  const [selectedGroupId, setSelectedGroupId] = useState(initialGroupId);
+  const selectedGroup = data.groups.find(
+    (group) => group.id === selectedGroupId,
   );
-  const isSharedEvent = selectedEvent?.visibility === "shared";
-  const eventMemberIds = useMemo(
+  const isSharedGroup = selectedGroup?.visibility === "shared";
+  const groupMemberIds = useMemo(
     () =>
-      isSharedEvent
-        ? data.sharedEventMembers
+      isSharedGroup
+        ? data.sharedGroupMembers
             .filter(
-              (eventMember) =>
-                eventMember.eventId === selectedEventId &&
-                eventMember.status !== "archived" &&
-                eventMember.status !== "merged",
+              (groupMember) =>
+                groupMember.groupId === selectedGroupId &&
+                groupMember.status !== "archived" &&
+                groupMember.status !== "merged",
             )
-            .map((eventMember) => eventMember.id)
-        : data.eventMembers
-            .filter((eventMember) => eventMember.eventId === selectedEventId)
-            .map((eventMember) => eventMember.memberId),
+            .map((groupMember) => groupMember.id)
+        : data.groupMembers
+            .filter((groupMember) => groupMember.groupId === selectedGroupId)
+            .map((groupMember) => groupMember.memberId),
     [
-      data.eventMembers,
-      data.sharedEventMembers,
-      isSharedEvent,
-      selectedEventId,
+      data.groupMembers,
+      data.sharedGroupMembers,
+      isSharedGroup,
+      selectedGroupId,
     ],
   );
-  const currentEventMember = useMemo(
+  const currentGroupMember = useMemo(
     () =>
-      data.sharedEventMembers.find(
+      data.sharedGroupMembers.find(
         (member) =>
-          isSharedEvent &&
-          member.eventId === selectedEventId &&
+          isSharedGroup &&
+          member.groupId === selectedGroupId &&
           member.linkedUserId === auth.identity.authenticatedUserId &&
           member.status !== "merged",
       ),
     [
       auth.identity.authenticatedUserId,
-      data.sharedEventMembers,
-      isSharedEvent,
-      selectedEventId,
+      data.sharedGroupMembers,
+      isSharedGroup,
+      selectedGroupId,
     ],
   );
   const defaultParticipants = useMemo<ParticipantId[]>(
-    () => (isSharedEvent ? eventMemberIds : ["me", ...eventMemberIds]),
-    [eventMemberIds, isSharedEvent],
+    () => (isSharedGroup ? groupMemberIds : ["me", ...groupMemberIds]),
+    [groupMemberIds, isSharedGroup],
   );
 
   const [payerId, setPayerId] = useState<ParticipantId>(
-    expense?.payerId ?? currentEventMember?.id ?? "me",
+    expense?.payerId ?? currentGroupMember?.id ?? "me",
   );
   const [amount, setAmount] = useState(expense ? String(expense.amount) : "");
   const [currency, setCurrency] = useState<CurrencyCode>(
     expense?.currency ??
-      selectedEvent?.defaultCurrency ??
+      selectedGroup?.defaultCurrency ??
       data.settings.baseCurrency,
   );
   const [title, setTitle] = useState(expense?.title ?? "");
@@ -134,7 +134,7 @@ export function ExpenseFormScreen() {
   >(
     Object.fromEntries(
       (expense?.expensePayers ?? []).map((payer) => [
-        payer.eventMemberId,
+        payer.groupMemberId,
         String(payer.amountPaid),
       ]),
     ),
@@ -150,44 +150,44 @@ export function ExpenseFormScreen() {
     if (!expense) {
       setParticipantIds(defaultParticipants);
       setPayerId(
-        isSharedEvent
-          ? (currentEventMember?.id ?? defaultParticipants[0] ?? "me")
+        isSharedGroup
+          ? (currentGroupMember?.id ?? defaultParticipants[0] ?? "me")
           : "me",
       );
-      if (selectedEvent) {
-        setCurrency(selectedEvent.defaultCurrency);
+      if (selectedGroup) {
+        setCurrency(selectedGroup.defaultCurrency);
       }
     }
   }, [
-    currentEventMember?.id,
+    currentGroupMember?.id,
     defaultParticipants,
     expense,
-    isSharedEvent,
-    selectedEvent,
+    isSharedGroup,
+    selectedGroup,
   ]);
 
-  const eventOptions = useMemo(
+  const groupOptions = useMemo(
     () =>
-      data.events
-        .filter((event) => !event.archived)
-        .map((event) => ({ label: event.name, value: event.id })),
-    [data.events],
+      data.groups
+        .filter((group) => !group.archived)
+        .map((group) => ({ label: group.name, value: group.id })),
+    [data.groups],
   );
   const participantOptions = useMemo(
     () => [
-      ...(isSharedEvent
+      ...(isSharedGroup
         ? []
         : [{ label: "You", value: "me" as ParticipantId }]),
-      ...eventMemberIds.map((memberId) => ({
+      ...groupMemberIds.map((memberId) => ({
         label:
-          data.sharedEventMembers.find((member) => member.id === memberId)
+          data.sharedGroupMembers.find((member) => member.id === memberId)
             ?.displayName ??
           data.members.find((member) => member.id === memberId)?.displayName ??
           "Member",
         value: memberId,
       })),
     ],
-    [data.members, data.sharedEventMembers, eventMemberIds, isSharedEvent],
+    [data.members, data.sharedGroupMembers, groupMemberIds, isSharedGroup],
   );
   const usedTagNames = useMemo(
     () => data.tags.map((tag) => tag.name),
@@ -223,7 +223,7 @@ export function ExpenseFormScreen() {
   });
   const obligations = buildSplitObligations({
     expenseId: expense?.id ?? createId("expense_preview"),
-    eventId: selectedEventId,
+    groupId: selectedGroupId,
     payerId,
     expensePayers,
     amount: Number(amount) || 0,
@@ -238,12 +238,12 @@ export function ExpenseFormScreen() {
   }
 
   async function save() {
-    const visibility: DebtVisibility = isSharedEvent
-      ? "shared_event"
+    const visibility: DebtVisibility = isSharedGroup
+      ? "shared_group"
       : "private";
     const input = {
-      eventId: selectedEventId,
-      creatorUserId: isSharedEvent ? auth.identity.authenticatedUserId : null,
+      groupId: selectedGroupId,
+      creatorUserId: isSharedGroup ? auth.identity.authenticatedUserId : null,
       payerId,
       amount: Number(amount),
       currency,
@@ -260,7 +260,7 @@ export function ExpenseFormScreen() {
         currency,
         payerAmounts,
       ).map((payer) => ({
-        eventMemberId: payer.eventMemberId,
+        groupMemberId: payer.groupMemberId,
         amountPaid: payer.amountPaid,
       })),
       tags: selectedTags,
@@ -278,7 +278,7 @@ export function ExpenseFormScreen() {
     router.back();
   }
 
-  if (data.events.filter((event) => !event.archived).length === 0) {
+  if (data.groups.filter((group) => !group.archived).length === 0) {
     return (
       <Screen>
         <PageHeader
@@ -286,13 +286,13 @@ export function ExpenseFormScreen() {
           title="Add expense"
         />
         <EmptyState
-          title="Create an event first"
-          body="Inside events, Debtulator defaults to shared expenses and equal splits."
+          title="Create an group first"
+          body="Inside groups, Debtulator defaults to shared expenses and equal splits."
           action={
             <Button
-              title="Add event"
+              title="Add group"
               icon="people"
-              onPress={() => router.push("/event/form")}
+              onPress={() => router.push("/group/form")}
             />
           }
         />
@@ -308,7 +308,7 @@ export function ExpenseFormScreen() {
           icon="checkmark"
           onPress={save}
           disabled={
-            !selectedEventId ||
+            !selectedGroupId ||
             !title.trim() ||
             Number(amount) <= 0 ||
             participantIds.length === 0 ||
@@ -324,10 +324,10 @@ export function ExpenseFormScreen() {
 
       <Card tone="peach">
         <SelectChips
-          label="Event"
-          value={selectedEventId}
-          options={eventOptions}
-          onChange={setSelectedEventId}
+          label="Group"
+          value={selectedGroupId}
+          options={groupOptions}
+          onChange={setSelectedGroupId}
         />
         <SelectChips
           label="Primary payer"
@@ -394,7 +394,7 @@ export function ExpenseFormScreen() {
           ? participantIds.map((participantId) => (
               <TextField
                 key={participantId}
-                label={`${participantName(participantId, data.members, data.sharedEventMembers)} ${
+                label={`${participantName(participantId, data.members, data.sharedGroupMembers)} ${
                   splitMethod === "custom_amount"
                     ? "amount"
                     : splitMethod === "custom_percentage"
@@ -474,7 +474,7 @@ export function ExpenseFormScreen() {
               {participantName(
                 participantId,
                 data.members,
-                data.sharedEventMembers,
+                data.sharedGroupMembers,
               )}{" "}
               share
             </Text>
@@ -490,13 +490,13 @@ export function ExpenseFormScreen() {
                 {participantName(
                   obligation.fromParticipantId,
                   data.members,
-                  data.sharedEventMembers,
+                  data.sharedGroupMembers,
                 )}{" "}
                 owes{" "}
                 {participantName(
                   obligation.toParticipantId,
                   data.members,
-                  data.sharedEventMembers,
+                  data.sharedGroupMembers,
                 )}
               </Text>
               <Text style={styles.previewMoney}>
@@ -556,18 +556,18 @@ function buildPayersForSave(
   payerAmounts: Record<ParticipantId, string>,
 ): ExpensePayer[] {
   const entries = Object.entries(payerAmounts)
-    .map(([eventMemberId, paid]) => ({
-      eventMemberId,
+    .map(([groupMemberId, paid]) => ({
+      groupMemberId,
       amountPaid: Number(paid) || 0,
     }))
     .filter((payer) => payer.amountPaid > 0);
   const payers = entries.length
     ? entries
-    : [{ eventMemberId: payerId, amountPaid: Number(amount) || 0 }];
+    : [{ groupMemberId: payerId, amountPaid: Number(amount) || 0 }];
   return payers.map((payer, index) => ({
-    id: `${expenseId}_payer_${payer.eventMemberId}_${index}`,
+    id: `${expenseId}_payer_${payer.groupMemberId}_${index}`,
     expenseId,
-    eventMemberId: payer.eventMemberId,
+    groupMemberId: payer.groupMemberId,
     amountPaid: payer.amountPaid,
     currency,
     createdAt: "",

@@ -60,10 +60,10 @@ export function AnalyticsScreen() {
       debtByMember(
         data.ledgerEntries,
         data.members,
-        data.sharedEventMembers,
+        data.sharedGroupMembers,
         filters,
       ).slice(0, 8),
-    [data.ledgerEntries, data.members, data.sharedEventMembers, filters],
+    [data.ledgerEntries, data.members, data.sharedGroupMembers, filters],
   );
   const paidSummary = useMemo(
     () => paidVsUnpaidSummary(data.ledgerEntries, filters),

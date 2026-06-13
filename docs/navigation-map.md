@@ -21,7 +21,7 @@ flowchart TD
     tabs --> home[Home /]
     tabs --> debts[Debts /debts]
     tabs --> members[Members /members]
-    tabs --> events[Events /events]
+    tabs --> groups[Groups /groups]
     tabs --> requests[Requests /requests hidden tab]
     tabs --> settings[Settings /settings hidden tab]
 
@@ -39,12 +39,12 @@ flowchart TD
     members --> memberForm
     members --> memberDetail[Member detail /member/[id]]
 
-    events --> eventForm[Event form /event/form]
-    events --> eventDetail[Event detail /event/[id]]
-    eventDetail --> expenseForm
-    eventDetail --> expenseDetail[Expense detail /expense/[id]]
-    eventDetail --> attachmentDetail[Attachment detail /attachment/[id]]
-    eventDetail --> settlementDetail[Settlement detail /settlement/[id]]
+    groups --> groupForm[Group form /group/form]
+    groups --> groupDetail[Group detail /group/[id]]
+    groupDetail --> expenseForm
+    groupDetail --> expenseDetail[Expense detail /expense/[id]]
+    groupDetail --> attachmentDetail[Attachment detail /attachment/[id]]
+    groupDetail --> settlementDetail[Settlement detail /settlement/[id]]
 
     settings --> auth[Auth /auth]
     settings --> language[Language /language]
@@ -63,7 +63,7 @@ flowchart TD
     menu[Global menu] --> home
     menu --> debts
     menu --> members
-    menu --> events
+    menu --> groups
     menu --> requests
     menu --> recurring[Recurring /recurring]
     recurring --> recurringForm[Recurring form /recurring/form]
@@ -100,18 +100,18 @@ flowchart TD
     memberDetail --> linkMember[Link shared identity later]
     linkMember --> requests[Requests inbox]
 
-    dashboard --> addEvent[Create event]
-    addEvent --> eventDetail[Review event detail]
-    eventDetail --> addExpense[Add expense or obligation]
-    addExpense --> balances[Updated event balances]
+    dashboard --> addGroup[Create group]
+    addGroup --> groupDetail[Review group detail]
+    groupDetail --> addExpense[Add expense or obligation]
+    addExpense --> balances[Updated group balances]
     balances --> settlement[Review settlement detail]
-    eventDetail --> attachments[Open attachment detail]
+    groupDetail --> attachments[Open attachment detail]
 
     shared --> requests
     requests --> approve[Accept or reject invite verification or link]
     approve --> memberDetail
     approve --> debtDetail
-    approve --> eventDetail
+    approve --> groupDetail
 
     shared --> sync[Check sync status]
     sync --> healthy[Queue healthy]

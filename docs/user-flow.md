@@ -8,7 +8,7 @@ For route hierarchy, see [app-sitemap.md](./app-sitemap.md). For persisted visua
 
 ### Local-only mode
 
-- User launches the app and can immediately track debts, members, events, expenses, and payments on-device.
+- User launches the app and can immediately track debts, members, groups, expenses, and payments on-device.
 - Data remains local unless the user explicitly signs in and enables shared or cloud-backed behaviors.
 
 ### Authenticated/shared mode
@@ -16,7 +16,7 @@ For route hierarchy, see [app-sitemap.md](./app-sitemap.md). For persisted visua
 - User signs in from `Settings` or `Auth`.
 - Shared capabilities become available or more useful:
   - member linking
-  - event invites
+  - group invites
   - debt verification
   - sync queue visibility
   - conflict review
@@ -44,7 +44,7 @@ Typical screens:
 - Review debt detail
 - Record payment when money moves
 - Return to debt detail or debt list with updated remaining balance
-- Eventually reach a settled state
+- Groupually reach a settled state
 
 Typical screens:
 
@@ -60,7 +60,7 @@ Typical screens:
 - Add a member
 - Review member detail and balance context
 - Optionally link that member to an authenticated/shared identity later
-- Reuse the member across debts, payments, and events
+- Reuse the member across debts, payments, and groups
 
 Typical screens:
 
@@ -70,21 +70,21 @@ Typical screens:
 - `/auth`
 - `/requests`
 
-### 4. Create and run a shared event
+### 4. Create and run a shared group
 
-- Start from `Events` or the floating add button
-- Create event
-- Open event detail
+- Start from `Groups` or the floating add button
+- Create group
+- Open group detail
 - Add participants or invite linked/shared users
-- Add expenses inside the event
+- Add expenses inside the group
 - Generate updated balances and settlement suggestions
 - Drill into attachments or settlement detail as needed
 
 Typical screens:
 
-- `/events`
-- `/event/form`
-- `/event/[id]`
+- `/groups`
+- `/group/form`
+- `/group/[id]`
 - `/expense/form`
 - `/expense/[id]`
 - `/attachment/[id]`
@@ -94,16 +94,16 @@ Typical screens:
 
 - User receives a pending item
 - Opens `Requests`
-- Reviews link request, debt verification, or event invite
+- Reviews link request, debt verification, or group invite
 - Accepts or rejects
-- Returns to the relevant member, debt, or event state with updated visibility or verification status
+- Returns to the relevant member, debt, or group state with updated visibility or verification status
 
 Typical screens:
 
 - `/requests`
 - `/member/[id]`
 - `/debt/[id]`
-- `/event/[id]`
+- `/group/[id]`
 
 ### 6. Move between private tracking and shared sync
 
@@ -125,7 +125,7 @@ Typical screens:
 
 - User opens `Settings` or the global menu safety/tools areas
 - Chooses backup, export, full export, CSV import, privacy review, notifications, or account deletion
-- Completes the maintenance action outside the normal debt/event browsing loop
+- Completes the maintenance action outside the normal debt/group browsing loop
 
 Typical screens:
 
@@ -141,7 +141,7 @@ Typical screens:
 
 - User reviews analytics, smart suggestions, or recurring templates
 - Applies insight or reuses a template
-- Returns to normal debt, member, or event workflows
+- Returns to normal debt, member, or group workflows
 
 Typical screens:
 
@@ -170,7 +170,7 @@ Typical screens:
 ### Requests as the shared-work inbox
 
 - `Requests` is the approval surface for collaborative state changes.
-- It is distinct from browsing debts or events because the user is responding to another actor, not just editing their own records.
+- It is distinct from browsing debts or groups because the user is responding to another actor, not just editing their own records.
 
 ### Conflicts as a protected exception path
 

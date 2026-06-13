@@ -19,9 +19,9 @@ Pass criteria: local data persists across restart, totals remain coherent, and n
 
 1. Install the same staging build on two devices or simulators.
 2. Sign in as the same staging account on both devices.
-3. Create a shared event on device A with at least two members.
+3. Create a shared group on device A with at least two members.
 4. Add an expense and payment on device A, then sync.
-5. Confirm device B can view the event and cached records.
+5. Confirm device B can view the group and cached records.
 6. Put device B offline and edit a financial record.
 7. Edit the same record differently on device A while online.
 8. Bring device B online and sync.

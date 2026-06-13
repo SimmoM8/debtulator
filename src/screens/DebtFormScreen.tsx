@@ -25,38 +25,39 @@ import { palette, shadows, typefaces, typography } from "@/src/constants/design"
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
 import type { CurrencyCode, DebtDirection } from "@/src/types/models";
+import { todayIsoDate } from "@/src/utils/id";
 
 export function DebtFormScreen() {
-  const { id, memberId, eventId } = useLocalSearchParams<{
+  const { id, memberId, groupId } = useLocalSearchParams<{
     id?: string;
     memberId?: string;
-    eventId?: string;
+    groupId?: string;
   }>();
   const data = useAppData();
   const auth = useAuth();
   const debt = data.debts.find((item) => item.id === id);
-  const selectedEvent = data.events.find(
-    (event) => event.id === (debt?.eventId ?? eventId),
+  const selectedGroup = data.groups.find(
+    (group) => group.id === (debt?.groupId ?? groupId),
   );
-  const isSharedEventDebt = !debt && selectedEvent?.visibility === "shared";
-  const sharedEventMembers = data.sharedEventMembers.filter(
-    (eventMember) =>
-      eventMember.eventId === selectedEvent?.id &&
-      eventMember.status !== "archived" &&
-      eventMember.status !== "merged",
+  const isSharedGroupDebt = !debt && selectedGroup?.visibility === "shared";
+  const sharedGroupMembers = data.sharedGroupMembers.filter(
+    (groupMember) =>
+      groupMember.groupId === selectedGroup?.id &&
+      groupMember.status !== "archived" &&
+      groupMember.status !== "merged",
   );
-  const currentEventMember = sharedEventMembers.find(
+  const currentGroupMember = sharedGroupMembers.find(
     (member) => member.linkedUserId === auth.identity.authenticatedUserId,
   );
 
   const [selectedMemberId, setSelectedMemberId] = useState(
     debt?.memberId ?? memberId ?? data.members[0]?.id ?? "",
   );
-  const [debtorEventMemberId, setDebtorEventMemberId] = useState(
-    currentEventMember?.id ?? sharedEventMembers[0]?.id ?? "",
+  const [debtorGroupMemberId, setDebtorGroupMemberId] = useState(
+    currentGroupMember?.id ?? sharedGroupMembers[0]?.id ?? "",
   );
-  const [creditorEventMemberId, setCreditorEventMemberId] = useState(
-    sharedEventMembers.find((member) => member.id !== debtorEventMemberId)
+  const [creditorGroupMemberId, setCreditorGroupMemberId] = useState(
+    sharedGroupMembers.find((member) => member.id !== debtorGroupMemberId)
       ?.id ?? "",
   );
   const [direction, setDirection] = useState<DebtDirection>(
@@ -78,13 +79,13 @@ export function DebtFormScreen() {
         .map((member) => ({ label: member.displayName, value: member.id })),
     [data.members],
   );
-  const eventMemberOptions = useMemo(
+  const groupMemberOptions = useMemo(
     () =>
-      sharedEventMembers.map((member) => ({
+      sharedGroupMembers.map((member) => ({
         label: member.displayName,
         value: member.id,
       })),
-    [sharedEventMembers],
+    [sharedGroupMembers],
   );
   const usedTagNames = useMemo(
     () => data.tags.map((tag) => tag.name),
@@ -96,13 +97,22 @@ export function DebtFormScreen() {
   }
 
   async function save() {
-    if (isSharedEventDebt && selectedEvent) {
-      await data.createEventDebt({
-        eventId: selectedEvent.id,
-        remoteEventId: selectedEvent.remoteId,
+    const createdDate = debt?.debtDate ?? todayIsoDate();
+    if (dueDate && dueDate < createdDate) {
+      Alert.alert(
+        "Check due date",
+        "The due date cannot be earlier than the date created.",
+      );
+      return;
+    }
+
+    if (isSharedGroupDebt && selectedGroup) {
+      await data.createGroupDebt({
+        groupId: selectedGroup.id,
+        remoteGroupId: selectedGroup.remoteId,
         creatorUserId: auth.identity.authenticatedUserId,
-        debtorEventMemberId,
-        creditorEventMemberId,
+        debtorGroupMemberId,
+        creditorGroupMemberId,
         amount: Number(amount),
         currency,
         title,
@@ -123,7 +133,7 @@ export function DebtFormScreen() {
       notes,
       dueDate,
       tags: selectedTags,
-      ...(debt ? {} : { eventId: eventId ?? null }),
+      ...(debt ? {} : { groupId: groupId ?? null }),
     };
 
     const financialFieldsChanged =
@@ -171,10 +181,10 @@ export function DebtFormScreen() {
           icon="checkmark"
           onPress={save}
           disabled={
-            isSharedEventDebt
-              ? !debtorEventMemberId ||
-                !creditorEventMemberId ||
-                debtorEventMemberId === creditorEventMemberId ||
+            isSharedGroupDebt
+              ? !debtorGroupMemberId ||
+                !creditorGroupMemberId ||
+                debtorGroupMemberId === creditorGroupMemberId ||
                 !title.trim() ||
                 Number(amount) <= 0
               : !selectedMemberId || !title.trim() || Number(amount) <= 0
@@ -183,12 +193,12 @@ export function DebtFormScreen() {
       }
     >
       <PageHeader
-        eyebrow={isSharedEventDebt ? "Shared event debt" : "Simple debt"}
+        eyebrow={isSharedGroupDebt ? "Shared group debt" : "Simple debt"}
         title={debt ? "Edit debt" : "Add debt"}
       />
 
       <Card tone="lavender">
-        {!isSharedEventDebt ? (
+        {!isSharedGroupDebt ? (
           <DirectionToggle value={direction} onChange={setDirection} />
         ) : null}
         <TextField
@@ -228,19 +238,19 @@ export function DebtFormScreen() {
             all recorded payments.
           </Text>
         ) : null}
-        {isSharedEventDebt ? (
+        {isSharedGroupDebt ? (
           <>
             <DropdownSelect
               label="Debtor"
-              value={debtorEventMemberId}
-              options={eventMemberOptions}
-              onChange={setDebtorEventMemberId}
+              value={debtorGroupMemberId}
+              options={groupMemberOptions}
+              onChange={setDebtorGroupMemberId}
             />
             <DropdownSelect
               label="Creditor"
-              value={creditorEventMemberId}
-              options={eventMemberOptions}
-              onChange={setCreditorEventMemberId}
+              value={creditorGroupMemberId}
+              options={groupMemberOptions}
+              onChange={setCreditorGroupMemberId}
             />
           </>
         ) : (
@@ -257,6 +267,7 @@ export function DebtFormScreen() {
           value={dueDate}
           onChange={setDueDate}
           placeholder="No due date"
+          minDate={debt?.debtDate ?? todayIsoDate()}
         />
         <TagInput
           value={selectedTags}

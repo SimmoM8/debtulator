@@ -3,9 +3,9 @@
 
 create table if not exists public.attachments (
   id uuid primary key default gen_random_uuid(),
-  target_type text not null check (target_type in ('debt', 'shared_expense', 'event_debt', 'payment', 'settlement', 'event', 'comment')),
+  target_type text not null check (target_type in ('debt', 'shared_expense', 'group_debt', 'payment', 'settlement', 'group', 'comment')),
   target_id text not null,
-  event_id uuid,
+  group_id uuid,
   created_by_user_id uuid references auth.users(id),
   storage_path text,
   file_name text not null,
@@ -22,9 +22,9 @@ create table if not exists public.attachments (
 
 create table if not exists public.comments (
   id uuid primary key default gen_random_uuid(),
-  target_type text not null check (target_type in ('debt', 'shared_expense', 'event_debt', 'payment', 'settlement', 'event')),
+  target_type text not null check (target_type in ('debt', 'shared_expense', 'group_debt', 'payment', 'settlement', 'group')),
   target_id text not null,
-  event_id uuid,
+  group_id uuid,
   author_user_id uuid references auth.users(id),
   body text not null,
   visibility text not null default 'private' check (visibility in ('private', 'shared')),
@@ -36,7 +36,7 @@ create table if not exists public.comments (
 create table if not exists public.smart_suggestions (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id),
-  suggestion_type text not null check (suggestion_type in ('tag', 'event', 'duplicate', 'recurring')),
+  suggestion_type text not null check (suggestion_type in ('tag', 'group', 'duplicate', 'recurring')),
   target_type text,
   target_id text,
   title text not null,
@@ -77,32 +77,32 @@ alter table public.smart_suggestions enable row level security;
 alter table public.export_logs enable row level security;
 alter table public.csv_import_batches enable row level security;
 
-drop policy if exists attachments_creator_or_event_participant_read on public.attachments;
-create policy attachments_creator_or_event_participant_read on public.attachments
+drop policy if exists attachments_creator_or_group_participant_read on public.attachments;
+create policy attachments_creator_or_group_participant_read on public.attachments
   for select using (
     auth.uid() = created_by_user_id
     or (
       visibility = 'shared'
-      and event_id is not null
+      and group_id is not null
       and exists (
-        select 1 from public.event_participants ep
-        where ep.event_id = attachments.event_id
+        select 1 from public.group_participants ep
+        where ep.group_id = attachments.group_id
           and ep.user_id = auth.uid()
           and ep.status = 'active'
       )
     )
   );
 
-drop policy if exists attachments_creator_or_event_participant_write on public.attachments;
-create policy attachments_creator_or_event_participant_write on public.attachments
+drop policy if exists attachments_creator_or_group_participant_write on public.attachments;
+create policy attachments_creator_or_group_participant_write on public.attachments
   for all using (
     auth.uid() = created_by_user_id
     or (
       visibility = 'shared'
-      and event_id is not null
+      and group_id is not null
       and exists (
-        select 1 from public.event_participants ep
-        where ep.event_id = attachments.event_id
+        select 1 from public.group_participants ep
+        where ep.group_id = attachments.group_id
           and ep.user_id = auth.uid()
           and ep.status = 'active'
           and ep.role in ('owner', 'admin', 'member')
@@ -112,10 +112,10 @@ create policy attachments_creator_or_event_participant_write on public.attachmen
     auth.uid() = created_by_user_id
     or (
       visibility = 'shared'
-      and event_id is not null
+      and group_id is not null
       and exists (
-        select 1 from public.event_participants ep
-        where ep.event_id = attachments.event_id
+        select 1 from public.group_participants ep
+        where ep.group_id = attachments.group_id
           and ep.user_id = auth.uid()
           and ep.status = 'active'
           and ep.role in ('owner', 'admin', 'member')
@@ -123,16 +123,16 @@ create policy attachments_creator_or_event_participant_write on public.attachmen
     )
   );
 
-drop policy if exists comments_creator_or_event_participant on public.comments;
-create policy comments_creator_or_event_participant on public.comments
+drop policy if exists comments_creator_or_group_participant on public.comments;
+create policy comments_creator_or_group_participant on public.comments
   for all using (
     auth.uid() = author_user_id
     or (
       visibility = 'shared'
-      and event_id is not null
+      and group_id is not null
       and exists (
-        select 1 from public.event_participants ep
-        where ep.event_id = comments.event_id
+        select 1 from public.group_participants ep
+        where ep.group_id = comments.group_id
           and ep.user_id = auth.uid()
           and ep.status = 'active'
       )
@@ -141,10 +141,10 @@ create policy comments_creator_or_event_participant on public.comments
     auth.uid() = author_user_id
     or (
       visibility = 'shared'
-      and event_id is not null
+      and group_id is not null
       and exists (
-        select 1 from public.event_participants ep
-        where ep.event_id = comments.event_id
+        select 1 from public.group_participants ep
+        where ep.group_id = comments.group_id
           and ep.user_id = auth.uid()
           and ep.status = 'active'
       )
@@ -167,8 +167,8 @@ insert into storage.buckets (id, name, public)
 values ('debtulator-attachments', 'debtulator-attachments', false)
 on conflict (id) do nothing;
 
-drop policy if exists attachment_files_event_participants_read on storage.objects;
-create policy attachment_files_event_participants_read on storage.objects
+drop policy if exists attachment_files_group_participants_read on storage.objects;
+create policy attachment_files_group_participants_read on storage.objects
   for select using (
     bucket_id = 'debtulator-attachments'
     and (
@@ -176,7 +176,7 @@ create policy attachment_files_event_participants_read on storage.objects
       or exists (
         select 1
         from public.attachments a
-        left join public.event_participants ep on ep.event_id = a.event_id
+        left join public.group_participants ep on ep.group_id = a.group_id
         where a.storage_path = storage.objects.name
           and a.visibility = 'shared'
           and ep.user_id = auth.uid()

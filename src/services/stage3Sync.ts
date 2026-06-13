@@ -1,14 +1,14 @@
 import { supabase } from '@/src/services/supabase';
 import type {
-  EventDebt,
-  EventInvite,
-  EventMemberClaim,
-  EventVerificationResponse,
-  SharedEventMember,
+  GroupDebt,
+  GroupInvite,
+  GroupMemberClaim,
+  GroupVerificationResponse,
+  SharedGroupMember,
   SharedExpense,
 } from '@/src/types/models';
 
-export async function createRemoteSharedEvent(input: {
+export async function createRemoteSharedGroup(input: {
   ownerUserId: string;
   name: string;
   notes?: string | null;
@@ -22,8 +22,8 @@ export async function createRemoteSharedEvent(input: {
     return null;
   }
 
-  const { data: event, error: eventError } = await supabase
-    .from('events')
+  const { data: group, error: groupError } = await supabase
+    .from('groups')
     .insert({
       owner_user_id: input.ownerUserId,
       name: input.name,
@@ -36,12 +36,12 @@ export async function createRemoteSharedEvent(input: {
     })
     .select('id')
     .single();
-  if (eventError) {
-    throw eventError;
+  if (groupError) {
+    throw groupError;
   }
 
-  const { error: participantError } = await supabase.from('event_participants').insert({
-    event_id: event.id,
+  const { error: participantError } = await supabase.from('group_participants').insert({
+    group_id: group.id,
     user_id: input.ownerUserId,
     role: 'owner',
     status: 'active',
@@ -52,9 +52,9 @@ export async function createRemoteSharedEvent(input: {
   }
 
   const { data: member, error: memberError } = await supabase
-    .from('event_members')
+    .from('group_members')
     .insert({
-      event_id: event.id,
+      group_id: group.id,
       type: 'linked_user',
       linked_user_id: input.ownerUserId,
       display_name: input.ownerDisplayName,
@@ -69,26 +69,26 @@ export async function createRemoteSharedEvent(input: {
     throw memberError;
   }
 
-  await createRemoteEventActivity({
-    eventId: event.id,
+  await createRemoteGroupActivity({
+    groupId: group.id,
     actorUserId: input.ownerUserId,
-    action: 'event_created',
-    targetType: 'event',
-    targetId: event.id,
+    action: 'group_created',
+    targetType: 'group',
+    targetId: group.id,
     metadata: { name: input.name },
   });
 
-  return { remoteEventId: event.id as string, remoteOwnerEventMemberId: member.id as string };
+  return { remoteGroupId: group.id as string, remoteOwnerGroupMemberId: member.id as string };
 }
 
-export async function createRemoteEventInvite(input: EventInvite) {
-  if (!supabase || !input.remoteEventId) {
+export async function createRemoteGroupInvite(input: GroupInvite) {
+  if (!supabase || !input.remoteGroupId) {
     return null;
   }
   const { data, error } = await supabase
-    .from('event_invites')
+    .from('group_invites')
     .insert({
-      event_id: input.remoteEventId,
+      group_id: input.remoteGroupId,
       inviter_user_id: input.inviterUserId,
       invited_user_id: input.invitedUserId,
       invited_email: input.invitedEmail,
@@ -106,13 +106,13 @@ export async function createRemoteEventInvite(input: EventInvite) {
   return data.id as string;
 }
 
-export async function updateRemoteEventInvite(invite: EventInvite, status: EventInvite['status'], actorUserId?: string | null) {
+export async function updateRemoteGroupInvite(invite: GroupInvite, status: GroupInvite['status'], actorUserId?: string | null) {
   if (!supabase || !invite.remoteId) {
     return;
   }
   const respondedAt = new Date().toISOString();
   const { error } = await supabase
-    .from('event_invites')
+    .from('group_invites')
     .update({
       status,
       invited_user_id: status === 'accepted' ? actorUserId ?? invite.invitedUserId : invite.invitedUserId,
@@ -125,14 +125,14 @@ export async function updateRemoteEventInvite(invite: EventInvite, status: Event
   }
 }
 
-export async function createRemoteSharedEventMember(member: SharedEventMember) {
-  if (!supabase || !member.remoteEventId) {
+export async function createRemoteSharedGroupMember(member: SharedGroupMember) {
+  if (!supabase || !member.remoteGroupId) {
     return null;
   }
   const { data, error } = await supabase
-    .from('event_members')
+    .from('group_members')
     .insert({
-      event_id: member.remoteEventId,
+      group_id: member.remoteGroupId,
       type: member.type,
       linked_user_id: member.linkedUserId,
       display_name: member.displayName,
@@ -142,7 +142,7 @@ export async function createRemoteSharedEventMember(member: SharedEventMember) {
       notes: member.notes,
       created_by_user_id: member.createdByUserId,
       status: member.status,
-      merged_into_event_member_id: member.mergedIntoEventMemberId,
+      merged_into_group_member_id: member.mergedIntoGroupMemberId,
     })
     .select('id')
     .single();
@@ -152,16 +152,16 @@ export async function createRemoteSharedEventMember(member: SharedEventMember) {
   return data.id as string;
 }
 
-export async function createRemoteEventExpense(expense: SharedExpense) {
+export async function createRemoteGroupExpense(expense: SharedExpense) {
   if (!supabase) {
     return null;
   }
   const { data, error } = await supabase
-    .from('event_expenses')
+    .from('group_expenses')
     .insert({
-      event_id: expense.eventId,
+      group_id: expense.groupId,
       creator_user_id: expense.creatorUserId,
-      payer_event_member_id: expense.payerId,
+      payer_group_member_id: expense.payerId,
       amount: expense.amount,
       currency: expense.currency,
       title: expense.title,
@@ -181,17 +181,17 @@ export async function createRemoteEventExpense(expense: SharedExpense) {
   return data.id as string;
 }
 
-export async function createRemoteEventDebt(debt: EventDebt) {
-  if (!supabase || !debt.remoteEventId) {
+export async function createRemoteGroupDebt(debt: GroupDebt) {
+  if (!supabase || !debt.remoteGroupId) {
     return null;
   }
   const { data, error } = await supabase
-    .from('event_debts')
+    .from('group_debts')
     .insert({
-      event_id: debt.remoteEventId,
+      group_id: debt.remoteGroupId,
       creator_user_id: debt.creatorUserId,
-      debtor_event_member_id: debt.debtorEventMemberId,
-      creditor_event_member_id: debt.creditorEventMemberId,
+      debtor_group_member_id: debt.debtorGroupMemberId,
+      creditor_group_member_id: debt.creditorGroupMemberId,
       amount: debt.amount,
       currency: debt.currency,
       title: debt.title,
@@ -210,15 +210,15 @@ export async function createRemoteEventDebt(debt: EventDebt) {
   return data.id as string;
 }
 
-export async function createRemoteEventClaim(claim: EventMemberClaim) {
-  if (!supabase || !claim.remoteEventId) {
+export async function createRemoteGroupClaim(claim: GroupMemberClaim) {
+  if (!supabase || !claim.remoteGroupId) {
     return null;
   }
   const { data, error } = await supabase
-    .from('event_member_claims')
+    .from('group_member_claims')
     .insert({
-      event_id: claim.remoteEventId,
-      event_member_id: claim.remoteEventMemberId ?? claim.eventMemberId,
+      group_id: claim.remoteGroupId,
+      group_member_id: claim.remoteGroupMemberId ?? claim.groupMemberId,
       claimant_user_id: claim.claimantUserId,
       status: claim.status,
       message: claim.message,
@@ -231,17 +231,17 @@ export async function createRemoteEventClaim(claim: EventMemberClaim) {
   return data.id as string;
 }
 
-export async function createRemoteEventVerificationResponse(response: EventVerificationResponse) {
-  if (!supabase || !response.remoteEventId) {
+export async function createRemoteGroupVerificationResponse(response: GroupVerificationResponse) {
+  if (!supabase || !response.remoteGroupId) {
     return null;
   }
   const { data, error } = await supabase
-    .from('event_verification_responses')
+    .from('group_verification_responses')
     .upsert({
-      event_id: response.remoteEventId,
+      group_id: response.remoteGroupId,
       target_type: response.targetType,
       target_id: response.remoteTargetId ?? response.targetId,
-      event_member_id: response.eventMemberId,
+      group_member_id: response.groupMemberId,
       linked_user_id: response.linkedUserId,
       response_status: response.responseStatus,
       rejection_reason: response.rejectionReason,
@@ -255,8 +255,8 @@ export async function createRemoteEventVerificationResponse(response: EventVerif
   return data.id as string;
 }
 
-export async function createRemoteEventActivity(input: {
-  eventId: string;
+export async function createRemoteGroupActivity(input: {
+  groupId: string;
   actorUserId: string | null;
   action: string;
   targetType: string;
@@ -266,8 +266,8 @@ export async function createRemoteEventActivity(input: {
   if (!supabase) {
     return null;
   }
-  const { error } = await supabase.from('event_activity_logs').insert({
-    event_id: input.eventId,
+  const { error } = await supabase.from('group_activity_logs').insert({
+    group_id: input.groupId,
     actor_user_id: input.actorUserId,
     action: input.action,
     target_type: input.targetType,
@@ -286,7 +286,7 @@ export async function fetchRemoteStage3Records(input: { userId: string; email?: 
 
   const emailClause = input.email ? `,invited_email.eq.${input.email}` : '';
   const { data: invites, error: inviteError } = await supabase
-    .from('event_invites')
+    .from('group_invites')
     .select('*')
     .or(`invited_user_id.eq.${input.userId},inviter_user_id.eq.${input.userId}${emailClause}`)
     .order('updated_at', { ascending: false });
@@ -295,7 +295,7 @@ export async function fetchRemoteStage3Records(input: { userId: string; email?: 
   }
 
   const { data: participants, error: participantError } = await supabase
-    .from('event_participants')
+    .from('group_participants')
     .select('*')
     .eq('user_id', input.userId)
     .order('updated_at', { ascending: false });
@@ -303,37 +303,37 @@ export async function fetchRemoteStage3Records(input: { userId: string; email?: 
     throw participantError;
   }
 
-  const eventIds = Array.from(
+  const groupIds = Array.from(
     new Set([
-      ...(participants ?? []).map((row) => row.event_id),
-      ...(invites ?? []).map((row) => row.event_id),
+      ...(participants ?? []).map((row) => row.group_id),
+      ...(invites ?? []).map((row) => row.group_id),
     ]),
   );
 
-  if (eventIds.length === 0) {
-    return { events: [], participants: participants ?? [], invites: invites ?? [], members: [], expenses: [], splits: [], debts: [], claims: [], verifications: [], warnings: [], activity: [] };
+  if (groupIds.length === 0) {
+    return { groups: [], participants: participants ?? [], invites: invites ?? [], members: [], expenses: [], splits: [], debts: [], claims: [], verifications: [], warnings: [], activity: [] };
   }
 
-  const [events, members, expenses, splits, debts, claims, verifications, warnings, activity] = await Promise.all([
-    supabase.from('events').select('*').in('id', eventIds),
-    supabase.from('event_members').select('*').in('event_id', eventIds),
-    supabase.from('event_expenses').select('*').in('event_id', eventIds),
-    supabase.from('event_expense_splits').select('*, event_expenses!inner(event_id)').in('event_expenses.event_id', eventIds),
-    supabase.from('event_debts').select('*').in('event_id', eventIds),
-    supabase.from('event_member_claims').select('*').in('event_id', eventIds),
-    supabase.from('event_verification_responses').select('*').in('event_id', eventIds),
-    supabase.from('event_duplicate_warnings').select('*').in('event_id', eventIds),
-    supabase.from('event_activity_logs').select('*').in('event_id', eventIds).order('created_at', { ascending: false }),
+  const [groups, members, expenses, splits, debts, claims, verifications, warnings, activity] = await Promise.all([
+    supabase.from('groups').select('*').in('id', groupIds),
+    supabase.from('group_members').select('*').in('group_id', groupIds),
+    supabase.from('group_expenses').select('*').in('group_id', groupIds),
+    supabase.from('group_expense_splits').select('*, group_expenses!inner(group_id)').in('group_expenses.group_id', groupIds),
+    supabase.from('group_debts').select('*').in('group_id', groupIds),
+    supabase.from('group_member_claims').select('*').in('group_id', groupIds),
+    supabase.from('group_verification_responses').select('*').in('group_id', groupIds),
+    supabase.from('group_duplicate_warnings').select('*').in('group_id', groupIds),
+    supabase.from('group_activity_logs').select('*').in('group_id', groupIds).order('created_at', { ascending: false }),
   ]);
 
-  for (const result of [events, members, expenses, splits, debts, claims, verifications, warnings, activity]) {
+  for (const result of [groups, members, expenses, splits, debts, claims, verifications, warnings, activity]) {
     if (result.error) {
       throw result.error;
     }
   }
 
   return {
-    events: events.data ?? [],
+    groups: groups.data ?? [],
     participants: participants ?? [],
     invites: invites ?? [],
     members: members.data ?? [],

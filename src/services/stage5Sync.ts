@@ -12,7 +12,7 @@ export async function uploadSharedAttachment(attachment: Attachment) {
 
   const storagePath =
     attachment.storagePath ??
-    `${attachment.eventId ? `events/${attachment.eventId}` : 'shared'}/${attachment.targetType}/${attachment.targetId}/${attachment.id}-${attachment.fileName}`;
+    `${attachment.groupId ? `groups/${attachment.groupId}` : 'shared'}/${attachment.targetType}/${attachment.targetId}/${attachment.id}-${attachment.fileName}`;
   const base64 = await FileSystem.readAsStringAsync(attachment.localUri, { encoding: FileSystem.EncodingType.Base64 });
   const arrayBuffer = base64ToArrayBuffer(base64);
   const { error } = await supabase.storage.from(ATTACHMENT_BUCKET).upload(storagePath, arrayBuffer, {
@@ -38,7 +38,7 @@ export async function createRemoteComment(comment: Comment) {
     .insert({
       target_type: comment.targetType,
       target_id: comment.targetId,
-      event_id: comment.eventId,
+      group_id: comment.groupId,
       author_user_id: comment.authorUserId,
       body: comment.body,
       visibility: comment.visibility,

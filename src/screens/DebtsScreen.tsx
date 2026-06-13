@@ -36,7 +36,7 @@ import type {
   CurrencyRate,
   LedgerEntry,
   Member,
-  SharedEventMember,
+  SharedGroupMember,
 } from "@/src/types/models";
 import { formatMoney } from "@/src/utils/money";
 
@@ -89,11 +89,11 @@ export function DebtsScreen() {
       const direction = entryDirectionText(
         entry,
         data.members,
-        data.sharedEventMembers,
+        data.sharedGroupMembers,
       ).toLowerCase();
-      const eventName = entry.eventId
-        ? (data.events
-            .find((event) => event.id === entry.eventId)
+      const groupName = entry.groupId
+        ? (data.groups
+            .find((group) => group.id === entry.groupId)
             ?.name.toLowerCase() ?? "")
         : "";
       const matchesQuery =
@@ -101,7 +101,7 @@ export function DebtsScreen() {
         entry.title.toLowerCase().includes(normalized) ||
         (entry.notes ?? "").toLowerCase().includes(normalized) ||
         direction.includes(normalized) ||
-        eventName.includes(normalized);
+        groupName.includes(normalized);
 
       if (!matchesQuery) {
         return false;
@@ -118,10 +118,10 @@ export function DebtsScreen() {
       return true;
     });
   }, [
-    data.events,
+    data.groups,
     data.ledgerEntries,
     data.members,
-    data.sharedEventMembers,
+    data.sharedGroupMembers,
     query,
   ]);
 
@@ -294,7 +294,7 @@ export function DebtsScreen() {
         )}
         summaryTone="negative"
         members={data.members}
-        sharedEventMembers={data.sharedEventMembers}
+        sharedGroupMembers={data.sharedGroupMembers}
       />
       <LedgerSection
         title="Owed to you"
@@ -307,7 +307,7 @@ export function DebtsScreen() {
         )}
         summaryTone="positive"
         members={data.members}
-        sharedEventMembers={data.sharedEventMembers}
+        sharedGroupMembers={data.sharedGroupMembers}
       />
       {!filteredEntries.length ? (
         <GlassCard tone="lavender">
@@ -328,7 +328,7 @@ function LedgerSection({
   summaryAmount,
   summaryTone,
   members,
-  sharedEventMembers,
+  sharedGroupMembers,
 }: {
   title: string;
   subtitle: string;
@@ -336,7 +336,7 @@ function LedgerSection({
   summaryAmount: string;
   summaryTone: "positive" | "negative" | "neutral";
   members: Member[];
-  sharedEventMembers: SharedEventMember[];
+  sharedGroupMembers: SharedGroupMember[];
 }) {
   if (!entries.length) {
     return null;
@@ -369,11 +369,11 @@ function LedgerSection({
               key={entry.id}
               title={entry.title}
               subtitle={
-                entry.eventId
+                entry.groupId
                   ? "Shared"
                   : entry.kind === "expense_obligation"
                     ? "Bills"
-                    : entryDirectionText(entry, members, sharedEventMembers)
+                    : entryDirectionText(entry, members, sharedGroupMembers)
               }
               amount={formatMoney(
                 entry.remainingAmount <= 0.005
@@ -383,8 +383,8 @@ function LedgerSection({
               )}
               trailingLabel={debtDueLabel(entry)}
               trailingTone={debtDueTone(entry)}
-              icon={entry.eventId ? "people-outline" : "wallet-outline"}
-              iconTone={entry.eventId ? "teal" : "indigo"}
+              icon={entry.groupId ? "people-outline" : "wallet-outline"}
+              iconTone={entry.groupId ? "teal" : "indigo"}
               showDivider={index < entries.length - 1}
               onPress={() => openEntry(entry)}
             />
@@ -396,14 +396,14 @@ function LedgerSection({
 }
 
 function openEntry(
-  entry: Pick<LedgerEntry, "kind" | "sourceId" | "expenseId" | "eventId">,
+  entry: Pick<LedgerEntry, "kind" | "sourceId" | "expenseId" | "groupId">,
 ) {
   if (entry.kind === "simple_debt") {
     router.push({ pathname: "/debt/[id]", params: { id: entry.sourceId } });
     return;
   }
-  if (entry.kind === "event_direct_debt" && entry.eventId) {
-    router.push({ pathname: "/event/[id]", params: { id: entry.eventId } });
+  if (entry.kind === "group_direct_debt" && entry.groupId) {
+    router.push({ pathname: "/group/[id]", params: { id: entry.groupId } });
     return;
   }
   router.push({
