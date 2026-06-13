@@ -1,0 +1,4 @@
+- fix the look, style and functionality of the page menus and finalise their options
+- integrate real payment features with personal bank apps and services like swish, klarna, apple pay, etc
+- create and link a real database and cloud server
+- fix and finalise the options page.

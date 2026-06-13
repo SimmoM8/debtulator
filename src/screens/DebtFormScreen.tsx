@@ -78,6 +78,24 @@ export function DebtFormScreen() {
   const [notes, setNotes] = useState(debt?.notes ?? "");
   const [dueDate, setDueDate] = useState(debt?.dueDate ?? "");
   const [selectedTags, setSelectedTags] = useState<string[]>(debt?.tags ?? []);
+  const selectedMember = data.members.find(
+    (member) => member.id === selectedMemberId,
+  );
+  const originalVerification = debt
+    ? data.debtVerifications
+        .filter(
+          (verification) =>
+            verification.debtId === debt.id &&
+            verification.requestType === "creation",
+        )
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0]
+    : undefined;
+  const confirmationUserId =
+    auth.identity.authenticatedUserId ??
+    originalVerification?.requesterUserId ??
+    (selectedMember?.linkedUserId?.startsWith("demo_user_")
+      ? "demo_user_local"
+      : null);
 
   const memberOptions = useMemo(
     () =>
@@ -145,25 +163,17 @@ export function DebtFormScreen() {
 
     const approvalFieldsChanged =
       debt &&
-      (selectedMemberId !== debt.memberId ||
+      (Number(amount) !== debt.amount ||
         direction !== debt.direction ||
-        Number(amount) !== debt.amount ||
-        title.trim() !== debt.title ||
         (dueDate || null) !== debt.dueDate);
     const memberChanged = Boolean(
       debt && selectedMemberId !== debt.memberId,
     );
-    const originalVerification = debt
-      ? data.debtVerifications
-          .filter((verification) => verification.debtId === debt.id)
-          .sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0]
-      : undefined;
-    const currentUserId = auth.identity.authenticatedUserId;
     if (
       memberChanged &&
       debt?.visibility === "shared_with_involved_member" &&
       originalVerification &&
-      originalVerification.requesterUserId !== currentUserId
+      originalVerification.requesterUserId !== confirmationUserId
     ) {
       Alert.alert(
         "Member cannot be changed",
@@ -172,14 +182,19 @@ export function DebtFormScreen() {
       return;
     }
 
-    if (approvalFieldsChanged && debt.verificationStatus === "verified") {
+    const requiresConfirmation =
+      approvalFieldsChanged &&
+      selectedMember?.linkStatus === "linked" &&
+      Boolean(selectedMember.linkedUserId) &&
+      Boolean(confirmationUserId);
+    if (requiresConfirmation) {
       Alert.alert(
-        "Verification required again",
-        "The linked member will be asked to confirm these changes.",
+        "Confirmation required",
+        "Changing the amount, direction, or due date requires confirmation from the other member.",
         [
           { text: "Cancel", style: "cancel" },
           {
-            text: "Save and request",
+            text: "Save and request confirmation",
             onPress: () => persist(input, true),
           },
         ],
@@ -198,7 +213,7 @@ export function DebtFormScreen() {
       ? await data.updateDebt(
         debt.id,
         input,
-        auth.identity.authenticatedUserId,
+        confirmationUserId,
       )
       : await data.createDebt(input);
 
@@ -206,7 +221,7 @@ export function DebtFormScreen() {
       (member) => member.id === savedDebt.memberId,
     );
     const shouldRequestConfirmation =
-      Boolean(auth.identity.authenticatedUserId) &&
+      Boolean(confirmationUserId) &&
       linkedMember?.linkStatus === "linked" &&
       Boolean(linkedMember.linkedUserId) &&
       (!debt || requestAmendment);
@@ -216,28 +231,13 @@ export function DebtFormScreen() {
         await sendConfirmationRequest(
           savedDebt,
           linkedMember,
-          debt &&
-            savedDebt.remoteId &&
-            savedDebt.memberId === debt.memberId
-            ? "amendment"
-            : "creation",
+          debt ? "amendment" : "creation",
           buildChangeSummary(debt, savedDebt),
         );
       } catch {
-        if (debt) {
-          try {
-            await data.updateDebt(
-              savedDebt.id,
-              { verificationStatus: debt.verificationStatus },
-              auth.identity.authenticatedUserId,
-            );
-          } catch {
-            // The debt remains local and can be retried from its options.
-          }
-        }
         Alert.alert(
-          "Debt saved locally",
-          "The confirmation request could not be sent. You can retry it from the debt options.",
+          "Confirmation pending",
+          "The debt is marked as awaiting confirmation, but the request could not be delivered yet. You can retry it from the debt options.",
         );
       }
     }
@@ -251,18 +251,30 @@ export function DebtFormScreen() {
     requestType: "creation" | "amendment",
     changeSummary: DebtChangeSummary,
   ) {
-    const requesterUserId = auth.identity.authenticatedUserId;
+    const requesterUserId = confirmationUserId;
     const responderUserId = linkedMember.linkedUserId;
     if (!requesterUserId || !responderUserId) {
       return;
     }
 
-    const remote = await createRemoteDebtVerification({
-      debt: savedDebt,
-      member: linkedMember,
+    const local = await data.requestDebtVerification(savedDebt.id, {
       requesterUserId,
       responderUserId,
       sharedNotes: savedDebt.sharedNotes ?? savedDebt.notes,
+      requestType,
+      changeSummary,
+    });
+
+    if (!auth.identity.authenticatedUserId) {
+      return;
+    }
+
+    const remote = await createRemoteDebtVerification({
+      debt: local.debt,
+      member: linkedMember,
+      requesterUserId,
+      responderUserId,
+      sharedNotes: local.debt.sharedNotes ?? local.debt.notes,
       requestType,
       changeSummary,
     });
@@ -270,14 +282,16 @@ export function DebtFormScreen() {
       throw new Error("Cloud confirmation is unavailable.");
     }
 
-    await data.requestDebtVerification(savedDebt.id, {
-      requesterUserId,
-      responderUserId,
+    await data.upsertDebt({
+      ...local.debt,
+      remoteId: remote.remoteDebtId,
+      syncStatus: "synced",
+    });
+    await data.upsertDebtVerification({
+      ...local.verification,
+      remoteId: remote.remoteVerificationId,
       remoteDebtId: remote.remoteDebtId,
-      remoteVerificationId: remote.remoteVerificationId,
-      sharedNotes: savedDebt.sharedNotes ?? savedDebt.notes,
-      requestType,
-      changeSummary,
+      syncStatus: "synced",
     });
   }
 
@@ -399,22 +413,25 @@ function buildChangeSummary(
   proposedDebt: Debt,
 ): DebtChangeSummary {
   const previous = {
-    member: previousDebt?.memberId ?? null,
-    direction: previousDebt?.direction ?? null,
     amount: previousDebt?.amount ?? null,
-    title: previousDebt?.title ?? null,
+    direction: previousDebt?.direction ?? null,
     dueDate: previousDebt?.dueDate ?? null,
   };
   const proposed = {
-    member: proposedDebt.memberId,
-    direction: proposedDebt.direction,
     amount: proposedDebt.amount,
-    title: proposedDebt.title,
+    direction: proposedDebt.direction,
     dueDate: proposedDebt.dueDate,
   };
-  const changedFields = (
-    Object.keys(proposed) as DebtChangeSummary["changedFields"]
-  ).filter((field) => !previousDebt || previous[field] !== proposed[field]);
+  const changedFields: DebtChangeSummary["changedFields"] = [];
+  if (!previousDebt || previous.amount !== proposed.amount) {
+    changedFields.push("amount");
+  }
+  if (!previousDebt || previous.direction !== proposed.direction) {
+    changedFields.push("direction");
+  }
+  if (!previousDebt || previous.dueDate !== proposed.dueDate) {
+    changedFields.push("dueDate");
+  }
 
   return { changedFields, previous, proposed };
 }

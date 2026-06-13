@@ -13,13 +13,13 @@ import {
 } from "react-native";
 
 import { AvatarStack } from "@/src/components/ui/Finance";
-import { VerificationBadge } from "@/src/components/ui/Badges";
 import { MobileMenuModal } from "@/src/components/ui/MenuList";
 import { Amount } from "@/src/components/ui/Money";
 import { TagInput } from "@/src/components/ui/TagInput";
 import {
   Button,
   Card,
+  DatePickerField,
   EmptyState,
   IconButton,
   LoadingState,
@@ -40,10 +40,25 @@ import {
   writePdfExport,
 } from "@/src/services/export";
 import { buildLedgerEntries } from "@/src/services/ledger";
-import { createRemoteDebtVerification } from "@/src/services/stage2Sync";
+import {
+  createRemoteDebtVerification,
+  respondRemotePaymentConfirmation,
+  respondRemoteDebtVerification,
+  sendRemoteDebtConfirmationReminder,
+  sendRemotePaymentConfirmationReminder,
+} from "@/src/services/stage2Sync";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
-import type { CurrencyCode, Debt, DebtStatus } from "@/src/types/models";
+import type {
+  ActivityLog,
+  CurrencyCode,
+  Debt,
+  DebtChangeSummary,
+  DebtStatus,
+  DebtVerification,
+  Payment,
+  VerificationStatus,
+} from "@/src/types/models";
 import { todayIsoDate } from "@/src/utils/id";
 import { formatMoney } from "@/src/utils/money";
 
@@ -52,6 +67,7 @@ type ActivityItem = {
   title: string;
   detail: string;
   createdAt: string;
+  confirmationStatus?: Extract<VerificationStatus, "pending" | "rejected">;
 };
 
 export function DebtDetailScreen() {
@@ -73,6 +89,15 @@ export function DebtDetailScreen() {
   } | null>(null);
   const [savingTags, setSavingTags] = useState(false);
   const [tagsOpen, setTagsOpen] = useState(false);
+  const [dueDateOpen, setDueDateOpen] = useState(false);
+  const [dueDateDraft, setDueDateDraft] = useState("");
+  const [savingDueDate, setSavingDueDate] = useState(false);
+  const [respondingVerificationId, setRespondingVerificationId] = useState<
+    string | null
+  >(null);
+  const [remindingVerificationId, setRemindingVerificationId] = useState<
+    string | null
+  >(null);
   const member = debt
     ? data.members.find((item) => item.id === debt.memberId)
     : undefined;
@@ -132,11 +157,89 @@ export function DebtDetailScreen() {
       ...groupParticipants,
     ]),
   );
+  const isCloudSyncedMember =
+    member?.linkStatus === "linked" &&
+    Boolean(member.linkedUserId);
+  const debtConfirmationRecords = data.debtVerifications.filter(
+    (verification) => verification.debtId === currentDebt.id,
+  );
+  const creationConfirmation = debtConfirmationRecords
+    .filter((verification) => verification.requestType === "creation")
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0];
+  const currentUserId =
+    auth.identity.authenticatedUserId ??
+    creationConfirmation?.requesterUserId ??
+    (member?.linkedUserId?.startsWith("demo_user_")
+      ? "demo_user_local"
+      : null);
+  const currentConfirmations = isCloudSyncedMember
+    ? getCurrentConfirmations(debtConfirmationRecords)
+    : [];
+  const pendingConfirmations = currentConfirmations.filter(
+    (verification) => verification.status === "pending",
+  );
+  const rejectedConfirmations = currentConfirmations.filter(
+    (verification) => verification.status === "rejected",
+  );
+  const pendingPaymentConfirmations = isCloudSyncedMember
+    ? payments.filter(
+        (payment) =>
+          payment.confirmationStatus === "pending_confirmation",
+      )
+    : [];
+  const rejectedPaymentConfirmations = isCloudSyncedMember
+    ? payments.filter(
+        (payment) => payment.confirmationStatus === "rejected",
+      )
+    : [];
+  const latestConfirmationTime = debtConfirmationRecords.reduce(
+    (latest, verification) =>
+      Math.max(latest, new Date(verification.requestedAt).getTime() || 0),
+    0,
+  );
+  const orphanedPendingActivities = data.activityLogs.filter((activity) => {
+    if (
+      activity.entityKind !== "debt" ||
+      activity.entityId !== currentDebt.id ||
+      activityConfirmationField(activity.action) === "none"
+    ) {
+      return false;
+    }
+    const activityTime = new Date(activity.createdAt).getTime();
+    return Number.isFinite(activityTime) && activityTime > latestConfirmationTime;
+  });
+  const isMissingCreationConfirmation =
+    isCloudSyncedMember && !creationConfirmation;
+  const hasOrphanedPendingConfirmation =
+    isCloudSyncedMember &&
+    pendingConfirmations.length === 0 &&
+    pendingPaymentConfirmations.length === 0 &&
+    (isMissingCreationConfirmation ||
+      (currentDebt.verificationStatus === "pending" &&
+        orphanedPendingActivities.length > 0));
+  const orphanedPendingFields = new Set(
+    orphanedPendingActivities
+      .map((activity) => activityConfirmationField(activity.action))
+      .filter(
+        (field): field is "amount" | "direction" | "dueDate" =>
+          field !== "none" && field !== "debt",
+      ),
+  );
+  const hasRejectedConfirmation =
+    rejectedConfirmations.length > 0 ||
+    rejectedPaymentConfirmations.length > 0;
+  const hasPendingConfirmation =
+    pendingConfirmations.length > 0 ||
+    pendingPaymentConfirmations.length > 0 ||
+    hasOrphanedPendingConfirmation;
+  const dueDateConfirmationStatus =
+    confirmationStatusForField("dueDate", currentConfirmations) ??
+    (orphanedPendingFields.has("dueDate") ? "pending" : undefined);
 
   function activityActorName(actorUserId: string | null) {
     if (
       !actorUserId ||
-      actorUserId === auth.identity.authenticatedUserId
+      actorUserId === currentUserId
     ) {
       return "You";
     }
@@ -167,6 +270,11 @@ export function DebtDetailScreen() {
       title: "You created the debt",
       detail: formatMoney(currentDebt.amount, currentDebt.currency),
       createdAt: currentDebt.createdAt,
+      confirmationStatus: confirmationStateForActivity(
+        "debt_created",
+        currentDebt.createdAt,
+        currentConfirmations,
+      ) ?? (isMissingCreationConfirmation ? "pending" : undefined),
     },
     ...data.activityLogs
       .filter(
@@ -186,6 +294,18 @@ export function DebtDetailScreen() {
           title: `${actor} ${description.phrase}`,
           detail: description.detail,
           createdAt: activity.createdAt,
+          confirmationStatus:
+            confirmationStateForActivity(
+              activity.action,
+              activity.createdAt,
+              currentConfirmations,
+            ) ??
+            (hasOrphanedPendingConfirmation &&
+            orphanedPendingActivities.some(
+              (orphaned) => orphaned.id === activity.id,
+            )
+              ? ("pending" as const)
+              : undefined),
         };
       }),
     ...payments.map((payment) => {
@@ -201,6 +321,12 @@ export function DebtDetailScreen() {
             : ` · ${payment.status.replaceAll("_", " ")}`
         }`,
         createdAt: payment.createdAt,
+        confirmationStatus:
+          payment.confirmationStatus === "pending_confirmation"
+            ? ("pending" as const)
+            : payment.confirmationStatus === "rejected"
+              ? ("rejected" as const)
+              : undefined,
       };
     }),
   ].sort((a, b) => {
@@ -224,11 +350,32 @@ export function DebtDetailScreen() {
     );
   }
 
-  async function settleUp() {
+  function settleUp() {
     if (settlingUp || debtEntry.remainingAmount <= 0.005) {
       return;
     }
 
+    if (isCloudSyncedMember) {
+      Alert.alert(
+        "Confirmation required",
+        "Settling this debt records a payment that requires confirmation from the other member.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Settle debt",
+            onPress: () => {
+              void performSettlement();
+            },
+          },
+        ],
+      );
+      return;
+    }
+
+    void performSettlement();
+  }
+
+  async function performSettlement() {
     setSettlingUp(true);
     try {
       await data.createPaymentSettlement({
@@ -240,7 +387,18 @@ export function DebtDetailScreen() {
         notes: "Settled from debt details",
         relatedMemberId: currentDebt.memberId,
         visibility: currentDebt.visibility,
+        confirmationStatus: isCloudSyncedMember
+          ? "pending_confirmation"
+          : undefined,
         createdByUserId: auth.identity.authenticatedUserId,
+        payerUserId:
+          debtEntry.fromId === "me"
+            ? auth.identity.authenticatedUserId
+            : member?.linkedUserId,
+        payeeUserId:
+          debtEntry.toId === "me"
+            ? auth.identity.authenticatedUserId
+            : member?.linkedUserId,
         lines: [
           {
             sourceRecordType: "simple_debt",
@@ -278,7 +436,7 @@ export function DebtDetailScreen() {
   }
 
   async function requestVerification() {
-    if (!auth.identity.authenticatedUserId) {
+    if (!currentUserId) {
       Alert.alert(
         "Account required",
         "Sign in to request verification from a linked member.",
@@ -293,30 +451,48 @@ export function DebtDetailScreen() {
       return;
     }
 
+    const changeSummary = buildChangeSummaryFromActivities(
+      orphanedPendingActivities,
+    );
+    const requestType =
+      changeSummary.changedFields.length > 0 ? "amendment" : "creation";
+
     try {
-      const remote = await createRemoteDebtVerification({
-        debt: currentDebt,
-        member,
-        requesterUserId: auth.identity.authenticatedUserId,
+      const local = await data.requestDebtVerification(currentDebt.id, {
+        requesterUserId: currentUserId,
         responderUserId: member.linkedUserId,
         sharedNotes: currentDebt.sharedNotes ?? currentDebt.notes,
-        requestType: currentDebt.remoteId ? "amendment" : "creation",
+        requestType,
+        changeSummary:
+          changeSummary.changedFields.length > 0 ? changeSummary : null,
       });
-      if (!remote) {
-        Alert.alert(
-          "Cloud confirmation unavailable",
-          "Connect to the cloud service and try again.",
-        );
+      if (!auth.identity.authenticatedUserId) {
         return;
       }
-
-      await data.requestDebtVerification(currentDebt.id, {
-        requesterUserId: auth.identity.authenticatedUserId,
+      const remote = await createRemoteDebtVerification({
+        debt: local.debt,
+        member,
+        requesterUserId: currentUserId,
         responderUserId: member.linkedUserId,
+        sharedNotes: local.debt.sharedNotes ?? local.debt.notes,
+        requestType,
+        changeSummary:
+          changeSummary.changedFields.length > 0 ? changeSummary : null,
+      });
+      if (!remote) {
+        throw new Error("Cloud confirmation is unavailable.");
+      }
+
+      await data.upsertDebt({
+        ...local.debt,
+        remoteId: remote.remoteDebtId,
+        syncStatus: "synced",
+      });
+      await data.upsertDebtVerification({
+        ...local.verification,
+        remoteId: remote.remoteVerificationId,
         remoteDebtId: remote.remoteDebtId,
-        remoteVerificationId: remote.remoteVerificationId,
-        sharedNotes: currentDebt.sharedNotes ?? currentDebt.notes,
-        requestType: currentDebt.remoteId ? "amendment" : "creation",
+        syncStatus: "synced",
       });
     } catch {
       Alert.alert(
@@ -395,14 +571,6 @@ export function DebtDetailScreen() {
   const usedTagNames = Array.from(
     new Set([...data.tags.map((tag) => tag.name), ...currentDebt.tags]),
   );
-  const showVerificationStatus =
-    member?.linkStatus === "linked" &&
-    currentDebt.verificationStatus !== "local_only";
-  const verificationCopy = getVerificationCopy(
-    currentDebt.verificationStatus,
-    member?.displayName ?? "the other member",
-  );
-
   const displayAmount = currentEntry.remainingAmount;
   const paidFraction = isFullyPaid
     ? 1
@@ -461,6 +629,271 @@ export function DebtDetailScreen() {
       );
     } finally {
       setSavingTags(false);
+    }
+  }
+
+  function saveDueDate() {
+    if (!dueDateDraft || savingDueDate) {
+      return;
+    }
+    if (dueDateDraft < currentDebt.debtDate) {
+      Alert.alert(
+        "Check due date",
+        "The due date cannot be earlier than the date created.",
+      );
+      return;
+    }
+
+    if (isCloudSyncedMember && dueDateDraft !== currentDebt.dueDate) {
+      Alert.alert(
+        "Confirmation required",
+        "Changing the due date requires confirmation from the other member.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Save and request confirmation",
+            onPress: () => {
+              void persistDueDate();
+            },
+          },
+        ],
+      );
+      return;
+    }
+
+    void persistDueDate();
+  }
+
+  async function persistDueDate() {
+    setSavingDueDate(true);
+    try {
+      const previousDueDate = currentDebt.dueDate;
+      const savedDebt = await data.updateDebt(
+        currentDebt.id,
+        { dueDate: dueDateDraft },
+        currentUserId,
+      );
+      if (
+        isCloudSyncedMember &&
+        currentUserId &&
+        member?.linkedUserId &&
+        previousDueDate !== savedDebt.dueDate
+      ) {
+        const changeSummary = {
+          changedFields: ["dueDate"],
+          previous: { dueDate: previousDueDate },
+          proposed: { dueDate: savedDebt.dueDate },
+        } satisfies DebtVerification["changeSummary"];
+        const local = await data.requestDebtVerification(savedDebt.id, {
+          requesterUserId: currentUserId,
+          responderUserId: member.linkedUserId,
+          sharedNotes: savedDebt.sharedNotes ?? savedDebt.notes,
+          requestType: "amendment",
+          changeSummary,
+        });
+        setDueDateOpen(false);
+        if (!auth.identity.authenticatedUserId) {
+          return;
+        }
+        try {
+          const remote = await createRemoteDebtVerification({
+            debt: local.debt,
+            member,
+            requesterUserId: currentUserId,
+            responderUserId: member.linkedUserId,
+            sharedNotes: local.debt.sharedNotes ?? local.debt.notes,
+            requestType: "amendment",
+            changeSummary,
+          });
+          if (!remote) {
+            throw new Error("Cloud confirmation is unavailable.");
+          }
+          await data.upsertDebt({
+            ...local.debt,
+            remoteId: remote.remoteDebtId,
+            syncStatus: "synced",
+          });
+          await data.upsertDebtVerification({
+            ...local.verification,
+            remoteId: remote.remoteVerificationId,
+            remoteDebtId: remote.remoteDebtId,
+            syncStatus: "synced",
+          });
+        } catch {
+          Alert.alert(
+            "Confirmation pending",
+            "The due date is marked as awaiting confirmation, but the request could not be delivered yet.",
+          );
+        }
+        return;
+      }
+      setDueDateOpen(false);
+    } catch {
+      Alert.alert(
+        "Could not set due date",
+        "The due date could not be saved. Please try again.",
+      );
+    } finally {
+      setSavingDueDate(false);
+    }
+  }
+
+  function reviewConfirmation(verification: DebtVerification) {
+    Alert.alert(
+      verification.requestType === "amendment"
+        ? "Review debt changes"
+        : "Confirm this debt",
+      confirmationDescription(verification, currentDebt),
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Reject",
+          style: "destructive",
+          onPress: () => {
+            void respondToConfirmation(verification, "rejected");
+          },
+        },
+        {
+          text: "Confirm",
+          onPress: () => {
+            void respondToConfirmation(verification, "verified");
+          },
+        },
+      ],
+    );
+  }
+
+  async function respondToConfirmation(
+    verification: DebtVerification,
+    status: "verified" | "rejected",
+  ) {
+    if (!currentUserId || respondingVerificationId) {
+      return;
+    }
+    setRespondingVerificationId(verification.id);
+    try {
+      await respondRemoteDebtVerification({
+        verification,
+        status,
+        rejectionReason: status === "rejected" ? "Needs review" : null,
+      });
+      await data.respondToDebtVerification(
+        verification.id,
+        status,
+        currentUserId,
+        status === "rejected" ? "Needs review" : null,
+      );
+    } catch {
+      Alert.alert(
+        "Could not update confirmation",
+        "Your response could not be saved. Please try again.",
+      );
+    } finally {
+      setRespondingVerificationId(null);
+    }
+  }
+
+  async function sendConfirmationReminder(verification: DebtVerification) {
+    if (
+      !currentUserId ||
+      !member?.linkedUserId ||
+      !verification.remoteId ||
+      remindingVerificationId
+    ) {
+      return;
+    }
+    setRemindingVerificationId(verification.id);
+    try {
+      await sendRemoteDebtConfirmationReminder({
+        verificationRemoteId: verification.remoteId,
+      });
+      await data.createSoftReminder({
+        senderUserId: currentUserId,
+        recipientUserId: member.linkedUserId,
+        relatedMemberId: member.id,
+        relatedGroupId: currentDebt.groupId,
+        relatedRecordId: currentDebt.id,
+        message: `${currentDebt.title} is waiting for confirmation.`,
+      });
+      Alert.alert("Reminder sent", `${member.displayName} has been reminded.`);
+    } catch {
+      Alert.alert(
+        "Could not send reminder",
+        "The reminder could not be sent. Please try again.",
+      );
+    } finally {
+      setRemindingVerificationId(null);
+    }
+  }
+
+  function reviewPaymentConfirmation(payment: Payment) {
+    Alert.alert(
+      "Review payment",
+      `${formatMoney(payment.amount, payment.currency)} paid on ${formatDate(payment.paymentDate)}.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Reject",
+          style: "destructive",
+          onPress: () => {
+            void respondToPayment(payment, "rejected");
+          },
+        },
+        {
+          text: "Confirm",
+          onPress: () => {
+            void respondToPayment(payment, "confirmed");
+          },
+        },
+      ],
+    );
+  }
+
+  async function respondToPayment(
+    payment: Payment,
+    status: "confirmed" | "rejected",
+  ) {
+    if (!currentUserId || !payment.remoteId || respondingVerificationId) {
+      return;
+    }
+    setRespondingVerificationId(payment.id);
+    try {
+      await respondRemotePaymentConfirmation({
+        paymentRemoteId: payment.remoteId,
+        status,
+      });
+      await data.respondToPaymentConfirmation(
+        payment.id,
+        status,
+        currentUserId,
+      );
+    } catch {
+      Alert.alert(
+        "Could not update payment",
+        "Your response could not be saved. Please try again.",
+      );
+    } finally {
+      setRespondingVerificationId(null);
+    }
+  }
+
+  async function sendPaymentReminder(payment: Payment) {
+    if (!payment.remoteId || remindingVerificationId) {
+      return;
+    }
+    setRemindingVerificationId(payment.id);
+    try {
+      await sendRemotePaymentConfirmationReminder({
+        paymentRemoteId: payment.remoteId,
+      });
+      Alert.alert("Reminder sent", `${member?.displayName ?? "Member"} has been reminded.`);
+    } catch {
+      Alert.alert(
+        "Could not send reminder",
+        "The reminder could not be sent. Please try again.",
+      );
+    } finally {
+      setRemindingVerificationId(null);
     }
   }
 
@@ -535,7 +968,7 @@ export function DebtDetailScreen() {
                   void exportPdf();
                 },
               },
-              ...(member?.linkStatus === "linked" &&
+              ...(isCloudSyncedMember &&
               currentDebt.verificationStatus !== "pending"
                 ? [
                     {
@@ -637,8 +1070,78 @@ export function DebtDetailScreen() {
         </View>
       </Modal>
 
+      <Modal
+        visible={dueDateOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDueDateOpen(false)}
+      >
+        <View style={styles.tagsModalOverlay}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close due date editor"
+            style={styles.tagsModalBackdrop}
+            onPress={() => setDueDateOpen(false)}
+          />
+          <View style={styles.tagsModalPanel}>
+            <Card style={styles.dueDateModalCard}>
+              <View style={styles.tagsModalHeader}>
+                <View style={styles.tagsModalTitleCopy}>
+                  <Text style={styles.tagsModalTitle}>Due date</Text>
+                  <Text style={styles.tagsModalSubtitle}>
+                    Choose when this debt should be paid.
+                  </Text>
+                </View>
+                <IconButton
+                  icon="close"
+                  label="Close due date editor"
+                  onPress={() => setDueDateOpen(false)}
+                />
+              </View>
+              <DatePickerField
+                label="Due date"
+                value={dueDateDraft}
+                onChange={setDueDateDraft}
+                minDate={currentDebt.debtDate}
+                placeholder="Choose a date"
+              />
+              <View style={styles.tagsModalActions}>
+                <Button
+                  title="Cancel"
+                  variant="ghost"
+                  onPress={() => setDueDateOpen(false)}
+                  style={styles.tagsModalButton}
+                />
+                <Button
+                  title={savingDueDate ? "Saving..." : "Save"}
+                  disabled={!dueDateDraft || savingDueDate}
+                  onPress={() => {
+                    void saveDueDate();
+                  }}
+                  style={styles.tagsModalButton}
+                />
+              </View>
+            </Card>
+          </View>
+        </View>
+      </Modal>
+
       {/* ── Hero ── */}
-      <View style={styles.hero}>
+      <Card
+        tone={isOwedToMe ? "mint" : "coral"}
+        style={styles.hero}
+      >
+        <View style={styles.heroHeading}>
+          <Text style={[styles.heroEyebrow, { color: directionColor }]}>
+            {isOwedToMe
+              ? `${member?.displayName ?? "They"} owe you`
+              : `You owe ${member?.displayName ?? "them"}`}
+          </Text>
+          <Text style={styles.heroCaption}>
+            {isFullyPaid ? "Payment complete" : "Current balance"}
+          </Text>
+        </View>
+
         {/* Participant flow: You always left */}
         <View style={styles.participantFlow}>
           <ParticipantChip label="You" highlight />
@@ -671,28 +1174,6 @@ export function DebtDetailScreen() {
             }
           />
         </View>
-
-        {showVerificationStatus ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Open debt confirmation requests"
-            onPress={() => router.push("/requests")}
-            style={({ pressed }) => [
-              styles.verificationStatus,
-              pressed && styles.verificationStatusPressed,
-            ]}
-          >
-            <VerificationBadge status={currentDebt.verificationStatus} />
-            <Text style={styles.verificationStatusText}>
-              {verificationCopy}
-            </Text>
-            <Ionicons
-              name="chevron-forward"
-              size={14}
-              color={palette.muted}
-            />
-          </Pressable>
-        ) : null}
 
         {/* Amount */}
         <View style={styles.amountBlock}>
@@ -759,7 +1240,7 @@ export function DebtDetailScreen() {
           </View>
         </View>
 
-      </View>
+      </Card>
 
       {/* ── Details ── */}
       <View style={styles.sectionHeader}>
@@ -775,9 +1256,41 @@ export function DebtDetailScreen() {
           label="Due date"
           value={
             <View style={styles.dueValue}>
-              <Text style={styles.dueValueDate}>
-                {dueLabel}
-              </Text>
+              <View style={styles.dueDatePrimary}>
+                {dueDateConfirmationStatus ? (
+                  <Ionicons
+                    name={
+                      dueDateConfirmationStatus === "rejected"
+                        ? "close-circle"
+                        : "time"
+                    }
+                    size={14}
+                    color={
+                      dueDateConfirmationStatus === "rejected"
+                        ? palette.negative
+                        : palette.warning
+                    }
+                  />
+                ) : null}
+                {currentDebt.dueDate ? (
+                  <Text style={styles.dueValueDate}>{dueLabel}</Text>
+                ) : (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Set due date"
+                    onPress={() => {
+                      setDueDateDraft("");
+                      setDueDateOpen(true);
+                    }}
+                    style={({ pressed }) => [
+                      styles.setDueDateLink,
+                      pressed && styles.notesActionPressed,
+                    ]}
+                  >
+                    <Text style={styles.setDueDateLinkText}>Set due date</Text>
+                  </Pressable>
+                )}
+              </View>
               {dueRelativeLabel ? (
                 <View style={styles.dueValueStatus}>
                   {isOverdue ? (
@@ -888,6 +1401,128 @@ export function DebtDetailScreen() {
           </View>
         </View>
       </Card>
+
+      {isCloudSyncedMember ? (
+        <>
+          <View style={styles.sectionHeader}>
+            <SectionTitle title="Confirmation" />
+          </View>
+          <Card style={styles.confirmationCard}>
+            {!hasPendingConfirmation && !hasRejectedConfirmation ? (
+              <View style={styles.confirmationAgreed}>
+                <Ionicons
+                  name="checkmark-circle"
+                  size={22}
+                  color={palette.positive}
+                />
+                <Text style={styles.confirmationAgreedText}>
+                  Everyone agrees with this debt
+                </Text>
+              </View>
+            ) : (
+              <>
+                {hasPendingConfirmation ? (
+                  <View style={styles.confirmationGroup}>
+                    <Text style={styles.confirmationGroupTitle}>
+                      Awaiting confirmation
+                    </Text>
+                    {hasOrphanedPendingConfirmation ? (
+                      <View style={styles.confirmationItem}>
+                        <View
+                          style={[
+                            styles.confirmationIndicator,
+                            styles.confirmationIndicatorPending,
+                          ]}
+                        />
+                        <View style={styles.confirmationItemCopy}>
+                          <Text style={styles.confirmationItemTitle}>
+                            {isMissingCreationConfirmation
+                              ? "Debt"
+                              : Array.from(orphanedPendingFields)
+                                  .map(confirmationFieldLabel)
+                                  .join(", ") || "Debt changes"}
+                          </Text>
+                          <Text style={styles.confirmationItemMeta}>
+                            Confirmation request needs to be sent
+                          </Text>
+                        </View>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel="Retry confirmation request"
+                          onPress={() => {
+                            void requestVerification();
+                          }}
+                          style={({ pressed }) => [
+                            styles.confirmationAction,
+                            pressed && styles.notesActionPressed,
+                          ]}
+                        >
+                          <Text style={styles.confirmationActionText}>
+                            Retry
+                          </Text>
+                        </Pressable>
+                      </View>
+                    ) : null}
+                    {pendingConfirmations.length > 0 ? (
+                      <ConfirmationGroup
+                        title=""
+                        items={pendingConfirmations}
+                        currentUserId={currentUserId}
+                        debt={currentDebt}
+                        memberName={member?.displayName ?? "Member"}
+                        busyId={
+                          respondingVerificationId ?? remindingVerificationId
+                        }
+                        onReview={reviewConfirmation}
+                        onRemind={(verification) => {
+                          void sendConfirmationReminder(verification);
+                        }}
+                      />
+                    ) : null}
+                    {pendingPaymentConfirmations.length > 0 ? (
+                      <PaymentConfirmationGroup
+                        items={pendingPaymentConfirmations}
+                        currentUserId={currentUserId}
+                        memberName={member?.displayName ?? "Member"}
+                        busyId={
+                          respondingVerificationId ?? remindingVerificationId
+                        }
+                        onReview={reviewPaymentConfirmation}
+                        onRemind={(payment) => {
+                          void sendPaymentReminder(payment);
+                        }}
+                      />
+                    ) : null}
+                  </View>
+                ) : null}
+                {hasRejectedConfirmation ? (
+                  <View style={styles.confirmationGroup}>
+                    <Text style={styles.confirmationGroupTitle}>Rejected</Text>
+                    {rejectedConfirmations.length > 0 ? (
+                      <ConfirmationGroup
+                        title=""
+                        items={rejectedConfirmations}
+                        currentUserId={currentUserId}
+                        debt={currentDebt}
+                        memberName={member?.displayName ?? "Member"}
+                        busyId={null}
+                      />
+                    ) : null}
+                    {rejectedPaymentConfirmations.length > 0 ? (
+                      <PaymentConfirmationGroup
+                        items={rejectedPaymentConfirmations}
+                        currentUserId={currentUserId}
+                        memberName={member?.displayName ?? "Member"}
+                        busyId={null}
+                      />
+                    ) : null}
+                  </View>
+                ) : null}
+              </>
+            )}
+          </Card>
+        </>
+      ) : null}
 
       {/* ── Activity ── */}
       {activityItems.length > 0 ? (
@@ -1016,8 +1651,8 @@ function AnimatedProgressFill({
   useEffect(() => {
     Animated.timing(anim, {
       toValue: paidFraction,
-      duration: 900,
-      delay: 250,
+      duration: 520,
+      delay: 80,
       useNativeDriver: false,
     }).start();
   }, [anim, paidFraction]);
@@ -1104,6 +1739,188 @@ function DetailRow({
   );
 }
 
+function ConfirmationGroup({
+  title,
+  items,
+  currentUserId,
+  debt,
+  memberName,
+  busyId,
+  onReview,
+  onRemind,
+}: {
+  title: string;
+  items: DebtVerification[];
+  currentUserId: string | null;
+  debt: Debt;
+  memberName: string;
+  busyId: string | null;
+  onReview?: (verification: DebtVerification) => void;
+  onRemind?: (verification: DebtVerification) => void;
+}) {
+  return (
+    <View style={styles.confirmationGroup}>
+      {title ? <Text style={styles.confirmationGroupTitle}>{title}</Text> : null}
+      {items.map((verification) => {
+        const awaitsCurrentUser =
+          verification.status === "pending" &&
+          verification.responderUserId === currentUserId;
+        const awaitsOtherMember =
+          verification.status === "pending" &&
+          verification.requesterUserId === currentUserId;
+        return (
+          <View key={verification.id} style={styles.confirmationItem}>
+            <View
+              style={[
+                styles.confirmationIndicator,
+                verification.status === "rejected"
+                  ? styles.confirmationIndicatorRejected
+                  : styles.confirmationIndicatorPending,
+              ]}
+            />
+            <View style={styles.confirmationItemCopy}>
+              <Text style={styles.confirmationItemTitle}>
+                {confirmationItemTitle(verification)}
+              </Text>
+              <Text style={styles.confirmationItemMeta}>
+                {verification.status === "rejected"
+                  ? verification.rejectionReason || "This item was rejected."
+                  : awaitsCurrentUser
+                    ? "Waiting for your response"
+                    : `Waiting for ${memberName}`}
+              </Text>
+              {verification.requestType === "amendment" ? (
+                <Text style={styles.confirmationItemDetail}>
+                  {confirmationDescription(verification, debt)}
+                </Text>
+              ) : null}
+            </View>
+            {awaitsCurrentUser && onReview ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Review confirmation"
+                disabled={busyId === verification.id}
+                onPress={() => onReview(verification)}
+                style={({ pressed }) => [
+                  styles.confirmationAction,
+                  pressed && styles.notesActionPressed,
+                ]}
+              >
+                <Text style={styles.confirmationActionText}>Review</Text>
+              </Pressable>
+            ) : null}
+            {awaitsOtherMember && onRemind ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Remind ${memberName}`}
+                disabled={busyId === verification.id}
+                onPress={() => onRemind(verification)}
+                style={({ pressed }) => [
+                  styles.confirmationAction,
+                  pressed && styles.notesActionPressed,
+                ]}
+              >
+                <Text style={styles.confirmationActionText}>
+                  {busyId === verification.id ? "Sending..." : "Remind"}
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+function PaymentConfirmationGroup({
+  items,
+  currentUserId,
+  memberName,
+  busyId,
+  onReview,
+  onRemind,
+}: {
+  items: Payment[];
+  currentUserId: string | null;
+  memberName: string;
+  busyId: string | null;
+  onReview?: (payment: Payment) => void;
+  onRemind?: (payment: Payment) => void;
+}) {
+  return (
+    <View style={styles.confirmationGroup}>
+      {items.map((payment) => {
+        const awaitsCurrentUser =
+          payment.confirmationStatus === "pending_confirmation" &&
+          payment.createdByUserId !== currentUserId;
+        const awaitsOtherMember =
+          payment.confirmationStatus === "pending_confirmation" &&
+          payment.createdByUserId === currentUserId;
+        return (
+          <View key={payment.id} style={styles.confirmationItem}>
+            <View
+              style={[
+                styles.confirmationIndicator,
+                payment.confirmationStatus === "rejected"
+                  ? styles.confirmationIndicatorRejected
+                  : styles.confirmationIndicatorPending,
+              ]}
+            />
+            <View style={styles.confirmationItemCopy}>
+              <Text style={styles.confirmationItemTitle}>Payment</Text>
+              <Text style={styles.confirmationItemMeta}>
+                {formatMoney(payment.amount, payment.currency)} ·{" "}
+                {formatDate(payment.paymentDate)}
+              </Text>
+              <Text style={styles.confirmationItemDetail}>
+                {payment.confirmationStatus === "rejected"
+                  ? "This payment was rejected."
+                  : awaitsCurrentUser
+                    ? "Waiting for your response"
+                    : `Waiting for ${memberName}`}
+              </Text>
+            </View>
+            {awaitsCurrentUser && onReview ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Review payment confirmation"
+                disabled={busyId === payment.id || !payment.remoteId}
+                onPress={() => onReview(payment)}
+                style={({ pressed }) => [
+                  styles.confirmationAction,
+                  pressed && styles.notesActionPressed,
+                ]}
+              >
+                <Text style={styles.confirmationActionText}>Review</Text>
+              </Pressable>
+            ) : null}
+            {awaitsOtherMember && onRemind ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Remind ${memberName}`}
+                disabled={busyId === payment.id}
+                onPress={() => onRemind(payment)}
+                style={({ pressed }) => [
+                  styles.confirmationAction,
+                  pressed && styles.notesActionPressed,
+                ]}
+              >
+                <Text style={styles.confirmationActionText}>
+                  {!payment.remoteId
+                    ? "Syncing..."
+                    : busyId === payment.id
+                      ? "Sending..."
+                      : "Remind"}
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 function ActivityTimelineRow({
   item,
   isLast,
@@ -1120,7 +1937,38 @@ function ActivityTimelineRow({
       <View
         style={[styles.timelineContent, !isLast && styles.timelineContentGap]}
       >
-        <Text style={styles.activityTitle}>{item.title}</Text>
+        <View style={styles.activityTitleRow}>
+          <Text style={styles.activityTitle}>{item.title}</Text>
+          {item.confirmationStatus ? (
+            <View
+              accessibilityLabel={
+                item.confirmationStatus === "rejected"
+                  ? "Change rejected"
+                  : "Awaiting confirmation"
+              }
+              style={[
+                styles.activityConfirmationMarker,
+                item.confirmationStatus === "rejected"
+                  ? styles.activityConfirmationMarkerRejected
+                  : styles.activityConfirmationMarkerPending,
+              ]}
+            >
+              <Ionicons
+                name={
+                  item.confirmationStatus === "rejected"
+                    ? "close-circle"
+                    : "time"
+                }
+                size={14}
+                color={
+                  item.confirmationStatus === "rejected"
+                    ? palette.negative
+                    : palette.warning
+                }
+              />
+            </View>
+          ) : null}
+        </View>
         <View style={styles.activityMeta}>
           {item.detail ? (
             <Text style={styles.activityDetail}>{item.detail}</Text>
@@ -1321,27 +2169,215 @@ function stringArray(value: unknown) {
     : [];
 }
 
-function getVerificationCopy(
-  status: Debt["verificationStatus"],
-  memberName: string,
+function buildChangeSummaryFromActivities(
+  activities: ActivityLog[],
+): DebtChangeSummary {
+  const changedFields: DebtChangeSummary["changedFields"] = [];
+  const previous: DebtChangeSummary["previous"] = {};
+  const proposed: DebtChangeSummary["proposed"] = {};
+  const ordered = [...activities].sort((a, b) =>
+    a.createdAt.localeCompare(b.createdAt),
+  );
+
+  for (const activity of ordered) {
+    const field = activityConfirmationField(activity.action);
+    if (field === "none" || field === "debt") {
+      continue;
+    }
+    if (!changedFields.includes(field)) {
+      changedFields.push(field);
+      previous[field] = confirmationChangeValue(
+        activity.metadata.previousValue,
+      );
+    }
+    proposed[field] = confirmationChangeValue(activity.metadata.nextValue);
+  }
+
+  return { changedFields, previous, proposed };
+}
+
+function confirmationChangeValue(value: unknown) {
+  return typeof value === "string" ||
+    typeof value === "number" ||
+    value === null
+    ? value
+    : null;
+}
+
+function getCurrentConfirmations(verifications: DebtVerification[]) {
+  const ordered = [...verifications]
+    .filter(
+      (verification) =>
+        verification.status !== "cancelled" &&
+        (verification.requestType === "creation" ||
+          verification.changeSummary?.changedFields.some((field) =>
+            ["amount", "direction", "dueDate"].includes(field),
+          )),
+    )
+    .sort((a, b) => b.requestedAt.localeCompare(a.requestedAt));
+  const claimedKeys = new Set<string>();
+  const selected = new Map<string, DebtVerification>();
+
+  for (const verification of ordered) {
+    const keys =
+      verification.requestType === "creation"
+        ? ["debt"]
+        : verification.changeSummary?.changedFields.length
+          ? verification.changeSummary.changedFields
+          : [`request:${verification.id}`];
+    const unclaimedKeys = keys.filter((key) => !claimedKeys.has(key));
+    if (!unclaimedKeys.length) {
+      continue;
+    }
+    unclaimedKeys.forEach((key) => claimedKeys.add(key));
+    selected.set(verification.id, verification);
+  }
+
+  return Array.from(selected.values()).sort((a, b) =>
+    b.requestedAt.localeCompare(a.requestedAt),
+  );
+}
+
+function confirmationItemTitle(verification: DebtVerification) {
+  if (verification.requestType === "creation") {
+    return "Debt";
+  }
+  const labels = verification.changeSummary?.changedFields.map(
+    confirmationFieldLabel,
+  );
+  return labels?.length ? labels.join(", ") : "Debt changes";
+}
+
+function confirmationDescription(
+  verification: DebtVerification,
+  debt: Debt,
 ) {
-  switch (status) {
-    case "pending":
-      return `Waiting for ${memberName} to confirm`;
-    case "verified":
-      return `Confirmed by ${memberName}`;
-    case "rejected":
-      return `Contested by ${memberName}`;
-    case "disputed":
-      return "This debt is under review";
-    case "resolved":
-      return "The review has been resolved";
-    case "cancelled":
-      return "Confirmation request cancelled";
-    case "partially_verified":
-      return "Some participants have confirmed";
+  if (verification.requestType === "creation") {
+    return `${formatMoney(debt.amount, debt.currency)} · ${debt.title}`;
+  }
+  const summary = verification.changeSummary;
+  if (!summary) {
+    return "Review the proposed debt changes.";
+  }
+  return summary.changedFields
+    .map((field) => {
+      const previous = formatConfirmationValue(
+        field,
+        summary.previous[field],
+        debt.currency,
+      );
+      const proposed = formatConfirmationValue(
+        field,
+        summary.proposed[field],
+        debt.currency,
+      );
+      return `${confirmationFieldLabel(field)}: ${previous} → ${proposed}`;
+    })
+    .join("\n");
+}
+
+function confirmationFieldLabel(
+  field: NonNullable<DebtVerification["changeSummary"]>["changedFields"][number],
+) {
+  switch (field) {
+    case "dueDate":
+      return "Due date";
+    case "direction":
+      return "Who owes whom";
+    case "member":
+      return "Member";
+    case "amount":
+      return "Amount";
+    case "title":
+      return "Title";
+  }
+}
+
+function formatConfirmationValue(
+  field: NonNullable<DebtVerification["changeSummary"]>["changedFields"][number],
+  value: string | number | null | undefined,
+  currency: CurrencyCode,
+) {
+  if (value === null || value === undefined || value === "") {
+    return "Not set";
+  }
+  if (field === "amount" && typeof value === "number") {
+    return formatMoney(value, currency);
+  }
+  if (field === "dueDate" && typeof value === "string") {
+    return formatDate(value);
+  }
+  if (field === "direction") {
+    return value === "they_owe_me" ? "They owe you" : "You owe them";
+  }
+  return String(value);
+}
+
+function confirmationStateForActivity(
+  action: string,
+  createdAt: string,
+  confirmations: DebtVerification[],
+): Extract<VerificationStatus, "pending" | "rejected"> | undefined {
+  const field = activityConfirmationField(action);
+  if (field === "none") {
+    return undefined;
+  }
+  const activityTime = new Date(createdAt).getTime();
+  const match = confirmations.find((verification) => {
+    if (
+      verification.status !== "pending" &&
+      verification.status !== "rejected"
+    ) {
+      return false;
+    }
+    if (field === "debt") {
+      return verification.requestType === "creation";
+    }
+    if (!verification.changeSummary?.changedFields.includes(field)) {
+      return false;
+    }
+    const requestTime = new Date(verification.requestedAt).getTime();
+    return (
+      Number.isFinite(activityTime) &&
+      Number.isFinite(requestTime) &&
+      requestTime >= activityTime &&
+      requestTime - activityTime < 5 * 60 * 1000
+    );
+  });
+  return match?.status === "pending" || match?.status === "rejected"
+    ? match.status
+    : undefined;
+}
+
+function confirmationStatusForField(
+  field: "amount" | "direction" | "dueDate",
+  confirmations: DebtVerification[],
+): Extract<VerificationStatus, "pending" | "rejected"> | undefined {
+  const match = confirmations.find(
+    (verification) =>
+      verification.changeSummary?.changedFields.includes(field) &&
+      (verification.status === "pending" ||
+        verification.status === "rejected"),
+  );
+  return match?.status === "pending" || match?.status === "rejected"
+    ? match.status
+    : undefined;
+}
+
+function activityConfirmationField(action: string) {
+  switch (action) {
+    case "debt_created":
+      return "debt" as const;
+    case "debt_amount_changed":
+      return "amount" as const;
+    case "debt_direction_changed":
+      return "direction" as const;
+    case "debt_due_date_added":
+    case "debt_due_date_changed":
+    case "debt_due_date_removed":
+      return "dueDate" as const;
     default:
-      return "Stored on this device";
+      return "none" as const;
   }
 }
 
@@ -1357,10 +2393,24 @@ const styles = StyleSheet.create({
 
   // Hero
   hero: {
-    paddingHorizontal: spacing.xs,
-    paddingTop: spacing.xxl,
-    paddingBottom: spacing.xxl,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xxl,
+    padding: spacing.xxl,
     gap: spacing.xl,
+    borderColor: palette.borderIndigoSoft,
+  },
+  heroHeading: {
+    alignItems: "center",
+    gap: 2,
+  },
+  heroEyebrow: {
+    fontSize: typography.size.base,
+    fontFamily: typefaces.bodyHeavy,
+  },
+  heroCaption: {
+    color: palette.faint,
+    fontSize: typography.size.sm,
+    fontFamily: typefaces.body,
   },
 
   // Participant flow
@@ -1368,11 +2418,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.xl,
-    marginBottom: spacing.md,
+    paddingHorizontal: spacing.sm,
   },
   participantChip: {
     alignItems: "center",
     gap: spacing.xs,
+    width: 78,
   },
   participantChipPressed: {
     opacity: 0.65,
@@ -1420,6 +2471,7 @@ const styles = StyleSheet.create({
 
   // Amount
   amountBlock: {
+    alignItems: "center",
     gap: spacing.xs,
   },
   amountSubtext: {
@@ -1446,7 +2498,9 @@ const styles = StyleSheet.create({
   // Payment progress
   progressBlock: {
     gap: spacing.sm,
-    marginTop: spacing.xs,
+    paddingTop: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: palette.borderIndigoSoft,
   },
   progressTrack: {
     height: 6,
@@ -1461,6 +2515,8 @@ const styles = StyleSheet.create({
   },
   progressLabels: {
     flexDirection: "row",
+    justifyContent: "space-between",
+    flexWrap: "wrap",
     gap: spacing.xl,
   },
   progressLabelItem: {
@@ -1519,6 +2575,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "flex-end",
     gap: 2,
+  },
+  dueDatePrimary: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
   },
   dueValueDate: {
     color: palette.ink,
@@ -1585,6 +2646,12 @@ const styles = StyleSheet.create({
     padding: spacing.xxl,
     gap: spacing.xxl,
   },
+  dueDateModalCard: {
+    width: "100%",
+    padding: spacing.xxl,
+    gap: spacing.xl,
+    overflow: "visible",
+  },
   tagsModalHeader: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -1616,24 +2683,91 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     shadowOpacity: 0,
   },
-  verificationStatus: {
-    alignSelf: "center",
-    maxWidth: "100%",
+  setDueDateLink: {
+    paddingVertical: 4,
+    paddingLeft: spacing.sm,
+  },
+  setDueDateLinkText: {
+    color: palette.brand,
+    fontSize: typography.size.sm,
+    fontFamily: typefaces.bodyStrong,
+  },
+  confirmationCard: {
+    gap: spacing.xl,
+    marginBottom: spacing.md,
+  },
+  confirmationAgreed: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
-    borderRadius: radii.pill,
     paddingVertical: spacing.xs,
+  },
+  confirmationAgreedText: {
+    color: palette.positive,
+    fontSize: typography.size.md,
+    fontFamily: typefaces.bodyStrong,
+  },
+  confirmationGroup: {
+    gap: spacing.sm,
+  },
+  confirmationGroupTitle: {
+    color: palette.muted,
+    fontSize: typography.size.xs,
+    fontFamily: typefaces.bodyHeavy,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  confirmationItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: palette.line,
+  },
+  confirmationIndicator: {
+    width: 7,
+    height: 7,
+    borderRadius: radii.pill,
+    alignSelf: "flex-start",
+    marginTop: 7,
+  },
+  confirmationIndicatorPending: {
+    backgroundColor: palette.warning,
+  },
+  confirmationIndicatorRejected: {
+    backgroundColor: palette.negative,
+  },
+  confirmationItemCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  confirmationItemTitle: {
+    color: palette.ink,
+    fontSize: typography.size.sm,
+    fontFamily: typefaces.bodyStrong,
+  },
+  confirmationItemMeta: {
+    color: palette.muted,
+    fontSize: typography.size.xs,
+    fontFamily: typefaces.body,
+  },
+  confirmationItemDetail: {
+    color: palette.faint,
+    fontSize: typography.size.xs,
+    lineHeight: typography.line.md,
+    fontFamily: typefaces.body,
+    marginTop: 2,
+  },
+  confirmationAction: {
+    minHeight: 34,
+    justifyContent: "center",
     paddingHorizontal: spacing.sm,
   },
-  verificationStatusPressed: {
-    backgroundColor: palette.surfaceAlt,
-  },
-  verificationStatusText: {
-    flexShrink: 1,
-    color: palette.muted,
+  confirmationActionText: {
+    color: palette.brand,
     fontSize: typography.size.sm,
-    fontFamily: typefaces.body,
+    fontFamily: typefaces.bodyStrong,
   },
   notesBlock: {
     gap: spacing.xs,
@@ -1750,6 +2884,26 @@ const styles = StyleSheet.create({
     fontSize: typography.size.base,
     fontFamily: typefaces.bodyStrong,
     textTransform: "capitalize",
+  },
+  activityTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: spacing.xs,
+  },
+  activityConfirmationMarker: {
+    width: 20,
+    height: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radii.pill,
+    backgroundColor: palette.amberSoft,
+  },
+  activityConfirmationMarkerPending: {
+    backgroundColor: palette.amberSoft,
+  },
+  activityConfirmationMarkerRejected: {
+    backgroundColor: palette.negativeSoft,
   },
   activityMeta: {
     flexDirection: "row",

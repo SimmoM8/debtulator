@@ -248,6 +248,8 @@ type CreatePaymentInput = {
   status?: Payment['status'];
   confirmationStatus?: Payment['confirmationStatus'];
   createdByUserId?: string | null;
+  payerUserId?: string | null;
+  payeeUserId?: string | null;
   lines?: {
     sourceRecordType: SettlementLine['sourceRecordType'];
     sourceRecordId: string;
@@ -983,14 +985,11 @@ export class DebtulatorRepository {
     input: Partial<DebtInput>,
     actorUserId: string | null = null,
   ) {
-    const reviewFieldsChanged = [
-      input.memberId !== undefined && input.memberId !== debt.memberId,
-      input.direction !== undefined && input.direction !== debt.direction,
-      input.amount !== undefined && toAmount(input.amount) !== debt.amount,
-      input.title !== undefined && input.title.trim() !== debt.title,
-      input.dueDate !== undefined && cleanOptional(input.dueDate) !== debt.dueDate,
-      input.groupId !== undefined && input.groupId !== debt.groupId,
-    ].some(Boolean);
+    const reviewFieldsChanged =
+      (input.amount !== undefined && toAmount(input.amount) !== debt.amount) ||
+      (input.direction !== undefined && input.direction !== debt.direction) ||
+      (input.dueDate !== undefined &&
+        cleanOptional(input.dueDate) !== debt.dueDate);
     const requiresSharedApproval =
       debt.visibility === 'shared_with_involved_member' && reviewFieldsChanged;
 
@@ -2316,13 +2315,16 @@ export class DebtulatorRepository {
 
     await insertDebt(this.db, updatedDebt);
     await insertDebtVerification(this.db, verification);
+    const [refreshedDebt] = await this.refreshSimpleDebtConfirmationStatuses([
+      input.debt.id,
+    ]);
     await this.logActivity('debt', input.debt.id, 'debt_verification_requested', input.requesterUserId, {
       responderUserId: input.responderUserId,
       verificationId: verification.id,
       requestType: verification.requestType,
       changedFields: verification.changeSummary?.changedFields ?? [],
     });
-    return { debt: updatedDebt, verification };
+    return { debt: refreshedDebt ?? updatedDebt, verification };
   }
 
   async upsertDebtVerification(verification: DebtVerification) {
@@ -2403,13 +2405,18 @@ export class DebtulatorRepository {
   async createPaymentSettlement(input: CreatePaymentInput) {
     const timestamp = nowIso();
     const groupScoped = Boolean(input.groupId);
+    const confirmationStatus =
+      input.confirmationStatus ??
+      (groupScoped || input.visibility === 'shared_with_involved_member'
+        ? 'pending_confirmation'
+        : 'local_only');
     const payment: Payment = {
       id: createId('payment'),
       localId: null,
       remoteId: null,
       createdByUserId: cleanOptional(input.createdByUserId),
-      payerUserId: null,
-      payeeUserId: null,
+      payerUserId: cleanOptional(input.payerUserId),
+      payeeUserId: cleanOptional(input.payeeUserId),
       payerMemberId: groupScoped || input.payerId === 'me' ? null : input.payerId,
       payeeMemberId: groupScoped || input.payeeId === 'me' ? null : input.payeeId,
       payerGroupMemberId: groupScoped ? input.payerId : null,
@@ -2420,13 +2427,20 @@ export class DebtulatorRepository {
       currency: input.currency,
       paymentDate: input.paymentDate || todayIsoDate(),
       notes: cleanOptional(input.notes),
-      status: input.status ?? 'recorded',
-      confirmationStatus: input.confirmationStatus ?? (groupScoped ? 'pending_confirmation' : 'local_only'),
+      status:
+        input.status ??
+        (confirmationStatus === 'pending_confirmation'
+          ? 'pending_confirmation'
+          : 'recorded'),
+      confirmationStatus,
       visibility: input.visibility ?? (groupScoped ? 'shared_group' : 'private'),
       createdAt: timestamp,
       updatedAt: timestamp,
       archivedAt: null,
-      syncStatus: groupScoped ? 'pending_upload' : 'local_only',
+      syncStatus:
+        groupScoped || input.visibility === 'shared_with_involved_member'
+          ? 'pending_upload'
+          : 'local_only',
     };
     const settlement: Settlement = {
       id: createId('settlement'),
@@ -2472,6 +2486,11 @@ export class DebtulatorRepository {
     for (const line of lines) {
       await insertSettlementLine(this.db, line);
     }
+    await this.refreshSimpleDebtConfirmationStatuses(
+      lines
+        .filter((line) => line.sourceRecordType === 'simple_debt')
+        .map((line) => line.sourceRecordId),
+    );
 
     let overpaymentCredit: OverpaymentCredit | null = null;
     if (overpaymentAmount > 0.005) {
@@ -2530,6 +2549,78 @@ export class DebtulatorRepository {
       });
     }
     return { payment, settlement, lines, overpaymentCredit };
+  }
+
+  async respondToPaymentConfirmation(
+    payment: Payment,
+    status: Extract<Payment['confirmationStatus'], 'confirmed' | 'rejected'>,
+    actorUserId: string,
+  ) {
+    const updated: Payment = {
+      ...payment,
+      status: status === 'confirmed' ? 'confirmed' : 'rejected',
+      confirmationStatus: status,
+      updatedAt: nowIso(),
+      syncStatus: payment.remoteId ? 'pending_update' : payment.syncStatus,
+    };
+    await insertPayment(this.db, updated);
+    const snapshot = await loadSnapshot(this.db);
+    await this.refreshSimpleDebtConfirmationStatuses(
+      snapshot.settlementLines
+        .filter(
+          (line) =>
+            line.paymentId === payment.id &&
+            line.sourceRecordType === 'simple_debt',
+        )
+        .map((line) => line.sourceRecordId),
+    );
+    await this.logActivity('payment', payment.id, `payment_${status}`, actorUserId, {
+      relatedMemberId: payment.relatedMemberId,
+    });
+    if (updated.syncStatus === 'pending_update') {
+      await this.queueSyncOperation({
+        entityType: 'payment',
+        entityId: updated.id,
+        operation: 'update',
+        payload: updated,
+      });
+    }
+    return updated;
+  }
+
+  private async refreshSimpleDebtConfirmationStatuses(debtIds: string[]) {
+    const uniqueDebtIds = Array.from(new Set(debtIds));
+    if (!uniqueDebtIds.length) {
+      return [];
+    }
+
+    const snapshot = await loadSnapshot(this.db);
+    const refreshed: Debt[] = [];
+    for (const debtId of uniqueDebtIds) {
+      const debt = snapshot.debts.find((item) => item.id === debtId);
+      if (!debt || debt.visibility !== 'shared_with_involved_member') {
+        continue;
+      }
+      const verificationStatus = deriveSimpleDebtConfirmationStatus(
+        debt,
+        snapshot.debtVerifications,
+        snapshot.payments,
+        snapshot.settlementLines,
+      );
+      const updated =
+        verificationStatus === debt.verificationStatus
+          ? debt
+          : {
+              ...debt,
+              verificationStatus,
+              updatedAt: nowIso(),
+            };
+      if (updated !== debt) {
+        await insertDebt(this.db, updated);
+      }
+      refreshed.push(updated);
+    }
+    return refreshed;
   }
 
   async createRecurringTemplate(input: CreateRecurringTemplateInput) {
@@ -2744,12 +2835,15 @@ export class DebtulatorRepository {
 
     await insertDebtVerification(this.db, updatedVerification);
     await insertDebt(this.db, updatedDebt);
+    const [refreshedDebt] = await this.refreshSimpleDebtConfirmationStatuses([
+      debt.id,
+    ]);
     await this.logActivity('debt', debt.id, status === 'verified' ? 'debt_verified' : 'debt_rejected', actorUserId, {
       verificationId: verification.id,
       rejectionReason: updatedVerification.rejectionReason,
       suggestedChange: updatedVerification.suggestedChange,
     });
-    return { debt: updatedDebt, verification: updatedVerification };
+    return { debt: refreshedDebt ?? updatedDebt, verification: updatedVerification };
   }
 
   async markDebtDisputed(debt: Debt, actorUserId: string | null, disputeReason?: string | null) {
@@ -2915,6 +3009,70 @@ export class DebtulatorRepository {
       }
     }
   }
+}
+
+function deriveSimpleDebtConfirmationStatus(
+  debt: Debt,
+  verifications: DebtVerification[],
+  payments: Payment[],
+  settlementLines: SettlementLine[],
+): Debt['verificationStatus'] {
+  const latestByItem = new Map<string, DebtVerification['status']>();
+  const relevantFields = new Set(['amount', 'direction', 'dueDate']);
+  const orderedVerifications = verifications
+    .filter(
+      (verification) =>
+        verification.debtId === debt.id &&
+        verification.status !== 'cancelled',
+    )
+    .sort((a, b) => b.requestedAt.localeCompare(a.requestedAt));
+
+  for (const verification of orderedVerifications) {
+    const keys =
+      verification.requestType === 'creation'
+        ? ['creation']
+        : (verification.changeSummary?.changedFields ?? []).filter((field) =>
+            relevantFields.has(field),
+          );
+    for (const key of keys) {
+      if (!latestByItem.has(key)) {
+        latestByItem.set(key, verification.status);
+      }
+    }
+  }
+
+  const paymentIds = new Set(
+    settlementLines
+      .filter(
+        (line) =>
+          line.sourceRecordType === 'simple_debt' &&
+          line.sourceRecordId === debt.id &&
+          line.paymentId,
+      )
+      .map((line) => line.paymentId as string),
+  );
+  const statuses = [
+    ...latestByItem.values(),
+    ...payments
+      .filter((payment) => paymentIds.has(payment.id))
+      .map((payment) => payment.confirmationStatus),
+  ];
+
+  if (
+    statuses.some(
+      (status) => status === 'rejected' || status === 'disputed',
+    )
+  ) {
+    return 'rejected';
+  }
+  if (
+    statuses.some(
+      (status) => status === 'pending' || status === 'pending_confirmation',
+    )
+  ) {
+    return 'pending';
+  }
+  return statuses.length > 0 ? 'verified' : debt.verificationStatus;
 }
 
 function cleanOptional(value: string | null | undefined) {
