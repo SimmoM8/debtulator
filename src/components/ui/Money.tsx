@@ -21,14 +21,17 @@ export function Amount({
   currency,
   signed,
   size = "md",
+  color,
 }: {
   amount: number;
   currency: CurrencyCode;
   signed?: boolean;
   size?: "sm" | "md" | "lg";
+  color?: string;
 }) {
   const tone =
-    amount > 0 ? palette.positive : amount < 0 ? palette.coral : palette.muted;
+    color ??
+    (amount > 0 ? palette.positive : amount < 0 ? palette.coral : palette.muted);
   return (
     <Text style={[styles.amount, styles[size], { color: tone }]}>
       {formatMoney(amount, currency, { signed })}

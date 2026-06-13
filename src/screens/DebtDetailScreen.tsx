@@ -7,26 +7,26 @@ import { AvatarStack } from "@/src/components/ui/Finance";
 import { MobileMenuModal } from "@/src/components/ui/MenuList";
 import { Amount } from "@/src/components/ui/Money";
 import {
-    Button,
-    Card,
-    EmptyState,
-    IconButton,
-    LoadingState,
-    PageHeader,
-    Screen,
-    SectionTitle,
+  Button,
+  Card,
+  EmptyState,
+  IconButton,
+  LoadingState,
+  PageHeader,
+  Screen,
+  SectionTitle,
 } from "@/src/components/ui/Primitives";
 import {
-    palette,
-    radii,
-    spacing,
-    typefaces,
-    typography,
+  palette,
+  radii,
+  spacing,
+  typefaces,
+  typography,
 } from "@/src/constants/design";
 import {
-    debtPdfLines,
-    shareExport,
-    writePdfExport,
+  debtPdfLines,
+  shareExport,
+  writePdfExport,
 } from "@/src/services/export";
 import { buildLedgerEntries } from "@/src/services/ledger";
 import { createRemoteDebtVerification } from "@/src/services/stage2Sync";
@@ -230,6 +230,7 @@ export function DebtDetailScreen() {
     : "No due date";
 
   const isOwedToMe = currentDebt.direction === "they_owe_me";
+  const directionColor = isOwedToMe ? palette.positive : palette.negative;
 
   const isPartiallyPaid =
     currentEntry.paymentStatus === "partially_paid" &&
@@ -237,6 +238,11 @@ export function DebtDetailScreen() {
   const isFullyPaid =
     currentEntry.paymentStatus === "paid" ||
     currentEntry.paymentStatus === "overpaid";
+  const dueRelativeLabel = currentDebt.dueDate
+    ? isFullyPaid
+      ? "Payment complete"
+      : formatDueRelative(currentDebt.dueDate)
+    : "No deadline has been set";
 
   const displayAmount = isPartiallyPaid
     ? currentEntry.remainingAmount
@@ -353,9 +359,19 @@ export function DebtDetailScreen() {
         <View style={styles.participantFlow}>
           <ParticipantChip label="You" highlight />
           <View style={styles.flowArrowWrap}>
-            {isOwedToMe ? <AnimatedFlowArrow isOwedToMe={isOwedToMe} /> : null}
+            {isOwedToMe ? (
+              <AnimatedFlowArrow
+                isOwedToMe={isOwedToMe}
+                color={directionColor}
+              />
+            ) : null}
             <View style={styles.flowArrowLine} />
-            {!isOwedToMe ? <AnimatedFlowArrow isOwedToMe={isOwedToMe} /> : null}
+            {!isOwedToMe ? (
+              <AnimatedFlowArrow
+                isOwedToMe={isOwedToMe}
+                color={directionColor}
+              />
+            ) : null}
           </View>
           <ParticipantChip
             label={member?.displayName ?? "Them"}
@@ -369,6 +385,7 @@ export function DebtDetailScreen() {
             amount={displayAmount}
             currency={currentDebt.currency}
             size="lg"
+            color={directionColor}
           />
           {isPartiallyPaid ? (
             <Text style={styles.amountSubtext}>
@@ -388,18 +405,24 @@ export function DebtDetailScreen() {
           ) : null}
         </View>
 
-        {/* Payment progress bar (only when any amount has been paid) */}
-        {currentEntry.amountPaid > 0 && (
-          <View style={styles.progressBlock}>
-            <View style={styles.progressTrack}>
-              <AnimatedProgressFill
-                paidFraction={paidFraction}
-                isFullyPaid={isFullyPaid}
-              />
-            </View>
+        {/* Payment progress */}
+        <View style={styles.progressBlock}>
+          <View style={styles.progressTrack}>
+            <AnimatedProgressFill
+              paidFraction={paidFraction}
+              isFullyPaid={isFullyPaid}
+              color={directionColor}
+            />
+          </View>
+          {currentEntry.amountPaid > 0 ? (
             <View style={styles.progressLabels}>
               <View style={styles.progressLabelItem}>
-                <View style={[styles.progressDot, styles.progressDotPaid]} />
+                <View
+                  style={[
+                    styles.progressDot,
+                    { backgroundColor: directionColor },
+                  ]}
+                />
                 <Text style={styles.progressLabelText}>
                   {formatMoney(currentEntry.amountPaid, currentDebt.currency)}{" "}
                   paid
@@ -420,15 +443,34 @@ export function DebtDetailScreen() {
                 </View>
               ) : null}
             </View>
-          </View>
-        )}
+          ) : null}
+        </View>
 
-        {currentDebt.dueDate ? (
-          <View style={styles.duePill}>
-            <Ionicons name="time-outline" size={13} color={palette.muted} />
-            <Text style={styles.duePillText}>Due {dueLabel}</Text>
+        <View style={styles.dueRow}>
+          <View style={styles.dueIcon}>
+            <Ionicons
+              name="calendar-outline"
+              size={17}
+              color={currentDebt.dueDate ? palette.brand : palette.faint}
+            />
           </View>
-        ) : null}
+          <View style={styles.dueCopy}>
+            <Text style={styles.dueLabel}>
+              {currentDebt.dueDate ? `Due ${dueLabel}` : "No due date"}
+            </Text>
+            <Text
+              style={[
+                styles.dueMeta,
+                currentDebt.dueDate &&
+                  !isFullyPaid &&
+                  dueRelativeLabel.includes("overdue") &&
+                  styles.dueMetaOverdue,
+              ]}
+            >
+              {dueRelativeLabel}
+            </Text>
+          </View>
+        </View>
       </View>
 
       {/* ── Details ── */}
@@ -481,7 +523,13 @@ export function DebtDetailScreen() {
   );
 }
 
-function AnimatedFlowArrow({ isOwedToMe }: { isOwedToMe: boolean }) {
+function AnimatedFlowArrow({
+  isOwedToMe,
+  color,
+}: {
+  isOwedToMe: boolean;
+  color: string;
+}) {
   const [anim] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
@@ -517,7 +565,7 @@ function AnimatedFlowArrow({ isOwedToMe }: { isOwedToMe: boolean }) {
       <Ionicons
         name={isOwedToMe ? "arrow-back" : "arrow-forward"}
         size={20}
-        color={isOwedToMe ? palette.positive : palette.warning}
+        color={color}
       />
     </Animated.View>
   );
@@ -526,9 +574,11 @@ function AnimatedFlowArrow({ isOwedToMe }: { isOwedToMe: boolean }) {
 function AnimatedProgressFill({
   paidFraction,
   isFullyPaid,
+  color,
 }: {
   paidFraction: number;
   isFullyPaid: boolean;
+  color: string;
 }) {
   const [anim] = useState(() => new Animated.Value(0));
 
@@ -551,7 +601,7 @@ function AnimatedProgressFill({
       style={[
         styles.progressFill,
         isFullyPaid && styles.progressFillComplete,
-        { width: animatedWidth },
+        { width: animatedWidth, backgroundColor: color },
       ]}
     />
   );
@@ -648,6 +698,48 @@ function formatDate(input: string) {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function formatDueRelative(input: string) {
+  const datePart = input.slice(0, 10);
+  const [year, month, day] = datePart.split("-").map(Number);
+  const dueDate = new Date(year, month - 1, day);
+
+  if (
+    !year ||
+    !month ||
+    !day ||
+    Number.isNaN(dueDate.getTime()) ||
+    dueDate.getFullYear() !== year ||
+    dueDate.getMonth() !== month - 1 ||
+    dueDate.getDate() !== day
+  ) {
+    return "Due date set";
+  }
+
+  const today = new Date();
+  const todayStart = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+  );
+  const days = Math.round(
+    (dueDate.getTime() - todayStart.getTime()) / 86_400_000,
+  );
+
+  if (days === 0) {
+    return "Due today";
+  }
+  if (days === 1) {
+    return "1 day remaining";
+  }
+  if (days > 1) {
+    return `${days} days remaining`;
+  }
+  if (days === -1) {
+    return "1 day overdue";
+  }
+  return `${Math.abs(days)} days overdue`;
 }
 
 const styles = StyleSheet.create({
@@ -778,9 +870,6 @@ const styles = StyleSheet.create({
     height: 7,
     borderRadius: radii.pill,
   },
-  progressDotPaid: {
-    backgroundColor: palette.warning,
-  },
   progressDotRemaining: {
     backgroundColor: palette.surfaceMuted,
     borderWidth: 1.5,
@@ -791,21 +880,35 @@ const styles = StyleSheet.create({
     fontSize: typography.size.sm,
     fontFamily: typefaces.bodyStrong,
   },
-  duePill: {
+  dueRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.xs,
-    alignSelf: "flex-start",
-    marginTop: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 5,
+    gap: spacing.sm,
+    paddingTop: spacing.sm,
+  },
+  dueIcon: {
+    width: 32,
+    height: 32,
     borderRadius: radii.pill,
     backgroundColor: palette.surfaceMuted,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  duePillText: {
-    color: palette.muted,
+  dueCopy: {
+    gap: 2,
+  },
+  dueLabel: {
+    color: palette.ink,
     fontSize: typography.size.sm,
     fontFamily: typefaces.bodyStrong,
+  },
+  dueMeta: {
+    color: palette.faint,
+    fontSize: typography.size.xs,
+    fontFamily: typefaces.body,
+  },
+  dueMetaOverdue: {
+    color: palette.negative,
   },
 
   // Section headings
