@@ -1,63 +1,105 @@
 # Backend Schema
 
-Supabase migrations are additive and ordered:
+Debtulator currently uses a simplified prelaunch Supabase setup.
 
-1. `supabase/stage2_schema.sql`
-2. `supabase/stage3_schema.sql`
-3. `supabase/stage4_schema.sql`
-4. `supabase/stage5_schema.sql`
-5. `supabase/stage6_schema.sql`
-6. `supabase/stage7_integration_schema.sql`
-7. `supabase/stage8_account_deletion_schema.sql`
+The active cloud schema source of truth is:
 
-## Stage 7 Additions
+```txt
+supabase/schema.sql
+```
 
-`stage7_integration_schema.sql` adds integration hardening for shared group sync:
+The optional demo seed file is:
 
-- Foreign keys for group-scoped payments, settlements, and expense payers.
-- Missing `expense_payers` RLS policies.
-- Group participant read policies for payments, settlements, settlement lines, comments, and attachments.
-- Group writer policies that enforce owner/admin/member mutation and block viewers through `can_write_group_ledger`.
-- More specific verification-response insert policy requiring the verifying user to be linked to the group member and involved in the expense/debt.
-- Updated timestamp triggers for Stage 4/5 tables.
-- Indexes for group-scoped incremental pulls.
+```txt
+supabase/seed.sql
+```
 
-## RLS Expectations
+## Current approach
+
+`schema.sql` is intentionally destructive. It drops and recreates the development Supabase schema, helper functions, Row Level Security policies, and attachment storage bucket.
+
+This is acceptable while the app is prelaunch and cloud data does not need to be preserved.
+
+After launch, this should change to additive, data-preserving migrations.
+
+## Cloud schema responsibilities
+
+The consolidated schema covers:
+
+- user profiles
+- linked member requests
+- shared debt records
+- debt verification records
+- shared groups
+- group participants
+- group invites
+- group members
+- group member claims
+- duplicate warnings
+- shared expenses
+- expense splits
+- expense payers
+- group debts
+- group verification responses
+- payments
+- settlements
+- comments
+- attachments
+- notifications
+- notification preferences
+- push-token records
+- sync conflicts
+- audit logs
+- account deletion request records
+- Row Level Security policies
+- attachment storage bucket policies
+
+## RLS expectations
 
 - Users can read records for shared groups they participate in.
 - Owners/admins can manage group-level configuration.
 - Owners/admins/members can write ledger records while the group is writable.
-- Viewers can read but cannot mutate group ledger records.
-- Verification responses can only be written by the linked user for the involved group member.
+- Viewers can read but should not mutate group ledger records.
+- Verification responses should only be written by the linked user for the relevant group member or by permitted group managers.
 - Private records remain inaccessible unless they are owned by the authenticated user.
-- The app uses only the Supabase anon key; service role keys are not used client-side.
+- The app uses only the Supabase anon key client-side; service-role keys must never be used in the mobile app.
 
-## Stage 8 Account Deletion Readiness
+## Account deletion readiness
 
-`stage8_account_deletion_schema.sql` moves account deletion beyond a local audit intent:
+The consolidated schema includes `account_deletion_requests` and two account-deletion RPC surfaces:
 
-- Adds `account_deletion_requests` with request status, anonymization status, timestamps, local-data preferences, and RLS.
-- Allows authenticated mobile clients to call `request_account_deletion(...)` to create or return the active deletion request.
-- Lets users read only their own deletion request rows. Users cannot update fulfillment status from the anon client.
-- Adds a service-role-only `apply_account_deletion_anonymization(...)` helper for trusted Edge Functions/admin workers.
-- Changes shared-ledger-critical Auth foreign keys from `on delete cascade` to `on delete set null` for shared debts, debt verifications, and group owners so Auth deletion does not destroy other participants' ledgers.
+- `request_account_deletion(...)` for authenticated mobile users.
+- `apply_account_deletion_anonymization(...)` for trusted service-role execution only.
 
 Trusted deletion fulfillment should run in this order:
 
 1. Receive an authenticated user request from the app or support channel.
 2. Ensure an `account_deletion_requests` row exists and move it to queued/processing with the service role.
 3. Run `apply_account_deletion_anonymization(request_id, admin_note)` from an Edge Function or admin worker.
-4. Delete or quarantine private Storage objects referenced by private attachments. SQL deletes private attachment rows, but Storage object deletion must use the Storage admin API.
+4. Delete or quarantine private Storage objects referenced by private attachments. SQL can clear database references, but Storage object deletion must use the Storage admin API.
 5. Call `supabase.auth.admin.deleteUser(subject_user_id)` only after anonymization succeeds.
 6. Mark the request `completed`, set `auth_user_deleted_at` and `completed_at`, or mark it `failed` with `error_message`.
 
-The mobile anon client must not hold a service role key and cannot revoke sessions, delete Auth users, or delete Storage objects outside RLS.
+The mobile anon client must not hold a service-role key and cannot revoke sessions, delete Auth users, or delete Storage objects outside RLS.
 
-## Running Migrations
+## Running the backend locally/manually
 
-Apply migrations in order through your Supabase migration workflow. For a manual SQL application, run Stage 7 and Stage 8 after all earlier stages:
+For a fresh prelaunch backend:
 
-```sql
-\i supabase/stage7_integration_schema.sql
-\i supabase/stage8_account_deletion_schema.sql
+1. Create a Supabase project.
+2. Run `supabase/schema.sql` in the Supabase SQL editor.
+3. Add `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` to the app environment.
+4. Create/sign up a test user.
+5. Optionally run `supabase/seed.sql`.
+
+## Future production migration strategy
+
+Do not use destructive resets after launch.
+
+When production data needs to be preserved, replace the reset workflow with additive migrations such as:
+
+```txt
+supabase/migrations/001_initial.sql
+supabase/migrations/002_add_feature.sql
+supabase/migrations/003_fix_policy.sql
 ```
