@@ -983,7 +983,6 @@ export class DebtulatorRepository {
       input.memberId !== undefined && input.memberId !== debt.memberId,
       input.direction !== undefined && input.direction !== debt.direction,
       input.amount !== undefined && toAmount(input.amount) !== debt.amount,
-      input.currency !== undefined && input.currency !== debt.currency,
       input.eventId !== undefined && input.eventId !== debt.eventId,
       input.debtDate !== undefined && input.debtDate !== debt.debtDate,
     ].some(Boolean);
@@ -1007,7 +1006,7 @@ export class DebtulatorRepository {
             : debt.syncStatus,
       direction: input.direction ?? debt.direction,
       amount: input.amount === undefined ? debt.amount : toAmount(input.amount),
-      currency: input.currency ?? debt.currency,
+      currency: debt.currency,
       title: input.title?.trim() ?? debt.title,
       notes: input.notes === undefined ? debt.notes : cleanOptional(input.notes),
       sharedNotes: input.sharedNotes === undefined ? debt.sharedNotes : cleanOptional(input.sharedNotes),
@@ -1017,7 +1016,10 @@ export class DebtulatorRepository {
         input.recurringTemplateId === undefined ? debt.recurringTemplateId : cleanOptional(input.recurringTemplateId),
       tags: input.tags === undefined ? debt.tags : cleanTags(input.tags),
       eventId: input.eventId === undefined ? debt.eventId : input.eventId,
-      status: input.status ?? debt.status,
+      status:
+        (input.status ?? debt.status) === 'settled'
+          ? 'active'
+          : input.status ?? debt.status,
       verificationStatus: nextVerificationStatus,
       verifiedByUserId: financialFieldsChanged ? null : debt.verifiedByUserId,
       verifiedAt: financialFieldsChanged ? null : debt.verifiedAt,
@@ -1101,11 +1103,8 @@ export class DebtulatorRepository {
     }
     if (updated.amount !== debt.amount) {
       addChange('debt_amount_changed', 'amount', debt.amount, updated.amount, {
-        currency: updated.currency,
+        currency: debt.currency,
       });
-    }
-    if (updated.currency !== debt.currency) {
-      addChange('debt_currency_changed', 'currency', debt.currency, updated.currency);
     }
     if (updated.memberId !== debt.memberId) {
       addChange('debt_member_changed', 'memberId', debt.memberId, updated.memberId);
@@ -1135,13 +1134,11 @@ export class DebtulatorRepository {
         removedTags,
       });
     }
-    if (updated.status !== debt.status) {
+    if (updated.status !== debt.status && updated.status !== 'settled') {
       const action =
         updated.status === 'archived'
           ? 'debt_archived'
-          : updated.status === 'settled'
-            ? 'debt_settled'
-            : 'debt_reopened';
+          : 'debt_reopened';
       addChange(action, 'status', debt.status, updated.status);
     }
 

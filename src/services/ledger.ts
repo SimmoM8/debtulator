@@ -69,7 +69,7 @@ export function buildLedgerEntries(
     date: debt.debtDate,
     dueDate: debt.dueDate,
     tags: debt.tags,
-    status: debt.status,
+    status: debt.status === 'settled' ? 'active' : debt.status,
     verificationStatus: debt.verificationStatus,
     visibility: debt.visibility,
     syncStatus: debt.syncStatus,
@@ -389,7 +389,7 @@ export function applySettlementsToEntries(entries: LedgerEntry[], lines: Settlem
     const paymentStatus: ObligationPaymentStatus =
       entry.status === 'archived'
         ? 'archived'
-        : entry.status === 'settled' || (remainingAmount <= EPSILON && overpaidAmount <= EPSILON && amountPaid > EPSILON)
+        : remainingAmount <= EPSILON && overpaidAmount <= EPSILON && amountPaid > EPSILON
           ? 'paid'
           : overpaidAmount > EPSILON
             ? 'overpaid'

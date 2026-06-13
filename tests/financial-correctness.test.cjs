@@ -149,6 +149,69 @@ test('settlement lines reduce ledger entries and rejected payments are ignored',
   assert.equal(entries[0].paymentStatus, 'partially_paid');
 });
 
+test('simple debt settlement state is derived from payments rather than a persisted settled flag', () => {
+  const withoutPayment = buildLedgerEntries(
+    [debt({ id: 'debt_1', amount: 100, status: 'settled' })],
+    [],
+  )[0];
+
+  assert.equal(withoutPayment.originalAmount, 100);
+  assert.equal(withoutPayment.amountPaid, 0);
+  assert.equal(withoutPayment.remainingAmount, 100);
+  assert.equal(withoutPayment.paymentStatus, 'unpaid');
+  assert.equal(withoutPayment.status, 'active');
+
+  const withPayment = buildLedgerEntries(
+    [debt({ id: 'debt_1', amount: 100, status: 'active' })],
+    [],
+    [],
+    [settlementLine({ id: 'line_1', sourceRecordId: 'debt_1', appliedAmount: 100 })],
+    [payment({ id: 'payment_1', status: 'recorded' })],
+  )[0];
+
+  assert.equal(withPayment.originalAmount, 100);
+  assert.equal(withPayment.amountPaid, 100);
+  assert.equal(withPayment.remainingAmount, 0);
+  assert.equal(withPayment.paymentStatus, 'paid');
+});
+
+test('editing debt principal recalculates remaining and overpaid values without rewriting payments', () => {
+  const lines = [
+    settlementLine({
+      id: 'line_1',
+      paymentId: 'payment_1',
+      sourceRecordId: 'debt_1',
+      appliedAmount: 40,
+    }),
+  ];
+  const payments = [payment({ id: 'payment_1', status: 'recorded' })];
+
+  const increased = buildLedgerEntries(
+    [debt({ id: 'debt_1', amount: 120 })],
+    [],
+    [],
+    lines,
+    payments,
+  )[0];
+  assert.equal(increased.originalAmount, 120);
+  assert.equal(increased.amountPaid, 40);
+  assert.equal(increased.remainingAmount, 80);
+  assert.equal(increased.paymentStatus, 'partially_paid');
+
+  const decreased = buildLedgerEntries(
+    [debt({ id: 'debt_1', amount: 30 })],
+    [],
+    [],
+    lines,
+    payments,
+  )[0];
+  assert.equal(decreased.originalAmount, 30);
+  assert.equal(decreased.amountPaid, 40);
+  assert.equal(decreased.remainingAmount, 0);
+  assert.equal(decreased.overpaidAmount, 10);
+  assert.equal(decreased.paymentStatus, 'overpaid');
+});
+
 test('overpayments surface as overpaid ledger entries and open credits only', () => {
   const entries = buildLedgerEntries(
     [debt({ id: 'debt_1', amount: 100 })],
