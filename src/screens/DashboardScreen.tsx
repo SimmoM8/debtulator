@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useMemo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useMemo, useRef } from "react";
+import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
 import {
@@ -158,6 +159,35 @@ export function DashboardScreen() {
       : netEstimatedInBase < 0
         ? palette.danger
         : palette.textSecondary;
+  const heroEntrance = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.spring(heroEntrance, {
+      toValue: 1,
+      damping: 18,
+      stiffness: 130,
+      mass: 0.7,
+      useNativeDriver: true,
+    }).start();
+  }, [heroEntrance]);
+
+  const heroAnimatedStyle = {
+    opacity: heroEntrance,
+    transform: [
+      {
+        translateY: heroEntrance.interpolate({
+          inputRange: [0, 1],
+          outputRange: [14, 0],
+        }),
+      },
+      {
+        scale: heroEntrance.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0.985, 1],
+        }),
+      },
+    ],
+  };
 
   if (data.loading || auth.loading) {
     return <LoadingState />;
@@ -182,71 +212,90 @@ export function DashboardScreen() {
         <AppMenuButton />
       </View>
 
-      <GlassCard tone="lavender" style={styles.heroCard}>
-        <View style={styles.heroTopRow}>
-          <View style={styles.brandRow}>
-            <Text style={styles.heroTitle}>Debtulator</Text>
-            <Ionicons
-              name="sparkles"
-              size={14}
-              color={palette.primary}
-              style={styles.brandSparkle}
+      <Animated.View style={heroAnimatedStyle}>
+        <GlassCard tone="lavender" style={styles.heroCard} allowOverflow>
+          <LinearGradient
+            pointerEvents="none"
+            colors={
+              [
+                "rgba(221,214,254,0.55)",
+                "rgba(253,186,155,0.18)",
+                "rgba(255,255,255,0)",
+              ] as const
+            }
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.heroGlow}
+          />
+          <View pointerEvents="none" style={styles.heroOrbPrimary} />
+          <View pointerEvents="none" style={styles.heroOrbPeach} />
+
+          <View style={styles.heroTopRow}>
+            <View style={styles.brandPill}>
+              <Ionicons name="sparkles" size={13} color={palette.primary} />
+              <Text style={styles.brandPillText}>Debtulator</Text>
+            </View>
+            <View style={[styles.netStatusPill, { borderColor: netStatusTone }]}>
+              <Ionicons name={netSummaryIcon} size={13} color={netStatusTone} />
+              <Text style={[styles.netStatusText, { color: netStatusTone }]}>
+                {netSummaryLabel}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.heroMainRow}>
+            <View style={styles.netSpotlight}>
+              <Text style={styles.netSpotlightLabel}>Net position</Text>
+              <Text style={styles.netSpotlightValue} numberOfLines={1}>
+                {signedMoneyLabel(totals.net, data.settings, data.currencyRates)}
+              </Text>
+              <Text style={styles.netSpotlightHint}>
+                Clean snapshot across debts, payments, and shared groups.
+              </Text>
+            </View>
+
+            <View style={styles.heroIconBadge}>
+              <Ionicons name="wallet-outline" size={24} color={palette.primary} />
+            </View>
+          </View>
+
+          <View style={styles.snapshotRow}>
+            <StatCard
+              label="You owe"
+              value={moneyLabel(totals.iOwe, data.settings, data.currencyRates)}
+              subtitle={
+                dueSoonIOwe > 0
+                  ? `Due soon ${formatMoney(dueSoonIOwe, data.settings.baseCurrency)}`
+                  : "Nothing urgent"
+              }
+              tone="coral"
+              compact
+              compactDensity="tight"
+              showCompactSubtitle
+              withDivider
+            />
+            <StatCard
+              label="Owed to you"
+              value={moneyLabel(
+                totals.owedToMe,
+                data.settings,
+                data.currencyRates,
+              )}
+              subtitle={
+                dueSoonOwedToMe > 0
+                  ? `Due soon ${formatMoney(dueSoonOwedToMe, data.settings.baseCurrency)}`
+                  : activeSharedGroups.length
+                    ? `${activeSharedGroups.length} active groups`
+                    : "Nothing pending"
+              }
+              tone="indigo"
+              compact
+              compactDensity="tight"
+              showCompactSubtitle
             />
           </View>
-        </View>
-
-        <View style={styles.netSpotlight}>
-          <Text style={styles.netSpotlightLabel}>Net position</Text>
-          <Text style={styles.netSpotlightValue}>
-            {signedMoneyLabel(totals.net, data.settings, data.currencyRates)}
-          </Text>
-          <View style={styles.netSpotlightMetaRow}>
-            <Ionicons
-              name={netSummaryIcon}
-              size={13}
-              color={netStatusTone}
-              style={styles.netSpotlightMetaIcon}
-            />
-            <Text style={[styles.netSpotlightMeta, { color: netStatusTone }]}>
-              {netSummaryLabel}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.snapshotRow}>
-          <StatCard
-            label="You owe"
-            value={moneyLabel(totals.iOwe, data.settings, data.currencyRates)}
-            subtitle={
-              dueSoonIOwe > 0
-                ? `Due soon ${formatMoney(dueSoonIOwe, data.settings.baseCurrency)}`
-                : "Nothing urgent"
-            }
-            tone="coral"
-            compact
-            showCompactSubtitle
-            withDivider
-          />
-          <StatCard
-            label="Owed to you"
-            value={moneyLabel(
-              totals.owedToMe,
-              data.settings,
-              data.currencyRates,
-            )}
-            subtitle={
-              dueSoonOwedToMe > 0
-                ? `Due soon ${formatMoney(dueSoonOwedToMe, data.settings.baseCurrency)}`
-                : activeSharedGroups.length
-                  ? `${activeSharedGroups.length} active groups`
-                  : "Nothing pending"
-            }
-            tone="indigo"
-            compact
-            showCompactSubtitle
-          />
-        </View>
-      </GlassCard>
+        </GlassCard>
+      </Animated.View>
 
       <SectionTitle
         title="Due soon"
@@ -476,44 +525,85 @@ const styles = StyleSheet.create({
     fontFamily: typefaces.body,
   },
   heroCard: {
-    gap: 10,
-    paddingTop: 16,
-    paddingBottom: 10,
-    backgroundColor: "rgba(255,255,255,0.78)",
+    gap: spacing.md,
+    paddingTop: 15,
+    paddingBottom: 12,
+    backgroundColor: "rgba(255,255,255,0.82)",
+    overflow: "hidden",
+  },
+  heroGlow: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.9,
+  },
+  heroOrbPrimary: {
+    position: "absolute",
+    top: -34,
+    right: -28,
+    width: 116,
+    height: 116,
+    borderRadius: 58,
+    backgroundColor: "rgba(221,214,254,0.34)",
+  },
+  heroOrbPeach: {
+    position: "absolute",
+    bottom: -42,
+    left: -30,
+    width: 104,
+    height: 104,
+    borderRadius: 52,
+    backgroundColor: "rgba(253,186,155,0.18)",
   },
   heroTopRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    gap: spacing.sm,
+  },
+  brandPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 6,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderIndigo,
+    backgroundColor: "rgba(255,255,255,0.72)",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  brandPillText: {
+    color: palette.primaryDeep,
+    fontSize: typography.size.xs,
+    lineHeight: typography.line.xs,
+    fontFamily: typefaces.bodyStrong,
+    letterSpacing: 0.2,
+  },
+  netStatusPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    backgroundColor: "rgba(255,255,255,0.64)",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  netStatusText: {
+    fontSize: typography.size.xs,
+    lineHeight: typography.line.xs,
+    fontFamily: typefaces.bodyStrong,
+  },
+  heroMainRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: spacing.md,
   },
-  brandRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 4,
-  },
-  heroTitle: {
-    color: palette.primaryDeep,
-    fontSize: typography.size.displaySm,
-    lineHeight: typography.line.displayMd,
-    fontFamily: typefaces.display,
-  },
-  brandSparkle: {
-    marginTop: 2,
-  },
-  snapshotRow: {
-    flexDirection: "row",
-    alignItems: "stretch",
-    gap: 0,
-    backgroundColor: "transparent",
-  },
   netSpotlight: {
-    alignSelf: "stretch",
+    flex: 1,
     alignItems: "flex-start",
     justifyContent: "center",
-    paddingHorizontal: 2,
-    paddingVertical: 2,
-    gap: 3,
+    gap: 4,
   },
   netSpotlightLabel: {
     color: palette.textSecondary,
@@ -528,45 +618,34 @@ const styles = StyleSheet.create({
     lineHeight: typography.line.displayXl,
     fontFamily: typefaces.display,
     textAlign: "left",
+    letterSpacing: -0.5,
   },
-  netSpotlightMetaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-start",
-    gap: 4,
-  },
-  netSpotlightMetaIcon: {
-    marginTop: 0.5,
-  },
-  netSpotlightMeta: {
-    fontSize: typography.size.sm,
-    lineHeight: typography.line.md,
-    fontFamily: typefaces.bodyStrong,
-    textAlign: "left",
-  },
-  inboxCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.md,
-  },
-  inboxCopy: {
-    flex: 1,
-    gap: 4,
-  },
-  inboxTitle: {
-    color: palette.textPrimary,
-    fontSize: typography.size.xl,
-    fontFamily: typefaces.bodyStrong,
-  },
-  inboxBody: {
-    color: palette.muted,
-    fontSize: typography.size.md,
-    lineHeight: typography.line.lg,
+  netSpotlightHint: {
+    maxWidth: 260,
+    color: palette.textSecondary,
+    fontSize: typography.size.xs,
+    lineHeight: typography.line.sm,
     fontFamily: typefaces.body,
   },
-  statsRow: {
-    gap: spacing.sm,
+  heroIconBadge: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderIndigo,
+    backgroundColor: "rgba(255,255,255,0.74)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  snapshotRow: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    gap: 0,
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderIndigoSoft,
+    backgroundColor: "rgba(255,255,255,0.5)",
+    overflow: "hidden",
   },
   actionGrid: {
     flexDirection: "row",
