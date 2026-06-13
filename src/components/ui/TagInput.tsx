@@ -64,7 +64,7 @@ export function TagInput({
   return (
     <View style={styles.field}>
       <View style={styles.inputField}>
-        <Text style={styles.label}>{label}</Text>
+        {label ? <Text style={styles.label}>{label}</Text> : null}
         <View style={styles.inputShell}>
           <TextInput
             value={input}

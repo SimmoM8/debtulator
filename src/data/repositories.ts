@@ -69,7 +69,9 @@ import type {
   CsvImportBatch,
   CurrencyCode,
   Debt,
+  DebtChangeSummary,
   DebtVerification,
+  DebtVerificationRequestType,
   DebtStatus,
   Group,
   GroupActivityLog,
@@ -299,6 +301,8 @@ type DebtVerificationInput = {
   remoteDebtId?: string | null;
   remoteVerificationId?: string | null;
   sharedNotes?: string | null;
+  requestType?: DebtVerificationRequestType;
+  changeSummary?: DebtChangeSummary | null;
 };
 
 type AttachmentInput = {
@@ -979,15 +983,19 @@ export class DebtulatorRepository {
     input: Partial<DebtInput>,
     actorUserId: string | null = null,
   ) {
-    const financialFieldsChanged = [
+    const reviewFieldsChanged = [
       input.memberId !== undefined && input.memberId !== debt.memberId,
       input.direction !== undefined && input.direction !== debt.direction,
       input.amount !== undefined && toAmount(input.amount) !== debt.amount,
+      input.title !== undefined && input.title.trim() !== debt.title,
+      input.dueDate !== undefined && cleanOptional(input.dueDate) !== debt.dueDate,
       input.groupId !== undefined && input.groupId !== debt.groupId,
     ].some(Boolean);
+    const requiresSharedApproval =
+      debt.visibility === 'shared_with_involved_member' && reviewFieldsChanged;
 
     const nextVerificationStatus =
-      ['pending', 'verified', 'rejected', 'disputed', 'resolved'].includes(debt.verificationStatus) && financialFieldsChanged
+      ['pending', 'verified', 'rejected', 'disputed', 'resolved'].includes(debt.verificationStatus) && reviewFieldsChanged
         ? debt.visibility === 'shared_with_involved_member'
           ? 'pending'
           : 'local_only'
@@ -998,7 +1006,9 @@ export class DebtulatorRepository {
       memberId: input.memberId ?? debt.memberId,
       visibility: input.visibility ?? debt.visibility,
       syncStatus:
-        financialFieldsChanged && debt.syncStatus === 'synced'
+        requiresSharedApproval
+          ? debt.syncStatus
+          : reviewFieldsChanged && debt.syncStatus === 'synced'
           ? 'pending_update'
           : input.visibility === 'shared_with_involved_member' && debt.syncStatus === 'local_only'
             ? 'pending_upload'
@@ -1020,8 +1030,8 @@ export class DebtulatorRepository {
           ? 'active'
           : input.status ?? debt.status,
       verificationStatus: nextVerificationStatus,
-      verifiedByUserId: financialFieldsChanged ? null : debt.verifiedByUserId,
-      verifiedAt: financialFieldsChanged ? null : debt.verifiedAt,
+      verifiedByUserId: reviewFieldsChanged ? null : debt.verifiedByUserId,
+      verifiedAt: reviewFieldsChanged ? null : debt.verifiedAt,
       rejectedByUserId: input.verificationStatus === 'rejected' ? debt.rejectedByUserId : debt.rejectedByUserId,
       rejectedAt: debt.rejectedAt,
       rejectionReason: debt.rejectionReason,
@@ -1031,10 +1041,10 @@ export class DebtulatorRepository {
       updatedAt: nowIso(),
     };
     await insertDebt(this.db, updated);
-    if (updated.syncStatus === 'pending_update') {
+    if (updated.syncStatus === 'pending_update' && !requiresSharedApproval) {
       await this.queueSyncOperation({ entityType: 'debt', entityId: updated.id, operation: 'update', payload: updated });
     }
-    if (financialFieldsChanged && debt.verificationStatus === 'verified') {
+    if (reviewFieldsChanged && debt.verificationStatus === 'verified') {
       await this.logActivity('debt', debt.id, 'verification_reset_financial_edit', actorUserId, {
         previousStatus: debt.verificationStatus,
         nextStatus: updated.verificationStatus,
@@ -2276,6 +2286,8 @@ export class DebtulatorRepository {
       remoteDebtId: input.remoteDebtId ?? input.debt.remoteId,
       requesterUserId: input.requesterUserId,
       responderUserId: input.responderUserId,
+      requestType: input.requestType ?? 'creation',
+      changeSummary: input.changeSummary ?? null,
       status: 'pending',
       rejectionReason: null,
       suggestedChange: null,
@@ -2307,6 +2319,8 @@ export class DebtulatorRepository {
     await this.logActivity('debt', input.debt.id, 'debt_verification_requested', input.requesterUserId, {
       responderUserId: input.responderUserId,
       verificationId: verification.id,
+      requestType: verification.requestType,
+      changedFields: verification.changeSummary?.changedFields ?? [],
     });
     return { debt: updatedDebt, verification };
   }
@@ -2689,6 +2703,16 @@ export class DebtulatorRepository {
     suggestedChange?: SuggestedDebtChange | null,
   ) {
     const timestamp = nowIso();
+    const proposed =
+      status === 'verified' && verification.requestType === 'amendment'
+        ? verification.changeSummary?.proposed
+        : undefined;
+    const proposedDirection =
+      proposed?.direction === 'they_owe_me'
+        ? 'i_owe_them'
+        : proposed?.direction === 'i_owe_them'
+          ? 'they_owe_me'
+          : debt.direction;
     const updatedVerification: DebtVerification = {
       ...verification,
       status,
@@ -2700,6 +2724,13 @@ export class DebtulatorRepository {
     };
     const updatedDebt: Debt = {
       ...debt,
+      amount: typeof proposed?.amount === 'number' ? toAmount(proposed.amount) : debt.amount,
+      title: typeof proposed?.title === 'string' ? proposed.title.trim() : debt.title,
+      dueDate:
+        proposed && Object.hasOwn(proposed, 'dueDate')
+          ? cleanOptional(proposed.dueDate as string | null)
+          : debt.dueDate,
+      direction: proposedDirection,
       verificationStatus: status,
       syncStatus: debt.remoteId ? 'pending_update' : debt.syncStatus,
       verifiedByUserId: status === 'verified' ? actorUserId : null,

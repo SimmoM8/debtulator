@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Alert, StyleSheet, Text, View } from "react-native";
 
 import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
 import {
@@ -32,6 +32,7 @@ import {
 import { updateRemoteGroupInvite } from "@/src/services/stage3Sync";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
+import type { Debt, DebtVerification } from "@/src/types/models";
 import { formatMoney } from "@/src/utils/money";
 
 type InboxFilter = "all" | "pending" | "completed";
@@ -328,20 +329,31 @@ export function RequestsScreen() {
               return (
                 <RequestCard
                   key={verification.id}
-                  title={debt?.title ?? "Shared debt"}
+                  title={
+                    debt
+                      ? proposedString(verification, "title") ?? debt.title
+                      : "Shared debt"
+                  }
                   body={
-                    member
-                      ? `${member.displayName} · ${debt?.debtDate ?? ""}`
-                      : "Verification request"
+                    debt
+                      ? describeVerificationRequest(verification, debt)
+                      : member
+                        ? `Shared debt with ${member.displayName}`
+                        : "Debt confirmation request"
                   }
                   amount={
-                    debt ? formatMoney(debt.amount, debt.currency) : undefined
+                    debt
+                      ? formatMoney(
+                          proposedAmount(verification, debt),
+                          debt.currency,
+                        )
+                      : undefined
                   }
                   status="Pending"
                   tone="amber"
                   actions={[
                     {
-                      label: "Approve",
+                      label: "Confirm",
                       onPress: async () => {
                         if (!userId) {
                           return;
@@ -358,21 +370,35 @@ export function RequestsScreen() {
                       },
                     },
                     {
-                      label: "Reject",
+                      label: "Contest",
                       variant: "secondary" as const,
-                      onPress: async () => {
+                      onPress: () => {
                         if (!userId) {
                           return;
                         }
-                        await respondRemoteDebtVerification({
-                          verification,
-                          status: "rejected",
-                        });
-                        await data.respondToDebtVerification(
-                          verification.id,
-                          "rejected",
-                          userId,
-                          "Needs review",
+                        Alert.alert(
+                          "Contest this debt?",
+                          "This marks the debt as contested and sends it back for review. No payment or balance is changed.",
+                          [
+                            { text: "Cancel", style: "cancel" },
+                            {
+                              text: "Contest",
+                              style: "destructive",
+                              onPress: async () => {
+                                await respondRemoteDebtVerification({
+                                  verification,
+                                  status: "rejected",
+                                  rejectionReason: "Needs review",
+                                });
+                                await data.respondToDebtVerification(
+                                  verification.id,
+                                  "rejected",
+                                  userId,
+                                  "Needs review",
+                                );
+                              },
+                            },
+                          ],
                         );
                       },
                     },
@@ -568,6 +594,56 @@ function completedBody(item: { status: string }) {
 
 function completedStatus(item: { status: string }) {
   return item.status.charAt(0).toUpperCase() + item.status.slice(1);
+}
+
+function describeVerificationRequest(
+  verification: DebtVerification,
+  debt: Debt,
+) {
+  const requestLabel =
+    verification.requestType === "amendment"
+      ? "Review changes"
+      : "Confirm this debt";
+  const fields = verification.changeSummary?.changedFields ?? [];
+  const fieldLabels = fields.map((field) => {
+    switch (field) {
+      case "dueDate":
+        return "due date";
+      case "direction":
+        return "who owes whom";
+      case "member":
+        return "member";
+      default:
+        return field;
+    }
+  });
+  const changeCopy =
+    verification.requestType === "amendment" && fieldLabels.length
+      ? ` · Changed ${fieldLabels.join(", ")}`
+      : "";
+  const proposedDueDate = proposedString(verification, "dueDate");
+  const dueDate =
+    proposedDueDate === undefined ? debt.dueDate : proposedDueDate;
+  const dueCopy = dueDate ? ` · Due ${dueDate}` : "";
+  const proposedDirection =
+    proposedString(verification, "direction") ?? debt.direction;
+
+  return `${requestLabel} · ${proposedDirection === "they_owe_me" ? "They owe you" : "You owe them"}${dueCopy}${changeCopy}`;
+}
+
+function proposedAmount(verification: DebtVerification, debt: Debt) {
+  const proposed = verification.changeSummary?.proposed.amount;
+  return typeof proposed === "number" ? proposed : debt.amount;
+}
+
+function proposedString(
+  verification: DebtVerification,
+  field: "title" | "direction" | "dueDate",
+) {
+  const proposed = verification.changeSummary?.proposed[field];
+  return typeof proposed === "string" || proposed === null
+    ? proposed
+    : undefined;
 }
 
 const styles = StyleSheet.create({

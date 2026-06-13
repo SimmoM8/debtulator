@@ -13,6 +13,7 @@ import {
 } from "react-native";
 
 import { AvatarStack } from "@/src/components/ui/Finance";
+import { VerificationBadge } from "@/src/components/ui/Badges";
 import { MobileMenuModal } from "@/src/components/ui/MenuList";
 import { Amount } from "@/src/components/ui/Money";
 import { TagInput } from "@/src/components/ui/TagInput";
@@ -42,7 +43,7 @@ import { buildLedgerEntries } from "@/src/services/ledger";
 import { createRemoteDebtVerification } from "@/src/services/stage2Sync";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
-import type { CurrencyCode, DebtStatus } from "@/src/types/models";
+import type { CurrencyCode, Debt, DebtStatus } from "@/src/types/models";
 import { todayIsoDate } from "@/src/utils/id";
 import { formatMoney } from "@/src/utils/money";
 
@@ -292,21 +293,37 @@ export function DebtDetailScreen() {
       return;
     }
 
-    const remote = await createRemoteDebtVerification({
-      debt: currentDebt,
-      member,
-      requesterUserId: auth.identity.authenticatedUserId,
-      responderUserId: member.linkedUserId,
-      sharedNotes: currentDebt.sharedNotes ?? currentDebt.notes,
-    });
+    try {
+      const remote = await createRemoteDebtVerification({
+        debt: currentDebt,
+        member,
+        requesterUserId: auth.identity.authenticatedUserId,
+        responderUserId: member.linkedUserId,
+        sharedNotes: currentDebt.sharedNotes ?? currentDebt.notes,
+        requestType: currentDebt.remoteId ? "amendment" : "creation",
+      });
+      if (!remote) {
+        Alert.alert(
+          "Cloud confirmation unavailable",
+          "Connect to the cloud service and try again.",
+        );
+        return;
+      }
 
-    await data.requestDebtVerification(currentDebt.id, {
-      requesterUserId: auth.identity.authenticatedUserId,
-      responderUserId: member.linkedUserId,
-      remoteDebtId: remote?.remoteDebtId ?? null,
-      remoteVerificationId: remote?.remoteVerificationId ?? null,
-      sharedNotes: currentDebt.sharedNotes ?? currentDebt.notes,
-    });
+      await data.requestDebtVerification(currentDebt.id, {
+        requesterUserId: auth.identity.authenticatedUserId,
+        responderUserId: member.linkedUserId,
+        remoteDebtId: remote.remoteDebtId,
+        remoteVerificationId: remote.remoteVerificationId,
+        sharedNotes: currentDebt.sharedNotes ?? currentDebt.notes,
+        requestType: currentDebt.remoteId ? "amendment" : "creation",
+      });
+    } catch {
+      Alert.alert(
+        "Could not request confirmation",
+        "The confirmation request could not be sent. Please try again.",
+      );
+    }
   }
 
   async function exportPdf() {
@@ -377,6 +394,13 @@ export function DebtDetailScreen() {
     JSON.stringify(tagsValue) !== JSON.stringify(currentDebt.tags);
   const usedTagNames = Array.from(
     new Set([...data.tags.map((tag) => tag.name), ...currentDebt.tags]),
+  );
+  const showVerificationStatus =
+    member?.linkStatus === "linked" &&
+    currentDebt.verificationStatus !== "local_only";
+  const verificationCopy = getVerificationCopy(
+    currentDebt.verificationStatus,
+    member?.displayName ?? "the other member",
   );
 
   const displayAmount = currentEntry.remainingAmount;
@@ -582,7 +606,7 @@ export function DebtDetailScreen() {
                 />
               </View>
               <TagInput
-                label="Tags"
+                label=""
                 value={tagsValue}
                 onChange={(value) =>
                   setTagsDraft({ debtId: currentDebt.id, value })
@@ -647,6 +671,28 @@ export function DebtDetailScreen() {
             }
           />
         </View>
+
+        {showVerificationStatus ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open debt confirmation requests"
+            onPress={() => router.push("/requests")}
+            style={({ pressed }) => [
+              styles.verificationStatus,
+              pressed && styles.verificationStatusPressed,
+            ]}
+          >
+            <VerificationBadge status={currentDebt.verificationStatus} />
+            <Text style={styles.verificationStatusText}>
+              {verificationCopy}
+            </Text>
+            <Ionicons
+              name="chevron-forward"
+              size={14}
+              color={palette.muted}
+            />
+          </Pressable>
+        ) : null}
 
         {/* Amount */}
         <View style={styles.amountBlock}>
@@ -1275,6 +1321,30 @@ function stringArray(value: unknown) {
     : [];
 }
 
+function getVerificationCopy(
+  status: Debt["verificationStatus"],
+  memberName: string,
+) {
+  switch (status) {
+    case "pending":
+      return `Waiting for ${memberName} to confirm`;
+    case "verified":
+      return `Confirmed by ${memberName}`;
+    case "rejected":
+      return `Contested by ${memberName}`;
+    case "disputed":
+      return "This debt is under review";
+    case "resolved":
+      return "The review has been resolved";
+    case "cancelled":
+      return "Confirmation request cancelled";
+    case "partially_verified":
+      return "Some participants have confirmed";
+    default:
+      return "Stored on this device";
+  }
+}
+
 const styles = StyleSheet.create({
   // Footer
   footerActions: {
@@ -1537,11 +1607,33 @@ const styles = StyleSheet.create({
   },
   tagsModalActions: {
     flexDirection: "row",
+    justifyContent: "flex-end",
     gap: spacing.sm,
     paddingTop: spacing.sm,
   },
   tagsModalButton: {
-    flex: 1,
+    minHeight: 40,
+    paddingHorizontal: spacing.xl,
+    shadowOpacity: 0,
+  },
+  verificationStatus: {
+    alignSelf: "center",
+    maxWidth: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    borderRadius: radii.pill,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+  },
+  verificationStatusPressed: {
+    backgroundColor: palette.surfaceAlt,
+  },
+  verificationStatusText: {
+    flexShrink: 1,
+    color: palette.muted,
+    fontSize: typography.size.sm,
+    fontFamily: typefaces.body,
   },
   notesBlock: {
     gap: spacing.xs,

@@ -529,6 +529,8 @@ type DebtVerificationRow = {
   remote_debt_id: string | null;
   requester_user_id: string;
   responder_user_id: string;
+  request_type: DebtVerification['requestType'] | null;
+  change_summary_json: string | null;
   status: VerificationStatus;
   rejection_reason: string | null;
   suggested_change_json: string | null;
@@ -1135,6 +1137,8 @@ export async function migrate(db: SQLite.SQLiteDatabase) {
       remote_debt_id TEXT,
       requester_user_id TEXT NOT NULL,
       responder_user_id TEXT NOT NULL,
+      request_type TEXT NOT NULL DEFAULT 'creation',
+      change_summary_json TEXT,
       status TEXT NOT NULL,
       rejection_reason TEXT,
       suggested_change_json TEXT,
@@ -1369,6 +1373,8 @@ export async function migrate(db: SQLite.SQLiteDatabase) {
   await ensureColumn(db, 'debts', 'dispute_reason', 'TEXT');
   await ensureColumn(db, 'debts', 'resolution_note', 'TEXT');
   await ensureColumn(db, 'debts', 'suggested_change_json', 'TEXT');
+  await ensureColumn(db, 'debt_verifications', 'request_type', "TEXT NOT NULL DEFAULT 'creation'");
+  await ensureColumn(db, 'debt_verifications', 'change_summary_json', 'TEXT');
 
   await ensureColumn(db, 'shared_expenses', 'remote_id', 'TEXT');
   await ensureColumn(db, 'shared_expenses', 'creator_user_id', 'TEXT');
@@ -2445,6 +2451,8 @@ export async function seedDemoData(db: SQLite.SQLiteDatabase) {
       remoteDebtId: 'remote_debt_demo_daniel_backpack',
       requesterUserId: 'demo_user_local',
       responderUserId: 'demo_user_daniel',
+      requestType: 'creation',
+      changeSummary: null,
       status: 'verified',
       rejectionReason: null,
       suggestedChange: null,
@@ -2461,6 +2469,8 @@ export async function seedDemoData(db: SQLite.SQLiteDatabase) {
       remoteDebtId: 'remote_debt_demo_sarah_dinner',
       requesterUserId: 'demo_user_local',
       responderUserId: 'demo_user_sarah',
+      requestType: 'creation',
+      changeSummary: null,
       status: 'pending',
       rejectionReason: null,
       suggestedChange: null,
@@ -2477,6 +2487,8 @@ export async function seedDemoData(db: SQLite.SQLiteDatabase) {
       remoteDebtId: 'remote_debt_demo_emma_rejected',
       requesterUserId: 'demo_user_local',
       responderUserId: 'demo_user_emma',
+      requestType: 'creation',
+      changeSummary: null,
       status: 'rejected',
       rejectionReason: 'I paid my own change fee at the station.',
       suggestedChange: { amount: 40, currency: 'GBP', reason: 'Only the flexible-ticket fee was shared.' },
@@ -3507,10 +3519,11 @@ export async function insertLinkRequest(db: SQLite.SQLiteDatabase, linkRequest: 
 export async function insertDebtVerification(db: SQLite.SQLiteDatabase, verification: DebtVerification) {
   await db.runAsync(
     `INSERT OR REPLACE INTO debt_verifications
-      (id, remote_id, debt_id, remote_debt_id, requester_user_id, responder_user_id, status,
+      (id, remote_id, debt_id, remote_debt_id, requester_user_id, responder_user_id,
+       request_type, change_summary_json, status,
        rejection_reason, suggested_change_json, requested_at, responded_at, created_at, updated_at,
        sync_status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       verification.id,
       verification.remoteId,
@@ -3518,6 +3531,8 @@ export async function insertDebtVerification(db: SQLite.SQLiteDatabase, verifica
       verification.remoteDebtId,
       verification.requesterUserId,
       verification.responderUserId,
+      verification.requestType ?? 'creation',
+      verification.changeSummary ? toJson(verification.changeSummary) : null,
       verification.status,
       verification.rejectionReason,
       verification.suggestedChange ? toJson(verification.suggestedChange) : null,
@@ -4454,6 +4469,10 @@ export function mapDebtVerificationRow(row: DebtVerificationRow): DebtVerificati
     remoteDebtId: row.remote_debt_id,
     requesterUserId: row.requester_user_id,
     responderUserId: row.responder_user_id,
+    requestType: row.request_type ?? 'creation',
+    changeSummary: row.change_summary_json
+      ? (parseJsonObject(row.change_summary_json, {}) as DebtVerification['changeSummary'])
+      : null,
     status: row.status,
     rejectionReason: row.rejection_reason,
     suggestedChange: row.suggested_change_json

@@ -150,6 +150,13 @@ export function NotificationCenterScreen() {
                     }
                   />
                 ) : null}
+                {notification.type === "verification_request" ? (
+                  <Button
+                    title="Review"
+                    icon="chevron-forward"
+                    onPress={() => router.push("/requests")}
+                  />
+                ) : null}
               </View>
             </View>
           ))

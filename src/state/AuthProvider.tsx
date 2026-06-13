@@ -175,6 +175,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
+    const syncedDebtsByRemoteId = new Map(
+      data.debts
+        .filter((debt) => debt.remoteId)
+        .map((debt) => [debt.remoteId as string, debt]),
+    );
     for (const row of remote.sharedDebts ?? []) {
       const existingDebt = data.debts.find((debt) => debt.remoteId === row.id);
       const otherUserId = row.creator_user_id === user.id ? row.involved_user_id : row.creator_user_id;
@@ -226,11 +231,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updatedAt: row.updated_at,
       };
       await data.upsertDebt(debt);
+      syncedDebtsByRemoteId.set(row.id, debt);
     }
 
     for (const row of remote.verifications ?? []) {
       const existing = data.debtVerifications.find((verification) => verification.remoteId === row.id);
-      const debt = data.debts.find((item) => item.remoteId === row.debt_id);
+      const debt = syncedDebtsByRemoteId.get(row.debt_id);
       const verification: DebtVerification = {
         id: existing?.id ?? `verify_remote_${row.id}`,
         remoteId: row.id,
@@ -238,6 +244,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         remoteDebtId: row.debt_id,
         requesterUserId: row.requester_user_id,
         responderUserId: row.responder_user_id,
+        requestType: row.request_type ?? 'creation',
+        changeSummary: row.change_summary ?? null,
         status: row.status,
         rejectionReason: row.rejection_reason,
         suggestedChange: row.suggested_change,
@@ -248,6 +256,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         syncStatus: 'synced',
       };
       await data.upsertDebtVerification(verification);
+      const alreadyNotified = data.notifications.some(
+        (notification) =>
+          notification.type === 'verification_request' &&
+          notification.metadata.verificationRemoteId === row.id,
+      );
+      if (
+        !existing &&
+        !alreadyNotified &&
+        row.status === 'pending' &&
+        row.responder_user_id === user.id
+      ) {
+        await data.createNotification({
+          userId: user.id,
+          type: 'verification_request',
+          title: row.request_type === 'amendment' ? 'Debt changes need review' : 'New debt needs confirmation',
+          body: debt?.title ?? 'Open Requests to review the shared debt.',
+          targetType: 'debt',
+          targetId: debt?.id ?? null,
+          metadata: {
+            verificationId: verification.id,
+            verificationRemoteId: row.id,
+            requestType: verification.requestType,
+          },
+        });
+      }
     }
   }, [data, user]);
 

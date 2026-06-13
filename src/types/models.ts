@@ -16,6 +16,23 @@ export type VerificationStatus =
   | 'resolved'
   | 'cancelled';
 
+export type DebtVerificationRequestType = 'creation' | 'amendment';
+
+export type DebtReviewField =
+  | 'member'
+  | 'direction'
+  | 'amount'
+  | 'title'
+  | 'dueDate';
+
+export type DebtReviewValue = string | number | null;
+
+export type DebtChangeSummary = {
+  changedFields: DebtReviewField[];
+  previous: Partial<Record<DebtReviewField, DebtReviewValue>>;
+  proposed: Partial<Record<DebtReviewField, DebtReviewValue>>;
+};
+
 export type MemberLinkStatus =
   | 'unlinked'
   | 'invite_pending'
@@ -839,6 +856,9 @@ export type SuggestedDebtChange = {
   amount?: number;
   currency?: CurrencyCode;
   debtDate?: string;
+  dueDate?: string | null;
+  direction?: DebtDirection;
+  title?: string;
   note?: string;
   reason?: string;
 };
@@ -850,6 +870,8 @@ export type DebtVerification = {
   remoteDebtId: string | null;
   requesterUserId: string;
   responderUserId: string;
+  requestType: DebtVerificationRequestType;
+  changeSummary: DebtChangeSummary | null;
   status: VerificationStatus;
   rejectionReason: string | null;
   suggestedChange: SuggestedDebtChange | null;
