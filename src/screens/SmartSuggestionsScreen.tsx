@@ -74,7 +74,11 @@ export function SmartSuggestionsScreen() {
       const debtId = String(draft.metadata.debtId ?? "");
       const eventId = String(draft.metadata.eventId ?? "");
       if (debtId && eventId) {
-        await data.updateDebt(debtId, { eventId });
+        await data.updateDebt(
+          debtId,
+          { eventId },
+          auth.identity.authenticatedUserId,
+        );
       }
     }
     if (draft.suggestionType === "recurring") {

@@ -974,7 +974,11 @@ export class DebtulatorRepository {
     return debt;
   }
 
-  async updateDebt(debt: Debt, input: Partial<DebtInput>) {
+  async updateDebt(
+    debt: Debt,
+    input: Partial<DebtInput>,
+    actorUserId: string | null = null,
+  ) {
     const financialFieldsChanged = [
       input.memberId !== undefined && input.memberId !== debt.memberId,
       input.direction !== undefined && input.direction !== debt.direction,
@@ -1030,18 +1034,125 @@ export class DebtulatorRepository {
       await this.queueSyncOperation({ entityType: 'debt', entityId: updated.id, operation: 'update', payload: updated });
     }
     if (financialFieldsChanged && debt.verificationStatus === 'verified') {
-      await this.logActivity('debt', debt.id, 'verification_reset_financial_edit', null, {
+      await this.logActivity('debt', debt.id, 'verification_reset_financial_edit', actorUserId, {
         previousStatus: debt.verificationStatus,
         nextStatus: updated.verificationStatus,
       });
-    } else if (input.status === 'archived' && debt.status !== 'archived') {
-      await this.logActivity('debt', debt.id, 'debt_archived', null, {});
-    } else if (input.status === 'settled' && debt.status !== 'settled') {
-      await this.logActivity('debt', debt.id, 'debt_settled', null, {});
-    } else {
-      await this.logActivity('debt', debt.id, 'debt_edited', null, {
-        financialFieldsChanged,
+    }
+
+    const changes: {
+      action: string;
+      metadata: Record<string, unknown>;
+    }[] = [];
+    const addChange = (
+      action: string,
+      field: string,
+      previousValue: unknown,
+      nextValue: unknown,
+      metadata: Record<string, unknown> = {},
+    ) => {
+      changes.push({
+        action,
+        metadata: { field, previousValue, nextValue, ...metadata },
       });
+    };
+
+    if (updated.title !== debt.title) {
+      addChange('debt_title_changed', 'title', debt.title, updated.title);
+    }
+    if (updated.notes !== debt.notes) {
+      addChange(
+        updated.notes
+          ? debt.notes
+            ? 'debt_notes_updated'
+            : 'debt_notes_added'
+          : 'debt_notes_removed',
+        'notes',
+        debt.notes,
+        updated.notes,
+      );
+    }
+    if (updated.sharedNotes !== debt.sharedNotes) {
+      addChange(
+        updated.sharedNotes
+          ? debt.sharedNotes
+            ? 'debt_shared_notes_updated'
+            : 'debt_shared_notes_added'
+          : 'debt_shared_notes_removed',
+        'sharedNotes',
+        debt.sharedNotes,
+        updated.sharedNotes,
+      );
+    }
+    if (updated.dueDate !== debt.dueDate) {
+      addChange(
+        updated.dueDate
+          ? debt.dueDate
+            ? 'debt_due_date_changed'
+            : 'debt_due_date_added'
+          : 'debt_due_date_removed',
+        'dueDate',
+        debt.dueDate,
+        updated.dueDate,
+      );
+    }
+    if (updated.debtDate !== debt.debtDate) {
+      addChange('debt_date_changed', 'debtDate', debt.debtDate, updated.debtDate);
+    }
+    if (updated.amount !== debt.amount) {
+      addChange('debt_amount_changed', 'amount', debt.amount, updated.amount, {
+        currency: updated.currency,
+      });
+    }
+    if (updated.currency !== debt.currency) {
+      addChange('debt_currency_changed', 'currency', debt.currency, updated.currency);
+    }
+    if (updated.memberId !== debt.memberId) {
+      addChange('debt_member_changed', 'memberId', debt.memberId, updated.memberId);
+    }
+    if (updated.direction !== debt.direction) {
+      addChange('debt_direction_changed', 'direction', debt.direction, updated.direction);
+    }
+    if (updated.eventId !== debt.eventId) {
+      addChange(
+        updated.eventId ? 'debt_event_added' : 'debt_event_removed',
+        'eventId',
+        debt.eventId,
+        updated.eventId,
+      );
+    }
+    if (JSON.stringify(updated.tags) !== JSON.stringify(debt.tags)) {
+      const addedTags = updated.tags.filter((tag) => !debt.tags.includes(tag));
+      const removedTags = debt.tags.filter((tag) => !updated.tags.includes(tag));
+      const action =
+        addedTags.length > 0 && removedTags.length === 0
+          ? 'debt_tag_added'
+          : removedTags.length > 0 && addedTags.length === 0
+            ? 'debt_tag_removed'
+            : 'debt_tags_updated';
+      addChange(action, 'tags', debt.tags, updated.tags, {
+        addedTags,
+        removedTags,
+      });
+    }
+    if (updated.status !== debt.status) {
+      const action =
+        updated.status === 'archived'
+          ? 'debt_archived'
+          : updated.status === 'settled'
+            ? 'debt_settled'
+            : 'debt_reopened';
+      addChange(action, 'status', debt.status, updated.status);
+    }
+
+    for (const change of changes) {
+      await this.logActivity(
+        'debt',
+        debt.id,
+        change.action,
+        actorUserId,
+        change.metadata,
+      );
     }
     return updated;
   }

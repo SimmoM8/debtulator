@@ -1,7 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Alert, Animated, StyleSheet, Text, View } from "react-native";
+import {
+  Alert,
+  Animated,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 import { AvatarStack } from "@/src/components/ui/Finance";
 import { MobileMenuModal } from "@/src/components/ui/MenuList";
@@ -32,7 +39,7 @@ import { buildLedgerEntries } from "@/src/services/ledger";
 import { createRemoteDebtVerification } from "@/src/services/stage2Sync";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
-import type { DebtStatus } from "@/src/types/models";
+import type { CurrencyCode, DebtStatus } from "@/src/types/models";
 import { formatMoney } from "@/src/utils/money";
 
 type ActivityItem = {
@@ -102,11 +109,39 @@ export function DebtDetailScreen() {
     ]),
   );
 
+  function activityActorName(actorUserId: string | null) {
+    if (
+      !actorUserId ||
+      actorUserId === auth.identity.authenticatedUserId
+    ) {
+      return "You";
+    }
+
+    const actorMember = data.members.find(
+      (item) => item.linkedUserId === actorUserId,
+    );
+    if (actorMember) {
+      return actorMember.displayName;
+    }
+
+    const sharedActor = data.sharedEventMembers.find(
+      (item) => item.linkedUserId === actorUserId,
+    );
+    if (sharedActor) {
+      return sharedActor.alias ?? sharedActor.displayName;
+    }
+
+    return (
+      data.profiles.find((profile) => profile.id === actorUserId)?.displayName ??
+      "Someone"
+    );
+  }
+
   const activityItems: ActivityItem[] = [
     {
       id: `created-${currentDebt.id}`,
-      title: "Debt created",
-      detail: `${currentDebt.amount} ${currentDebt.currency}`,
+      title: "You created the debt",
+      detail: formatMoney(currentDebt.amount, currentDebt.currency),
       createdAt: currentDebt.createdAt,
     },
     ...data.activityLogs
@@ -115,16 +150,24 @@ export function DebtDetailScreen() {
           activity.entityKind === "debt" &&
           activity.entityId === currentDebt.id,
       )
-      .map((activity) => ({
-        id: activity.id,
-        title: activity.action.replaceAll("_", " "),
-        detail: "Ledger activity",
-        createdAt: activity.createdAt,
-      })),
+      .map((activity) => {
+        const actor = activityActorName(activity.actorUserId);
+        const description = describeDebtActivity(
+          activity.action,
+          activity.metadata,
+          currentDebt.currency,
+        );
+        return {
+          id: activity.id,
+          title: `${actor} ${description.phrase}`,
+          detail: description.detail,
+          createdAt: activity.createdAt,
+        };
+      }),
     ...payments.map((payment) => ({
       id: `payment-${payment.id}`,
-      title: "Payment recorded",
-      detail: `${payment.amount} ${payment.currency} · ${payment.status.replaceAll("_", " ")}`,
+      title: `${activityActorName(payment.createdByUserId)} recorded a payment`,
+      detail: `${formatMoney(payment.amount, payment.currency)} · ${payment.status.replaceAll("_", " ")}`,
       createdAt: payment.paymentDate,
     })),
   ].sort((a, b) => {
@@ -136,7 +179,11 @@ export function DebtDetailScreen() {
   });
 
   async function updateStatus(status: DebtStatus) {
-    await data.updateDebt(currentDebt.id, { status });
+    await data.updateDebt(
+      currentDebt.id,
+      { status },
+      auth.identity.authenticatedUserId,
+    );
   }
 
   function confirmArchiveDebt() {
@@ -248,10 +295,20 @@ export function DebtDetailScreen() {
     ? currentEntry.remainingAmount
     : currentEntry.originalAmount;
 
-  const paidFraction =
-    currentEntry.originalAmount > 0
+  const isManuallySettled =
+    currentEntry.status === "settled" && currentEntry.amountPaid <= 0;
+  const paidFraction = isFullyPaid
+    ? 1
+    : currentEntry.originalAmount > 0
       ? Math.min(currentEntry.amountPaid / currentEntry.originalAmount, 1)
       : 0;
+  const progressRemainingAmount = isFullyPaid
+    ? 0
+    : currentEntry.remainingAmount;
+  const progressBalanceLabel =
+    currentEntry.overpaidAmount > 0
+      ? `${formatMoney(currentEntry.overpaidAmount, currentDebt.currency)} overpaid`
+      : `${formatMoney(progressRemainingAmount, currentDebt.currency)} remaining`;
 
   return (
     <Screen
@@ -376,6 +433,15 @@ export function DebtDetailScreen() {
           <ParticipantChip
             label={member?.displayName ?? "Them"}
             highlight={false}
+            onPress={
+              member
+                ? () =>
+                    router.push({
+                      pathname: "/member/[id]",
+                      params: { id: member.id },
+                    })
+                : undefined
+            }
           />
         </View>
 
@@ -410,39 +476,43 @@ export function DebtDetailScreen() {
           <View style={styles.progressTrack}>
             <AnimatedProgressFill
               paidFraction={paidFraction}
-              isFullyPaid={isFullyPaid}
               color={directionColor}
             />
           </View>
-          {currentEntry.amountPaid > 0 ? (
-            <View style={styles.progressLabels}>
-              <View style={styles.progressLabelItem}>
+          <View style={styles.progressLabels}>
+            <View style={styles.progressLabelItem}>
+              <View
+                style={[
+                  styles.progressDot,
+                  { backgroundColor: directionColor },
+                ]}
+              />
+              <Text style={styles.progressLabelText}>
+                {formatMoney(currentEntry.amountPaid, currentDebt.currency)} paid
+              </Text>
+            </View>
+            <View style={styles.progressLabelItem}>
+              {currentEntry.overpaidAmount > 0 ? (
                 <View
                   style={[
                     styles.progressDot,
                     { backgroundColor: directionColor },
                   ]}
                 />
-                <Text style={styles.progressLabelText}>
-                  {formatMoney(currentEntry.amountPaid, currentDebt.currency)}{" "}
-                  paid
-                </Text>
-              </View>
-              {!isFullyPaid && currentEntry.remainingAmount > 0 ? (
-                <View style={styles.progressLabelItem}>
-                  <View
-                    style={[styles.progressDot, styles.progressDotRemaining]}
-                  />
-                  <Text style={styles.progressLabelText}>
-                    {formatMoney(
-                      currentEntry.remainingAmount,
-                      currentDebt.currency,
-                    )}{" "}
-                    remaining
-                  </Text>
-                </View>
-              ) : null}
+              ) : (
+                <View
+                  style={[styles.progressDot, styles.progressDotRemaining]}
+                />
+              )}
+              <Text style={styles.progressLabelText}>
+                {progressBalanceLabel}
+              </Text>
             </View>
+          </View>
+          {isManuallySettled ? (
+            <Text style={styles.progressNote}>
+              Settled manually without a recorded payment
+            </Text>
           ) : null}
         </View>
 
@@ -573,11 +643,9 @@ function AnimatedFlowArrow({
 
 function AnimatedProgressFill({
   paidFraction,
-  isFullyPaid,
   color,
 }: {
   paidFraction: number;
-  isFullyPaid: boolean;
   color: string;
 }) {
   const [anim] = useState(() => new Animated.Value(0));
@@ -600,7 +668,6 @@ function AnimatedProgressFill({
     <Animated.View
       style={[
         styles.progressFill,
-        isFullyPaid && styles.progressFillComplete,
         { width: animatedWidth, backgroundColor: color },
       ]}
     />
@@ -610,9 +677,11 @@ function AnimatedProgressFill({
 function ParticipantChip({
   label,
   highlight,
+  onPress,
 }: {
   label: string;
   highlight: boolean;
+  onPress?: () => void;
 }) {
   const initials = label
     .split(" ")
@@ -620,7 +689,17 @@ function ParticipantChip({
     .map((w) => w[0]?.toUpperCase() ?? "")
     .join("");
   return (
-    <View style={styles.participantChip}>
+    <Pressable
+      accessibilityRole={onPress ? "button" : undefined}
+      accessibilityLabel={onPress ? `View ${label} details` : undefined}
+      disabled={!onPress}
+      hitSlop={onPress ? 8 : undefined}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.participantChip,
+        pressed && styles.participantChipPressed,
+      ]}
+    >
       <View
         style={[
           styles.participantAvatar,
@@ -639,7 +718,7 @@ function ParticipantChip({
         </Text>
       </View>
       <Text style={styles.participantName}>{label}</Text>
-    </View>
+    </Pressable>
   );
 }
 
@@ -680,7 +759,9 @@ function ActivityTimelineRow({
       >
         <Text style={styles.activityTitle}>{item.title}</Text>
         <View style={styles.activityMeta}>
-          <Text style={styles.activityDetail}>{item.detail}</Text>
+          {item.detail ? (
+            <Text style={styles.activityDetail}>{item.detail}</Text>
+          ) : null}
           <Text style={styles.activityDate}>{formatDate(item.createdAt)}</Text>
         </View>
       </View>
@@ -742,6 +823,139 @@ function formatDueRelative(input: string) {
   return `${Math.abs(days)} days overdue`;
 }
 
+function describeDebtActivity(
+  action: string,
+  metadata: Record<string, unknown>,
+  fallbackCurrency: CurrencyCode,
+) {
+  const nextValue = metadata.nextValue;
+  const previousValue = metadata.previousValue;
+  const addedTags = stringArray(metadata.addedTags);
+  const removedTags = stringArray(metadata.removedTags);
+
+  switch (action) {
+    case "debt_due_date_added":
+      return {
+        phrase: "added a due date",
+        detail: typeof nextValue === "string" ? formatDate(nextValue) : "",
+      };
+    case "debt_due_date_changed":
+      return {
+        phrase: "changed the due date",
+        detail:
+          typeof previousValue === "string" && typeof nextValue === "string"
+            ? `${formatDate(previousValue)} → ${formatDate(nextValue)}`
+            : "",
+      };
+    case "debt_due_date_removed":
+      return { phrase: "removed the due date", detail: "" };
+    case "debt_tag_added":
+      return {
+        phrase: addedTags.length === 1 ? "added a tag" : "added tags",
+        detail: addedTags.join(", "),
+      };
+    case "debt_tag_removed":
+      return {
+        phrase: removedTags.length === 1 ? "removed a tag" : "removed tags",
+        detail: removedTags.join(", "),
+      };
+    case "debt_tags_updated":
+      return {
+        phrase: "updated the tags",
+        detail: [
+          addedTags.length ? `Added ${addedTags.join(", ")}` : "",
+          removedTags.length ? `Removed ${removedTags.join(", ")}` : "",
+        ]
+          .filter(Boolean)
+          .join(" · "),
+      };
+    case "debt_notes_added":
+      return { phrase: "added notes", detail: "" };
+    case "debt_notes_updated":
+      return { phrase: "updated the notes", detail: "" };
+    case "debt_notes_removed":
+      return { phrase: "removed the notes", detail: "" };
+    case "debt_shared_notes_added":
+      return { phrase: "added shared notes", detail: "" };
+    case "debt_shared_notes_updated":
+      return { phrase: "updated the shared notes", detail: "" };
+    case "debt_shared_notes_removed":
+      return { phrase: "removed the shared notes", detail: "" };
+    case "debt_title_changed":
+      return {
+        phrase: "changed the title",
+        detail: typeof nextValue === "string" ? nextValue : "",
+      };
+    case "debt_amount_changed": {
+      const currency =
+        typeof metadata.currency === "string"
+          ? (metadata.currency as CurrencyCode)
+          : fallbackCurrency;
+      return {
+        phrase: "changed the amount",
+        detail:
+          typeof nextValue === "number"
+            ? formatMoney(nextValue, currency)
+            : "",
+      };
+    }
+    case "debt_currency_changed":
+      return {
+        phrase: "changed the currency",
+        detail: typeof nextValue === "string" ? nextValue : "",
+      };
+    case "debt_member_changed":
+      return { phrase: "changed the member", detail: "" };
+    case "debt_direction_changed":
+      return { phrase: "changed who owes whom", detail: "" };
+    case "debt_date_changed":
+      return {
+        phrase: "changed the debt date",
+        detail: typeof nextValue === "string" ? formatDate(nextValue) : "",
+      };
+    case "debt_event_added":
+      return { phrase: "added the debt to an event", detail: "" };
+    case "debt_event_removed":
+      return { phrase: "removed the debt from its event", detail: "" };
+    case "debt_archived":
+      return { phrase: "archived the debt", detail: "" };
+    case "debt_settled":
+      return { phrase: "settled the debt", detail: "" };
+    case "debt_reopened":
+      return { phrase: "reopened the debt", detail: "" };
+    case "debt_verification_requested":
+      return { phrase: "requested verification", detail: "" };
+    case "debt_verified":
+      return { phrase: "verified the debt", detail: "" };
+    case "debt_rejected":
+      return { phrase: "rejected the debt", detail: "" };
+    case "debt_marked_disputed":
+      return { phrase: "marked the debt as disputed", detail: "" };
+    case "debt_resolved":
+      return { phrase: "resolved the dispute", detail: "" };
+    case "debt_verification_cancelled":
+      return { phrase: "cancelled verification", detail: "" };
+    case "verification_reset_financial_edit":
+      return {
+        phrase: "changed financial details",
+        detail: "Verification is required again",
+      };
+    case "debt_edited":
+      return { phrase: "updated debt details", detail: "" };
+    default:
+      return {
+        phrase: action.replace(/^debt_/, "").replaceAll("_", " "),
+        detail: "",
+      };
+  }
+}
+
+function stringArray(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
 const styles = StyleSheet.create({
   // Footer
   footerActions: {
@@ -770,6 +984,9 @@ const styles = StyleSheet.create({
   participantChip: {
     alignItems: "center",
     gap: spacing.xs,
+  },
+  participantChipPressed: {
+    opacity: 0.65,
   },
   participantAvatar: {
     width: 44,
@@ -853,9 +1070,6 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     backgroundColor: palette.warning,
   },
-  progressFillComplete: {
-    backgroundColor: palette.positive,
-  },
   progressLabels: {
     flexDirection: "row",
     gap: spacing.xl,
@@ -879,6 +1093,11 @@ const styles = StyleSheet.create({
     color: palette.muted,
     fontSize: typography.size.sm,
     fontFamily: typefaces.bodyStrong,
+  },
+  progressNote: {
+    color: palette.faint,
+    fontSize: typography.size.xs,
+    fontFamily: typefaces.body,
   },
   dueRow: {
     flexDirection: "row",
