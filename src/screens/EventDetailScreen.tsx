@@ -9,15 +9,13 @@ import {
 import { AttachmentsSection } from "@/src/components/AttachmentsSection";
 import { CommentsSection } from "@/src/components/CommentsSection";
 import { DebtRow } from "@/src/components/EntityRows";
-import { DebtulatorOrbitIllustration } from "@/src/components/illustrations/DebtulatorOrbitIllustration";
+import { MainActionsBar } from "@/src/components/ui/MainActionsBar";
+import { MobileMenuModal } from "@/src/components/ui/MenuList";
 import {
     Badge,
-    StatusBadge,
-    SyncBadge,
     TagChips,
     VerificationBadge,
 } from "@/src/components/ui/Badges";
-import { BalanceStack } from "@/src/components/ui/Money";
 import {
     Button,
     Card,
@@ -49,7 +47,6 @@ import {
     canMergeEventMembers,
     canReopenEvent,
     participantForUser,
-    roleForEvent,
 } from "@/src/services/eventPermissions";
 import {
     eventPdfLines,
@@ -111,6 +108,7 @@ export function EventDetailScreen() {
   const [rejectionReasons, setRejectionReasons] = useState<
     Record<string, string>
   >({});
+  const [optionsOpen, setOptionsOpen] = useState(false);
 
   const currentUserId = auth.identity.authenticatedUserId;
   const participant = useMemo(
@@ -123,7 +121,6 @@ export function EventDetailScreen() {
   const permissionContext = event
     ? { event, participant, userId: currentUserId }
     : null;
-  const role = permissionContext ? roleForEvent(permissionContext) : "viewer";
   const sharedEventMembers = useMemo(
     () => data.sharedEventMembers.filter((member) => member.eventId === id),
     [data.sharedEventMembers, id],
@@ -236,6 +233,19 @@ export function EventDetailScreen() {
   const canManagePeople = canMergeEventMembers(permissionContext);
   const canInvite = canInviteMembers(permissionContext);
   const myBalanceId = isShared ? currentEventMember?.id : "me";
+  const myBalance = estimateMoneyMap(
+    (myBalanceId ? currentExplanation.participantNets[myBalanceId] : undefined) ??
+      {},
+    data.settings,
+    data.currencyRates,
+  );
+  const myBalanceIsOwing = myBalance < -MINIMUM_BALANCE_THRESHOLD;
+  const myBalanceSubtext = myBalanceIsOwing
+    ? "You owe to members in this event a total of"
+    : "Members in this event owe you a total of";
+  const eventMemberCount = isShared
+    ? activeSharedMembers.length
+    : eventMemberIds.length + 1;
 
   async function togglePrivateMember(memberId: string) {
     const nextIds = eventMemberIds.includes(memberId)
@@ -412,138 +422,140 @@ export function EventDetailScreen() {
   }
 
   return (
-    <Screen>
+    <Screen
+      footer={
+        <MainActionsBar
+          actions={[
+            {
+              title: "Add expense",
+              icon: "cart",
+              disabled: !canAddRecords,
+              onPress: () =>
+                router.push({
+                  pathname: "/expense/form",
+                  params: { eventId: event.id },
+                }),
+            },
+            {
+              title: "Make repayment",
+              icon: "card",
+              variant: "secondary",
+              disabled: !canAddRecords,
+              onPress: () =>
+                router.push({
+                  pathname: "/payment/form",
+                  params: { eventId: event.id },
+                }),
+            },
+          ]}
+        />
+      }
+    >
       <PageHeader
         title="Event details"
         action={
-          canManagePeople || !isShared ? (
-            <IconButton
-              icon="create-outline"
-              label="Edit event"
-              onPress={() =>
-                router.push({
-                  pathname: "/event/form",
-                  params: { id: event.id },
-                })
-              }
-            />
-          ) : undefined
+          <IconButton
+            icon="ellipsis-horizontal"
+            label="Event actions"
+            onPress={() => setOptionsOpen(true)}
+          />
         }
       />
 
       <Card tone={isShared ? "peach" : "lavender"} style={styles.heroCard}>
-        <View style={styles.heroGlow} />
-        <View style={styles.eventTop}>
-          <View style={styles.flexOne}>
-            <Text style={styles.heroLabel}>Event ledger</Text>
-            <View style={styles.badgeLine}>
-              <StatusBadge status={event.status} />
-              <Badge
-                label={isShared ? "shared event" : "private event"}
-                tone={isShared ? "blue" : "neutral"}
-              />
-              <Badge
-                label={role}
-                tone={role === "viewer" ? "neutral" : "positive"}
-              />
-              <SyncBadge status={event.syncStatus} />
-              {event.lockedAt || event.finalisedAt ? (
-                <Badge label="locked" tone="amber" />
-              ) : null}
-            </View>
-            <Text style={styles.label}>Your event balance</Text>
-            <BalanceStack
-              balances={
-                (myBalanceId
-                  ? explanation.participantNets[myBalanceId]
-                  : undefined) ?? {}
-              }
-              settings={data.settings}
-              currencyRates={data.currencyRates}
-              empty="No personal balance"
-            />
-          </View>
-          <View style={styles.heroAside}>
-            <View style={styles.heroArtWrap}>
-              <DebtulatorOrbitIllustration width={132} height={104} compact />
-            </View>
-            <View style={styles.badgeBox}>
-              <Text style={styles.badgeNumber}>
-                {isShared
-                  ? activeSharedMembers.length
-                  : eventMemberIds.length + 1}
-              </Text>
-              <Text style={styles.badgeLabel}>members</Text>
-            </View>
-          </View>
+        <View style={styles.coverPhotoPlaceholder}>
+          <Text style={styles.coverPhotoText}>Cover photo</Text>
+        </View>
+        <Text style={styles.balanceSubtext}>{myBalanceSubtext}</Text>
+        <Text
+          style={[
+            styles.balanceFigure,
+            myBalanceIsOwing
+              ? styles.balanceFigureNegative
+              : styles.balanceFigurePositive,
+          ]}
+        >
+          {formatMoney(Math.abs(myBalance), data.settings.baseCurrency)}
+        </Text>
+        <View style={styles.memberCountRow}>
+          <Text style={styles.memberCountNumber}>{eventMemberCount}</Text>
+          <Text style={styles.memberCountLabel}>members</Text>
         </View>
         <TagChips tags={event.tags} />
-        <View style={styles.actionRow}>
-          <Button
-            title="Add expense"
-            icon="cart"
-            disabled={!canAddRecords}
-            onPress={() =>
-              router.push({
-                pathname: "/expense/form",
-                params: { eventId: event.id },
-              })
-            }
-          />
-          <Button
-            title="Add direct debt"
-            icon="receipt"
-            variant="secondary"
-            disabled={!canAddRecords}
-            onPress={() =>
-              router.push({
-                pathname: "/debt/form",
-                params: { eventId: event.id },
-              })
-            }
-          />
-          <Button
-            title="Record settlement"
-            icon="card"
-            variant="secondary"
-            disabled={!canAddRecords}
-            onPress={() =>
-              router.push({
-                pathname: "/payment/form",
-                params: { eventId: event.id },
-              })
-            }
-          />
-          <Button
-            title="Remind gently"
-            icon="notifications"
-            variant="secondary"
-            disabled={!canAddRecords}
-            onPress={() =>
-              data.createSoftReminder({
-                senderUserId: currentUserId,
-                recipientUserId: null,
-                relatedMemberId: null,
-                relatedEventId: event.id,
-                relatedRecordId: null,
-                message: `${event.name} has unsettled balances.`,
-              })
-            }
-          />
-          <Button
-            title="Share summary"
-            icon="share"
-            variant="secondary"
-            onPress={shareEventSummary}
-          />
-          <Button
-            title="Export PDF"
-            icon="document-text"
-            variant="secondary"
-            onPress={exportEventPdf}
-          />
-        </View>
       </Card>
+
+      <MobileMenuModal
+        visible={optionsOpen}
+        title="Event actions"
+        onClose={() => setOptionsOpen(false)}
+        sections={[
+          {
+            items: [
+              {
+                label: "Add direct debt",
+                subtitle: "Create a debt inside this event",
+                icon: "receipt-outline",
+                disabled: !canAddRecords,
+                onPress: () => {
+                  setOptionsOpen(false);
+                  router.push({
+                    pathname: "/debt/form",
+                    params: { eventId: event.id },
+                  });
+                },
+              },
+              {
+                label: "Record settlement",
+                subtitle: "Record a repayment for this event",
+                icon: "card-outline",
+                disabled: !canAddRecords,
+                onPress: () => {
+                  setOptionsOpen(false);
+                  router.push({
+                    pathname: "/payment/form",
+                    params: { eventId: event.id },
+                  });
+                },
+              },
+              {
+                label: "Send gentle reminder",
+                subtitle: "Create a soft reminder for open balances",
+                icon: "notifications-outline",
+                disabled: !canAddRecords,
+                onPress: () => {
+                  setOptionsOpen(false);
+                  void data.createSoftReminder({
+                    senderUserId: currentUserId,
+                    recipientUserId: null,
+                    relatedMemberId: null,
+                    relatedEventId: event.id,
+                    relatedRecordId: null,
+                    message: `${event.name} has unsettled balances.`,
+                  });
+                },
+              },
+              {
+                label: "Share summary",
+                subtitle: "Share a plain-text event summary",
+                icon: "share-outline",
+                onPress: () => {
+                  setOptionsOpen(false);
+                  void shareEventSummary();
+                },
+              },
+              {
+                label: "Export PDF",
+                subtitle: "Generate and share a PDF summary",
+                icon: "document-text-outline",
+                onPress: () => {
+                  setOptionsOpen(false);
+                  void exportEventPdf();
+                },
+              },
+            ],
+          },
+        ]}
+      />
 
       <SegmentedControl
         value={tab}
@@ -1661,37 +1673,11 @@ function targetKey(entry: LedgerEntry) {
 
 const styles = StyleSheet.create({
   heroCard: {
-    overflow: "hidden",
-  },
-  heroGlow: {
-    position: "absolute",
-    top: -28,
-    right: -14,
-    width: 190,
-    height: 190,
-    borderRadius: 95,
-    backgroundColor: "rgba(221,214,254,0.24)",
-  },
-  eventTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: spacing.lg,
-    flexWrap: "wrap",
-  },
-  heroLabel: {
-    color: palette.muted,
-    fontSize: typography.size.sm,
-    fontFamily: typefaces.bodyStrong,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
+    gap: spacing.md,
   },
   flexOne: {
     flex: 1,
     gap: spacing.sm,
-  },
-  heroAside: {
-    alignItems: "center",
-    gap: spacing.md,
   },
   label: {
     color: palette.brandDark,
@@ -1700,35 +1686,52 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.4,
   },
-  heroArtWrap: {
-    width: 142,
-    height: 112,
-    borderRadius: 24,
-    backgroundColor: "rgba(255,255,255,0.38)",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderGlass,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  badgeBox: {
-    minWidth: 86,
+  coverPhotoPlaceholder: {
+    minHeight: 150,
     borderRadius: radii.lg,
-    backgroundColor: "rgba(255,255,255,0.5)",
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderGlass,
+    backgroundColor: "rgba(255,255,255,0.48)",
     alignItems: "center",
     justifyContent: "center",
-    padding: spacing.md,
   },
-  badgeNumber: {
+  coverPhotoText: {
+    color: palette.muted,
+    fontSize: typography.size.base,
+    fontFamily: typefaces.bodyStrong,
+  },
+  balanceSubtext: {
+    color: palette.muted,
+    fontSize: typography.size.base,
+    lineHeight: typography.line.basePlus,
+    fontFamily: typefaces.bodyStrong,
+  },
+  balanceFigure: {
+    fontSize: typography.size.displayXl,
+    lineHeight: typography.line.displayXl,
+    fontFamily: typefaces.display,
+  },
+  balanceFigurePositive: {
+    color: palette.success,
+  },
+  balanceFigureNegative: {
+    color: palette.danger,
+  },
+  memberCountRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: spacing.xs,
+  },
+  memberCountNumber: {
     color: palette.brandDark,
     fontSize: typography.size.h1,
     fontFamily: typefaces.bodyHeavy,
   },
-  badgeLabel: {
-    color: palette.brandDark,
+  memberCountLabel: {
+    color: palette.muted,
     fontSize: typography.size.sm,
     fontFamily: typefaces.bodyStrong,
+    paddingBottom: 3,
   },
   actionRow: {
     flexDirection: "row",
