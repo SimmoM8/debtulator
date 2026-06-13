@@ -1,39 +1,40 @@
+import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 
-import { DebtulatorOrbitIllustration } from "@/src/components/illustrations/DebtulatorOrbitIllustration";
 import {
-    Badge,
-    StatusBadge,
-    VerificationBadge,
+  Badge,
+  StatusBadge,
+  VerificationBadge,
 } from "@/src/components/ui/Badges";
 import { AvatarStack } from "@/src/components/ui/Finance";
 import { Amount } from "@/src/components/ui/Money";
 import { MobileMenuModal } from "@/src/components/ui/MenuList";
 import {
-    Button,
-    Card,
-    EmptyState,
-    IconButton,
-    LoadingState,
-    PageHeader,
-    Screen,
-    SectionTitle,
+  Button,
+  Card,
+  EmptyState,
+  IconButton,
+  LoadingState,
+  PageHeader,
+  Screen,
+  SectionTitle,
 } from "@/src/components/ui/Primitives";
 import {
-    palette,
-    shadows,
-    spacing,
-    typefaces,
-    typography,
+  palette,
+  radii,
+  spacing,
+  typefaces,
+  typography,
 } from "@/src/constants/design";
 import {
-    debtPdfLines,
-    shareExport,
-    writePdfExport,
+  debtPdfLines,
+  shareExport,
+  writePdfExport,
 } from "@/src/services/export";
-import { buildLedgerEntries, entryDirectionText } from "@/src/services/ledger";
+import { formatMoney } from "@/src/utils/money";
+import { buildLedgerEntries } from "@/src/services/ledger";
 import { createRemoteDebtVerification } from "@/src/services/stage2Sync";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
@@ -238,6 +239,29 @@ export function DebtDetailScreen() {
       ? currentDebt.amount
       : -currentDebt.amount;
 
+  const isOwedToMe = currentDebt.direction === "they_owe_me";
+
+  const fromName = isOwedToMe ? (member?.displayName ?? "Them") : "You";
+  const toName = isOwedToMe ? "You" : (member?.displayName ?? "Them");
+
+  const isPartiallyPaid =
+    currentEntry.paymentStatus === "partially_paid" &&
+    currentEntry.amountPaid > 0;
+  const isFullyPaid =
+    currentEntry.paymentStatus === "paid" ||
+    currentEntry.paymentStatus === "overpaid";
+
+  const displayAmount = isPartiallyPaid
+    ? isOwedToMe
+      ? currentEntry.remainingAmount
+      : -currentEntry.remainingAmount
+    : signedAmount;
+
+  const paidFraction =
+    currentEntry.originalAmount > 0
+      ? Math.min(currentEntry.amountPaid / currentEntry.originalAmount, 1)
+      : 0;
+
   return (
     <Screen
       footer={
@@ -267,7 +291,7 @@ export function DebtDetailScreen() {
       }
     >
       <PageHeader
-        title="Debt details"
+        title={currentDebt.title}
         action={
           <IconButton
             icon="ellipsis-horizontal"
@@ -338,130 +362,197 @@ export function DebtDetailScreen() {
         ]}
       />
 
-      <View style={styles.overview}>
-        <View style={styles.overviewTop}>
-          <View style={styles.heroArtWrap}>
-            <DebtulatorOrbitIllustration width={112} height={88} compact />
+      {/* ── Hero ── */}
+      <View style={styles.hero}>
+        {/* Participant flow: [From] ──► [To] */}
+        <View style={styles.participantFlow}>
+          <ParticipantChip
+            label={fromName}
+            highlight={!isOwedToMe}
+          />
+          <View style={styles.flowArrowWrap}>
+            <View style={styles.flowArrowLine} />
+            <Ionicons
+              name="arrow-forward"
+              size={14}
+              color={isOwedToMe ? palette.positive : palette.warning}
+            />
           </View>
-          <View style={styles.overviewCopy}>
-            <Text style={styles.debtTitle}>{currentDebt.title}</Text>
-            <Text style={styles.subtext}>
-              {entryDirectionText(entry, data.members)}
-            </Text>
-          </View>
-          <Badge
-            label={
-              currentDebt.direction === "they_owe_me" ? "owes you" : "you owe"
-            }
-            tone={
-              currentDebt.direction === "they_owe_me" ? "positive" : "amber"
-            }
+          <ParticipantChip
+            label={toName}
+            highlight={isOwedToMe}
           />
         </View>
+
+        {/* Amount */}
         <View style={styles.amountBlock}>
           <Amount
-            amount={signedAmount}
+            amount={displayAmount}
             currency={currentDebt.currency}
             signed
             size="lg"
           />
-          <Text style={styles.dueLine}>Due {dueLabel}</Text>
+          {isPartiallyPaid ? (
+            <Text style={styles.amountSubtext}>
+              of{" "}
+              {formatMoney(currentEntry.originalAmount, currentDebt.currency)}{" "}
+              remaining
+            </Text>
+          ) : isFullyPaid ? (
+            <View style={styles.settledPill}>
+              <Ionicons
+                name="checkmark-circle"
+                size={14}
+                color={palette.positive}
+              />
+              <Text style={styles.settledPillText}>Fully settled</Text>
+            </View>
+          ) : null}
         </View>
+
+        {/* Payment progress bar (only when any amount has been paid) */}
+        {currentEntry.amountPaid > 0 && (
+          <View style={styles.progressBlock}>
+            <View style={styles.progressTrack}>
+              <View
+                style={[
+                  styles.progressFill,
+                  isFullyPaid && styles.progressFillComplete,
+                  { width: `${Math.round(paidFraction * 100)}%` },
+                ]}
+              />
+            </View>
+            <View style={styles.progressLabels}>
+              <View style={styles.progressLabelItem}>
+                <View style={[styles.progressDot, styles.progressDotPaid]} />
+                <Text style={styles.progressLabelText}>
+                  {formatMoney(currentEntry.amountPaid, currentDebt.currency)}{" "}
+                  paid
+                </Text>
+              </View>
+              {!isFullyPaid && currentEntry.remainingAmount > 0 ? (
+                <View style={styles.progressLabelItem}>
+                  <View
+                    style={[styles.progressDot, styles.progressDotRemaining]}
+                  />
+                  <Text style={styles.progressLabelText}>
+                    {formatMoney(
+                      currentEntry.remainingAmount,
+                      currentDebt.currency,
+                    )}{" "}
+                    remaining
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          </View>
+        )}
+
+        {currentDebt.dueDate ? (
+          <View style={styles.duePill}>
+            <Ionicons name="time-outline" size={13} color={palette.muted} />
+            <Text style={styles.duePillText}>Due {dueLabel}</Text>
+          </View>
+        ) : null}
       </View>
 
-      <Card tone="lavender" style={styles.summaryCard}>
-        <SectionTitle
-          title="Summary"
-          subtitle="Status, participants, split context, and notes."
+      {/* ── Status badges ── */}
+      <View style={styles.statusRow}>
+        <StatusBadge status={currentDebt.status} />
+        <VerificationBadge status={currentDebt.verificationStatus} />
+        <Badge
+          label={currentEntry.paymentStatus.replaceAll("_", " ")}
+          tone={
+            currentEntry.paymentStatus === "paid"
+              ? "positive"
+              : currentEntry.paymentStatus === "overpaid"
+                ? "amber"
+                : "blue"
+          }
         />
-        <View style={styles.badgeLine}>
-          <StatusBadge status={currentDebt.status} />
-          <VerificationBadge status={currentDebt.verificationStatus} />
-          <Badge
-            label={currentEntry.paymentStatus.replaceAll("_", " ")}
-            tone={
-              currentEntry.paymentStatus === "paid"
-                ? "positive"
-                : currentEntry.paymentStatus === "overpaid"
-                  ? "amber"
-                  : "blue"
+      </View>
+
+      {/* ── Details ── */}
+      <Card tone="lavender" style={styles.detailsCard}>
+        <SectionTitle title="Details" />
+        <DetailRow label="Member" value={member?.displayName ?? "Unknown"} />
+        <DetailRow label="Date" value={formatDate(currentDebt.debtDate)} />
+        {event ? <DetailRow label="Event" value={event.name} /> : null}
+        {participantLabels.length > 2 ? (
+          <DetailRow
+            label="Participants"
+            value={
+              <View style={styles.participantsValue}>
+                <AvatarStack labels={participantLabels} />
+                <Text style={styles.valueMeta}>
+                  {participantLabels.length} people
+                </Text>
+              </View>
             }
           />
-        </View>
-        <SummaryRow label="Created by" value="You" />
-        <SummaryRow
-          label="Participants"
-          value={
-            <View style={styles.participantsValue}>
-              <AvatarStack labels={participantLabels} />
-              <Text style={styles.valueMeta}>
-                {participantLabels.length} participant
-                {participantLabels.length === 1 ? "" : "s"}
-              </Text>
-            </View>
-          }
-        />
-        <SummaryRow
-          label="Split type"
-          value={event ? "Event debt" : "Direct debt"}
-        />
-        <SummaryRow
-          label={
-            currentDebt.direction === "they_owe_me"
-              ? "Amount owed to you"
-              : "Amount you owe"
-          }
-          value={`${currentDebt.amount} ${currentDebt.currency}`}
-        />
-        <SummaryRow
-          label="Total amount"
-          value={`${currentDebt.amount} ${currentDebt.currency}`}
-        />
-        <SummaryRow
-          label="Related member"
-          value={member?.displayName ?? "Unknown"}
-        />
-        <SummaryRow label="Event" value={event?.name ?? "Standalone"} />
+        ) : null}
         {currentDebt.notes ? (
           <View style={styles.notesBlock}>
-            <Text style={styles.summaryLabel}>Notes</Text>
+            <Text style={styles.notesLabel}>Notes</Text>
             <Text style={styles.notesText}>{currentDebt.notes}</Text>
           </View>
         ) : null}
       </Card>
 
-      <Card style={styles.activityCard}>
-        <SectionTitle
-          title="Activity history"
-          subtitle="Creation, updates, and payments tied to this debt."
-        />
-        {activityItems.length > 0 ? (
-          activityItems.map((activity, index) => (
-            <View
+      {/* ── Activity ── */}
+      {activityItems.length > 0 ? (
+        <Card style={styles.activityCard}>
+          <SectionTitle title="Activity" />
+          {activityItems.map((activity, index) => (
+            <ActivityTimelineRow
               key={activity.id}
-              style={[
-                styles.activityRow,
-                index === activityItems.length - 1 && styles.activityRowLast,
-              ]}
-            >
-              <View style={styles.activityCopy}>
-                <Text style={styles.activityTitle}>{activity.title}</Text>
-                <Text style={styles.activityDetail}>{activity.detail}</Text>
-              </View>
-              <Text style={styles.activityDate}>
-                {formatDate(activity.createdAt)}
-              </Text>
-            </View>
-          ))
-        ) : (
-          <Text style={styles.emptyText}>No activity yet.</Text>
-        )}
-      </Card>
+              item={activity}
+              isLast={index === activityItems.length - 1}
+            />
+          ))}
+        </Card>
+      ) : null}
     </Screen>
   );
 }
 
-function SummaryRow({
+function ParticipantChip({
+  label,
+  highlight,
+}: {
+  label: string;
+  highlight: boolean;
+}) {
+  const initials = label
+    .split(" ")
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .join("");
+  return (
+    <View style={styles.participantChip}>
+      <View
+        style={[
+          styles.participantAvatar,
+          highlight
+            ? styles.participantAvatarHighlight
+            : styles.participantAvatarMuted,
+        ]}
+      >
+        <Text
+          style={[
+            styles.participantAvatarText,
+            highlight && styles.participantAvatarTextHighlight,
+          ]}
+        >
+          {initials}
+        </Text>
+      </View>
+      <Text style={styles.participantName}>{label}</Text>
+    </View>
+  );
+}
+
+function DetailRow({
   label,
   value,
 }: {
@@ -469,13 +560,39 @@ function SummaryRow({
   value: React.ReactNode;
 }) {
   return (
-    <View style={styles.summaryRow}>
-      <Text style={styles.summaryLabel}>{label}</Text>
+    <View style={styles.detailRow}>
+      <Text style={styles.detailLabel}>{label}</Text>
       {typeof value === "string" ? (
-        <Text style={styles.summaryValue}>{value}</Text>
+        <Text style={styles.detailValue}>{value}</Text>
       ) : (
         value
       )}
+    </View>
+  );
+}
+
+function ActivityTimelineRow({
+  item,
+  isLast,
+}: {
+  item: ActivityItem;
+  isLast: boolean;
+}) {
+  return (
+    <View style={styles.timelineRow}>
+      <View style={styles.timelineTrack}>
+        <View style={styles.timelineDot} />
+        {!isLast ? <View style={styles.timelineLine} /> : null}
+      </View>
+      <View
+        style={[styles.timelineContent, !isLast && styles.timelineContentGap]}
+      >
+        <Text style={styles.activityTitle}>{item.title}</Text>
+        <View style={styles.activityMeta}>
+          <Text style={styles.activityDetail}>{item.detail}</Text>
+          <Text style={styles.activityDate}>{formatDate(item.createdAt)}</Text>
+        </View>
+      </View>
     </View>
   );
 }
@@ -493,6 +610,7 @@ function formatDate(input: string) {
 }
 
 const styles = StyleSheet.create({
+  // Footer
   footerActions: {
     flexDirection: "row",
     gap: spacing.sm,
@@ -500,76 +618,184 @@ const styles = StyleSheet.create({
   footerButton: {
     flex: 1,
   },
-  overview: {
-    gap: spacing.md,
+
+  // Hero
+  hero: {
     paddingHorizontal: spacing.xs,
-    marginBottom: spacing.md,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.xxl,
+    gap: spacing.md,
   },
-  overviewTop: {
+
+  // Participant flow
+  participantFlow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.md,
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
   },
-  heroArtWrap: {
-    width: 112,
-    height: 88,
-    borderRadius: 24,
-    backgroundColor: palette.surfaceGlass,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderGlass,
+  participantChip: {
     alignItems: "center",
-    justifyContent: "center",
-    ...shadows.soft,
-  },
-  overviewCopy: {
-    flex: 1,
     gap: spacing.xs,
   },
-  debtTitle: {
-    color: palette.ink,
-    fontSize: typography.size.lg,
-    lineHeight: typography.line.h3,
-    fontFamily: typefaces.displayMedium,
+  participantAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: radii.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
   },
-  subtext: {
+  participantAvatarHighlight: {
+    backgroundColor: palette.blueSoft,
+    borderColor: palette.borderIndigo,
+  },
+  participantAvatarMuted: {
+    backgroundColor: palette.surfaceMuted,
+    borderColor: palette.border,
+  },
+  participantAvatarText: {
+    fontSize: typography.size.md,
+    fontFamily: typefaces.bodyHeavy,
     color: palette.muted,
-    fontSize: typography.size.base,
-    lineHeight: typography.line.xl,
-    fontFamily: typefaces.body,
   },
+  participantAvatarTextHighlight: {
+    color: palette.brand,
+  },
+  participantName: {
+    fontSize: typography.size.sm,
+    fontFamily: typefaces.bodyStrong,
+    color: palette.muted,
+  },
+  flowArrowWrap: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  flowArrowLine: {
+    flex: 1,
+    height: 1.5,
+    backgroundColor: palette.line,
+  },
+
+  // Amount
   amountBlock: {
     gap: spacing.xs,
   },
-  dueLine: {
+  amountSubtext: {
     color: palette.muted,
     fontSize: typography.size.base,
-    lineHeight: typography.line.xl,
+    fontFamily: typefaces.body,
+  },
+  settledPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    alignSelf: "flex-start",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radii.pill,
+    backgroundColor: palette.positiveSoft,
+  },
+  settledPillText: {
+    color: palette.positive,
+    fontSize: typography.size.sm,
     fontFamily: typefaces.bodyStrong,
   },
-  summaryCard: {
+
+  // Payment progress
+  progressBlock: {
     gap: spacing.sm,
+    marginTop: spacing.xs,
   },
-  badgeLine: {
+  progressTrack: {
+    height: 6,
+    borderRadius: radii.pill,
+    backgroundColor: palette.surfaceMuted,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: radii.pill,
+    backgroundColor: palette.warning,
+  },
+  progressFillComplete: {
+    backgroundColor: palette.positive,
+  },
+  progressLabels: {
+    flexDirection: "row",
+    gap: spacing.xl,
+  },
+  progressLabelItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
+  progressDot: {
+    width: 7,
+    height: 7,
+    borderRadius: radii.pill,
+  },
+  progressDotPaid: {
+    backgroundColor: palette.warning,
+  },
+  progressDotRemaining: {
+    backgroundColor: palette.surfaceMuted,
+    borderWidth: 1.5,
+    borderColor: palette.border,
+  },
+  progressLabelText: {
+    color: palette.muted,
+    fontSize: typography.size.sm,
+    fontFamily: typefaces.bodyStrong,
+  },
+  duePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    alignSelf: "flex-start",
+    marginTop: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
+    borderRadius: radii.pill,
+    backgroundColor: palette.surfaceMuted,
+  },
+  duePillText: {
+    color: palette.muted,
+    fontSize: typography.size.sm,
+    fontFamily: typefaces.bodyStrong,
+  },
+
+  // Status badges row
+  statusRow: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.xs,
-    marginBottom: spacing.xs,
+    paddingHorizontal: spacing.xs,
+    marginBottom: spacing.xl,
   },
-  summaryRow: {
+
+  // Details card
+  detailsCard: {
+    gap: 0,
+    marginBottom: spacing.md,
+  },
+  detailRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: palette.line,
   },
-  summaryLabel: {
+  detailLabel: {
     color: palette.muted,
     fontSize: typography.size.md,
     fontFamily: typefaces.bodyStrong,
   },
-  summaryValue: {
+  detailValue: {
     color: palette.ink,
     fontSize: typography.size.md,
     fontFamily: typefaces.body,
@@ -587,7 +813,12 @@ const styles = StyleSheet.create({
   },
   notesBlock: {
     gap: spacing.xs,
-    paddingTop: spacing.sm,
+    paddingTop: spacing.md,
+  },
+  notesLabel: {
+    color: palette.muted,
+    fontSize: typography.size.md,
+    fontFamily: typefaces.bodyStrong,
   },
   notesText: {
     color: palette.ink,
@@ -595,44 +826,63 @@ const styles = StyleSheet.create({
     lineHeight: typography.line.xl,
     fontFamily: typefaces.body,
   },
+
+  // Activity timeline
   activityCard: {
-    gap: spacing.sm,
+    gap: 0,
   },
-  activityRow: {
+  timelineRow: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
     gap: spacing.md,
-    paddingVertical: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: palette.line,
   },
-  activityRowLast: {
-    borderBottomWidth: 0,
+  timelineTrack: {
+    alignItems: "center",
+    width: 16,
+    paddingTop: 5,
   },
-  activityCopy: {
+  timelineDot: {
+    width: 8,
+    height: 8,
+    borderRadius: radii.pill,
+    backgroundColor: palette.brand,
+    borderWidth: 1.5,
+    borderColor: palette.lavender,
+  },
+  timelineLine: {
     flex: 1,
+    width: 1.5,
+    backgroundColor: palette.line,
+    marginTop: spacing.xs,
+    marginBottom: 0,
+  },
+  timelineContent: {
+    flex: 1,
+    paddingBottom: spacing.xl,
     gap: spacing.xs,
+  },
+  timelineContentGap: {
+    paddingBottom: spacing.xl,
   },
   activityTitle: {
     color: palette.ink,
-    fontSize: typography.size.md,
+    fontSize: typography.size.base,
     fontFamily: typefaces.bodyStrong,
     textTransform: "capitalize",
+  },
+  activityMeta: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: spacing.sm,
   },
   activityDetail: {
     color: palette.muted,
     fontSize: typography.size.sm,
     fontFamily: typefaces.body,
+    flex: 1,
   },
   activityDate: {
-    color: palette.muted,
+    color: palette.faint,
     fontSize: typography.size.sm,
     fontFamily: typefaces.bodyStrong,
-  },
-  emptyText: {
-    color: palette.muted,
-    fontSize: typography.size.md,
-    fontFamily: typefaces.body,
   },
 });

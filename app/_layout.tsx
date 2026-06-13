@@ -9,18 +9,32 @@ import {
     Sora_700Bold,
     useFonts as useSoraFonts,
 } from "@expo-google-fonts/sora";
-import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
-import { Stack } from "expo-router";
+import { DefaultTheme, Stack, ThemeProvider } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+    ActivityIndicator,
+    Pressable,
+    StyleSheet,
+    Text,
+    View,
+} from "react-native";
 import "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/src/components/ErrorBoundary";
-import { addTelemetryBreadcrumb, configureTelemetry, installGlobalCrashHandler } from "@/src/services/telemetry";
-import { palette, spacing, typefaces, typography } from "@/src/constants/design";
+import {
+    palette,
+    spacing,
+    typefaces,
+    typography,
+} from "@/src/constants/design";
+import {
+    addTelemetryBreadcrumb,
+    configureTelemetry,
+    installGlobalCrashHandler,
+} from "@/src/services/telemetry";
 import { AppDataProvider, useAppData } from "@/src/state/AppDataProvider";
 import { AuthProvider } from "@/src/state/AuthProvider";
 
@@ -64,7 +78,9 @@ export default function RootLayout() {
   useEffect(() => {
     if (fontsLoaded) {
       void SplashScreen.hideAsync();
-      addTelemetryBreadcrumb("app", "bootstrap_ready", { result: "fonts_loaded" });
+      addTelemetryBreadcrumb("app", "bootstrap_ready", {
+        result: "fonts_loaded",
+      });
     }
   }, [fontsLoaded]);
 
@@ -131,7 +147,10 @@ function TelemetrySettingsBridge() {
       telemetryEnabled: data.settings.betaTelemetryEnabled,
       crashReportingEnabled: data.settings.betaCrashReportingEnabled,
     });
-  }, [data.settings.betaCrashReportingEnabled, data.settings.betaTelemetryEnabled]);
+  }, [
+    data.settings.betaCrashReportingEnabled,
+    data.settings.betaTelemetryEnabled,
+  ]);
 
   return null;
 }
@@ -143,7 +162,9 @@ function AppDataGate({ children }: { children: React.ReactNode }) {
     return (
       <View style={styles.gate}>
         <Text style={styles.gateEyebrow}>Local data unavailable</Text>
-        <Text style={styles.gateTitle}>Debtulator could not open its local database.</Text>
+        <Text style={styles.gateTitle}>
+          Debtulator could not open its local database.
+        </Text>
         <Text style={styles.gateBody}>{data.error}</Text>
         <Pressable
           accessibilityRole="button"
