@@ -4,7 +4,7 @@ const path = require('node:path');
 const test = require('node:test');
 const ts = require('typescript');
 
-const projectRoot = path.resolve(__dirname, '..');
+const projectRoot = process.cwd();
 const originalResolve = Module._resolveFilename;
 const originalLoad = Module._load;
 
@@ -42,33 +42,33 @@ const { buildRestorePlan, previewRestore } = require('../src/services/backupRest
 
 test('duplicate private restore remaps relationships and strips shared sync state', () => {
   const plan = buildRestorePlan(JSON.stringify(backup()), emptySnapshot(), 'duplicate_private');
-  const event = plan.records.events[0];
-  const eventMember = plan.records.sharedEventMembers[0];
+  const group = plan.records.groups[0];
+  const groupMember = plan.records.sharedGroupMembers[0];
   const expense = plan.records.sharedExpenses[0];
   const payment = plan.records.payments[0];
   const settlement = plan.records.settlements[0];
   const line = plan.records.settlementLines[0];
 
-  assert.notEqual(event.id, 'event_remote_local');
-  assert.equal(event.visibility, 'private');
-  assert.equal(event.syncStatus, 'local_only');
-  assert.equal(event.remoteId, null);
-  assert.equal(eventMember.eventId, event.id);
-  assert.equal(eventMember.remoteId, null);
-  assert.equal(eventMember.linkedUserId, null);
-  assert.equal(eventMember.syncStatus, 'local_only');
-  assert.equal(expense.eventId, event.id);
-  assert.equal(expense.payerId, eventMember.id);
-  assert.deepEqual(expense.participantIds, [eventMember.id]);
+  assert.notEqual(group.id, 'group_remote_local');
+  assert.equal(group.visibility, 'private');
+  assert.equal(group.syncStatus, 'local_only');
+  assert.equal(group.remoteId, null);
+  assert.equal(groupMember.groupId, group.id);
+  assert.equal(groupMember.remoteId, null);
+  assert.equal(groupMember.linkedUserId, null);
+  assert.equal(groupMember.syncStatus, 'local_only');
+  assert.equal(expense.groupId, group.id);
+  assert.equal(expense.payerId, groupMember.id);
+  assert.deepEqual(expense.participantIds, [groupMember.id]);
   assert.equal(expense.visibility, 'private');
   assert.equal(expense.syncStatus, 'local_only');
   assert.equal(expense.remoteId, null);
-  assert.equal(payment.eventId, event.id);
-  assert.equal(payment.payerEventMemberId, eventMember.id);
+  assert.equal(payment.groupId, group.id);
+  assert.equal(payment.payerGroupMemberId, groupMember.id);
   assert.equal(payment.visibility, 'private');
   assert.equal(payment.confirmationStatus, 'local_only');
   assert.equal(payment.syncStatus, 'local_only');
-  assert.equal(settlement.eventId, event.id);
+  assert.equal(settlement.groupId, group.id);
   assert.equal(settlement.confirmationStatus, 'local_only');
   assert.equal(line.settlementId, settlement.id);
   assert.equal(line.paymentId, payment.id);
@@ -88,10 +88,22 @@ test('merge restore skips existing ids without overwriting local records', () =>
 });
 
 test('restore preview rejects non Debtulator JSON', () => {
-  const preview = previewRestore(JSON.stringify({ app: 'Other', schemaVersion: 6, data: {} }));
+  const preview = previewRestore(JSON.stringify({ app: 'Other', schemaVersion: 7, data: {} }));
 
   assert.equal(preview.valid, false);
   assert.deepEqual(preview.warnings, ['This does not look like a Debtulator backup.']);
+});
+
+test('schema 6 event backups restore through the group compatibility adapter', () => {
+  const legacyBackup = legacyEventBackup(backup());
+  const preview = previewRestore(JSON.stringify(legacyBackup));
+  const plan = buildRestorePlan(JSON.stringify(legacyBackup), emptySnapshot(), 'duplicate_private');
+
+  assert.equal(preview.valid, true);
+  assert.equal(preview.groupCount, 1);
+  assert.equal(plan.records.groups.length, 1);
+  assert.equal(plan.records.sharedGroupMembers[0].groupId, plan.records.groups[0].id);
+  assert.equal(plan.records.sharedExpenses[0].groupId, plan.records.groups[0].id);
 });
 
 function backup(overrides = {}) {
@@ -99,11 +111,11 @@ function backup(overrides = {}) {
     profiles: [],
     members: [member()],
     debts: [],
-    events: [event()],
-    eventMembers: [],
-    sharedEventMembers: [sharedEventMember()],
+    groups: [group()],
+    groupMembers: [],
+    sharedGroupMembers: [sharedGroupMember()],
     sharedExpenses: [sharedExpense()],
-    eventDebts: [],
+    groupDebts: [],
     payments: [payment()],
     settlements: [settlement()],
     settlementLines: [settlementLine()],
@@ -116,12 +128,12 @@ function backup(overrides = {}) {
     smartSuggestions: [],
     auditLogs: [],
     currencyRates: [],
-    settings: { defaultDebtVisibility: 'shared_event', syncPrivateLocalDataToAccountBackup: true },
+    settings: { defaultDebtVisibility: 'shared_group', syncPrivateLocalDataToAccountBackup: true },
     ...(overrides.data ?? {}),
   };
   return {
     app: 'Debtulator',
-    schemaVersion: 6,
+    schemaVersion: 7,
     exportedAt: '2026-05-01T00:00:00.000Z',
     privacy: {
       includesAttachments: false,
@@ -133,20 +145,49 @@ function backup(overrides = {}) {
   };
 }
 
+function legacyEventBackup(value) {
+  if (Array.isArray(value)) {
+    return value.map(legacyEventBackup);
+  }
+  if (value && typeof value === 'object') {
+    const migrated = Object.fromEntries(
+      Object.entries(value).map(([key, nestedValue]) => [
+        key.replaceAll('Groups', 'Events').replaceAll('groups', 'events').replaceAll('Group', 'Event').replaceAll('group', 'event'),
+        legacyEventBackup(nestedValue),
+      ]),
+    );
+    if ('schemaVersion' in migrated) {
+      migrated.schemaVersion = 6;
+    }
+    return migrated;
+  }
+  const valueMap = {
+    group: 'event',
+    group_debt: 'event_debt',
+    group_direct_debt: 'event_direct_debt',
+    group_invite: 'event_invite',
+    group_locked: 'event_locked',
+    group_update: 'event_update',
+    future_group_shared: 'future_event_shared',
+    shared_group: 'shared_event',
+  };
+  return typeof value === 'string' ? (valueMap[value] ?? value) : value;
+}
+
 function emptySnapshot(overrides = {}) {
   return {
     profiles: [],
     members: [],
     debts: [],
-    events: [],
-    eventMembers: [],
-    eventParticipants: [],
-    eventInvites: [],
-    sharedEventMembers: [],
-    eventMemberClaims: [],
-    eventDuplicateWarnings: [],
+    groups: [],
+    groupMembers: [],
+    groupParticipants: [],
+    groupInvites: [],
+    sharedGroupMembers: [],
+    groupMemberClaims: [],
+    groupDuplicateWarnings: [],
     sharedExpenses: [],
-    eventDebts: [],
+    groupDebts: [],
     payments: [],
     settlements: [],
     settlementLines: [],
@@ -155,8 +196,8 @@ function emptySnapshot(overrides = {}) {
     reminders: [],
     softReminders: [],
     overpaymentCredits: [],
-    eventVerificationResponses: [],
-    eventActivityLogs: [],
+    groupVerificationResponses: [],
+    groupActivityLogs: [],
     linkRequests: [],
     debtVerifications: [],
     activityLogs: [],
@@ -199,11 +240,11 @@ function member(overrides = {}) {
   };
 }
 
-function event() {
+function group() {
   return {
-    id: 'event_remote_local',
+    id: 'group_remote_local',
     localId: null,
-    remoteId: 'event_remote',
+    remoteId: 'group_remote',
     ownerUserId: 'user_remote',
     name: 'Trip',
     notes: null,
@@ -223,12 +264,12 @@ function event() {
   };
 }
 
-function sharedEventMember() {
+function sharedGroupMember() {
   return {
-    id: 'event_member_local',
-    remoteId: 'event_member_remote',
-    eventId: 'event_remote_local',
-    remoteEventId: 'event_remote',
+    id: 'group_member_local',
+    remoteId: 'group_member_remote',
+    groupId: 'group_remote_local',
+    remoteGroupId: 'group_remote',
     type: 'linked_user',
     linkedUserId: 'user_remote',
     displayName: 'Avery',
@@ -238,7 +279,7 @@ function sharedEventMember() {
     notes: null,
     createdByUserId: 'user_remote',
     status: 'active',
-    mergedIntoEventMemberId: null,
+    mergedIntoGroupMemberId: null,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
     syncStatus: 'synced',
@@ -249,14 +290,14 @@ function sharedExpense() {
   return {
     id: 'expense_local',
     remoteId: 'expense_remote',
-    eventId: 'event_remote_local',
+    groupId: 'group_remote_local',
     creatorUserId: 'user_remote',
-    payerId: 'event_member_local',
+    payerId: 'group_member_local',
     expensePayers: [
       {
         id: 'expense_payer_local',
         expenseId: 'expense_local',
-        eventMemberId: 'event_member_local',
+        groupMemberId: 'group_member_local',
         amountPaid: 120,
         currency: 'SEK',
         createdAt: '2026-01-01T00:00:00.000Z',
@@ -268,15 +309,15 @@ function sharedExpense() {
     title: 'Dinner',
     notes: null,
     expenseDate: '2026-01-01',
-    participantIds: ['event_member_local'],
+    participantIds: ['group_member_local'],
     splitMethod: 'equal',
     splitAllocations: {},
     generatedObligations: [
       {
         id: 'obligation_local',
         expenseId: 'expense_local',
-        eventId: 'event_remote_local',
-        fromParticipantId: 'event_member_local',
+        groupId: 'group_remote_local',
+        fromParticipantId: 'group_member_local',
         toParticipantId: 'me',
         amount: 120,
         currency: 'SEK',
@@ -287,7 +328,7 @@ function sharedExpense() {
     tags: [],
     status: 'active',
     verificationStatus: 'verified',
-    visibility: 'shared_event',
+    visibility: 'shared_group',
     syncStatus: 'synced',
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
@@ -304,9 +345,9 @@ function payment() {
     payeeUserId: null,
     payerMemberId: null,
     payeeMemberId: null,
-    payerEventMemberId: 'event_member_local',
-    payeeEventMemberId: null,
-    eventId: 'event_remote_local',
+    payerGroupMemberId: 'group_member_local',
+    payeeGroupMemberId: null,
+    groupId: 'group_remote_local',
     relatedMemberId: null,
     amount: 120,
     currency: 'SEK',
@@ -314,7 +355,7 @@ function payment() {
     notes: null,
     status: 'recorded',
     confirmationStatus: 'confirmed',
-    visibility: 'shared_event',
+    visibility: 'shared_group',
     createdAt: '2026-01-02T00:00:00.000Z',
     updatedAt: '2026-01-02T00:00:00.000Z',
     archivedAt: null,
@@ -328,7 +369,7 @@ function settlement() {
     localId: null,
     remoteId: 'settlement_remote',
     createdByUserId: 'user_remote',
-    eventId: 'event_remote_local',
+    groupId: 'group_remote_local',
     memberId: null,
     type: 'manual',
     currency: 'SEK',

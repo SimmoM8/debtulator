@@ -22,41 +22,49 @@ import {
   TextField,
 } from "@/src/components/ui/Primitives";
 import { palette, shadows, typefaces, typography } from "@/src/constants/design";
+import { createRemoteDebtVerification } from "@/src/services/stage2Sync";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
-import type { CurrencyCode, DebtDirection } from "@/src/types/models";
+import type {
+  CurrencyCode,
+  Debt,
+  DebtChangeSummary,
+  DebtDirection,
+  Member,
+} from "@/src/types/models";
+import { todayIsoDate } from "@/src/utils/id";
 
 export function DebtFormScreen() {
-  const { id, memberId, eventId } = useLocalSearchParams<{
+  const { id, memberId, groupId } = useLocalSearchParams<{
     id?: string;
     memberId?: string;
-    eventId?: string;
+    groupId?: string;
   }>();
   const data = useAppData();
   const auth = useAuth();
   const debt = data.debts.find((item) => item.id === id);
-  const selectedEvent = data.events.find(
-    (event) => event.id === (debt?.eventId ?? eventId),
+  const selectedGroup = data.groups.find(
+    (group) => group.id === (debt?.groupId ?? groupId),
   );
-  const isSharedEventDebt = !debt && selectedEvent?.visibility === "shared";
-  const sharedEventMembers = data.sharedEventMembers.filter(
-    (eventMember) =>
-      eventMember.eventId === selectedEvent?.id &&
-      eventMember.status !== "archived" &&
-      eventMember.status !== "merged",
+  const isSharedGroupDebt = !debt && selectedGroup?.visibility === "shared";
+  const sharedGroupMembers = data.sharedGroupMembers.filter(
+    (groupMember) =>
+      groupMember.groupId === selectedGroup?.id &&
+      groupMember.status !== "archived" &&
+      groupMember.status !== "merged",
   );
-  const currentEventMember = sharedEventMembers.find(
+  const currentGroupMember = sharedGroupMembers.find(
     (member) => member.linkedUserId === auth.identity.authenticatedUserId,
   );
 
   const [selectedMemberId, setSelectedMemberId] = useState(
     debt?.memberId ?? memberId ?? data.members[0]?.id ?? "",
   );
-  const [debtorEventMemberId, setDebtorEventMemberId] = useState(
-    currentEventMember?.id ?? sharedEventMembers[0]?.id ?? "",
+  const [debtorGroupMemberId, setDebtorGroupMemberId] = useState(
+    currentGroupMember?.id ?? sharedGroupMembers[0]?.id ?? "",
   );
-  const [creditorEventMemberId, setCreditorEventMemberId] = useState(
-    sharedEventMembers.find((member) => member.id !== debtorEventMemberId)
+  const [creditorGroupMemberId, setCreditorGroupMemberId] = useState(
+    sharedGroupMembers.find((member) => member.id !== debtorGroupMemberId)
       ?.id ?? "",
   );
   const [direction, setDirection] = useState<DebtDirection>(
@@ -70,6 +78,24 @@ export function DebtFormScreen() {
   const [notes, setNotes] = useState(debt?.notes ?? "");
   const [dueDate, setDueDate] = useState(debt?.dueDate ?? "");
   const [selectedTags, setSelectedTags] = useState<string[]>(debt?.tags ?? []);
+  const selectedMember = data.members.find(
+    (member) => member.id === selectedMemberId,
+  );
+  const originalVerification = debt
+    ? data.debtVerifications
+        .filter(
+          (verification) =>
+            verification.debtId === debt.id &&
+            verification.requestType === "creation",
+        )
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0]
+    : undefined;
+  const confirmationUserId =
+    auth.identity.authenticatedUserId ??
+    originalVerification?.requesterUserId ??
+    (selectedMember?.linkedUserId?.startsWith("demo_user_")
+      ? "demo_user_local"
+      : null);
 
   const memberOptions = useMemo(
     () =>
@@ -78,13 +104,13 @@ export function DebtFormScreen() {
         .map((member) => ({ label: member.displayName, value: member.id })),
     [data.members],
   );
-  const eventMemberOptions = useMemo(
+  const groupMemberOptions = useMemo(
     () =>
-      sharedEventMembers.map((member) => ({
+      sharedGroupMembers.map((member) => ({
         label: member.displayName,
         value: member.id,
       })),
-    [sharedEventMembers],
+    [sharedGroupMembers],
   );
   const usedTagNames = useMemo(
     () => data.tags.map((tag) => tag.name),
@@ -96,13 +122,22 @@ export function DebtFormScreen() {
   }
 
   async function save() {
-    if (isSharedEventDebt && selectedEvent) {
-      await data.createEventDebt({
-        eventId: selectedEvent.id,
-        remoteEventId: selectedEvent.remoteId,
+    const createdDate = debt?.debtDate ?? todayIsoDate();
+    if (dueDate && dueDate < createdDate) {
+      Alert.alert(
+        "Check due date",
+        "The due date cannot be earlier than the date created.",
+      );
+      return;
+    }
+
+    if (isSharedGroupDebt && selectedGroup) {
+      await data.createGroupDebt({
+        groupId: selectedGroup.id,
+        remoteGroupId: selectedGroup.remoteId,
         creatorUserId: auth.identity.authenticatedUserId,
-        debtorEventMemberId,
-        creditorEventMemberId,
+        debtorGroupMemberId,
+        creditorGroupMemberId,
         amount: Number(amount),
         currency,
         title,
@@ -123,40 +158,141 @@ export function DebtFormScreen() {
       notes,
       dueDate,
       tags: selectedTags,
-      ...(debt ? {} : { eventId: eventId ?? null }),
+      ...(debt ? {} : { groupId: groupId ?? null }),
     };
 
-    const financialFieldsChanged =
+    const approvalFieldsChanged =
       debt &&
-      debt.verificationStatus === "verified" &&
-      (selectedMemberId !== debt.memberId ||
+      (Number(amount) !== debt.amount ||
         direction !== debt.direction ||
-        Number(amount) !== debt.amount ||
-        currency !== debt.currency);
-
-    if (financialFieldsChanged) {
+        (dueDate || null) !== debt.dueDate);
+    const memberChanged = Boolean(
+      debt && selectedMemberId !== debt.memberId,
+    );
+    if (
+      memberChanged &&
+      debt?.visibility === "shared_with_involved_member" &&
+      originalVerification &&
+      originalVerification.requesterUserId !== confirmationUserId
+    ) {
       Alert.alert(
-        "Verification required again",
-        "Changing financial details will require verification again.",
+        "Member cannot be changed",
+        "Only the person who originally shared this debt can move it to another linked member.",
+      );
+      return;
+    }
+
+    const requiresConfirmation =
+      approvalFieldsChanged &&
+      selectedMember?.linkStatus === "linked" &&
+      Boolean(selectedMember.linkedUserId) &&
+      Boolean(confirmationUserId);
+    if (requiresConfirmation) {
+      Alert.alert(
+        "Confirmation required",
+        "Changing the amount, direction, or due date requires confirmation from the other member.",
         [
           { text: "Cancel", style: "cancel" },
-          { text: "Save", style: "destructive", onPress: () => persist(input) },
+          {
+            text: "Save and request confirmation",
+            onPress: () => persist(input, true),
+          },
         ],
       );
       return;
     }
 
-    await persist(input);
+    await persist(input, Boolean(approvalFieldsChanged));
   }
 
-  async function persist(input: Parameters<typeof data.createDebt>[0]) {
-    if (debt) {
-      await data.updateDebt(debt.id, input);
-    } else {
-      await data.createDebt(input);
+  async function persist(
+    input: Parameters<typeof data.createDebt>[0],
+    requestAmendment = false,
+  ) {
+    const savedDebt = debt
+      ? await data.updateDebt(
+        debt.id,
+        input,
+        confirmationUserId,
+      )
+      : await data.createDebt(input);
+
+    const linkedMember = data.members.find(
+      (member) => member.id === savedDebt.memberId,
+    );
+    const shouldRequestConfirmation =
+      Boolean(confirmationUserId) &&
+      linkedMember?.linkStatus === "linked" &&
+      Boolean(linkedMember.linkedUserId) &&
+      (!debt || requestAmendment);
+
+    if (shouldRequestConfirmation && linkedMember) {
+      try {
+        await sendConfirmationRequest(
+          savedDebt,
+          linkedMember,
+          debt ? "amendment" : "creation",
+          buildChangeSummary(debt, savedDebt),
+        );
+      } catch {
+        Alert.alert(
+          "Confirmation pending",
+          "The debt is marked as awaiting confirmation, but the request could not be delivered yet. You can retry it from the debt options.",
+        );
+      }
     }
 
     router.back();
+  }
+
+  async function sendConfirmationRequest(
+    savedDebt: Debt,
+    linkedMember: Member,
+    requestType: "creation" | "amendment",
+    changeSummary: DebtChangeSummary,
+  ) {
+    const requesterUserId = confirmationUserId;
+    const responderUserId = linkedMember.linkedUserId;
+    if (!requesterUserId || !responderUserId) {
+      return;
+    }
+
+    const local = await data.requestDebtVerification(savedDebt.id, {
+      requesterUserId,
+      responderUserId,
+      sharedNotes: savedDebt.sharedNotes ?? savedDebt.notes,
+      requestType,
+      changeSummary,
+    });
+
+    if (!auth.identity.authenticatedUserId) {
+      return;
+    }
+
+    const remote = await createRemoteDebtVerification({
+      debt: local.debt,
+      member: linkedMember,
+      requesterUserId,
+      responderUserId,
+      sharedNotes: local.debt.sharedNotes ?? local.debt.notes,
+      requestType,
+      changeSummary,
+    });
+    if (!remote) {
+      throw new Error("Cloud confirmation is unavailable.");
+    }
+
+    await data.upsertDebt({
+      ...local.debt,
+      remoteId: remote.remoteDebtId,
+      syncStatus: "synced",
+    });
+    await data.upsertDebtVerification({
+      ...local.verification,
+      remoteId: remote.remoteVerificationId,
+      remoteDebtId: remote.remoteDebtId,
+      syncStatus: "synced",
+    });
   }
 
   return (
@@ -167,10 +303,10 @@ export function DebtFormScreen() {
           icon="checkmark"
           onPress={save}
           disabled={
-            isSharedEventDebt
-              ? !debtorEventMemberId ||
-                !creditorEventMemberId ||
-                debtorEventMemberId === creditorEventMemberId ||
+            isSharedGroupDebt
+              ? !debtorGroupMemberId ||
+                !creditorGroupMemberId ||
+                debtorGroupMemberId === creditorGroupMemberId ||
                 !title.trim() ||
                 Number(amount) <= 0
               : !selectedMemberId || !title.trim() || Number(amount) <= 0
@@ -179,12 +315,12 @@ export function DebtFormScreen() {
       }
     >
       <PageHeader
-        eyebrow={isSharedEventDebt ? "Shared event debt" : "Simple debt"}
+        eyebrow={isSharedGroupDebt ? "Shared group debt" : "Simple debt"}
         title={debt ? "Edit debt" : "Add debt"}
       />
 
       <Card tone="lavender">
-        {!isSharedEventDebt ? (
+        {!isSharedGroupDebt ? (
           <DirectionToggle value={direction} onChange={setDirection} />
         ) : null}
         <TextField
@@ -195,33 +331,48 @@ export function DebtFormScreen() {
         />
         <View style={styles.amountRow}>
           <TextField
-            label="Amount"
+            label={debt ? "Debt amount" : "Amount"}
             value={amount}
             onChangeText={(value) => setAmount(sanitizeCurrencyAmount(value))}
             placeholder="0.00"
             keyboardType="decimal-pad"
             style={styles.amountField}
           />
-          <CurrencySelect
-            label="Currency"
-            value={currency}
-            onChange={setCurrency}
-            style={styles.currencyField}
-          />
+          {debt ? (
+            <View style={styles.currencyReadOnly}>
+              <Text style={styles.currencyReadOnlyLabel}>Currency</Text>
+              <View style={styles.currencyReadOnlyValue}>
+                <Text style={styles.currencyReadOnlyText}>{debt.currency}</Text>
+              </View>
+            </View>
+          ) : (
+            <CurrencySelect
+              label="Currency"
+              value={currency}
+              onChange={setCurrency}
+              style={styles.currencyField}
+            />
+          )}
         </View>
-        {isSharedEventDebt ? (
+        {debt ? (
+          <Text style={styles.amountEditHint}>
+            Changing the amount is logged and recalculates the balance against
+            all recorded payments.
+          </Text>
+        ) : null}
+        {isSharedGroupDebt ? (
           <>
             <DropdownSelect
               label="Debtor"
-              value={debtorEventMemberId}
-              options={eventMemberOptions}
-              onChange={setDebtorEventMemberId}
+              value={debtorGroupMemberId}
+              options={groupMemberOptions}
+              onChange={setDebtorGroupMemberId}
             />
             <DropdownSelect
               label="Creditor"
-              value={creditorEventMemberId}
-              options={eventMemberOptions}
-              onChange={setCreditorEventMemberId}
+              value={creditorGroupMemberId}
+              options={groupMemberOptions}
+              onChange={setCreditorGroupMemberId}
             />
           </>
         ) : (
@@ -238,6 +389,7 @@ export function DebtFormScreen() {
           value={dueDate}
           onChange={setDueDate}
           placeholder="No due date"
+          minDate={debt?.debtDate ?? todayIsoDate()}
         />
         <TagInput
           value={selectedTags}
@@ -254,6 +406,34 @@ export function DebtFormScreen() {
       </Card>
     </Screen>
   );
+}
+
+function buildChangeSummary(
+  previousDebt: Debt | undefined,
+  proposedDebt: Debt,
+): DebtChangeSummary {
+  const previous = {
+    amount: previousDebt?.amount ?? null,
+    direction: previousDebt?.direction ?? null,
+    dueDate: previousDebt?.dueDate ?? null,
+  };
+  const proposed = {
+    amount: proposedDebt.amount,
+    direction: proposedDebt.direction,
+    dueDate: proposedDebt.dueDate,
+  };
+  const changedFields: DebtChangeSummary["changedFields"] = [];
+  if (!previousDebt || previous.amount !== proposed.amount) {
+    changedFields.push("amount");
+  }
+  if (!previousDebt || previous.direction !== proposed.direction) {
+    changedFields.push("direction");
+  }
+  if (!previousDebt || previous.dueDate !== proposed.dueDate) {
+    changedFields.push("dueDate");
+  }
+
+  return { changedFields, previous, proposed };
 }
 
 function DirectionToggle({
@@ -400,6 +580,35 @@ const styles = StyleSheet.create({
   },
   currencyField: {
     width: 128,
+  },
+  currencyReadOnly: {
+    width: 128,
+    gap: 8,
+  },
+  currencyReadOnlyLabel: {
+    color: palette.muted,
+    fontSize: typography.size.sm,
+    fontFamily: typefaces.bodyStrong,
+  },
+  currencyReadOnlyValue: {
+    minHeight: 52,
+    justifyContent: "center",
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.border,
+    backgroundColor: palette.surfaceMuted,
+  },
+  currencyReadOnlyText: {
+    color: palette.ink,
+    fontSize: typography.size.base,
+    fontFamily: typefaces.bodyStrong,
+  },
+  amountEditHint: {
+    color: palette.faint,
+    fontSize: typography.size.xs,
+    fontFamily: typefaces.body,
+    marginTop: -4,
   },
   pressed: {
     opacity: 0.76,

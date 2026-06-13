@@ -167,7 +167,7 @@ export function DeleteAccountScreen() {
         />
         <Text style={styles.body}>
           Personal profile data, push tokens, notification schedules, and
-          account backup records should be removed or anonymized. Shared event
+          account backup records should be removed or anonymized. Shared group
           financial records used by other participants are preserved in a
           privacy-conscious form so ledgers do not break.
         </Text>

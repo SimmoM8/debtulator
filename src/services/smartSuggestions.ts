@@ -1,10 +1,10 @@
 import type {
   Debt,
-  Event,
+  Group,
   LedgerEntry,
   Member,
   RecurringTemplate,
-  SharedEventMember,
+  SharedGroupMember,
   SmartSuggestion,
 } from '@/src/types/models';
 import { normalizeText } from '@/src/utils/text';
@@ -26,11 +26,11 @@ export function suggestTags(input: {
   title: string;
   notes?: string | null;
   member?: Member | null;
-  event?: Event | null;
+  group?: Group | null;
   previousEntries?: LedgerEntry[];
   existingTags: string[];
 }) {
-  const text = normalizeText(`${input.title} ${input.notes ?? ''} ${input.event?.name ?? ''}`);
+  const text = normalizeText(`${input.title} ${input.notes ?? ''} ${input.group?.name ?? ''}`);
   const suggestions = new Set<string>();
   for (const [tag, keywords] of Object.entries(KEYWORD_TAGS)) {
     if (keywords.some((keyword) => text.includes(keyword))) {
@@ -38,7 +38,7 @@ export function suggestTags(input: {
     }
   }
   input.member?.tags.forEach((tag) => suggestions.add(tag));
-  input.event?.tags.forEach((tag) => suggestions.add(tag));
+  input.group?.tags.forEach((tag) => suggestions.add(tag));
   input.previousEntries
     ?.filter((entry) => normalizeText(entry.title).includes(normalizeText(input.title).slice(0, 5)))
     .flatMap((entry) => entry.tags)
@@ -50,9 +50,9 @@ export function suggestTags(input: {
 export function buildSmartSuggestionDrafts(input: {
   debts: Debt[];
   members: Member[];
-  events: Event[];
+  groups: Group[];
   entries: LedgerEntry[];
-  sharedEventMembers: SharedEventMember[];
+  sharedGroupMembers: SharedGroupMember[];
   recurringTemplates: RecurringTemplate[];
   persisted: SmartSuggestion[];
 }) {
@@ -64,7 +64,7 @@ export function buildSmartSuggestionDrafts(input: {
   const drafts: SuggestionDraft[] = [
     ...memberDuplicateSuggestions(input.members),
     ...debtDuplicateSuggestions(input.entries),
-    ...eventPatternSuggestions(input.debts, input.events),
+    ...groupPatternSuggestions(input.debts, input.groups),
     ...recurringSuggestions(input.debts, input.recurringTemplates),
   ];
   return drafts.filter((draft) => !dismissedKeys.has(draft.key));
@@ -112,7 +112,7 @@ function debtDuplicateSuggestions(entries: LedgerEntry[]): SuggestionDraft[] {
         first.currency !== second.currency ||
         Math.abs(first.originalAmount - second.originalAmount) > 0.005 ||
         first.date !== second.date ||
-        first.eventId !== second.eventId
+        first.groupId !== second.groupId
       ) {
         continue;
       }
@@ -128,7 +128,7 @@ function debtDuplicateSuggestions(entries: LedgerEntry[]): SuggestionDraft[] {
         key,
         userId: null,
         suggestionType: 'duplicate',
-        targetType: first.kind === 'simple_debt' ? 'debt' : first.kind === 'event_direct_debt' ? 'event_debt' : 'shared_expense',
+        targetType: first.kind === 'simple_debt' ? 'debt' : first.kind === 'group_direct_debt' ? 'group_debt' : 'shared_expense',
         targetId: first.sourceId,
         title: 'Possible duplicate debt',
         message: `${first.title} looks similar to another ${first.currency} ${first.originalAmount} record on ${first.date}.`,
@@ -139,24 +139,24 @@ function debtDuplicateSuggestions(entries: LedgerEntry[]): SuggestionDraft[] {
   return suggestions.slice(0, 8);
 }
 
-function eventPatternSuggestions(debts: Debt[], events: Event[]): SuggestionDraft[] {
+function groupPatternSuggestions(debts: Debt[], groups: Group[]): SuggestionDraft[] {
   const suggestions: SuggestionDraft[] = [];
-  for (const debt of debts.filter((item) => !item.eventId && item.status === 'active')) {
+  for (const debt of debts.filter((item) => !item.groupId && item.status === 'active')) {
     const text = normalizeText(`${debt.title} ${debt.notes ?? ''}`);
-    const matchingEvent = events.find((event) => !event.archived && text.includes(normalizeText(event.name)));
-    if (!matchingEvent) {
+    const matchingGroup = groups.find((group) => !group.archived && text.includes(normalizeText(group.name)));
+    if (!matchingGroup) {
       continue;
     }
-    const key = `event_match:${debt.id}:${matchingEvent.id}`;
+    const key = `group_match:${debt.id}:${matchingGroup.id}`;
     suggestions.push({
       key,
       userId: null,
-      suggestionType: 'event',
+      suggestionType: 'group',
       targetType: 'debt',
       targetId: debt.id,
-      title: `Add this debt to ${matchingEvent.name}?`,
-      message: `The title or notes look related to ${matchingEvent.name}. Nothing changes unless you confirm.`,
-      metadata: { key, debtId: debt.id, eventId: matchingEvent.id },
+      title: `Add this debt to ${matchingGroup.name}?`,
+      message: `The title or notes look related to ${matchingGroup.name}. Nothing changes unless you confirm.`,
+      metadata: { key, debtId: debt.id, groupId: matchingGroup.id },
     });
   }
   return suggestions.slice(0, 5);

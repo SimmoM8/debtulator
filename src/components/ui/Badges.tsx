@@ -8,7 +8,7 @@ typography,
 import type {
     DebtStatus,
     DebtVisibility,
-    EventStatus,
+    GroupStatus,
     MemberLinkStatus,
     SyncStatus,
     VerificationStatus,
@@ -38,7 +38,7 @@ export function TagChips({ tags, limit }: { tags: string[]; limit?: number }) {
   );
 }
 
-export function StatusBadge({ status }: { status: DebtStatus | EventStatus }) {
+export function StatusBadge({ status }: { status: DebtStatus | GroupStatus }) {
   const tone =
     status === "settled"
       ? "positive"
@@ -114,12 +114,23 @@ export function Badge({
   );
 }
 
-function statusLabel(status: DebtStatus | EventStatus) {
+function statusLabel(status: DebtStatus | GroupStatus) {
   return status.replace("_", " ");
 }
 
 export function verificationLabel(status: VerificationStatus) {
-  return status === "local_only" ? "local only" : status.replace("_", " ");
+  switch (status) {
+    case "local_only":
+      return "local only";
+    case "pending":
+      return "awaiting confirmation";
+    case "verified":
+      return "confirmed";
+    case "rejected":
+      return "contested";
+    default:
+      return status.replaceAll("_", " ");
+  }
 }
 
 export function linkStatusLabel(status: MemberLinkStatus) {
@@ -141,10 +152,10 @@ export function visibilityLabel(visibility: DebtVisibility) {
       return "private";
     case "shared_with_involved_member":
       return "shared";
-    case "future_event_shared":
-      return "event shared later";
-    case "shared_event":
-      return "shared event";
+    case "future_group_shared":
+      return "group shared later";
+    case "shared_group":
+      return "shared group";
   }
 }
 

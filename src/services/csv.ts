@@ -2,7 +2,7 @@ import type {
   CurrencyCode,
   Debt,
   DebtDirection,
-  Event,
+  Group,
   LedgerEntry,
   Member,
   Payment,
@@ -217,7 +217,7 @@ export function debtsToCsv(entries: LedgerEntry[], options: CsvExportOptions) {
       'ledger_id',
       'kind',
       'source_id',
-      'event_id',
+      'group_id',
       'from_id',
       'to_id',
       'title',
@@ -243,7 +243,7 @@ export function debtsToCsv(entries: LedgerEntry[], options: CsvExportOptions) {
         entry.id,
         entry.kind,
         entry.sourceId,
-        entry.eventId,
+        entry.groupId,
         entry.fromId,
         entry.toId,
         entry.title,
@@ -265,40 +265,40 @@ export function debtsToCsv(entries: LedgerEntry[], options: CsvExportOptions) {
   );
 }
 
-export function eventsToCsv(events: Event[], options: CsvExportOptions) {
+export function groupsToCsv(groups: Group[], options: CsvExportOptions) {
   return toCsv(
     ['id', 'name', 'status', 'visibility', 'default_currency', 'allowed_currencies', 'tags', 'notes', 'archived', 'created_at', 'updated_at'],
-    events
-      .filter((event) => options.includeArchived || !event.archived)
-      .map((event) => [
-        event.id,
-        event.name,
-        event.status,
-        event.visibility,
-        event.defaultCurrency,
-        event.allowedCurrencies.join('|'),
-        event.tags.join('|'),
-        options.includeNotes ? event.notes : '',
-        event.archived,
-        event.createdAt,
-        event.updatedAt,
+    groups
+      .filter((group) => options.includeArchived || !group.archived)
+      .map((group) => [
+        group.id,
+        group.name,
+        group.status,
+        group.visibility,
+        group.defaultCurrency,
+        group.allowedCurrencies.join('|'),
+        group.tags.join('|'),
+        options.includeNotes ? group.notes : '',
+        group.archived,
+        group.createdAt,
+        group.updatedAt,
       ]),
   );
 }
 
 export function paymentsToCsv(payments: Payment[], options: CsvExportOptions) {
   return toCsv(
-    ['id', 'event_id', 'related_member_id', 'payer_member_id', 'payee_member_id', 'payer_event_member_id', 'payee_event_member_id', 'amount', 'currency', 'payment_date', 'status', 'confirmation_status', 'visibility', 'notes', 'created_at', 'updated_at'],
+    ['id', 'group_id', 'related_member_id', 'payer_member_id', 'payee_member_id', 'payer_group_member_id', 'payee_group_member_id', 'amount', 'currency', 'payment_date', 'status', 'confirmation_status', 'visibility', 'notes', 'created_at', 'updated_at'],
     payments
       .filter((payment) => options.includeArchived || payment.status !== 'archived')
       .map((payment) => [
         payment.id,
-        payment.eventId,
+        payment.groupId,
         payment.relatedMemberId,
         payment.payerMemberId,
         payment.payeeMemberId,
-        payment.payerEventMemberId,
-        payment.payeeEventMemberId,
+        payment.payerGroupMemberId,
+        payment.payeeGroupMemberId,
         payment.amount,
         payment.currency,
         payment.paymentDate,
@@ -314,12 +314,12 @@ export function paymentsToCsv(payments: Payment[], options: CsvExportOptions) {
 
 export function settlementsToCsv(settlements: Settlement[], options: CsvExportOptions) {
   return toCsv(
-    ['id', 'event_id', 'member_id', 'type', 'total_amount', 'currency', 'status', 'confirmation_status', 'original_currency', 'original_amount', 'settlement_currency', 'settlement_amount', 'exchange_rate_used', 'exchange_rate_date', 'notes', 'created_at', 'updated_at'],
+    ['id', 'group_id', 'member_id', 'type', 'total_amount', 'currency', 'status', 'confirmation_status', 'original_currency', 'original_amount', 'settlement_currency', 'settlement_amount', 'exchange_rate_used', 'exchange_rate_date', 'notes', 'created_at', 'updated_at'],
     settlements
       .filter((settlement) => options.includeArchived || settlement.status !== 'archived')
       .map((settlement) => [
         settlement.id,
-        settlement.eventId,
+        settlement.groupId,
         settlement.memberId,
         settlement.type,
         settlement.totalAmount,
@@ -341,7 +341,7 @@ export function settlementsToCsv(settlements: Settlement[], options: CsvExportOp
 
 export function recurringTemplatesToCsv(templates: RecurringTemplate[]) {
   return toCsv(
-    ['id', 'type', 'title', 'amount', 'currency', 'recurrence_rule', 'start_date', 'end_date', 'next_occurrence_date', 'status', 'auto_generate', 'event_id', 'member_id', 'created_at', 'updated_at'],
+    ['id', 'type', 'title', 'amount', 'currency', 'recurrence_rule', 'start_date', 'end_date', 'next_occurrence_date', 'status', 'auto_generate', 'group_id', 'member_id', 'created_at', 'updated_at'],
     templates.map((template) => [
       template.id,
       template.type,
@@ -354,7 +354,7 @@ export function recurringTemplatesToCsv(templates: RecurringTemplate[]) {
       template.nextOccurrenceDate,
       template.status,
       template.autoGenerate,
-      template.eventId,
+      template.groupId,
       template.memberId,
       template.createdAt,
       template.updatedAt,

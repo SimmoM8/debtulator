@@ -34,8 +34,8 @@ const {
 } = require('../src/services/splits.ts');
 const {
   buildLedgerEntries,
-  calculateEventNetsWithSettings,
-  DEFAULT_EVENT_SETTLEMENT_SETTINGS,
+  calculateGroupNetsWithSettings,
+  DEFAULT_GROUP_SETTLEMENT_SETTINGS,
 } = require('../src/services/ledger.ts');
 const { debtsToCsv, parseCsv, toCsv } = require('../src/services/csv.ts');
 
@@ -52,7 +52,7 @@ test('equal split rounding preserves the total and assigns the cent remainder on
 
   const obligations = buildSplitObligations({
     expenseId: 'expense_rounding',
-    eventId: 'event_1',
+    groupId: 'group_1',
     payerId: 'alice',
     amount: 100,
     currency: 'SEK',
@@ -80,7 +80,7 @@ test('custom amount and percentage validation rejects mismatched totals', () => 
       participantIds: ['alice', 'bob'],
       splitMethod: 'custom_amount',
       splitAllocations: { alice: 60, bob: 35 },
-      expensePayers: [expensePayer({ eventMemberId: 'alice', amountPaid: 100 })],
+      expensePayers: [expensePayer({ groupMemberId: 'alice', amountPaid: 100 })],
       currency: 'SEK',
     }),
     ['Custom split amounts must total 100 SEK.'],
@@ -92,7 +92,7 @@ test('custom amount and percentage validation rejects mismatched totals', () => 
       participantIds: ['alice', 'bob', 'cara'],
       splitMethod: 'custom_percentage',
       splitAllocations: { alice: 50, bob: 25, cara: 20 },
-      expensePayers: [expensePayer({ eventMemberId: 'alice', amountPaid: 90 })],
+      expensePayers: [expensePayer({ groupMemberId: 'alice', amountPaid: 90 })],
       currency: 'SEK',
     }),
     ['Payer contributions must total 100 SEK.', 'Custom percentages must total 100%.'],
@@ -102,11 +102,11 @@ test('custom amount and percentage validation rejects mismatched totals', () => 
 test('multi-payer expense nets payer contributions before creating obligations', () => {
   const obligations = buildSplitObligations({
     expenseId: 'expense_multi_payer',
-    eventId: 'event_1',
+    groupId: 'group_1',
     payerId: 'alice',
     expensePayers: [
-      expensePayer({ id: 'payer_alice', eventMemberId: 'alice', amountPaid: 80 }),
-      expensePayer({ id: 'payer_bob', eventMemberId: 'bob', amountPaid: 40 }),
+      expensePayer({ id: 'payer_alice', groupMemberId: 'alice', amountPaid: 80 }),
+      expensePayer({ id: 'payer_bob', groupMemberId: 'bob', amountPaid: 40 }),
     ],
     amount: 120,
     currency: 'SEK',
@@ -149,6 +149,69 @@ test('settlement lines reduce ledger entries and rejected payments are ignored',
   assert.equal(entries[0].paymentStatus, 'partially_paid');
 });
 
+test('simple debt settlement state is derived from payments rather than a persisted settled flag', () => {
+  const withoutPayment = buildLedgerEntries(
+    [debt({ id: 'debt_1', amount: 100, status: 'settled' })],
+    [],
+  )[0];
+
+  assert.equal(withoutPayment.originalAmount, 100);
+  assert.equal(withoutPayment.amountPaid, 0);
+  assert.equal(withoutPayment.remainingAmount, 100);
+  assert.equal(withoutPayment.paymentStatus, 'unpaid');
+  assert.equal(withoutPayment.status, 'active');
+
+  const withPayment = buildLedgerEntries(
+    [debt({ id: 'debt_1', amount: 100, status: 'active' })],
+    [],
+    [],
+    [settlementLine({ id: 'line_1', sourceRecordId: 'debt_1', appliedAmount: 100 })],
+    [payment({ id: 'payment_1', status: 'recorded' })],
+  )[0];
+
+  assert.equal(withPayment.originalAmount, 100);
+  assert.equal(withPayment.amountPaid, 100);
+  assert.equal(withPayment.remainingAmount, 0);
+  assert.equal(withPayment.paymentStatus, 'paid');
+});
+
+test('editing debt principal recalculates remaining and overpaid values without rewriting payments', () => {
+  const lines = [
+    settlementLine({
+      id: 'line_1',
+      paymentId: 'payment_1',
+      sourceRecordId: 'debt_1',
+      appliedAmount: 40,
+    }),
+  ];
+  const payments = [payment({ id: 'payment_1', status: 'recorded' })];
+
+  const increased = buildLedgerEntries(
+    [debt({ id: 'debt_1', amount: 120 })],
+    [],
+    [],
+    lines,
+    payments,
+  )[0];
+  assert.equal(increased.originalAmount, 120);
+  assert.equal(increased.amountPaid, 40);
+  assert.equal(increased.remainingAmount, 80);
+  assert.equal(increased.paymentStatus, 'partially_paid');
+
+  const decreased = buildLedgerEntries(
+    [debt({ id: 'debt_1', amount: 30 })],
+    [],
+    [],
+    lines,
+    payments,
+  )[0];
+  assert.equal(decreased.originalAmount, 30);
+  assert.equal(decreased.amountPaid, 40);
+  assert.equal(decreased.remainingAmount, 0);
+  assert.equal(decreased.overpaidAmount, 10);
+  assert.equal(decreased.paymentStatus, 'overpaid');
+});
+
 test('overpayments surface as overpaid ledger entries and open credits only', () => {
   const entries = buildLedgerEntries(
     [debt({ id: 'debt_1', amount: 100 })],
@@ -184,7 +247,7 @@ test('settlement calculations filter rejected disputed archived and settled entr
     ledgerEntry({ id: 'paid', sourceId: 'paid', fromId: 'alice', toId: 'bob', amount: 0, remainingAmount: 0, verificationStatus: 'verified' }),
   ];
 
-  const defaultExplanation = calculateEventNetsWithSettings(entries);
+  const defaultExplanation = calculateGroupNetsWithSettings(entries);
 
   assert.deepEqual(defaultExplanation.includedEntries.map((entry) => entry.id), ['verified']);
   assert.deepEqual(
@@ -198,8 +261,8 @@ test('settlement calculations filter rejected disputed archived and settled entr
   );
   assert.deepEqual(defaultExplanation.nets, { alice: { SEK: -100 }, bob: { SEK: 100 } });
 
-  const expandedExplanation = calculateEventNetsWithSettings(entries, {
-    ...DEFAULT_EVENT_SETTLEMENT_SETTINGS,
+  const expandedExplanation = calculateGroupNetsWithSettings(entries, {
+    ...DEFAULT_GROUP_SETTLEMENT_SETTINGS,
     includeRejectedDisputed: true,
     includeArchived: true,
     includeSettled: true,
@@ -252,7 +315,7 @@ function expensePayer(overrides = {}) {
   return {
     id: 'payer_1',
     expenseId: 'expense_1',
-    eventMemberId: 'alice',
+    groupMemberId: 'alice',
     amountPaid: 100,
     currency: 'SEK',
     createdAt: '2026-01-01T00:00:00.000Z',
@@ -280,7 +343,7 @@ function debt(overrides = {}) {
     dueDate: null,
     recurringTemplateId: null,
     tags: [],
-    eventId: 'event_1',
+    groupId: 'group_1',
     status: 'active',
     verificationStatus: 'verified',
     verifiedByUserId: null,
@@ -307,9 +370,9 @@ function payment(overrides = {}) {
     payeeUserId: null,
     payerMemberId: 'alice',
     payeeMemberId: 'me',
-    payerEventMemberId: null,
-    payeeEventMemberId: null,
-    eventId: 'event_1',
+    payerGroupMemberId: null,
+    payeeGroupMemberId: null,
+    groupId: 'group_1',
     relatedMemberId: 'alice',
     amount: 100,
     currency: 'SEK',
@@ -349,9 +412,9 @@ function overpaymentCredit(overrides = {}) {
     createdByUserId: null,
     payerMemberId: 'alice',
     payeeMemberId: 'me',
-    payerEventMemberId: null,
-    payeeEventMemberId: null,
-    eventId: 'event_1',
+    payerGroupMemberId: null,
+    payeeGroupMemberId: null,
+    groupId: 'group_1',
     amount: 25,
     currency: 'SEK',
     sourcePaymentId: 'payment_1',
@@ -369,7 +432,7 @@ function ledgerEntry(overrides = {}) {
     id: 'ledger_1',
     kind: 'simple_debt',
     sourceId: 'debt_1',
-    eventId: 'event_1',
+    groupId: 'group_1',
     fromId: 'alice',
     toId: 'bob',
     amount: remainingAmount,
@@ -386,7 +449,7 @@ function ledgerEntry(overrides = {}) {
     tags: [],
     status: 'active',
     verificationStatus: 'verified',
-    visibility: 'shared_event',
+    visibility: 'shared_group',
     syncStatus: 'local_only',
     ...overrides,
   };

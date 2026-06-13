@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Alert, StyleSheet, Text, View } from "react-native";
 
 import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
 import {
@@ -29,9 +29,10 @@ import {
     respondRemoteDebtVerification,
     updateRemoteLinkRequest,
 } from "@/src/services/stage2Sync";
-import { updateRemoteEventInvite } from "@/src/services/stage3Sync";
+import { updateRemoteGroupInvite } from "@/src/services/stage3Sync";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
+import type { Debt, DebtVerification } from "@/src/types/models";
 import { formatMoney } from "@/src/utils/money";
 
 type InboxFilter = "all" | "pending" | "completed";
@@ -66,15 +67,15 @@ export function RequestsScreen() {
       ),
     [data.debtVerifications, userId],
   );
-  const incomingEventInvites = useMemo(
+  const incomingGroupInvites = useMemo(
     () =>
-      data.eventInvites.filter(
+      data.groupInvites.filter(
         (invite) =>
           invite.status === "pending" &&
           ((userId && invite.invitedUserId === userId) ||
             (email && invite.invitedEmail?.toLowerCase() === email)),
       ),
-    [data.eventInvites, email, userId],
+    [data.groupInvites, email, userId],
   );
   const completedItems = useMemo(
     () => [
@@ -90,13 +91,13 @@ export function RequestsScreen() {
           (verification.requesterUserId === userId ||
             verification.responderUserId === userId),
       ),
-      ...data.eventInvites.filter(
+      ...data.groupInvites.filter(
         (invite) =>
           invite.status !== "pending" &&
           (invite.inviterUserId === userId || invite.invitedUserId === userId),
       ),
     ],
-    [data.debtVerifications, data.eventInvites, data.linkRequests, userId],
+    [data.debtVerifications, data.groupInvites, data.linkRequests, userId],
   );
   const disputeCount =
     data.debts.filter(
@@ -138,19 +139,19 @@ export function RequestsScreen() {
       }),
     [data.debts, data.members, incomingVerifications, normalizedQuery],
   );
-  const visibleEventInvites = useMemo(
+  const visibleGroupInvites = useMemo(
     () =>
-      incomingEventInvites.filter((invite) => {
-        const event = data.events.find((item) => item.id === invite.eventId);
+      incomingGroupInvites.filter((invite) => {
+        const group = data.groups.find((item) => item.id === invite.groupId);
 
         return matchesQuery(normalizedQuery, [
-          event?.name,
+          group?.name,
           invite.invitedDisplayName,
           invite.message,
           invite.offeredRole,
         ]);
       }),
-    [data.events, incomingEventInvites, normalizedQuery],
+    [data.groups, incomingGroupInvites, normalizedQuery],
   );
   const visibleCompletedItems = useMemo(
     () =>
@@ -213,7 +214,7 @@ export function RequestsScreen() {
             value={String(
               incomingLinks.length +
                 incomingVerifications.length +
-                incomingEventInvites.length,
+                incomingGroupInvites.length,
             )}
             subtitle="Needs your answer"
             tone="amber"
@@ -328,20 +329,31 @@ export function RequestsScreen() {
               return (
                 <RequestCard
                   key={verification.id}
-                  title={debt?.title ?? "Shared debt"}
+                  title={
+                    debt
+                      ? proposedString(verification, "title") ?? debt.title
+                      : "Shared debt"
+                  }
                   body={
-                    member
-                      ? `${member.displayName} · ${debt?.debtDate ?? ""}`
-                      : "Verification request"
+                    debt
+                      ? describeVerificationRequest(verification, debt)
+                      : member
+                        ? `Shared debt with ${member.displayName}`
+                        : "Debt confirmation request"
                   }
                   amount={
-                    debt ? formatMoney(debt.amount, debt.currency) : undefined
+                    debt
+                      ? formatMoney(
+                          proposedAmount(verification, debt),
+                          debt.currency,
+                        )
+                      : undefined
                   }
                   status="Pending"
                   tone="amber"
                   actions={[
                     {
-                      label: "Approve",
+                      label: "Confirm",
                       onPress: async () => {
                         if (!userId) {
                           return;
@@ -358,21 +370,35 @@ export function RequestsScreen() {
                       },
                     },
                     {
-                      label: "Reject",
+                      label: "Contest",
                       variant: "secondary" as const,
-                      onPress: async () => {
+                      onPress: () => {
                         if (!userId) {
                           return;
                         }
-                        await respondRemoteDebtVerification({
-                          verification,
-                          status: "rejected",
-                        });
-                        await data.respondToDebtVerification(
-                          verification.id,
-                          "rejected",
-                          userId,
-                          "Needs review",
+                        Alert.alert(
+                          "Contest this debt?",
+                          "This marks the debt as contested and sends it back for review. No payment or balance is changed.",
+                          [
+                            { text: "Cancel", style: "cancel" },
+                            {
+                              text: "Contest",
+                              style: "destructive",
+                              onPress: async () => {
+                                await respondRemoteDebtVerification({
+                                  verification,
+                                  status: "rejected",
+                                  rejectionReason: "Needs review",
+                                });
+                                await data.respondToDebtVerification(
+                                  verification.id,
+                                  "rejected",
+                                  userId,
+                                  "Needs review",
+                                );
+                              },
+                            },
+                          ],
                         );
                       },
                     },
@@ -383,19 +409,19 @@ export function RequestsScreen() {
           </RequestSection>
 
           <RequestSection
-            title="Event invites"
+            title="Group invites"
             subtitle="Group spaces waiting for your yes or no."
-            emptyTitle="No event invites"
-            emptyBody="New event invites will show up here."
+            emptyTitle="No group invites"
+            emptyBody="New group invites will show up here."
           >
-            {visibleEventInvites.map((invite) => {
-              const event = data.events.find(
-                (item) => item.id === invite.eventId,
+            {visibleGroupInvites.map((invite) => {
+              const group = data.groups.find(
+                (item) => item.id === invite.groupId,
               );
               return (
                 <RequestCard
                   key={invite.id}
-                  title={event?.name ?? invite.invitedDisplayName}
+                  title={group?.name ?? invite.invitedDisplayName}
                   body={`Role offered: ${invite.offeredRole}${invite.message ? ` · ${invite.message}` : ""}`}
                   status="Pending"
                   tone="amber"
@@ -406,12 +432,12 @@ export function RequestsScreen() {
                         if (!userId) {
                           return;
                         }
-                        await updateRemoteEventInvite(
+                        await updateRemoteGroupInvite(
                           invite,
                           "accepted",
                           userId,
                         );
-                        await data.respondToEventInvite(
+                        await data.respondToGroupInvite(
                           invite.id,
                           "accepted",
                           userId,
@@ -427,12 +453,12 @@ export function RequestsScreen() {
                         if (!userId) {
                           return;
                         }
-                        await updateRemoteEventInvite(
+                        await updateRemoteGroupInvite(
                           invite,
                           "rejected",
                           userId,
                         );
-                        await data.respondToEventInvite(
+                        await data.respondToGroupInvite(
                           invite.id,
                           "rejected",
                           userId,
@@ -568,6 +594,56 @@ function completedBody(item: { status: string }) {
 
 function completedStatus(item: { status: string }) {
   return item.status.charAt(0).toUpperCase() + item.status.slice(1);
+}
+
+function describeVerificationRequest(
+  verification: DebtVerification,
+  debt: Debt,
+) {
+  const requestLabel =
+    verification.requestType === "amendment"
+      ? "Review changes"
+      : "Confirm this debt";
+  const fields = verification.changeSummary?.changedFields ?? [];
+  const fieldLabels = fields.map((field) => {
+    switch (field) {
+      case "dueDate":
+        return "due date";
+      case "direction":
+        return "who owes whom";
+      case "member":
+        return "member";
+      default:
+        return field;
+    }
+  });
+  const changeCopy =
+    verification.requestType === "amendment" && fieldLabels.length
+      ? ` · Changed ${fieldLabels.join(", ")}`
+      : "";
+  const proposedDueDate = proposedString(verification, "dueDate");
+  const dueDate =
+    proposedDueDate === undefined ? debt.dueDate : proposedDueDate;
+  const dueCopy = dueDate ? ` · Due ${dueDate}` : "";
+  const proposedDirection =
+    proposedString(verification, "direction") ?? debt.direction;
+
+  return `${requestLabel} · ${proposedDirection === "they_owe_me" ? "They owe you" : "You owe them"}${dueCopy}${changeCopy}`;
+}
+
+function proposedAmount(verification: DebtVerification, debt: Debt) {
+  const proposed = verification.changeSummary?.proposed.amount;
+  return typeof proposed === "number" ? proposed : debt.amount;
+}
+
+function proposedString(
+  verification: DebtVerification,
+  field: "title" | "direction" | "dueDate",
+) {
+  const proposed = verification.changeSummary?.proposed[field];
+  return typeof proposed === "string" || proposed === null
+    ? proposed
+    : undefined;
 }
 
 const styles = StyleSheet.create({

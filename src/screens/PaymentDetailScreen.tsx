@@ -179,7 +179,7 @@ export function PaymentDetailScreen() {
       <AttachmentsSection
         targetType="payment"
         targetId={payment.id}
-        eventId={payment.eventId}
+        groupId={payment.groupId}
         parentVisibility={payment.visibility}
         preferredKind="proof"
         title="Proof of payment"
@@ -188,9 +188,9 @@ export function PaymentDetailScreen() {
       <CommentsSection
         targetType="payment"
         targetId={payment.id}
-        eventId={payment.eventId}
+        groupId={payment.groupId}
         sharedAvailable={
-          payment.visibility === "shared_event" ||
+          payment.visibility === "shared_group" ||
           payment.visibility === "shared_with_involved_member"
         }
       />

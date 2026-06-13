@@ -3,9 +3,9 @@ import type {
   CurrencyCode,
   CurrencyRate,
   Debt,
-  EventDebt,
-  EventSettlementSettings,
-  EventSettlementExplanation,
+  GroupDebt,
+  GroupSettlementSettings,
+  GroupSettlementExplanation,
   ExcludedLedgerEntry,
   LedgerEntry,
   Member,
@@ -18,14 +18,14 @@ import type {
   SettlementSourceRecordType,
   SettlementSuggestion,
   SettlementMatchStep,
-  SharedEventMember,
+  SharedGroupMember,
   SharedExpense,
   VerificationStatus,
 } from '@/src/types/models';
 import { estimateMoneyMap } from '@/src/services/currency';
 import { addMoney, roundMoney } from '@/src/utils/money';
 
-export const DEFAULT_EVENT_SETTLEMENT_SETTINGS: EventSettlementSettings = {
+export const DEFAULT_GROUP_SETTLEMENT_SETTINGS: GroupSettlementSettings = {
   includePending: false,
   includePartiallyVerified: false,
   includeRejectedDisputed: false,
@@ -45,7 +45,7 @@ const EPSILON = 0.005;
 export function buildLedgerEntries(
   debts: Debt[],
   sharedExpenses: SharedExpense[],
-  eventDebts: EventDebt[] = [],
+  groupDebts: GroupDebt[] = [],
   settlementLines: SettlementLine[] = [],
   payments: Payment[] = [],
   overpaymentCredits: OverpaymentCredit[] = [],
@@ -54,7 +54,7 @@ export function buildLedgerEntries(
     id: `ledger_${debt.id}`,
     kind: 'simple_debt',
     sourceId: debt.id,
-    eventId: debt.eventId,
+    groupId: debt.groupId,
     fromId: debt.direction === 'they_owe_me' ? debt.memberId : 'me',
     toId: debt.direction === 'they_owe_me' ? 'me' : debt.memberId,
     amount: debt.amount,
@@ -69,7 +69,7 @@ export function buildLedgerEntries(
     date: debt.debtDate,
     dueDate: debt.dueDate,
     tags: debt.tags,
-    status: debt.status,
+    status: debt.status === 'settled' ? 'active' : debt.status,
     verificationStatus: debt.verificationStatus,
     visibility: debt.visibility,
     syncStatus: debt.syncStatus,
@@ -81,7 +81,7 @@ export function buildLedgerEntries(
       kind: 'expense_obligation',
       sourceId: obligation.id,
       expenseId: expense.id,
-      eventId: expense.eventId,
+      groupId: expense.groupId,
       fromId: obligation.fromParticipantId,
       toId: obligation.toParticipantId,
       amount: obligation.amount,
@@ -103,13 +103,13 @@ export function buildLedgerEntries(
     })),
   );
 
-  const eventDebtEntries: LedgerEntry[] = eventDebts.map((debt) => ({
+  const groupDebtEntries: LedgerEntry[] = groupDebts.map((debt) => ({
     id: `ledger_${debt.id}`,
-    kind: 'event_direct_debt',
+    kind: 'group_direct_debt',
     sourceId: debt.id,
-    eventId: debt.eventId,
-    fromId: debt.debtorEventMemberId,
-    toId: debt.creditorEventMemberId,
+    groupId: debt.groupId,
+    fromId: debt.debtorGroupMemberId,
+    toId: debt.creditorGroupMemberId,
     amount: debt.amount,
     originalAmount: debt.amount,
     amountPaid: 0,
@@ -124,7 +124,7 @@ export function buildLedgerEntries(
     tags: debt.tags,
     status: debt.status,
     verificationStatus: debt.verificationStatus,
-    visibility: 'shared_event',
+    visibility: 'shared_group',
     syncStatus: debt.syncStatus,
   }));
 
@@ -134,9 +134,9 @@ export function buildLedgerEntries(
       id: `ledger_${credit.id}`,
       kind: 'overpayment_credit',
       sourceId: credit.id,
-      eventId: credit.eventId,
-      fromId: credit.payeeEventMemberId ?? credit.payeeMemberId ?? 'me',
-      toId: credit.payerEventMemberId ?? credit.payerMemberId ?? 'me',
+      groupId: credit.groupId,
+      fromId: credit.payeeGroupMemberId ?? credit.payeeMemberId ?? 'me',
+      toId: credit.payerGroupMemberId ?? credit.payerMemberId ?? 'me',
       amount: credit.amount,
       originalAmount: credit.amount,
       amountPaid: 0,
@@ -151,12 +151,12 @@ export function buildLedgerEntries(
       tags: [],
       status: 'active',
       verificationStatus: 'local_only',
-      visibility: credit.eventId ? 'shared_event' : 'private',
+      visibility: credit.groupId ? 'shared_group' : 'private',
       syncStatus: 'local_only',
     }));
 
   return applySettlementsToEntries(
-    [...simpleEntries, ...expenseEntries, ...eventDebtEntries, ...overpaymentEntries],
+    [...simpleEntries, ...expenseEntries, ...groupDebtEntries, ...overpaymentEntries],
     settlementLines,
     payments,
   ).sort((a, b) => b.date.localeCompare(a.date));
@@ -174,31 +174,31 @@ export function isIncludedInSettlement(entry: LedgerEntry, includeStatuses = DEF
   return isActiveLedgerEntry(entry) && entry.remainingAmount > EPSILON && includeStatuses.includes(entry.verificationStatus);
 }
 
-export function participantName(participantId: ParticipantId, members: Member[], sharedEventMembers: SharedEventMember[] = []) {
+export function participantName(participantId: ParticipantId, members: Member[], sharedGroupMembers: SharedGroupMember[] = []) {
   if (participantId === 'me') {
     return 'You';
   }
-  const eventMember = sharedEventMembers.find((member) => member.id === participantId);
-  if (eventMember) {
-    return eventMember.alias || eventMember.displayName;
+  const groupMember = sharedGroupMembers.find((member) => member.id === participantId);
+  if (groupMember) {
+    return groupMember.alias || groupMember.displayName;
   }
   return members.find((member) => member.id === participantId)?.displayName ?? 'Unknown member';
 }
 
-export function participantNameSentence(participantId: ParticipantId, members: Member[], sharedEventMembers: SharedEventMember[] = []) {
+export function participantNameSentence(participantId: ParticipantId, members: Member[], sharedGroupMembers: SharedGroupMember[] = []) {
   if (participantId === 'me') {
     return 'you';
   }
-  const eventMember = sharedEventMembers.find((member) => member.id === participantId);
-  if (eventMember) {
-    return eventMember.alias || eventMember.displayName;
+  const groupMember = sharedGroupMembers.find((member) => member.id === participantId);
+  if (groupMember) {
+    return groupMember.alias || groupMember.displayName;
   }
   return members.find((member) => member.id === participantId)?.displayName ?? 'someone';
 }
 
-export function entryDirectionText(entry: LedgerEntry, members: Member[], sharedEventMembers: SharedEventMember[] = []) {
-  const from = participantName(entry.fromId, members, sharedEventMembers);
-  const to = participantName(entry.toId, members, sharedEventMembers);
+export function entryDirectionText(entry: LedgerEntry, members: Member[], sharedGroupMembers: SharedGroupMember[] = []) {
+  const from = participantName(entry.fromId, members, sharedGroupMembers);
+  const to = participantName(entry.toId, members, sharedGroupMembers);
 
   if (entry.fromId === 'me') {
     return `You owe ${to}`;
@@ -262,11 +262,11 @@ export function entriesForMember(memberId: string, entries: LedgerEntry[]) {
   return entries.filter((entry) => entry.fromId === memberId || entry.toId === memberId);
 }
 
-export function entriesForEvent(eventId: string, entries: LedgerEntry[]) {
-  return entries.filter((entry) => entry.eventId === eventId);
+export function entriesForGroup(groupId: string, entries: LedgerEntry[]) {
+  return entries.filter((entry) => entry.groupId === groupId);
 }
 
-export function calculateEventNets(entries: LedgerEntry[], includeStatuses = DEFAULT_SETTLEMENT_VERIFICATIONS) {
+export function calculateGroupNets(entries: LedgerEntry[], includeStatuses = DEFAULT_SETTLEMENT_VERIFICATIONS) {
   const nets: Record<ParticipantId, MoneyMap> = {};
   const includedEntries: LedgerEntry[] = [];
   const excludedEntries: ExcludedLedgerEntry[] = [];
@@ -287,9 +287,9 @@ export function calculateEventNets(entries: LedgerEntry[], includeStatuses = DEF
   return { nets, includedEntries, excludedEntries };
 }
 
-export function calculateEventNetsWithSettings(
+export function calculateGroupNetsWithSettings(
   entries: LedgerEntry[],
-  settings: EventSettlementSettings = DEFAULT_EVENT_SETTLEMENT_SETTINGS,
+  settings: GroupSettlementSettings = DEFAULT_GROUP_SETTLEMENT_SETTINGS,
 ) {
   const nets: Record<ParticipantId, MoneyMap> = {};
   const includedEntries: LedgerEntry[] = [];
@@ -314,7 +314,7 @@ export function calculateEventNetsWithSettings(
 
 function excludedReason(
   entry: LedgerEntry,
-  settings: EventSettlementSettings = DEFAULT_EVENT_SETTLEMENT_SETTINGS,
+  settings: GroupSettlementSettings = DEFAULT_GROUP_SETTLEMENT_SETTINGS,
 ): ExcludedLedgerEntry['reason'] | null {
   if (entry.status === 'archived' && !settings.includeArchived) {
     return 'archived';
@@ -325,7 +325,7 @@ function excludedReason(
   if (entry.verificationStatus === 'cancelled') {
     return 'cancelled';
   }
-  if (settings.directDebtOnly && entry.kind !== 'simple_debt' && entry.kind !== 'event_direct_debt') {
+  if (settings.directDebtOnly && entry.kind !== 'simple_debt' && entry.kind !== 'group_direct_debt') {
     return 'pending_excluded';
   }
   if (settings.verifiedOnly && entry.verificationStatus !== 'verified') {
@@ -356,8 +356,8 @@ export function sourceRecordTypeForEntry(entry: LedgerEntry): SettlementSourceRe
   switch (entry.kind) {
     case 'simple_debt':
       return 'simple_debt';
-    case 'event_direct_debt':
-      return 'event_debt';
+    case 'group_direct_debt':
+      return 'group_debt';
     case 'overpayment_credit':
       return 'overpayment_credit';
     case 'expense_obligation':
@@ -389,7 +389,7 @@ export function applySettlementsToEntries(entries: LedgerEntry[], lines: Settlem
     const paymentStatus: ObligationPaymentStatus =
       entry.status === 'archived'
         ? 'archived'
-        : entry.status === 'settled' || (remainingAmount <= EPSILON && overpaidAmount <= EPSILON && amountPaid > EPSILON)
+        : remainingAmount <= EPSILON && overpaidAmount <= EPSILON && amountPaid > EPSILON
           ? 'paid'
           : overpaidAmount > EPSILON
             ? 'overpaid'
@@ -472,22 +472,22 @@ export function simplifySettlementsDetailed(nets: Record<ParticipantId, MoneyMap
   return { suggestions, steps };
 }
 
-export function explainEventSettlement(
-  eventId: string,
+export function explainGroupSettlement(
+  groupId: string,
   entries: LedgerEntry[],
-  settings: EventSettlementSettings = DEFAULT_EVENT_SETTLEMENT_SETTINGS,
-): EventSettlementExplanation {
-  const eventEntries = entriesForEvent(eventId, entries);
-  const { nets, includedEntries, excludedEntries } = calculateEventNetsWithSettings(eventEntries, settings);
+  settings: GroupSettlementSettings = DEFAULT_GROUP_SETTLEMENT_SETTINGS,
+): GroupSettlementExplanation {
+  const groupEntries = entriesForGroup(groupId, entries);
+  const { nets, includedEntries, excludedEntries } = calculateGroupNetsWithSettings(groupEntries, settings);
   const { suggestions, steps } = simplifySettlementsDetailed(nets);
   return {
-    eventId,
+    groupId,
     includedEntries,
     excludedEntries,
     participantNets: nets,
     suggestions: suggestions.map((suggestion) => ({
       ...suggestion,
-      eventId,
+      groupId,
       includedRecordIds: includedEntries.map((entry) => entry.id),
     })),
     settings,

@@ -12,23 +12,23 @@ Supabase migrations are additive and ordered:
 
 ## Stage 7 Additions
 
-`stage7_integration_schema.sql` adds integration hardening for shared event sync:
+`stage7_integration_schema.sql` adds integration hardening for shared group sync:
 
-- Foreign keys for event-scoped payments, settlements, and expense payers.
+- Foreign keys for group-scoped payments, settlements, and expense payers.
 - Missing `expense_payers` RLS policies.
-- Event participant read policies for payments, settlements, settlement lines, comments, and attachments.
-- Event writer policies that enforce owner/admin/member mutation and block viewers through `can_write_event_ledger`.
-- More specific verification-response insert policy requiring the verifying user to be linked to the event member and involved in the expense/debt.
+- Group participant read policies for payments, settlements, settlement lines, comments, and attachments.
+- Group writer policies that enforce owner/admin/member mutation and block viewers through `can_write_group_ledger`.
+- More specific verification-response insert policy requiring the verifying user to be linked to the group member and involved in the expense/debt.
 - Updated timestamp triggers for Stage 4/5 tables.
-- Indexes for event-scoped incremental pulls.
+- Indexes for group-scoped incremental pulls.
 
 ## RLS Expectations
 
-- Users can read records for shared events they participate in.
-- Owners/admins can manage event-level configuration.
-- Owners/admins/members can write ledger records while the event is writable.
-- Viewers can read but cannot mutate event ledger records.
-- Verification responses can only be written by the linked user for the involved event member.
+- Users can read records for shared groups they participate in.
+- Owners/admins can manage group-level configuration.
+- Owners/admins/members can write ledger records while the group is writable.
+- Viewers can read but cannot mutate group ledger records.
+- Verification responses can only be written by the linked user for the involved group member.
 - Private records remain inaccessible unless they are owned by the authenticated user.
 - The app uses only the Supabase anon key; service role keys are not used client-side.
 
@@ -40,7 +40,7 @@ Supabase migrations are additive and ordered:
 - Allows authenticated mobile clients to call `request_account_deletion(...)` to create or return the active deletion request.
 - Lets users read only their own deletion request rows. Users cannot update fulfillment status from the anon client.
 - Adds a service-role-only `apply_account_deletion_anonymization(...)` helper for trusted Edge Functions/admin workers.
-- Changes shared-ledger-critical Auth foreign keys from `on delete cascade` to `on delete set null` for shared debts, debt verifications, and event owners so Auth deletion does not destroy other participants' ledgers.
+- Changes shared-ledger-critical Auth foreign keys from `on delete cascade` to `on delete set null` for shared debts, debt verifications, and group owners so Auth deletion does not destroy other participants' ledgers.
 
 Trusted deletion fulfillment should run in this order:
 

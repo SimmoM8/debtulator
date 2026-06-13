@@ -63,7 +63,7 @@ create table if not exists public.notification_preferences (
   email_enabled boolean not null default false,
   sensitive_details_enabled boolean not null default false,
   verification_enabled boolean not null default true,
-  event_enabled boolean not null default true,
+  group_enabled boolean not null default true,
   payment_settlement_enabled boolean not null default true,
   reminder_enabled boolean not null default true,
   comment_enabled boolean not null default false,
@@ -104,7 +104,7 @@ create table if not exists public.audit_logs (
   action text not null,
   target_type text not null,
   target_id text,
-  event_id uuid,
+  group_id uuid,
   metadata jsonb not null default '{}'::jsonb,
   device_id text,
   created_at timestamptz not null default now()

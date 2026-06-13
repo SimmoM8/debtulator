@@ -32,19 +32,19 @@ export function SmartSuggestionsScreen() {
       buildSmartSuggestionDrafts({
         debts: data.debts,
         members: data.members,
-        events: data.events,
+        groups: data.groups,
         entries: data.ledgerEntries,
-        sharedEventMembers: data.sharedEventMembers,
+        sharedGroupMembers: data.sharedGroupMembers,
         recurringTemplates: data.recurringTemplates,
         persisted: data.smartSuggestions,
       }),
     [
       data.debts,
-      data.events,
+      data.groups,
       data.ledgerEntries,
       data.members,
       data.recurringTemplates,
-      data.sharedEventMembers,
+      data.sharedGroupMembers,
       data.smartSuggestions,
     ],
   );
@@ -70,11 +70,15 @@ export function SmartSuggestionsScreen() {
   }
 
   async function accept(draft: SuggestionDraft) {
-    if (draft.suggestionType === "event") {
+    if (draft.suggestionType === "group") {
       const debtId = String(draft.metadata.debtId ?? "");
-      const eventId = String(draft.metadata.eventId ?? "");
-      if (debtId && eventId) {
-        await data.updateDebt(debtId, { eventId });
+      const groupId = String(draft.metadata.groupId ?? "");
+      if (debtId && groupId) {
+        await data.updateDebt(
+          debtId,
+          { groupId },
+          auth.identity.authenticatedUserId,
+        );
       }
     }
     if (draft.suggestionType === "recurring") {
@@ -122,7 +126,7 @@ export function SmartSuggestionsScreen() {
               explicit decision.
             </Text>
             <Text style={styles.body}>
-              Debtulator can suggest recurring templates, event grouping, or
+              Debtulator can suggest recurring templates, group grouping, or
               duplicate review without silently rewriting history.
             </Text>
           </View>

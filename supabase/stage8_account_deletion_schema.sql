@@ -15,7 +15,7 @@ alter table public.debt_verifications
   alter column requester_user_id drop not null,
   alter column responder_user_id drop not null;
 
-alter table public.events
+alter table public.groups
   alter column owner_user_id drop not null;
 
 do $$
@@ -38,10 +38,10 @@ begin
     add constraint debt_verifications_responder_user_id_fkey
       foreign key (responder_user_id) references auth.users(id) on delete set null not valid;
 
-  alter table public.events
-    drop constraint if exists events_owner_user_id_fkey;
-  alter table public.events
-    add constraint events_owner_user_id_fkey
+  alter table public.groups
+    drop constraint if exists groups_owner_user_id_fkey;
+  alter table public.groups
+    add constraint groups_owner_user_id_fkey
       foreign key (owner_user_id) references auth.users(id) on delete set null not valid;
 end $$;
 
@@ -219,7 +219,7 @@ begin
   set push_enabled = false,
       email_enabled = false,
       verification_enabled = false,
-      event_enabled = false,
+      group_enabled = false,
       payment_settlement_enabled = false,
       reminder_enabled = false,
       comment_enabled = false,
@@ -275,45 +275,45 @@ begin
   where debt_verifications.requester_user_id = subject_id
      or debt_verifications.responder_user_id = subject_id;
 
-  update public.events
+  update public.groups
   set owner_user_id = null
-  where events.owner_user_id = subject_id;
+  where groups.owner_user_id = subject_id;
 
-  update public.event_participants
+  update public.group_participants
   set status = 'left'
-  where event_participants.user_id = subject_id
-    and event_participants.status = 'active';
+  where group_participants.user_id = subject_id
+    and group_participants.status = 'active';
 
-  update public.event_members
+  update public.group_members
   set linked_user_id = null,
       display_name = 'Deleted Debtulator user',
       alias = null,
       email = null,
       phone = null,
       notes = null
-  where event_members.linked_user_id = subject_id;
+  where group_members.linked_user_id = subject_id;
 
-  update public.event_invites
+  update public.group_invites
   set invited_user_id = null,
       invited_email = null,
       invited_phone = null
-  where event_invites.invited_user_id = subject_id;
+  where group_invites.invited_user_id = subject_id;
 
-  update public.event_expenses
+  update public.group_expenses
   set creator_user_id = null
-  where event_expenses.creator_user_id = subject_id;
+  where group_expenses.creator_user_id = subject_id;
 
-  update public.event_debts
+  update public.group_debts
   set creator_user_id = null
-  where event_debts.creator_user_id = subject_id;
+  where group_debts.creator_user_id = subject_id;
 
-  update public.event_verification_responses
+  update public.group_verification_responses
   set linked_user_id = null
-  where event_verification_responses.linked_user_id = subject_id;
+  where group_verification_responses.linked_user_id = subject_id;
 
-  update public.event_activity_logs
+  update public.group_activity_logs
   set actor_user_id = null
-  where event_activity_logs.actor_user_id = subject_id;
+  where group_activity_logs.actor_user_id = subject_id;
 
   update public.payments
   set created_by_user_id = case when payments.created_by_user_id = subject_id then null else payments.created_by_user_id end,

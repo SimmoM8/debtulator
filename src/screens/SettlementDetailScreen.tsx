@@ -200,8 +200,8 @@ export function SettlementDetailScreen() {
       <AttachmentsSection
         targetType="settlement"
         targetId={settlement.id}
-        eventId={settlement.eventId}
-        parentVisibility={settlement.eventId ? "shared_event" : "private"}
+        groupId={settlement.groupId}
+        parentVisibility={settlement.groupId ? "shared_group" : "private"}
         preferredKind="proof"
         title="Proof of settlement"
       />
@@ -209,8 +209,8 @@ export function SettlementDetailScreen() {
       <CommentsSection
         targetType="settlement"
         targetId={settlement.id}
-        eventId={settlement.eventId}
-        sharedAvailable={Boolean(settlement.eventId)}
+        groupId={settlement.groupId}
+        sharedAvailable={Boolean(settlement.groupId)}
       />
 
       <Card>
@@ -221,9 +221,9 @@ export function SettlementDetailScreen() {
         {payments.length > 0 ? (
           payments.map((payment) => {
             const payerId =
-              payment.payerEventMemberId ?? payment.payerMemberId ?? "me";
+              payment.payerGroupMemberId ?? payment.payerMemberId ?? "me";
             const payeeId =
-              payment.payeeEventMemberId ?? payment.payeeMemberId ?? "me";
+              payment.payeeGroupMemberId ?? payment.payeeMemberId ?? "me";
             return (
               <View key={payment.id} style={styles.row}>
                 <View style={styles.flexOne}>
@@ -231,13 +231,13 @@ export function SettlementDetailScreen() {
                     {participantName(
                       payerId,
                       data.members,
-                      data.sharedEventMembers,
+                      data.sharedGroupMembers,
                     )}{" "}
                     paid{" "}
                     {participantName(
                       payeeId,
                       data.members,
-                      data.sharedEventMembers,
+                      data.sharedGroupMembers,
                     )}
                   </Text>
                   <Text style={styles.body}>{payment.paymentDate}</Text>

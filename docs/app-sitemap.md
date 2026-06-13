@@ -27,7 +27,7 @@ Root Stack
     ├── /                  Home dashboard
     ├── /debts             Debt list
     ├── /members           Member list
-    ├── /events            Event list
+    ├── /groups            Group list
     ├── /requests          Hidden tab: inbox and approvals
     └── /settings          Hidden tab: settings hub
 ```
@@ -60,11 +60,11 @@ Root Stack
     - `/member/form`
     - `/member/[id]`
 
-- `/events`
-  - Event list and group-expense overview
+- `/groups`
+  - Group list and group-expense overview
   - Child/detail routes:
-    - `/event/form`
-    - `/event/[id]`
+    - `/group/form`
+    - `/group/[id]`
     - `/expense/form`
     - `/expense/[id]`
     - `/attachment/[id]`
@@ -73,7 +73,7 @@ Root Stack
 ### Hidden tab routes
 
 - `/requests`
-  - Shared approvals, link requests, event invites, debt verification inbox
+  - Shared approvals, link requests, group invites, debt verification inbox
 
 - `/settings`
   - Settings hub with account, privacy, sync, export, and safety controls
@@ -88,8 +88,8 @@ Root Stack
 - `/debt/[id]`
 - `/payment/form`
 - `/payment/[id]`
-- `/event/form`
-- `/event/[id]`
+- `/group/form`
+- `/group/[id]`
 - `/expense/form`
 - `/expense/[id]`
 - `/attachment/[id]`
@@ -132,13 +132,13 @@ Root Stack
   - `Home`
   - `Debts`
   - `Members`
-  - `Events`
+  - `Groups`
 - Floating add button quick actions:
   - `Add debt` -> `/debt/form`
   - `Record payment` -> `/payment/form`
   - `Split expense` -> `/expense/form`
   - `Invite member` -> `/member/form`
-  - `Add event` -> `/event/form`
+  - `Add group` -> `/group/form`
 
 ### Global menu
 
@@ -146,7 +146,7 @@ Root Stack
   - `/`
   - `/debts`
   - `/members`
-  - `/events`
+  - `/groups`
   - `/requests`
 - Tools:
   - `/recurring`
@@ -164,7 +164,7 @@ Root Stack
 
 ## Structural observations
 
-- The app is organized around four always-visible working areas: home, debts, members, and events.
+- The app is organized around four always-visible working areas: home, debts, members, and groups.
 - `Requests` and `Settings` are intentionally secondary destinations: always routable, but not always visible in the bottom bar.
 - Most create/edit/detail experiences are stack routes pushed above the tab shell.
 - Operational trust surfaces such as sync, conflicts, backup, export, privacy, and deletion are separated from routine ledger browsing.

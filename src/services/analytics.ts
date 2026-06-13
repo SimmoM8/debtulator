@@ -2,24 +2,24 @@ import type {
   AppSettings,
   CurrencyCode,
   CurrencyRate,
-  Event,
+  Group,
   LedgerEntry,
   Member,
   MoneyMap,
   Payment,
-  SharedEventMember,
+  SharedGroupMember,
   SharedExpense,
   Settlement,
 } from '@/src/types/models';
 import { estimateMoneyMap } from '@/src/services/currency';
-import { entriesForEvent, participantName } from '@/src/services/ledger';
+import { entriesForGroup, participantName } from '@/src/services/ledger';
 import { addMoney, roundMoney, sumMoneyMap } from '@/src/utils/money';
 
 export type AnalyticsFilters = {
   startDate?: string | null;
   endDate?: string | null;
   currency?: CurrencyCode | 'all';
-  eventId?: string | null;
+  groupId?: string | null;
   memberId?: string | null;
   includeArchived?: boolean;
   includeRejectedDisputed?: boolean;
@@ -42,11 +42,11 @@ export function filterAnalyticsEntries(entries: LedgerEntry[], filters: Analytic
       (!filters.startDate || entry.date >= filters.startDate) &&
       (!filters.endDate || entry.date <= filters.endDate);
     const currencyMatch = !filters.currency || filters.currency === 'all' || entry.currency === filters.currency;
-    const eventMatch = !filters.eventId || entry.eventId === filters.eventId;
+    const groupMatch = !filters.groupId || entry.groupId === filters.groupId;
     const memberMatch = !filters.memberId || entry.fromId === filters.memberId || entry.toId === filters.memberId;
     const archivedMatch = filters.includeArchived || entry.status !== 'archived';
     const rejectedMatch = filters.includeRejectedDisputed || !EXCLUDED_VERIFICATION.has(entry.verificationStatus);
-    return dateMatch && currencyMatch && eventMatch && memberMatch && archivedMatch && rejectedMatch;
+    return dateMatch && currencyMatch && groupMatch && memberMatch && archivedMatch && rejectedMatch;
   });
 }
 
@@ -94,7 +94,7 @@ export function debtByTag(entries: LedgerEntry[], filters: AnalyticsFilters = {}
     .sort((first, second) => sumMoneyMap(second.totalsByCurrency) - sumMoneyMap(first.totalsByCurrency));
 }
 
-export function debtByMember(entries: LedgerEntry[], members: Member[], sharedMembers: SharedEventMember[], filters: AnalyticsFilters = {}) {
+export function debtByMember(entries: LedgerEntry[], members: Member[], sharedMembers: SharedGroupMember[], filters: AnalyticsFilters = {}) {
   const rows = new Map<string, { participantId: string; name: string; owedToMe: MoneyMap; iOwe: MoneyMap; net: MoneyMap }>();
   for (const entry of filterAnalyticsEntries(entries, filters)) {
     for (const participantId of [entry.fromId, entry.toId]) {
@@ -191,26 +191,26 @@ export function verifiedVsPendingSummary(entries: LedgerEntry[], filters: Analyt
   return totals;
 }
 
-export function eventSpendingBreakdown(input: {
-  event: Event;
+export function groupSpendingBreakdown(input: {
+  group: Group;
   entries: LedgerEntry[];
   sharedExpenses: SharedExpense[];
   members: Member[];
-  sharedEventMembers: SharedEventMember[];
+  sharedGroupMembers: SharedGroupMember[];
 }) {
-  const eventEntries = entriesForEvent(input.event.id, input.entries);
+  const groupEntries = entriesForGroup(input.group.id, input.entries);
   const totalByCurrency: MoneyMap = {};
-  for (const expense of input.sharedExpenses.filter((item) => item.eventId === input.event.id && item.status !== 'archived')) {
+  for (const expense of input.sharedExpenses.filter((item) => item.groupId === input.group.id && item.status !== 'archived')) {
     addMoney(totalByCurrency, expense.currency, expense.amount);
   }
-  const byTag = debtByTag(eventEntries, { eventId: input.event.id, includeRejectedDisputed: false });
-  const byMember = debtByMember(eventEntries, input.members, input.sharedEventMembers, { eventId: input.event.id });
+  const byTag = debtByTag(groupEntries, { groupId: input.group.id, includeRejectedDisputed: false });
+  const byMember = debtByMember(groupEntries, input.members, input.sharedGroupMembers, { groupId: input.group.id });
   const byPayer = new Map<string, MoneyMap>();
-  for (const expense of input.sharedExpenses.filter((item) => item.eventId === input.event.id && item.status !== 'archived')) {
+  for (const expense of input.sharedExpenses.filter((item) => item.groupId === input.group.id && item.status !== 'archived')) {
     for (const payer of expense.expensePayers) {
-      const map = byPayer.get(payer.eventMemberId) ?? {};
+      const map = byPayer.get(payer.groupMemberId) ?? {};
       addMoney(map, payer.currency, payer.amountPaid);
-      byPayer.set(payer.eventMemberId, map);
+      byPayer.set(payer.groupMemberId, map);
     }
   }
   return {
@@ -219,11 +219,11 @@ export function eventSpendingBreakdown(input: {
     byMember,
     byPayer: Array.from(byPayer.entries()).map(([participantId, totalsByCurrency]) => ({
       participantId,
-      name: participantName(participantId, input.members, input.sharedEventMembers),
+      name: participantName(participantId, input.members, input.sharedGroupMembers),
       totalsByCurrency,
     })),
-    paidVsUnpaid: paidVsUnpaidSummary(eventEntries),
-    verifiedVsPending: verifiedVsPendingSummary(eventEntries),
+    paidVsUnpaid: paidVsUnpaidSummary(groupEntries),
+    verifiedVsPending: verifiedVsPendingSummary(groupEntries),
   };
 }
 

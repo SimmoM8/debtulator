@@ -16,6 +16,23 @@ export type VerificationStatus =
   | 'resolved'
   | 'cancelled';
 
+export type DebtVerificationRequestType = 'creation' | 'amendment';
+
+export type DebtReviewField =
+  | 'member'
+  | 'direction'
+  | 'amount'
+  | 'title'
+  | 'dueDate';
+
+export type DebtReviewValue = string | number | null;
+
+export type DebtChangeSummary = {
+  changedFields: DebtReviewField[];
+  previous: Partial<Record<DebtReviewField, DebtReviewValue>>;
+  proposed: Partial<Record<DebtReviewField, DebtReviewValue>>;
+};
+
 export type MemberLinkStatus =
   | 'unlinked'
   | 'invite_pending'
@@ -25,7 +42,7 @@ export type MemberLinkStatus =
 
 export type LinkRequestStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled' | 'expired';
 
-export type DebtVisibility = 'private' | 'shared_with_involved_member' | 'future_event_shared' | 'shared_event';
+export type DebtVisibility = 'private' | 'shared_with_involved_member' | 'future_group_shared' | 'shared_group';
 
 export type SyncStatus =
   | 'local_only'
@@ -72,7 +89,7 @@ export type ConflictType =
   | 'update_delete'
   | 'delete_update'
   | 'permission_changed'
-  | 'event_locked'
+  | 'group_locked'
   | 'verification_changed'
   | 'duplicate_create'
   | 'merge_conflict'
@@ -80,31 +97,31 @@ export type ConflictType =
   | 'payment_conflict'
   | 'settlement_conflict';
 
-export type EventStatus = 'planning' | 'active' | 'finalising' | 'settled' | 'archived';
+export type GroupStatus = 'planning' | 'active' | 'finalising' | 'settled' | 'archived';
 
-export type EventVisibility = 'private' | 'shared';
+export type GroupVisibility = 'private' | 'shared';
 
-export type EventRole = 'owner' | 'admin' | 'member' | 'viewer';
+export type GroupRole = 'owner' | 'admin' | 'member' | 'viewer';
 
-export type EventParticipantStatus = 'active' | 'removed' | 'left' | 'invited';
+export type GroupParticipantStatus = 'active' | 'removed' | 'left' | 'invited';
 
-export type EventInviteStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled' | 'expired';
+export type GroupInviteStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled' | 'expired';
 
-export type EventMemberType = 'linked_user' | 'unlinked_placeholder';
+export type GroupMemberType = 'linked_user' | 'unlinked_placeholder';
 
-export type EventMemberStatus = 'active' | 'archived' | 'merged' | 'claim_pending';
+export type GroupMemberStatus = 'active' | 'archived' | 'merged' | 'claim_pending';
 
-export type EventMemberClaimStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
+export type GroupMemberClaimStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
 
-export type EventDuplicateWarningStatus = 'active' | 'ignored' | 'resolved';
+export type GroupDuplicateWarningStatus = 'active' | 'ignored' | 'resolved';
 
-export type EventDuplicateWarningConfidence = 'low' | 'medium' | 'high';
+export type GroupDuplicateWarningConfidence = 'low' | 'medium' | 'high';
 
-export type EventVerificationTargetType = 'expense' | 'debt' | 'split';
+export type GroupVerificationTargetType = 'expense' | 'debt' | 'split';
 
 export type SplitMethod = 'equal' | 'custom_amount' | 'custom_percentage' | 'shares';
 
-export type LedgerEntryKind = 'simple_debt' | 'expense_obligation' | 'event_direct_debt' | 'overpayment_credit';
+export type LedgerEntryKind = 'simple_debt' | 'expense_obligation' | 'group_direct_debt' | 'overpayment_credit';
 
 export type PaymentStatus =
   | 'recorded'
@@ -137,11 +154,11 @@ export type SettlementType = 'manual' | 'from_suggestion';
 
 export type SettlementSourceRecordType =
   | 'simple_debt'
-  | 'event_debt'
+  | 'group_debt'
   | 'shared_expense_obligation'
   | 'overpayment_credit';
 
-export type RecurringTemplateType = 'simple_debt' | 'shared_expense' | 'event_debt';
+export type RecurringTemplateType = 'simple_debt' | 'shared_expense' | 'group_debt';
 
 export type RecurringStatus = 'active' | 'paused' | 'ended' | 'archived';
 
@@ -156,10 +173,10 @@ export type OverpaymentCreditStatus = 'open' | 'applied' | 'ignored' | 'gift' | 
 export type AttachmentTargetType =
   | 'debt'
   | 'shared_expense'
-  | 'event_debt'
+  | 'group_debt'
   | 'payment'
   | 'settlement'
-  | 'event'
+  | 'group'
   | 'comment';
 
 export type AttachmentKind = 'receipt' | 'proof' | 'screenshot' | 'invoice' | 'other';
@@ -170,7 +187,7 @@ export type CommentTargetType = Exclude<AttachmentTargetType, 'comment'>;
 
 export type CommentVisibility = 'private' | 'shared';
 
-export type SmartSuggestionType = 'tag' | 'event' | 'duplicate' | 'recurring';
+export type SmartSuggestionType = 'tag' | 'group' | 'duplicate' | 'recurring';
 
 export type SmartSuggestionStatus = 'active' | 'accepted' | 'dismissed' | 'expired';
 
@@ -181,8 +198,8 @@ export type ImportBatchStatus = 'preview' | 'imported' | 'cancelled';
 export type NotificationType =
   | 'verification_request'
   | 'verification_result'
-  | 'event_invite'
-  | 'event_update'
+  | 'group_invite'
+  | 'group_update'
   | 'payment'
   | 'settlement'
   | 'reminder'
@@ -199,14 +216,14 @@ export type BackupMode = 'merge' | 'replace_local' | 'duplicate_private';
 export type EntityKind =
   | 'member'
   | 'debt'
-  | 'event'
+  | 'group'
   | 'shared_expense'
-  | 'event_invite'
-  | 'event_member'
-  | 'event_member_claim'
-  | 'event_duplicate_warning'
-  | 'event_debt'
-  | 'event_verification'
+  | 'group_invite'
+  | 'group_member'
+  | 'group_member_claim'
+  | 'group_duplicate_warning'
+  | 'group_debt'
+  | 'group_verification'
   | 'payment'
   | 'settlement'
   | 'recurring_template'
@@ -282,7 +299,7 @@ export type Debt = {
   dueDate: string | null;
   recurringTemplateId: string | null;
   tags: string[];
-  eventId: string | null;
+  groupId: string | null;
   status: DebtStatus;
   verificationStatus: VerificationStatus;
   verifiedByUserId: string | null;
@@ -297,13 +314,13 @@ export type Debt = {
   updatedAt: string;
 };
 
-export type EventMember = {
-  eventId: string;
+export type GroupMember = {
+  groupId: string;
   memberId: string;
   createdAt: string;
 };
 
-export type Event = {
+export type Group = {
   id: string;
   localId: string | null;
   remoteId: string | null;
@@ -313,8 +330,8 @@ export type Event = {
   defaultCurrency: CurrencyCode;
   allowedCurrencies: CurrencyCode[];
   tags: string[];
-  status: EventStatus;
-  visibility: EventVisibility;
+  status: GroupStatus;
+  visibility: GroupVisibility;
   syncStatus: SyncStatus;
   archived: boolean;
   archivedAt: string | null;
@@ -325,32 +342,32 @@ export type Event = {
   updatedAt: string;
 };
 
-export type EventParticipant = {
+export type GroupParticipant = {
   id: string;
   remoteId: string | null;
-  eventId: string;
-  remoteEventId: string | null;
+  groupId: string;
+  remoteGroupId: string | null;
   userId: string;
-  role: EventRole;
-  status: EventParticipantStatus;
+  role: GroupRole;
+  status: GroupParticipantStatus;
   joinedAt: string | null;
   createdAt: string;
   updatedAt: string;
   syncStatus: SyncStatus;
 };
 
-export type EventInvite = {
+export type GroupInvite = {
   id: string;
   remoteId: string | null;
-  eventId: string;
-  remoteEventId: string | null;
+  groupId: string;
+  remoteGroupId: string | null;
   inviterUserId: string;
   invitedUserId: string | null;
   invitedEmail: string | null;
   invitedPhone: string | null;
   invitedDisplayName: string;
-  offeredRole: Exclude<EventRole, 'owner'>;
-  status: EventInviteStatus;
+  offeredRole: Exclude<GroupRole, 'owner'>;
+  status: GroupInviteStatus;
   message: string | null;
   createdAt: string;
   updatedAt: string;
@@ -358,12 +375,12 @@ export type EventInvite = {
   syncStatus: SyncStatus;
 };
 
-export type SharedEventMember = {
+export type SharedGroupMember = {
   id: string;
   remoteId: string | null;
-  eventId: string;
-  remoteEventId: string | null;
-  type: EventMemberType;
+  groupId: string;
+  remoteGroupId: string | null;
+  type: GroupMemberType;
   linkedUserId: string | null;
   displayName: string;
   alias: string | null;
@@ -371,22 +388,22 @@ export type SharedEventMember = {
   phone: string | null;
   notes: string | null;
   createdByUserId: string | null;
-  status: EventMemberStatus;
-  mergedIntoEventMemberId: string | null;
+  status: GroupMemberStatus;
+  mergedIntoGroupMemberId: string | null;
   createdAt: string;
   updatedAt: string;
   syncStatus: SyncStatus;
 };
 
-export type EventMemberClaim = {
+export type GroupMemberClaim = {
   id: string;
   remoteId: string | null;
-  eventId: string;
-  remoteEventId: string | null;
-  eventMemberId: string;
-  remoteEventMemberId: string | null;
+  groupId: string;
+  remoteGroupId: string | null;
+  groupMemberId: string;
+  remoteGroupMemberId: string | null;
   claimantUserId: string;
-  status: EventMemberClaimStatus;
+  status: GroupMemberClaimStatus;
   message: string | null;
   respondedByUserId: string | null;
   respondedAt: string | null;
@@ -395,15 +412,15 @@ export type EventMemberClaim = {
   syncStatus: SyncStatus;
 };
 
-export type EventDuplicateWarning = {
+export type GroupDuplicateWarning = {
   id: string;
   remoteId: string | null;
-  eventId: string;
-  eventMemberIdA: string;
-  eventMemberIdB: string;
+  groupId: string;
+  groupMemberIdA: string;
+  groupMemberIdB: string;
   reason: string;
-  confidence: EventDuplicateWarningConfidence;
-  status: EventDuplicateWarningStatus;
+  confidence: GroupDuplicateWarningConfidence;
+  status: GroupDuplicateWarningStatus;
   ignoredByUserId: string | null;
   createdAt: string;
   updatedAt: string;
@@ -413,7 +430,7 @@ export type EventDuplicateWarning = {
 export type GeneratedObligation = {
   id: string;
   expenseId: string;
-  eventId: string;
+  groupId: string;
   fromParticipantId: ParticipantId;
   toParticipantId: ParticipantId;
   amount: number;
@@ -425,7 +442,7 @@ export type GeneratedObligation = {
 export type ExpensePayer = {
   id: string;
   expenseId: string;
-  eventMemberId: ParticipantId;
+  groupMemberId: ParticipantId;
   amountPaid: number;
   currency: CurrencyCode;
   createdAt: string;
@@ -435,7 +452,7 @@ export type ExpensePayer = {
 export type SharedExpense = {
   id: string;
   remoteId: string | null;
-  eventId: string;
+  groupId: string;
   creatorUserId: string | null;
   payerId: ParticipantId;
   expensePayers: ExpensePayer[];
@@ -459,14 +476,14 @@ export type SharedExpense = {
   updatedAt: string;
 };
 
-export type EventDebt = {
+export type GroupDebt = {
   id: string;
   remoteId: string | null;
-  eventId: string;
-  remoteEventId: string | null;
+  groupId: string;
+  remoteGroupId: string | null;
   creatorUserId: string | null;
-  debtorEventMemberId: string;
-  creditorEventMemberId: string;
+  debtorGroupMemberId: string;
+  creditorGroupMemberId: string;
   amount: number;
   currency: CurrencyCode;
   title: string;
@@ -492,9 +509,9 @@ export type Payment = {
   payeeUserId: string | null;
   payerMemberId: string | null;
   payeeMemberId: string | null;
-  payerEventMemberId: string | null;
-  payeeEventMemberId: string | null;
-  eventId: string | null;
+  payerGroupMemberId: string | null;
+  payeeGroupMemberId: string | null;
+  groupId: string | null;
   relatedMemberId: string | null;
   amount: number;
   currency: CurrencyCode;
@@ -514,7 +531,7 @@ export type Settlement = {
   localId: string | null;
   remoteId: string | null;
   createdByUserId: string | null;
-  eventId: string | null;
+  groupId: string | null;
   memberId: string | null;
   type: SettlementType;
   currency: CurrencyCode;
@@ -552,7 +569,7 @@ export type SettlementLine = {
 export type RecurringTemplate = {
   id: string;
   createdByUserId: string | null;
-  eventId: string | null;
+  groupId: string | null;
   memberId: string | null;
   type: RecurringTemplateType;
   title: string;
@@ -589,7 +606,7 @@ export type SoftReminder = {
   senderUserId: string | null;
   recipientUserId: string | null;
   relatedMemberId: string | null;
-  relatedEventId: string | null;
+  relatedGroupId: string | null;
   relatedRecordId: string | null;
   message: string;
   status: SoftReminderStatus;
@@ -602,9 +619,9 @@ export type OverpaymentCredit = {
   createdByUserId: string | null;
   payerMemberId: string | null;
   payeeMemberId: string | null;
-  payerEventMemberId: string | null;
-  payeeEventMemberId: string | null;
-  eventId: string | null;
+  payerGroupMemberId: string | null;
+  payeeGroupMemberId: string | null;
+  groupId: string | null;
   amount: number;
   currency: CurrencyCode;
   sourcePaymentId: string;
@@ -618,7 +635,7 @@ export type Attachment = {
   remoteId?: string | null;
   targetType: AttachmentTargetType;
   targetId: string;
-  eventId: string | null;
+  groupId: string | null;
   createdByUserId: string | null;
   localUri: string | null;
   remoteUrl: string | null;
@@ -641,7 +658,7 @@ export type Comment = {
   remoteId?: string | null;
   targetType: CommentTargetType;
   targetId: string;
-  eventId: string | null;
+  groupId: string | null;
   authorUserId: string | null;
   localAuthorLabel: string | null;
   body: string;
@@ -690,15 +707,15 @@ export type CsvImportBatch = {
   metadata: Record<string, unknown>;
 };
 
-export type EventVerificationResponse = {
+export type GroupVerificationResponse = {
   id: string;
   remoteId: string | null;
-  eventId: string;
-  remoteEventId: string | null;
-  targetType: EventVerificationTargetType;
+  groupId: string;
+  remoteGroupId: string | null;
+  targetType: GroupVerificationTargetType;
   targetId: string;
   remoteTargetId: string | null;
-  eventMemberId: string;
+  groupMemberId: string;
   linkedUserId: string | null;
   responseStatus: VerificationStatus;
   rejectionReason: string | null;
@@ -708,11 +725,11 @@ export type EventVerificationResponse = {
   syncStatus: SyncStatus;
 };
 
-export type EventActivityLog = {
+export type GroupActivityLog = {
   id: string;
   remoteId: string | null;
-  eventId: string;
-  remoteEventId: string | null;
+  groupId: string;
+  remoteGroupId: string | null;
   actorUserId: string | null;
   action: string;
   targetType: string;
@@ -790,7 +807,7 @@ export type AuditLog = {
   action: string;
   targetType: EntityKind | 'account' | 'security';
   targetId: string | null;
-  eventId: string | null;
+  groupId: string | null;
   metadata: Record<string, unknown>;
   deviceId: string | null;
   createdAt: string;
@@ -839,6 +856,9 @@ export type SuggestedDebtChange = {
   amount?: number;
   currency?: CurrencyCode;
   debtDate?: string;
+  dueDate?: string | null;
+  direction?: DebtDirection;
+  title?: string;
   note?: string;
   reason?: string;
 };
@@ -850,6 +870,8 @@ export type DebtVerification = {
   remoteDebtId: string | null;
   requesterUserId: string;
   responderUserId: string;
+  requestType: DebtVerificationRequestType;
+  changeSummary: DebtChangeSummary | null;
   status: VerificationStatus;
   rejectionReason: string | null;
   suggestedChange: SuggestedDebtChange | null;
@@ -885,7 +907,7 @@ export type AppSettings = {
   includeCommentsInExports: boolean;
   includeAttachmentsInExports: boolean;
   defaultDebtVisibility: DebtVisibility;
-  defaultEventVisibility: EventVisibility;
+  defaultGroupVisibility: GroupVisibility;
   showSensitiveDetailsInNotifications: boolean;
   syncPrivateLocalDataToAccountBackup: boolean;
   uploadAttachmentsForSharedRecords: boolean;
@@ -894,7 +916,7 @@ export type AppSettings = {
   pushNotificationsEnabled: boolean;
   emailNotificationsEnabled: boolean;
   notificationVerificationEnabled: boolean;
-  notificationEventEnabled: boolean;
+  notificationGroupEnabled: boolean;
   notificationPaymentSettlementEnabled: boolean;
   notificationReminderEnabled: boolean;
   notificationCommentEnabled: boolean;
@@ -914,7 +936,7 @@ export type LedgerEntry = {
   kind: LedgerEntryKind;
   sourceId: string;
   expenseId?: string;
-  eventId: string | null;
+  groupId: string | null;
   fromId: ParticipantId;
   toId: ParticipantId;
   amount: number;
@@ -939,7 +961,7 @@ export type MoneyMap = Partial<Record<CurrencyCode, number>>;
 
 export type SettlementSuggestion = {
   id: string;
-  eventId?: string;
+  groupId?: string;
   fromId: ParticipantId;
   toId: ParticipantId;
   amount: number;
@@ -951,7 +973,7 @@ export type SettlementSuggestion = {
   explanation?: Record<string, unknown>;
 };
 
-export type EventSettlementSettings = {
+export type GroupSettlementSettings = {
   includePending: boolean;
   includePartiallyVerified: boolean;
   includeRejectedDisputed: boolean;
@@ -976,19 +998,19 @@ export type SettlementMatchStep = {
   amount: number;
 };
 
-export type EventSettlementExplanation = {
-  eventId: string;
+export type GroupSettlementExplanation = {
+  groupId: string;
   includedEntries: LedgerEntry[];
   excludedEntries: ExcludedLedgerEntry[];
   participantNets: Record<ParticipantId, MoneyMap>;
   suggestions: SettlementSuggestion[];
-  settings: EventSettlementSettings;
+  settings: GroupSettlementSettings;
   settlementSteps: SettlementMatchStep[];
 };
 
 export type DuplicateWarning = {
   key: string;
-  eventId: string;
+  groupId: string;
   memberAId: string;
   memberBId: string;
   reason: 'same_name' | 'similar_name' | 'same_email' | 'same_phone';
@@ -998,7 +1020,7 @@ export type DuplicateWarning = {
 export type DebtFilters = {
   query: string;
   memberId: string | null;
-  eventId: string | null;
+  groupId: string | null;
   minAmount: string;
   maxAmount: string;
   currency: CurrencyCode | 'all';
@@ -1028,11 +1050,11 @@ export type MemberFilters = {
   sort: SortMode;
 };
 
-export type EventFilters = {
+export type GroupFilters = {
   query: string;
-  status: EventStatus | 'all';
-  visibility: EventVisibility | 'all';
-  role: EventRole | 'all';
+  status: GroupStatus | 'all';
+  visibility: GroupVisibility | 'all';
+  role: GroupRole | 'all';
   attention: 'all' | 'pending_invites' | 'rejected_or_disputed' | 'unsettled';
   tag: string | null;
   archivedMode: 'active' | 'archived' | 'all';

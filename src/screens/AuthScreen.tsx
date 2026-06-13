@@ -83,7 +83,7 @@ export function AuthScreen() {
             </Text>
             <Text style={styles.heroBody}>
               Stay local-only for private tracking, or sign in when you want
-              member links, verification, and shared event workflows.
+              member links, verification, and shared group workflows.
             </Text>
           </View>
           <View style={styles.heroArtWrap}>

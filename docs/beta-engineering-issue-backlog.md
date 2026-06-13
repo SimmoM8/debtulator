@@ -39,7 +39,7 @@ The app currently exposes a delete-account flow that records `account_deletion_r
 - Shared financial history remains intact for other participants.
 - Personal profile data and notification eligibility are cleaned up according to policy.
 - The app shows the resulting state instead of silently logging a request.
-- Tests cover event ownership, attachments, and unresolved conflict edge cases.
+- Tests cover group ownership, attachments, and unresolved conflict edge cases.
 
 ### Validation
 
@@ -76,7 +76,7 @@ The app already exposes notification preferences and a notification center, but 
 ### Goals
 
 - Make notification behavior match user-facing settings.
-- Prevent privacy regressions in notification content.
+- Prgroup privacy regressions in notification content.
 - Keep beta scope explicit.
 
 ### Scope
@@ -185,14 +185,14 @@ No crash-reporting or telemetry integration was found. External beta without obs
 
 - Integrate crash reporting at app bootstrap.
 - Add breadcrumbs around auth, sync, conflict resolution, export, and restore.
-- Add a small set of analytics events for onboarding and first-success milestones.
+- Add a small set of analytics groups for onboarding and first-success milestones.
 - Ensure no sensitive financial text or attachment content is sent.
 
 ### Acceptance criteria
 
 - Uncaught JS and major render failures are reported.
-- Crash events include enough context to identify the failing flow.
-- Basic beta milestone events are available.
+- Crash groups include enough context to identify the failing flow.
+- Basic beta milestone groups are available.
 - Telemetry behavior can be described accurately in store disclosures.
 
 ### Validation
@@ -247,7 +247,7 @@ The sync engine covers many record types and relationship mappings, but the curr
 ### Validation
 
 - Expanded targeted test suite.
-- Manual two-account device pass for shared-event editing.
+- Manual two-account device pass for shared-group editing.
 
 ### Candidate surfaces
 

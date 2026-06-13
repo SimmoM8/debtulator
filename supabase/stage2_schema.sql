@@ -49,7 +49,7 @@ create table if not exists public.shared_debt_records (
   due_date date,
   direction text not null check (direction in ('they_owe_me', 'i_owe_them')),
   visibility text not null default 'shared_with_involved_member'
-    check (visibility in ('private', 'shared_with_involved_member', 'future_event_shared')),
+    check (visibility in ('private', 'shared_with_involved_member', 'future_group_shared')),
   verification_status text not null default 'pending'
     check (verification_status in ('local_only', 'pending', 'verified', 'rejected', 'disputed', 'resolved', 'cancelled')),
   settlement_status text not null default 'active'

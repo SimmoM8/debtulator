@@ -1,5 +1,13 @@
 import { supabase } from '@/src/services/supabase';
-import type { Debt, DebtVerification, LinkRequest, Member, SuggestedDebtChange } from '@/src/types/models';
+import type {
+  Debt,
+  DebtChangeSummary,
+  DebtVerification,
+  DebtVerificationRequestType,
+  LinkRequest,
+  Member,
+  SuggestedDebtChange,
+} from '@/src/types/models';
 
 export async function createRemoteLinkRequest(input: {
   requesterUserId: string;
@@ -65,14 +73,19 @@ export async function createRemoteDebtVerification(input: {
   requesterUserId: string;
   responderUserId: string;
   sharedNotes?: string | null;
+  requestType?: DebtVerificationRequestType;
+  changeSummary?: DebtChangeSummary | null;
 }) {
   if (!supabase) {
     return null;
   }
 
-  const { data: remoteDebt, error: debtError } = await supabase
-    .from('shared_debt_records')
-    .insert({
+  const requestType = input.requestType ?? 'creation';
+  const replacesParticipant =
+    requestType === 'creation' &&
+    Boolean(input.debt.remoteId) &&
+    Boolean(input.changeSummary?.changedFields.includes('member'));
+  const debtPayload = {
       creator_user_id: input.requesterUserId,
       involved_user_id: input.responderUserId,
       local_member_reference: input.member.remoteId ?? input.member.id,
@@ -86,32 +99,66 @@ export async function createRemoteDebtVerification(input: {
       visibility: 'shared_with_involved_member',
       verification_status: 'pending',
       settlement_status: input.debt.status,
-    })
-    .select('id')
-    .single();
+    };
+  const shouldUpdateExistingDebt =
+    Boolean(input.debt.remoteId) && requestType === 'creation' && !replacesParticipant;
+  if (replacesParticipant && input.debt.remoteId) {
+    const { error: archiveError } = await supabase
+      .from('shared_debt_records')
+      .update({
+        settlement_status: 'archived',
+        verification_status: 'cancelled',
+      })
+      .eq('id', input.debt.remoteId);
+    if (archiveError) {
+      throw archiveError;
+    }
+  }
+  const debtQuery = shouldUpdateExistingDebt
+    ? supabase
+        .from('shared_debt_records')
+        .update(debtPayload)
+        .eq('id', input.debt.remoteId)
+    : requestType === 'creation'
+      ? supabase.from('shared_debt_records').insert(debtPayload)
+      : null;
+  const remoteDebt = debtQuery
+    ? await debtQuery.select('id').single()
+    : { data: { id: input.debt.remoteId }, error: null };
+  const { data: remoteDebtData, error: debtError } = remoteDebt;
 
   if (debtError) {
     throw debtError;
   }
+  if (!remoteDebtData?.id) {
+    throw new Error('Shared debt could not be prepared for confirmation.');
+  }
 
-  const { data: verification, error: verificationError } = await supabase
-    .from('debt_verifications')
-    .insert({
-      debt_id: remoteDebt.id,
-      requester_user_id: input.requesterUserId,
-      responder_user_id: input.responderUserId,
-      status: 'pending',
-      requested_at: new Date().toISOString(),
-    })
-    .select('id')
-    .single();
+  const { data: verification, error: verificationError } = await supabase.rpc(
+    'request_debt_verification',
+    {
+      p_debt_id: remoteDebtData.id,
+      p_responder_user_id: input.responderUserId,
+      p_request_type: requestType,
+      p_change_summary: input.changeSummary ?? null,
+    },
+  );
 
   if (verificationError) {
+    if (requestType === 'creation' && !shouldUpdateExistingDebt) {
+      await supabase
+        .from('shared_debt_records')
+        .update({
+          settlement_status: 'archived',
+          verification_status: 'cancelled',
+        })
+        .eq('id', remoteDebtData.id);
+    }
     throw verificationError;
   }
 
   return {
-    remoteDebtId: remoteDebt.id as string,
+    remoteDebtId: remoteDebtData.id as string,
     remoteVerificationId: verification.id as string,
   };
 }
@@ -126,32 +173,74 @@ export async function respondRemoteDebtVerification(input: {
     return;
   }
 
-  const respondedAt = new Date().toISOString();
-  const { error: verificationError } = await supabase
-    .from('debt_verifications')
-    .update({
-      status: input.status,
-      rejection_reason: input.status === 'rejected' ? input.rejectionReason ?? null : null,
-      suggested_change: input.status === 'rejected' ? input.suggestedChange ?? null : null,
-      responded_at: respondedAt,
-      updated_at: respondedAt,
-    })
-    .eq('id', input.verification.remoteId);
+  const { error: verificationError } = await supabase.rpc(
+    'respond_to_debt_verification',
+    {
+      p_verification_id: input.verification.remoteId,
+      p_status: input.status,
+      p_rejection_reason:
+        input.status === 'rejected' ? input.rejectionReason ?? null : null,
+      p_suggested_change:
+        input.status === 'rejected' ? input.suggestedChange ?? null : null,
+    },
+  );
 
   if (verificationError) {
     throw verificationError;
   }
 
-  if (input.verification.remoteDebtId) {
-    const { error: debtError } = await supabase
-      .from('shared_debt_records')
-      .update({ verification_status: input.status, updated_at: respondedAt })
-      .eq('id', input.verification.remoteDebtId);
+}
 
-    if (debtError) {
-      throw debtError;
-    }
+export async function sendRemoteDebtConfirmationReminder(input: {
+  verificationRemoteId: string;
+}) {
+  if (!supabase) {
+    return false;
   }
+
+  const { error } = await supabase.rpc('send_debt_confirmation_reminder', {
+    p_verification_id: input.verificationRemoteId,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return true;
+}
+
+export async function respondRemotePaymentConfirmation(input: {
+  paymentRemoteId: string;
+  status: 'confirmed' | 'rejected';
+}) {
+  if (!supabase) {
+    return;
+  }
+
+  const { error } = await supabase.rpc('respond_to_payment_confirmation', {
+    p_payment_id: input.paymentRemoteId,
+    p_status: input.status,
+  });
+
+  if (error) {
+    throw error;
+  }
+}
+
+export async function sendRemotePaymentConfirmationReminder(input: {
+  paymentRemoteId: string;
+}) {
+  if (!supabase) {
+    return false;
+  }
+
+  const { error } = await supabase.rpc('send_payment_confirmation_reminder', {
+    p_payment_id: input.paymentRemoteId,
+  });
+  if (error) {
+    throw error;
+  }
+  return true;
 }
 
 export async function fetchRemoteStage2Records(input: { userId: string; email?: string | null }) {

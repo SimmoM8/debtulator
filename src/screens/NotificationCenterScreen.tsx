@@ -21,7 +21,7 @@ import { useAppData } from "@/src/state/AppDataProvider";
 type Filter =
   | "all"
   | "unread"
-  | "events"
+  | "groups"
   | "verification"
   | "payments"
   | "reminders";
@@ -35,9 +35,9 @@ export function NotificationCenterScreen() {
         if (filter === "unread") {
           return !notification.readAt;
         }
-        if (filter === "events") {
+        if (filter === "groups") {
           return (
-            notification.type.includes("event") ||
+            notification.type.includes("group") ||
             notification.type === "claim_request"
           );
         }
@@ -108,7 +108,7 @@ export function NotificationCenterScreen() {
           options={[
             { label: "All", value: "all" },
             { label: "Unread", value: "unread" },
-            { label: "Events", value: "events" },
+            { label: "Groups", value: "groups" },
             { label: "Verify", value: "verification" },
             { label: "Pay", value: "payments" },
             { label: "Due", value: "reminders" },
@@ -150,13 +150,20 @@ export function NotificationCenterScreen() {
                     }
                   />
                 ) : null}
+                {notification.type === "verification_request" ? (
+                  <Button
+                    title="Review"
+                    icon="chevron-forward"
+                    onPress={() => router.push("/requests")}
+                  />
+                ) : null}
               </View>
             </View>
           ))
         ) : (
           <EmptyState
             title="No notifications"
-            body="Verification, event, payment, reminder, export, and sync notices will appear here in the app."
+            body="Verification, group, payment, reminder, export, and sync notices will appear here in the app."
           />
         )}
       </Card>
