@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Animated,
@@ -25,7 +25,6 @@ import {
   LoadingState,
   PageHeader,
   Screen,
-  SectionTitle,
 } from "@/src/components/ui/Primitives";
 import {
   palette,
@@ -70,6 +69,8 @@ type ActivityItem = {
   confirmationStatus?: Extract<VerificationStatus, "pending" | "rejected">;
 };
 
+type DebtDetailSectionKey = "details" | "confirmation" | "activity";
+
 export function DebtDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const data = useAppData();
@@ -92,6 +93,8 @@ export function DebtDetailScreen() {
   const [dueDateOpen, setDueDateOpen] = useState(false);
   const [dueDateDraft, setDueDateDraft] = useState("");
   const [savingDueDate, setSavingDueDate] = useState(false);
+  const [activeSection, setActiveSection] =
+    useState<DebtDetailSectionKey>("details");
   const [respondingVerificationId, setRespondingVerificationId] = useState<
     string | null
   >(null);
@@ -235,6 +238,18 @@ export function DebtDetailScreen() {
   const dueDateConfirmationStatus =
     confirmationStatusForField("dueDate", currentConfirmations) ??
     (orphanedPendingFields.has("dueDate") ? "pending" : undefined);
+  const detailSections: { key: DebtDetailSectionKey; label: string }[] = [
+    { key: "details", label: "Details" },
+    ...(isCloudSyncedMember
+      ? [{ key: "confirmation" as const, label: "Confirmation" }]
+      : []),
+    { key: "activity", label: "Activity" },
+  ];
+  const resolvedActiveSection = detailSections.some(
+    (section) => section.key === activeSection,
+  )
+    ? activeSection
+    : "details";
 
   function activityActorName(actorUserId: string | null) {
     if (
@@ -1242,172 +1257,172 @@ export function DebtDetailScreen() {
 
       </Card>
 
-      {/* ── Details ── */}
-      <View style={styles.sectionHeader}>
-        <SectionTitle title="Details" />
-      </View>
-      <Card tone="lavender" style={styles.detailsCard}>
-        <DetailRow label="Member" value={member?.displayName ?? "Unknown"} />
-        <DetailRow
-          label="Date created"
-          value={formatDate(currentDebt.debtDate)}
-        />
-        <DetailRow
-          label="Due date"
-          value={
-            <View style={styles.dueValue}>
-              <View style={styles.dueDatePrimary}>
-                {dueDateConfirmationStatus ? (
-                  <Ionicons
-                    name={
-                      dueDateConfirmationStatus === "rejected"
-                        ? "close-circle"
-                        : "time"
-                    }
-                    size={14}
-                    color={
-                      dueDateConfirmationStatus === "rejected"
-                        ? palette.negative
-                        : palette.warning
-                    }
-                  />
-                ) : null}
-                {currentDebt.dueDate ? (
-                  <Text style={styles.dueValueDate}>{dueLabel}</Text>
-                ) : (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Set due date"
-                    onPress={() => {
-                      setDueDateDraft("");
-                      setDueDateOpen(true);
-                    }}
-                    style={({ pressed }) => [
-                      styles.setDueDateLink,
-                      pressed && styles.notesActionPressed,
-                    ]}
-                  >
-                    <Text style={styles.setDueDateLinkText}>Set due date</Text>
-                  </Pressable>
-                )}
-              </View>
-              {dueRelativeLabel ? (
-                <View style={styles.dueValueStatus}>
-                  {isOverdue ? (
+      <SectionSwitcher
+        sections={detailSections}
+        activeSection={resolvedActiveSection}
+        onChange={setActiveSection}
+      />
+
+      {resolvedActiveSection === "details" ? (
+        <Card tone="lavender" style={styles.detailsCard}>
+          <DetailRow label="Member" value={member?.displayName ?? "Unknown"} />
+          <DetailRow
+            label="Date created"
+            value={formatDate(currentDebt.debtDate)}
+          />
+          <DetailRow
+            label="Due date"
+            value={
+              <View style={styles.dueValue}>
+                <View style={styles.dueDatePrimary}>
+                  {dueDateConfirmationStatus ? (
                     <Ionicons
-                      name="alert-circle-outline"
-                      size={13}
-                      color={palette.negative}
+                      name={
+                        dueDateConfirmationStatus === "rejected"
+                          ? "close-circle"
+                          : "time"
+                      }
+                      size={14}
+                      color={
+                        dueDateConfirmationStatus === "rejected"
+                          ? palette.negative
+                          : palette.warning
+                      }
                     />
                   ) : null}
-                  <Text
-                    style={[
-                      styles.dueValueMeta,
-                      isOverdue && styles.dueValueMetaOverdue,
-                    ]}
-                  >
-                    {dueRelativeLabel}
-                  </Text>
+                  {currentDebt.dueDate ? (
+                    <Text style={styles.dueValueDate}>{dueLabel}</Text>
+                  ) : (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Set due date"
+                      onPress={() => {
+                        setDueDateDraft("");
+                        setDueDateOpen(true);
+                      }}
+                      style={({ pressed }) => [
+                        styles.setDueDateLink,
+                        pressed && styles.notesActionPressed,
+                      ]}
+                    >
+                      <Text style={styles.setDueDateLinkText}>Set due date</Text>
+                    </Pressable>
+                  )}
                 </View>
-              ) : null}
-            </View>
-          }
-        />
-        {group ? <DetailRow label="Group" value={group.name} /> : null}
-        {participantLabels.length > 2 ? (
-          <DetailRow
-            label="Participants"
-            value={
-              <View style={styles.participantsValue}>
-                <AvatarStack labels={participantLabels} />
-                <Text style={styles.valueMeta}>
-                  {participantLabels.length} people
-                </Text>
+                {dueRelativeLabel ? (
+                  <View style={styles.dueValueStatus}>
+                    {isOverdue ? (
+                      <Ionicons
+                        name="alert-circle-outline"
+                        size={13}
+                        color={palette.negative}
+                      />
+                    ) : null}
+                    <Text
+                      style={[
+                        styles.dueValueMeta,
+                        isOverdue && styles.dueValueMetaOverdue,
+                      ]}
+                    >
+                      {dueRelativeLabel}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
             }
           />
-        ) : null}
-        <DetailRow
-          label="Tags"
-          value={
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Edit debt tags"
-              onPress={() => {
-                setTagsDraft({
-                  debtId: currentDebt.id,
-                  value: currentDebt.tags,
-                });
-                setTagsOpen(true);
-              }}
-              style={({ pressed }) => [
-                styles.tagsEditButton,
-                pressed && styles.notesActionPressed,
-              ]}
-            >
-              <Text style={styles.tagsEditButtonText}>
-                {currentDebt.tags.length
-                  ? `${currentDebt.tags.length} ${currentDebt.tags.length === 1 ? "tag" : "tags"}`
-                  : "Add tags"}
-              </Text>
-              <Ionicons
-                name="chevron-forward"
-                size={14}
-                color={palette.brand}
-              />
-            </Pressable>
-          }
-        />
-        <View style={styles.notesBlock}>
-          <Text style={styles.notesLabel}>Notes</Text>
-          <View style={styles.notesInputShell}>
-            <TextInput
-              accessibilityLabel="Debt notes"
-              value={notesValue}
-              onChangeText={(value) =>
-                setNotesDraft({ debtId: currentDebt.id, value })
+          {group ? <DetailRow label="Group" value={group.name} /> : null}
+          {participantLabels.length > 2 ? (
+            <DetailRow
+              label="Participants"
+              value={
+                <View style={styles.participantsValue}>
+                  <AvatarStack labels={participantLabels} />
+                  <Text style={styles.valueMeta}>
+                    {participantLabels.length} people
+                  </Text>
+                </View>
               }
-              placeholder="Add notes"
-              placeholderTextColor={palette.faint}
-              multiline
-              textAlignVertical="top"
-              style={styles.notesInput}
             />
-            {notesChanged ? (
+          ) : null}
+          <DetailRow
+            label="Tags"
+            value={
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Save debt notes"
-                disabled={savingNotes}
+                accessibilityLabel="Edit debt tags"
                 onPress={() => {
-                  void saveNotes();
+                  setTagsDraft({
+                    debtId: currentDebt.id,
+                    value: currentDebt.tags,
+                  });
+                  setTagsOpen(true);
                 }}
                 style={({ pressed }) => [
-                  styles.notesSaveAction,
-                  savingNotes && styles.notesActionDisabled,
+                  styles.tagsEditButton,
                   pressed && styles.notesActionPressed,
                 ]}
               >
-                {savingNotes ? (
-                  <Text style={styles.notesSavingText}>...</Text>
-                ) : (
-                  <Ionicons
-                    name="checkmark"
-                    size={15}
-                    color={palette.brand}
-                  />
-                )}
+                <Text style={styles.tagsEditButtonText}>
+                  {currentDebt.tags.length
+                    ? `${currentDebt.tags.length} ${currentDebt.tags.length === 1 ? "tag" : "tags"}`
+                    : "Add tags"}
+                </Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={14}
+                  color={palette.brand}
+                />
               </Pressable>
-            ) : null}
+            }
+          />
+          <View style={styles.notesBlock}>
+            <Text style={styles.notesLabel}>Notes</Text>
+            <View style={styles.notesInputShell}>
+              <TextInput
+                accessibilityLabel="Debt notes"
+                value={notesValue}
+                onChangeText={(value) =>
+                  setNotesDraft({ debtId: currentDebt.id, value })
+                }
+                placeholder="Add notes"
+                placeholderTextColor={palette.faint}
+                multiline
+                textAlignVertical="top"
+                style={styles.notesInput}
+              />
+              {notesChanged ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Save debt notes"
+                  disabled={savingNotes}
+                  onPress={() => {
+                    void saveNotes();
+                  }}
+                  style={({ pressed }) => [
+                    styles.notesSaveAction,
+                    savingNotes && styles.notesActionDisabled,
+                    pressed && styles.notesActionPressed,
+                  ]}
+                >
+                  {savingNotes ? (
+                    <Text style={styles.notesSavingText}>...</Text>
+                  ) : (
+                    <Ionicons
+                      name="checkmark"
+                      size={15}
+                      color={palette.brand}
+                    />
+                  )}
+                </Pressable>
+              ) : null}
+            </View>
           </View>
-        </View>
-      </Card>
+        </Card>
+      ) : null}
 
-      {isCloudSyncedMember ? (
-        <>
-          <View style={styles.sectionHeader}>
-            <SectionTitle title="Confirmation" />
-          </View>
-          <Card style={styles.confirmationCard}>
+      {resolvedActiveSection === "confirmation" && isCloudSyncedMember ? (
+        <Card style={styles.confirmationCard}>
             {!hasPendingConfirmation && !hasRejectedConfirmation ? (
               <View style={styles.confirmationAgreed}>
                 <Ionicons
@@ -1520,16 +1535,10 @@ export function DebtDetailScreen() {
                 ) : null}
               </>
             )}
-          </Card>
-        </>
+        </Card>
       ) : null}
 
-      {/* ── Activity ── */}
-      {activityItems.length > 0 ? (
-        <>
-          <View style={styles.sectionHeader}>
-            <SectionTitle title="Activity" />
-          </View>
+      {resolvedActiveSection === "activity" ? (
           <Card style={styles.activityCard}>
             {visibleActivityItems.map((activity, index) => (
               <ActivityTimelineRow
@@ -1585,7 +1594,6 @@ export function DebtDetailScreen() {
               </View>
             ) : null}
           </Card>
-        </>
       ) : null}
     </Screen>
   );
@@ -1669,6 +1677,80 @@ function AnimatedProgressFill({
         { width: animatedWidth, backgroundColor: color },
       ]}
     />
+  );
+}
+
+function SectionSwitcher({
+  sections,
+  activeSection,
+  onChange,
+}: {
+  sections: { key: DebtDetailSectionKey; label: string }[];
+  activeSection: DebtDetailSectionKey;
+  onChange: (section: DebtDetailSectionKey) => void;
+}) {
+  const [width, setWidth] = useState(0);
+  const translate = useRef(new Animated.Value(0)).current;
+  const activeIndex = Math.max(
+    sections.findIndex((section) => section.key === activeSection),
+    0,
+  );
+  const segmentWidth = sections.length > 0 ? width / sections.length : 0;
+
+  useEffect(() => {
+    Animated.timing(translate, {
+      toValue: activeIndex * segmentWidth,
+      duration: 210,
+      useNativeDriver: true,
+    }).start();
+  }, [activeIndex, segmentWidth, translate]);
+
+  return (
+    <View style={styles.sectionSwitcherShell}>
+      <View
+        style={styles.sectionSwitcher}
+        onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
+      >
+        {width ? (
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.sectionSwitcherThumb,
+              {
+                width: segmentWidth - 8,
+                transform: [{ translateX: translate }],
+              },
+            ]}
+          />
+        ) : null}
+        {sections.map((section) => {
+          const active = section.key === activeSection;
+          return (
+            <Pressable
+              key={section.key}
+              accessibilityRole="tab"
+              accessibilityLabel={section.label}
+              accessibilityState={{ selected: active }}
+              onPress={() => onChange(section.key)}
+              style={({ pressed }) => [
+                styles.sectionSwitcherItem,
+                pressed && styles.notesActionPressed,
+              ]}
+            >
+              <Text
+                numberOfLines={1}
+                style={[
+                  styles.sectionSwitcherText,
+                  active && styles.sectionSwitcherTextActive,
+                ]}
+              >
+                {section.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
   );
 }
 
@@ -2539,10 +2621,55 @@ const styles = StyleSheet.create({
     fontSize: typography.size.sm,
     fontFamily: typefaces.bodyStrong,
   },
-  // Section headings
-  sectionHeader: {
+  // Section switcher
+  sectionSwitcherShell: {
+    marginBottom: spacing.md,
+  },
+  sectionSwitcher: {
+    position: "relative",
+    flexDirection: "row",
+    borderRadius: radii.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255,255,255,0.82)",
+    backgroundColor: "rgba(255,255,255,0.56)",
+    padding: 4,
+    overflow: "hidden",
+    shadowColor: palette.shadow,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 2,
+  },
+  sectionSwitcherThumb: {
+    position: "absolute",
+    top: 4,
+    bottom: 4,
+    left: 4,
+    borderRadius: radii.pill,
+    backgroundColor: "rgba(255,255,255,0.92)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderGlass,
+    shadowColor: palette.shadow,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  sectionSwitcherItem: {
+    flex: 1,
+    minHeight: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radii.pill,
     paddingHorizontal: spacing.xs,
-    marginBottom: spacing.sm,
+  },
+  sectionSwitcherText: {
+    color: palette.textSecondary,
+    fontSize: typography.size.sm,
+    fontFamily: typefaces.bodyStrong,
+  },
+  sectionSwitcherTextActive: {
+    color: palette.primary,
   },
 
   // Details card
