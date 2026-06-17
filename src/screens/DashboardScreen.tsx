@@ -1,15 +1,20 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useEffect, useMemo, useRef } from "react";
-import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+    Animated,
+    Modal,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
+    useWindowDimensions,
+} from "react-native";
 
 import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
-import {
-    GlassCard,
-    ListRow,
-    StatCard,
-} from "@/src/components/ui/Finance";
+import { GlassCard, ListRow } from "@/src/components/ui/Finance";
 import {
     EmptyState,
     IconButton,
@@ -25,6 +30,7 @@ import {
     typefaces,
     typography,
 } from "@/src/constants/design";
+import { CURRENCIES } from "@/src/constants/currencies";
 import { estimateMoneyMap } from "@/src/services/currency";
 import {
     calculatePersonalTotals,
@@ -34,6 +40,7 @@ import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
 import type {
     AppSettings,
+    CurrencyCode,
     CurrencyRate,
     LedgerEntry,
     Member,
@@ -57,6 +64,7 @@ const QUICK_ACTIONS: QuickAction[] = [
 export function DashboardScreen() {
   const data = useAppData();
   const auth = useAuth();
+  const { width } = useWindowDimensions();
 
   const displayName = auth.identity.displayName?.trim() || "there";
   const firstName = displayName.split(" ")[0] || displayName;
@@ -159,17 +167,66 @@ export function DashboardScreen() {
       : netEstimatedInBase < 0
         ? palette.danger
         : palette.textSecondary;
-  const heroEntrance = useRef(new Animated.Value(0)).current;
+  const iOweEstimated = estimateMoneyMap(
+    totals.iOwe,
+    data.settings,
+    data.currencyRates,
+  );
+  const owedToMeEstimated = estimateMoneyMap(
+    totals.owedToMe,
+    data.settings,
+    data.currencyRates,
+  );
+  const exposureTotal = iOweEstimated + owedToMeEstimated;
+  const owedToMeRatio =
+    exposureTotal > 0 ? owedToMeEstimated / exposureTotal : 0.5;
+  const summaryMetrics = [
+    {
+      label: "You owe",
+      value: formatMoney(iOweEstimated, data.settings.baseCurrency),
+      caption:
+        dueSoonIOwe > 0
+          ? `Due soon ${formatMoney(dueSoonIOwe, data.settings.baseCurrency)}`
+          : "Nothing urgent",
+      icon: "arrow-up-outline" as const,
+      tone: palette.danger,
+      softTone: palette.dangerSoft,
+    },
+    {
+      label: "Owed to you",
+      value: formatMoney(owedToMeEstimated, data.settings.baseCurrency),
+      caption:
+        dueSoonOwedToMe > 0
+          ? `Due soon ${formatMoney(dueSoonOwedToMe, data.settings.baseCurrency)}`
+          : activeSharedGroups.length
+            ? `${activeSharedGroups.length} active groups`
+            : "Nothing pending",
+      icon: "arrow-down-outline" as const,
+      tone: palette.primary,
+      softTone: "rgba(55,48,163,0.1)",
+    },
+  ];
+  const compactSummary = width < 390;
+  const [heroEntrance] = useState(() => new Animated.Value(0));
+  const [heroDetailsEntrance] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
-    Animated.spring(heroEntrance, {
-      toValue: 1,
-      damping: 18,
-      stiffness: 130,
-      mass: 0.7,
-      useNativeDriver: true,
-    }).start();
-  }, [heroEntrance]);
+    Animated.parallel([
+      Animated.spring(heroEntrance, {
+        toValue: 1,
+        damping: 18,
+        stiffness: 130,
+        mass: 0.7,
+        useNativeDriver: true,
+      }),
+      Animated.timing(heroDetailsEntrance, {
+        toValue: 1,
+        duration: 520,
+        delay: 120,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [heroDetailsEntrance, heroEntrance]);
 
   const heroAnimatedStyle = {
     opacity: heroEntrance,
@@ -184,6 +241,17 @@ export function DashboardScreen() {
         scale: heroEntrance.interpolate({
           inputRange: [0, 1],
           outputRange: [0.985, 1],
+        }),
+      },
+    ],
+  };
+  const summaryDetailsAnimatedStyle = {
+    opacity: heroDetailsEntrance,
+    transform: [
+      {
+        translateY: heroDetailsEntrance.interpolate({
+          inputRange: [0, 1],
+          outputRange: [10, 0],
         }),
       },
     ],
@@ -218,82 +286,96 @@ export function DashboardScreen() {
             pointerEvents="none"
             colors={
               [
-                "rgba(221,214,254,0.55)",
-                "rgba(253,186,155,0.18)",
-                "rgba(255,255,255,0)",
+                "rgba(255,255,255,0.96)",
+                "rgba(246,243,255,0.9)",
+                "rgba(253,186,155,0.16)",
               ] as const
             }
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.heroGlow}
           />
-          <View pointerEvents="none" style={styles.heroOrbPrimary} />
-          <View pointerEvents="none" style={styles.heroOrbPeach} />
+          <LinearGradient
+            pointerEvents="none"
+            colors={
+              [
+                "rgba(55,48,163,0.16)",
+                "rgba(253,186,155,0.18)",
+                "rgba(47,191,143,0.1)",
+              ] as const
+            }
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.heroAccent}
+          />
 
-          <View style={styles.heroTopRow}>
-            <View style={styles.brandPill}>
-              <Ionicons name="sparkles" size={13} color={palette.primary} />
-              <Text style={styles.brandPillText}>Debtulator</Text>
-            </View>
-            <View style={[styles.netStatusPill, { borderColor: netStatusTone }]}>
-              <Ionicons name={netSummaryIcon} size={13} color={netStatusTone} />
-              <Text style={[styles.netStatusText, { color: netStatusTone }]}>
-                {netSummaryLabel}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.heroMainRow}>
+          <View
+            style={[
+              styles.heroMainRow,
+              compactSummary && styles.heroMainRowCompact,
+            ]}
+          >
             <View style={styles.netSpotlight}>
-              <Text style={styles.netSpotlightLabel}>Net position</Text>
+              <View style={styles.netLabelRow}>
+                <Text style={styles.netSpotlightLabel}>Net position</Text>
+                <View
+                  style={[styles.netStatusPill, { borderColor: netStatusTone }]}
+                >
+                  <Ionicons
+                    name={netSummaryIcon}
+                    size={13}
+                    color={netStatusTone}
+                  />
+                  <Text style={[styles.netStatusText, { color: netStatusTone }]}>
+                    {netSummaryLabel}
+                  </Text>
+                </View>
+              </View>
               <Text style={styles.netSpotlightValue} numberOfLines={1}>
                 {signedMoneyLabel(totals.net, data.settings, data.currencyRates)}
               </Text>
-              <Text style={styles.netSpotlightHint}>
-                Clean snapshot across debts, payments, and shared groups.
-              </Text>
             </View>
-
-            <View style={styles.heroIconBadge}>
-              <Ionicons name="wallet-outline" size={24} color={palette.primary} />
-            </View>
-          </View>
-
-          <View style={styles.snapshotRow}>
-            <StatCard
-              label="You owe"
-              value={moneyLabel(totals.iOwe, data.settings, data.currencyRates)}
-              subtitle={
-                dueSoonIOwe > 0
-                  ? `Due soon ${formatMoney(dueSoonIOwe, data.settings.baseCurrency)}`
-                  : "Nothing urgent"
-              }
-              tone="coral"
-              compact
-              compactDensity="tight"
-              showCompactSubtitle
-              withDivider
-            />
-            <StatCard
-              label="Owed to you"
-              value={moneyLabel(
-                totals.owedToMe,
-                data.settings,
-                data.currencyRates,
-              )}
-              subtitle={
-                dueSoonOwedToMe > 0
-                  ? `Due soon ${formatMoney(dueSoonOwedToMe, data.settings.baseCurrency)}`
-                  : activeSharedGroups.length
-                    ? `${activeSharedGroups.length} active groups`
-                    : "Nothing pending"
-              }
-              tone="indigo"
-              compact
-              compactDensity="tight"
-              showCompactSubtitle
+            <CompactCurrencySelector
+              value={data.settings.baseCurrency}
+              onChange={(baseCurrency) => {
+                void data.updateSettings({ baseCurrency });
+              }}
             />
           </View>
+
+          <Animated.View
+            style={[styles.summaryPanel, summaryDetailsAnimatedStyle]}
+          >
+            <View style={styles.balanceTrack}>
+              <View style={styles.balanceTrackBase}>
+                <View
+                  style={[
+                    styles.balanceTrackFill,
+                    { width: `${Math.round(owedToMeRatio * 100)}%` },
+                  ]}
+                />
+              </View>
+              <View style={styles.balanceTrackLabels}>
+                <Text style={styles.balanceTrackLabel}>Out</Text>
+                <Text style={styles.balanceTrackLabel}>In</Text>
+              </View>
+            </View>
+
+            <View
+              style={[
+                styles.summaryMetrics,
+                compactSummary && styles.summaryMetricsCompact,
+              ]}
+            >
+              {summaryMetrics.map((metric, index) => (
+                <SummaryMetric
+                  key={metric.label}
+                  {...metric}
+                  emphasized={index === 1}
+                />
+              ))}
+            </View>
+          </Animated.View>
         </GlassCard>
       </Animated.View>
 
@@ -478,17 +560,6 @@ function activityTone(entry: LedgerEntry) {
   return "indigo" as const;
 }
 
-function moneyLabel(
-  map: Record<string, number>,
-  settings: AppSettings,
-  currencyRates: CurrencyRate[],
-) {
-  return formatMoney(
-    estimateMoneyMap(map, settings, currencyRates),
-    settings.baseCurrency,
-  );
-}
-
 function signedMoneyLabel(
   map: Record<string, number>,
   settings: AppSettings,
@@ -498,6 +569,139 @@ function signedMoneyLabel(
     estimateMoneyMap(map, settings, currencyRates),
     settings.baseCurrency,
     { signed: true },
+  );
+}
+
+function SummaryMetric({
+  label,
+  value,
+  caption,
+  icon,
+  tone,
+  softTone,
+  emphasized = false,
+}: {
+  label: string;
+  value: string;
+  caption: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  tone: string;
+  softTone: string;
+  emphasized?: boolean;
+}) {
+  return (
+    <View
+      style={[styles.summaryMetric, emphasized && styles.summaryMetricEmphasis]}
+    >
+      <View style={[styles.summaryMetricIcon, { backgroundColor: softTone }]}>
+        <Ionicons name={icon} size={15} color={tone} />
+      </View>
+      <View style={styles.summaryMetricCopy}>
+        <Text style={styles.summaryMetricLabel}>{label}</Text>
+        <Text
+          style={[styles.summaryMetricValue, { color: tone }]}
+          numberOfLines={1}
+        >
+          {value}
+        </Text>
+        <Text style={styles.summaryMetricCaption} numberOfLines={1}>
+          {caption}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function CompactCurrencySelector({
+  value,
+  onChange,
+}: {
+  value: CurrencyCode;
+  onChange: (currency: CurrencyCode) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Summary currency, ${value}`}
+        accessibilityHint="Opens currency selector for estimated summary values"
+        onPress={() => setOpen(true)}
+        style={({ pressed }) => [
+          styles.currencyPill,
+          pressed && styles.quickActionTilePressed,
+        ]}
+      >
+        <Ionicons name="cash-outline" size={15} color={palette.primary} />
+        <Text style={styles.currencyPillText}>{value}</Text>
+        <Ionicons name="chevron-down" size={14} color={palette.primary} />
+      </Pressable>
+
+      <Modal
+        visible={open}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOpen(false)}
+      >
+        <View style={styles.currencyOverlay}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close currency selector"
+            style={styles.currencyBackdrop}
+            onPress={() => setOpen(false)}
+          />
+          <GlassCard tone="lavender" style={styles.currencyMenu}>
+            <Text style={styles.currencyMenuTitle}>Summary currency</Text>
+            <Text style={styles.currencyMenuBody}>
+              Estimated totals use the local exchange-rate table.
+            </Text>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.currencyOptionList}
+            >
+              {CURRENCIES.map((currency) => {
+                const active = currency === value;
+
+                return (
+                  <Pressable
+                    key={currency}
+                    accessibilityRole="button"
+                    accessibilityLabel={currency}
+                    accessibilityState={{ selected: active }}
+                    onPress={() => {
+                      onChange(currency);
+                      setOpen(false);
+                    }}
+                    style={({ pressed }) => [
+                      styles.currencyOption,
+                      active && styles.currencyOptionActive,
+                      pressed && styles.quickActionTilePressed,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.currencyOptionText,
+                        active && styles.currencyOptionTextActive,
+                      ]}
+                    >
+                      {currency}
+                    </Text>
+                    {active ? (
+                      <Ionicons
+                        name="checkmark"
+                        size={18}
+                        color={palette.primary}
+                      />
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </GlassCard>
+        </View>
+      </Modal>
+    </>
   );
 }
 
@@ -525,58 +729,22 @@ const styles = StyleSheet.create({
     fontFamily: typefaces.body,
   },
   heroCard: {
-    gap: spacing.md,
-    paddingTop: 15,
-    paddingBottom: 12,
+    gap: spacing.xl,
+    paddingTop: 18,
+    paddingBottom: 16,
     backgroundColor: "rgba(255,255,255,0.82)",
     overflow: "hidden",
   },
   heroGlow: {
-    ...StyleSheet.absoluteFillObject,
-    opacity: 0.9,
+    ...StyleSheet.absoluteFill,
+    opacity: 1,
   },
-  heroOrbPrimary: {
+  heroAccent: {
     position: "absolute",
-    top: -34,
-    right: -28,
-    width: 116,
-    height: 116,
-    borderRadius: 58,
-    backgroundColor: "rgba(221,214,254,0.34)",
-  },
-  heroOrbPeach: {
-    position: "absolute",
-    bottom: -42,
-    left: -30,
-    width: 104,
-    height: 104,
-    borderRadius: 52,
-    backgroundColor: "rgba(253,186,155,0.18)",
-  },
-  heroTopRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  brandPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-start",
-    gap: 6,
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderIndigo,
-    backgroundColor: "rgba(255,255,255,0.72)",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  brandPillText: {
-    color: palette.primaryDeep,
-    fontSize: typography.size.xs,
-    lineHeight: typography.line.xs,
-    fontFamily: typefaces.bodyStrong,
-    letterSpacing: 0.2,
+    left: 0,
+    right: 0,
+    top: 0,
+    height: 4,
   },
   netStatusPill: {
     flexDirection: "row",
@@ -584,26 +752,56 @@ const styles = StyleSheet.create({
     gap: 5,
     borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
-    backgroundColor: "rgba(255,255,255,0.64)",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    backgroundColor: "rgba(255,255,255,0.72)",
+    paddingHorizontal: 9,
+    paddingVertical: 5,
   },
   netStatusText: {
     fontSize: typography.size.xs,
     lineHeight: typography.line.xs,
     fontFamily: typefaces.bodyStrong,
   },
-  heroMainRow: {
+  currencyPill: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 5,
+    alignSelf: "flex-start",
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderIndigo,
+    backgroundColor: "rgba(255,255,255,0.86)",
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+    ...shadows.soft,
+  },
+  currencyPillText: {
+    color: palette.primaryDeep,
+    fontSize: typography.size.xs,
+    lineHeight: typography.line.xs,
+    fontFamily: typefaces.bodyHeavy,
+  },
+  heroMainRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
     justifyContent: "space-between",
+    gap: spacing.xl,
+  },
+  heroMainRowCompact: {
+    flexDirection: "column",
+    alignItems: "stretch",
     gap: spacing.md,
   },
   netSpotlight: {
     flex: 1,
     alignItems: "flex-start",
     justifyContent: "center",
-    gap: 4,
+    gap: 5,
+  },
+  netLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: spacing.sm,
   },
   netSpotlightLabel: {
     color: palette.textSecondary,
@@ -618,34 +816,155 @@ const styles = StyleSheet.create({
     lineHeight: typography.line.displayXl,
     fontFamily: typefaces.display,
     textAlign: "left",
-    letterSpacing: -0.5,
+    letterSpacing: 0,
   },
-  netSpotlightHint: {
-    maxWidth: 260,
-    color: palette.textSecondary,
-    fontSize: typography.size.xs,
-    lineHeight: typography.line.sm,
-    fontFamily: typefaces.body,
+  summaryPanel: {
+    gap: spacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: palette.borderIndigoSoft,
+    paddingTop: spacing.lg,
   },
-  heroIconBadge: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+  balanceTrack: {
+    gap: spacing.sm,
+    borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderIndigoSoft,
+    backgroundColor: "rgba(255,255,255,0.48)",
+    padding: spacing.sm,
+  },
+  balanceTrackBase: {
+    height: 7,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,107,107,0.14)",
+    overflow: "hidden",
+  },
+  balanceTrackFill: {
+    alignSelf: "flex-end",
+    height: "100%",
+    borderRadius: 999,
+    backgroundColor: "rgba(55,48,163,0.72)",
+  },
+  balanceTrackLabels: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  balanceTrackLabel: {
+    color: palette.textTertiary,
+    fontSize: typography.size.xxs,
+    lineHeight: typography.line.xxs,
+    fontFamily: typefaces.bodyStrong,
+  },
+  summaryMetrics: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    gap: spacing.sm,
+  },
+  summaryMetricsCompact: {
+    flexDirection: "column",
+    gap: spacing.sm,
+  },
+  summaryMetric: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderGlass,
+    backgroundColor: "rgba(255,255,255,0.62)",
+    padding: spacing.md,
+  },
+  summaryMetricEmphasis: {
     borderColor: palette.borderIndigo,
-    backgroundColor: "rgba(255,255,255,0.74)",
+    backgroundColor: "rgba(246,243,255,0.72)",
+  },
+  summaryMetricIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255,255,255,0.78)",
     alignItems: "center",
     justifyContent: "center",
   },
-  snapshotRow: {
-    flexDirection: "row",
-    alignItems: "stretch",
-    gap: 0,
-    borderRadius: 18,
+  summaryMetricCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  summaryMetricLabel: {
+    color: palette.textSecondary,
+    fontSize: typography.size.xs,
+    lineHeight: typography.line.xs,
+    fontFamily: typefaces.bodyStrong,
+  },
+  summaryMetricValue: {
+    fontSize: typography.size.xl,
+    lineHeight: typography.line.xl,
+    fontFamily: typefaces.numeric,
+  },
+  summaryMetricCaption: {
+    color: palette.textTertiary,
+    fontSize: typography.size.xs,
+    lineHeight: typography.line.xs,
+    fontFamily: typefaces.body,
+  },
+  currencyOverlay: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: spacing.screen,
+  },
+  currencyBackdrop: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: "rgba(17,24,39,0.18)",
+  },
+  currencyMenu: {
+    width: "100%",
+    maxWidth: 320,
+    gap: spacing.sm,
+  },
+  currencyMenuTitle: {
+    color: palette.textPrimary,
+    fontSize: typography.size.xl,
+    lineHeight: typography.line.xl,
+    fontFamily: typefaces.displayMedium,
+  },
+  currencyMenuBody: {
+    color: palette.textSecondary,
+    fontSize: typography.size.sm,
+    lineHeight: typography.line.base,
+    fontFamily: typefaces.body,
+  },
+  currencyOptionList: {
+    gap: spacing.sm,
+    paddingTop: spacing.xs,
+  },
+  currencyOption: {
+    minHeight: 46,
+    borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderIndigoSoft,
-    backgroundColor: "rgba(255,255,255,0.5)",
-    overflow: "hidden",
+    borderColor: palette.borderGlass,
+    backgroundColor: "rgba(255,255,255,0.64)",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.md,
+  },
+  currencyOptionActive: {
+    borderColor: palette.borderIndigo,
+    backgroundColor: "rgba(221,214,254,0.24)",
+  },
+  currencyOptionText: {
+    color: palette.textPrimary,
+    fontSize: typography.size.base,
+    lineHeight: typography.line.basePlus,
+    fontFamily: typefaces.bodyStrong,
+  },
+  currencyOptionTextActive: {
+    color: palette.primary,
+    fontFamily: typefaces.bodyHeavy,
   },
   actionGrid: {
     flexDirection: "row",
