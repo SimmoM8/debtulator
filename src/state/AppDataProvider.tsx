@@ -310,7 +310,6 @@ type AppDataContextValue = DatabaseSnapshot & {
   retryBoot: () => void;
   resetLocalData: () => Promise<void>;
   resetSyncedData: () => Promise<void>;
-  clearLocalDataOnly: () => Promise<void>;
   syncedDataResetVersion: number;
   upsertProfile: (profile: UserProfile) => Promise<UserProfile>;
   upsertLinkRequest: (linkRequest: LinkRequest) => Promise<LinkRequest>;
@@ -695,9 +694,6 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       resetSyncedData: async () => {
         await runAndRefresh((repo) => repo.resetSyncedData());
         setSyncedDataResetVersion((version) => version + 1);
-      },
-      clearLocalDataOnly: async () => {
-        await runAndRefresh((repo) => repo.resetSyncedData());
       },
       syncedDataResetVersion,
       upsertProfile: (profile) => runAndRefresh((repo) => repo.upsertProfile(profile)),

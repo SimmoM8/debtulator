@@ -9,19 +9,6 @@ const confirmed = args.has('--yes');
 const useLocal = args.has('--local');
 const databaseUrl = process.env.SUPABASE_DB_URL || process.env.DATABASE_URL;
 
-const publicTables = [
-  'account_deletion_requests', 'audit_logs', 'device_push_tokens',
-  'notification_preferences', 'notifications', 'sync_conflicts',
-  'csv_import_batches', 'export_logs', 'smart_suggestions', 'comments',
-  'attachments', 'overpayment_credits', 'soft_reminders', 'reminders',
-  'recurring_templates', 'settlement_lines', 'settlements', 'payments',
-  'group_activity_logs', 'group_verification_responses', 'group_debts',
-  'expense_payers', 'group_expense_splits', 'group_expenses',
-  'group_duplicate_warnings', 'group_member_claims', 'group_members',
-  'group_invites', 'group_participants', 'groups', 'debt_verifications',
-  'shared_debt_records', 'link_requests', 'activity_logs', 'profiles',
-];
-
 async function main() {
   if (!confirmed) {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -30,10 +17,22 @@ async function main() {
     if (answer !== 'reset') process.exit(1);
   }
 
-  const qualified = publicTables.map((table) => `public.${table}`).join(',\n  ');
   const sql = [
     'BEGIN;',
-    `TRUNCATE TABLE\n  ${qualified}\nRESTART IDENTITY CASCADE;`,
+    `DO $reset$
+DECLARE
+  table_list text;
+BEGIN
+  SELECT string_agg(format('%I.%I', schemaname, tablename), ', ' ORDER BY tablename)
+  INTO table_list
+  FROM pg_tables
+  WHERE schemaname = 'public';
+
+  IF table_list IS NOT NULL THEN
+    EXECUTE 'TRUNCATE TABLE ' || table_list || ' RESTART IDENTITY CASCADE';
+  END IF;
+END
+$reset$;`,
     deleteUsers ? 'TRUNCATE TABLE auth.users RESTART IDENTITY CASCADE;' : '-- auth.users preserved',
     'COMMIT;',
   ].join('\n');
