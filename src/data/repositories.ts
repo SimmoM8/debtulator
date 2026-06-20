@@ -2203,7 +2203,9 @@ export class DebtulatorRepository {
       ...input.member,
       linkStatus: 'invite_pending',
       linkRequestId: linkRequest.id,
-      syncStatus: linkRequest.syncStatus,
+      // The request is remote, but the member remains a local-only record until
+      // the target user accepts and the link is established.
+      syncStatus: input.member.syncStatus,
       updatedAt: timestamp,
     });
     await this.logActivity('link_request', linkRequest.id, 'member_link_request_sent', input.requesterUserId, {

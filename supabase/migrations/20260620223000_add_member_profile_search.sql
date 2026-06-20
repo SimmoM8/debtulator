@@ -88,6 +88,8 @@ select
 from auth.users auth_user
 on conflict (id) do nothing;
 
+drop function if exists public.search_member_profiles(text, integer);
+
 create or replace function public.search_member_profiles(
   search_query text,
   result_limit integer default 8
@@ -98,7 +100,6 @@ returns table (
   last_name text,
   display_name text,
   email text,
-  phone text,
   avatar_url text,
   base_currency text
 )
@@ -116,7 +117,6 @@ as $$
     profile.last_name,
     profile.display_name,
     profile.email,
-    profile.phone,
     profile.avatar_url,
     profile.base_currency
   from public.profiles profile
