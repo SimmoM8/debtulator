@@ -9,6 +9,20 @@ This folder has a simplified prelaunch setup:
 | `schema.sql` | Destructive reset file that creates the latest cloud schema from scratch. |
 | `README.md` | Setup notes for the development backend. |
 
+## Supabase CLI
+
+The repository includes local Supabase CLI configuration. With Docker running:
+
+```bash
+npm run supabase:start
+npm run supabase:status
+```
+
+Stop the local services with `npm run supabase:stop`. The existing migration
+files are incremental changes for an already initialized backend; continue to
+use `schema.sql` for a fresh backend until it is replaced by a baseline
+migration.
+
 ## Important
 
 `schema.sql` is destructive.
