@@ -78,9 +78,12 @@ $$;
 
 create table public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
+  first_name text,
+  last_name text,
   display_name text not null,
   email text,
   phone text,
+  country text,
   avatar_url text,
   base_currency text not null default 'SEK' check (base_currency in ('SEK', 'AUD', 'EUR', 'USD', 'GBP')),
   created_at timestamptz not null default now(),

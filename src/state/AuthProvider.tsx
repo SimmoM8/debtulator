@@ -32,11 +32,19 @@ type AuthContextValue = {
   session: Session | null;
   user: User | null;
   identity: Identity;
-  signUp: (input: { email: string; password: string; displayName: string }) => Promise<void>;
+  signUp: (input: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    password: string;
+    phone?: string | null;
+    country?: string | null;
+    baseCurrency?: CurrencyCode;
+  }) => Promise<void>;
   signIn: (input: { email: string; password: string }) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
-  updateProfile: (input: Partial<Pick<UserProfile, 'displayName' | 'phone' | 'baseCurrency'>>) => Promise<void>;
+  updateProfile: (input: Partial<Pick<UserProfile, 'firstName' | 'lastName' | 'displayName' | 'phone' | 'country' | 'baseCurrency'>>) => Promise<void>;
   refreshProfile: () => Promise<void>;
 };
 
@@ -53,18 +61,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const upsertLocalAndRemoteProfile = useCallback(
     async (input: {
       userId: string;
+      firstName?: string | null;
+      lastName?: string | null;
       displayName: string;
       email?: string | null;
       phone?: string | null;
+      country?: string | null;
       baseCurrency?: CurrencyCode;
     }) => {
       const timestamp = nowIso();
       const existing = data.profiles.find((profile) => profile.id === input.userId);
       const profile: UserProfile = {
         id: input.userId,
+        firstName: input.firstName === undefined ? existing?.firstName ?? null : input.firstName,
+        lastName: input.lastName === undefined ? existing?.lastName ?? null : input.lastName,
         displayName: input.displayName.trim() || input.email || 'Debtulator user',
         email: input.email ?? existing?.email ?? null,
         phone: input.phone === undefined ? existing?.phone ?? null : input.phone,
+        country: input.country === undefined ? existing?.country ?? null : input.country,
         avatarUrl: existing?.avatarUrl ?? null,
         baseCurrency: input.baseCurrency ?? existing?.baseCurrency ?? data.settings.baseCurrency,
         createdAt: existing?.createdAt ?? timestamp,
@@ -77,9 +91,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (supabase) {
         const { error } = await supabase.from('profiles').upsert({
           id: profile.id,
+          first_name: profile.firstName,
+          last_name: profile.lastName,
           display_name: profile.displayName,
           email: profile.email,
           phone: profile.phone,
+          country: profile.country,
           base_currency: profile.baseCurrency,
           updated_at: profile.updatedAt,
         });
@@ -98,7 +115,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const { data: remoteProfile, error } = await supabase
       .from('profiles')
-      .select('id, display_name, email, phone, avatar_url, base_currency, created_at, updated_at')
+      .select('id, first_name, last_name, display_name, email, phone, country, avatar_url, base_currency, created_at, updated_at')
       .eq('id', user.id)
       .maybeSingle();
 
@@ -109,9 +126,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (remoteProfile) {
       await data.upsertProfile({
         id: remoteProfile.id,
+        firstName: remoteProfile.first_name,
+        lastName: remoteProfile.last_name,
         displayName: remoteProfile.display_name,
         email: remoteProfile.email,
         phone: remoteProfile.phone,
+        country: remoteProfile.country,
         avatarUrl: remoteProfile.avatar_url,
         baseCurrency: remoteProfile.base_currency,
         createdAt: remoteProfile.created_at,
@@ -120,8 +140,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } else {
       await upsertLocalAndRemoteProfile({
         userId: user.id,
+        firstName: user.user_metadata?.first_name ?? null,
+        lastName: user.user_metadata?.last_name ?? null,
         displayName: user.user_metadata?.display_name ?? user.email ?? 'Debtulator user',
         email: user.email ?? null,
+        phone: user.user_metadata?.phone ?? null,
+        country: user.user_metadata?.country ?? null,
         baseCurrency: data.settings.baseCurrency,
       });
     }
@@ -321,7 +345,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!supabase) {
-      setLoading(false);
       return;
     }
 
@@ -390,7 +413,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [data.ready, data.syncQueue, user?.id]);
 
   const signUp = useCallback(
-    async ({ email, password, displayName }: { email: string; password: string; displayName: string }) => {
+    async ({
+      firstName,
+      lastName,
+      email,
+      password,
+      phone,
+      country,
+      baseCurrency,
+    }: {
+      firstName: string;
+      lastName: string;
+      email: string;
+      password: string;
+      phone?: string | null;
+      country?: string | null;
+      baseCurrency?: CurrencyCode;
+    }) => {
       if (!supabase) {
         throw new Error('Supabase is not configured. Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY.');
       }
@@ -398,10 +437,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       addTelemetryBreadcrumb('auth', 'sign_up_started', { method: 'password' });
       trackTelemetryEvent('onboarding_sign_up_started', { method: 'password' });
       try {
+        const trimmedFirstName = firstName.trim();
+        const trimmedLastName = lastName.trim();
+        const displayName = [trimmedFirstName, trimmedLastName].filter(Boolean).join(' ');
+        const selectedCurrency = baseCurrency ?? data.settings.baseCurrency;
         const { data: authData, error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
-          options: { data: { display_name: displayName.trim() } },
+          options: {
+            data: {
+              first_name: trimmedFirstName,
+              last_name: trimmedLastName,
+              display_name: displayName,
+              phone: phone?.trim() || null,
+              country: country ?? null,
+              base_currency: selectedCurrency,
+            },
+          },
         });
         if (error) {
           throw error;
@@ -412,19 +464,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (authData.session) {
             await upsertLocalAndRemoteProfile({
               userId: signedUpUser.id,
+              firstName: trimmedFirstName,
+              lastName: trimmedLastName,
               displayName,
               email: signedUpUser.email ?? email,
-              baseCurrency: data.settings.baseCurrency,
+              phone: phone?.trim() || null,
+              country: country ?? null,
+              baseCurrency: selectedCurrency,
             });
           } else {
             const timestamp = nowIso();
             await data.upsertProfile({
               id: signedUpUser.id,
-              displayName: displayName.trim(),
+              firstName: trimmedFirstName,
+              lastName: trimmedLastName,
+              displayName,
               email: signedUpUser.email ?? email,
-              phone: null,
+              phone: phone?.trim() || null,
+              country: country ?? null,
               avatarUrl: null,
-              baseCurrency: data.settings.baseCurrency,
+              baseCurrency: selectedCurrency,
               createdAt: timestamp,
               updatedAt: timestamp,
             });
@@ -510,16 +569,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const updateProfile = useCallback(
-    async (input: Partial<Pick<UserProfile, 'displayName' | 'phone' | 'baseCurrency'>>) => {
+    async (input: Partial<Pick<UserProfile, 'firstName' | 'lastName' | 'displayName' | 'phone' | 'country' | 'baseCurrency'>>) => {
       if (!user) {
         throw new Error('Sign in before editing account profile.');
       }
 
       await upsertLocalAndRemoteProfile({
         userId: user.id,
+        firstName: input.firstName === undefined ? localProfile?.firstName ?? null : input.firstName,
+        lastName: input.lastName === undefined ? localProfile?.lastName ?? null : input.lastName,
         displayName: input.displayName ?? localProfile?.displayName ?? user.email ?? 'Debtulator user',
         email: user.email ?? localProfile?.email ?? null,
         phone: input.phone === undefined ? localProfile?.phone ?? null : input.phone,
+        country: input.country === undefined ? localProfile?.country ?? null : input.country,
         baseCurrency: input.baseCurrency ?? localProfile?.baseCurrency ?? data.settings.baseCurrency,
       });
     },
@@ -531,12 +593,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localUserId: 'me',
       authenticatedUserId: user?.id ?? null,
       displayName:
-        localProfile?.displayName ?? user?.user_metadata?.display_name ?? user?.email ?? 'Local-only user',
+        localProfile?.displayName ?? user?.user_metadata?.display_name ?? user?.email ?? data.settings.localDisplayName ?? 'Local-only user',
       email: localProfile?.email ?? user?.email ?? null,
       baseCurrency: localProfile?.baseCurrency ?? data.settings.baseCurrency ?? DEFAULT_BASE_CURRENCY,
       profile: localProfile,
     }),
-    [data.settings.baseCurrency, localProfile, user],
+    [data.settings.baseCurrency, data.settings.localDisplayName, localProfile, user],
   );
 
   const value = useMemo<AuthContextValue>(

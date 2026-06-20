@@ -35,11 +35,21 @@ require.extensions['.ts'] = function compileTypeScript(module, filename) {
   module._compile(output, filename);
 };
 
-const { resetDatabase, seedIfEmpty } = require('../src/data/database.ts');
+const {
+  getSettings,
+  mapProfileRow,
+  migrate,
+  resetDatabase,
+  seedDefaults,
+  seedIfEmpty,
+} = require('../src/data/database.ts');
 
 class FakeDatabase {
   constructor() {
     this.settings = new Map();
+    this.columns = {
+      user_profiles: new Set(['id', 'display_name', 'email', 'phone', 'avatar_url', 'base_currency', 'created_at', 'updated_at']),
+    };
     this.domainRows = {
       members: 0,
       debts: 0,
@@ -49,6 +59,15 @@ class FakeDatabase {
   }
 
   async execAsync(sql) {
+    const alterMatch = sql.match(/ALTER TABLE (\w+) ADD COLUMN (\w+)/);
+    if (alterMatch) {
+      const [, tableName, columnName] = alterMatch;
+      if (!this.columns[tableName]) {
+        this.columns[tableName] = new Set();
+      }
+      this.columns[tableName].add(columnName);
+    }
+
     if (sql.includes('DELETE FROM app_settings')) {
       this.settings.clear();
     }
@@ -98,6 +117,19 @@ class FakeDatabase {
 
     return null;
   }
+
+  async getAllAsync(sql) {
+    const pragmaMatch = sql.match(/PRAGMA table_info\((\w+)\)/);
+    if (pragmaMatch) {
+      return [...(this.columns[pragmaMatch[1]] ?? new Set())].map((name) => ({ name }));
+    }
+
+    if (sql.includes('SELECT * FROM app_settings')) {
+      return [...this.settings.entries()].map(([key, value]) => ({ key, value }));
+    }
+
+    return [];
+  }
 }
 
 test('no-demo reset persists demo seeding opt-out across later empty database opens', async () => {
@@ -125,4 +157,57 @@ test('empty first-run database still seeds demo data when demo seeding was not d
   assert.ok(db.domainRows.members > 0);
   assert.ok(db.domainRows.groups > 0);
   assert.ok(db.domainRows.debts > 0 || db.domainRows.shared_expenses > 0);
+});
+
+test('default settings include first-run startup preferences', async () => {
+  const db = new FakeDatabase();
+
+  await seedDefaults(db);
+  const settings = await getSettings(db);
+
+  assert.equal(settings.hasCompletedFirstRun, false);
+  assert.equal(settings.localDisplayName, null);
+  assert.equal(settings.baseCurrency, 'SEK');
+});
+
+test('existing local data auto-completes first-run default on upgrade', async () => {
+  const db = new FakeDatabase();
+  db.domainRows.members = 1;
+
+  await seedDefaults(db);
+  const settings = await getSettings(db);
+
+  assert.equal(settings.hasCompletedFirstRun, true);
+});
+
+test('profile row mapping preserves onboarding profile fields', () => {
+  const profile = mapProfileRow({
+    id: 'profile_1',
+    first_name: 'Ada',
+    last_name: 'Lovelace',
+    display_name: 'Ada Lovelace',
+    email: 'ada@example.com',
+    phone: '+15550123',
+    country: 'GB',
+    avatar_url: null,
+    base_currency: 'GBP',
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-02T00:00:00.000Z',
+  });
+
+  assert.equal(profile.firstName, 'Ada');
+  assert.equal(profile.lastName, 'Lovelace');
+  assert.equal(profile.country, 'GB');
+  assert.equal(profile.displayName, 'Ada Lovelace');
+  assert.equal(profile.baseCurrency, 'GBP');
+});
+
+test('migration adds onboarding profile columns to existing user profile tables', async () => {
+  const db = new FakeDatabase();
+
+  await migrate(db);
+
+  assert.equal(db.columns.user_profiles.has('first_name'), true);
+  assert.equal(db.columns.user_profiles.has('last_name'), true);
+  assert.equal(db.columns.user_profiles.has('country'), true);
 });

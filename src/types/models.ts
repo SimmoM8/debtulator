@@ -827,9 +827,12 @@ export type AccountDeletionState = {
 
 export type UserProfile = {
   id: string;
+  firstName: string | null;
+  lastName: string | null;
   displayName: string;
   email: string | null;
   phone: string | null;
+  country: string | null;
   avatarUrl: string | null;
   baseCurrency: CurrencyCode;
   createdAt: string;
@@ -890,6 +893,8 @@ export type CurrencyRate = {
 
 export type AppSettings = {
   baseCurrency: CurrencyCode;
+  hasCompletedFirstRun: boolean;
+  localDisplayName: string | null;
   showEstimatedBase: boolean;
   theme: 'system' | 'light' | 'dark';
   convertedSettlementOptIn: boolean;
