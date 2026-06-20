@@ -14,7 +14,11 @@
     "test": "node --test tests/*.test.cjs",
     "quality": "npm run typecheck && npm run lint && npm test",
     "release:preflight": "node ./scripts/release-preflight.js",
-    "release:preflight:config": "node ./scripts/release-preflight.js --config-only"
+    "release:preflight:config": "node ./scripts/release-preflight.js --config-only",
+    "supabase:start": "supabase start",
+    "supabase:stop": "supabase stop",
+    "supabase:status": "supabase status",
+    "supabase:reset": "supabase db reset"
   },
   "dependencies": {
     "@expo-google-fonts/manrope": "^0.4.2",
@@ -62,6 +66,7 @@
     "@types/react-native": "^0.72.8",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~56.0.4",
+    "supabase": "^2.107.0",
     "typescript": "~6.0.3"
   },
   "engines": {
