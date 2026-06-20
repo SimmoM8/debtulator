@@ -208,14 +208,14 @@ function StartupRouteGate({ children }: { children: React.ReactNode }) {
   const rootSegment = segments[0];
 
   useEffect(() => {
-    if (auth.loading || data.settings.hasCompletedFirstRun) {
+    if (auth.loading || auth.user || data.settings.hasCompletedFirstRun) {
       return;
     }
     if (rootSegment === "first-run" || rootSegment === "auth") {
       return;
     }
     router.replace("/first-run");
-  }, [auth.loading, data.settings.hasCompletedFirstRun, rootSegment]);
+  }, [auth.loading, auth.user, data.settings.hasCompletedFirstRun, rootSegment]);
 
   return children;
 }

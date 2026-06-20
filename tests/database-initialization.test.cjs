@@ -40,6 +40,7 @@ const {
   mapProfileRow,
   migrate,
   resetDatabase,
+  resetSyncedData,
   initializeDefaults,
 } = require('../src/data/database.ts');
 
@@ -156,6 +157,22 @@ test('database reset stays empty across later database opens', async () => {
     settlement_lines: 0,
     sync_queue: 0,
   });
+});
+
+test('synced-data reset preserves onboarding and device preferences', async () => {
+  const db = new FakeDatabase();
+  await initializeDefaults(db);
+  db.settings.set('hasCompletedFirstRun', 'true');
+  db.settings.set('theme', 'dark');
+  db.domainRows.debts = 2;
+  db.domainRows.sync_queue = 1;
+
+  await resetSyncedData(db);
+
+  assert.equal(db.settings.get('hasCompletedFirstRun'), 'true');
+  assert.equal(db.settings.get('theme'), 'dark');
+  assert.equal(db.domainRows.debts, 0);
+  assert.equal(db.domainRows.sync_queue, 0);
 });
 
 test('empty first-run database creates settings but no domain or sync records', async () => {

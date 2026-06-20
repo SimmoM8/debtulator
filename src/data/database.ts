@@ -1610,7 +1610,8 @@ async function ensureColumn(
   }
 }
 
-export async function resetDatabase(db: SQLite.SQLiteDatabase) {
+/** Delete rebuildable domain and sync state, preserving onboarding and preferences. */
+export async function resetSyncedData(db: SQLite.SQLiteDatabase) {
   await db.execAsync(`
     DELETE FROM audit_logs;
     DELETE FROM notifications;
@@ -1647,12 +1648,17 @@ export async function resetDatabase(db: SQLite.SQLiteDatabase) {
     DELETE FROM groups;
     DELETE FROM members;
     DELETE FROM tags;
+  `);
+}
+
+/** Delete every local value. The auth session is cleared by the auth provider. */
+export async function resetDatabase(db: SQLite.SQLiteDatabase) {
+  await resetSyncedData(db);
+  await db.execAsync(`
     DELETE FROM currency_rates;
     DELETE FROM app_settings;
   `);
-
   await initializeDefaults(db);
-
 }
 
 export async function initializeDefaults(db: SQLite.SQLiteDatabase) {

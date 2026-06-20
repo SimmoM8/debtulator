@@ -37,6 +37,7 @@ import {
   insertNotification,
   loadSnapshot,
   resetDatabase,
+  resetSyncedData,
   updateCurrencyRate,
   updateSetting,
 } from '@/src/data/database';
@@ -376,6 +377,10 @@ export class DebtulatorRepository {
 
   async reset() {
     await resetDatabase(this.db);
+  }
+
+  async resetSyncedData() {
+    await resetSyncedData(this.db);
   }
 
   async restoreBackup(rawJson: string, mode: BackupMode): Promise<RestoreResult> {

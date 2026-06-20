@@ -5,6 +5,7 @@
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
+    "reset:test-data": "node ./scripts/reset-test-data.js",
     "preflight:beta": "node ./scripts/release-preflight.js --profile staging",
     "android": "expo run:android",
     "ios": "expo run:ios",
