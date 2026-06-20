@@ -44,6 +44,7 @@ type AuthContextValue = {
   }) => Promise<void>;
   signIn: (input: { email: string; password: string }) => Promise<void>;
   signOut: () => Promise<void>;
+  eraseLocalSession: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updateProfile: (input: Partial<Pick<UserProfile, 'firstName' | 'lastName' | 'displayName' | 'phone' | 'country' | 'baseCurrency'>>) => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -366,6 +367,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const syncStage2RecordsRef = useRef(syncStage2Records);
   const runRemoteDataSyncRef = useRef(runRemoteDataSync);
   const bootSyncedUserIdRef = useRef<string | null>(null);
+  const handledResetVersionRef = useRef(0);
 
   useEffect(() => {
     refreshProfileRef.current = refreshProfile;
@@ -427,6 +429,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       runRemoteDataSyncRef.current().catch(() => undefined);
     }
   }, [data.ready, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !data.ready || data.syncedDataResetVersion === 0 ||
+        handledResetVersionRef.current === data.syncedDataResetVersion) {
+      return;
+    }
+    handledResetVersionRef.current = data.syncedDataResetVersion;
+    refreshProfileRef.current()
+      .then(() => syncStage2RecordsRef.current())
+      .then(() => runRemoteDataSyncRef.current())
+      .catch(() => undefined);
+  }, [data.ready, data.syncedDataResetVersion, user?.id]);
 
   useEffect(() => {
     if (!supabase || !user?.id || !data.ready) {
@@ -619,6 +633,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setSession(null);
   }, []);
 
+  const eraseLocalSession = useCallback(async () => {
+    if (!supabase) {
+      setSession(null);
+      return;
+    }
+    const { error } = await supabase.auth.signOut({ scope: 'local' });
+    setSession(null);
+    if (error) {
+      throw error;
+    }
+  }, []);
+
   const resetPassword = useCallback(async (email: string) => {
     if (!supabase) {
       throw new Error('Supabase is not configured. Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY.');
@@ -703,12 +729,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signUp,
       signIn,
       signOut,
+      eraseLocalSession,
       resetPassword,
       updateProfile,
       refreshProfile,
       refreshSync,
     }),
-    [identity, loading, refreshProfile, refreshSync, resetPassword, session, signIn, signOut, signUp, updateProfile, user],
+    [eraseLocalSession, identity, loading, refreshProfile, refreshSync, resetPassword, session, signIn, signOut, signUp, updateProfile, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

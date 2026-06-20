@@ -42,6 +42,86 @@ Key local sync/support tables include:
 - `notifications`
 - `audit_logs`
 
+## Resetting Development Data
+
+### Clear only this phone or simulator and stay logged in
+
+In a development build, open:
+
+**Settings → Developer tools → Clear local data on this device**
+
+This deletes local SQLite domain and sync records while preserving the login
+session, completed onboarding, and preferences. It does not contact Supabase or
+start an immediate sync. Existing cloud records can return the next time the app
+starts or a sync is requested.
+
+### Normal reset: keep your login and onboarding
+
+Use this workflow for routine testing. It deletes the hosted application data
+and rebuildable local data, but keeps the test user, login session, completed
+onboarding, theme, and other device preferences.
+
+1. Link this repository to the development Supabase project once (skip this if
+   it is already linked):
+
+   ```bash
+   npx supabase login
+   npx supabase link --project-ref YOUR_PROJECT_REF
+   ```
+
+2. From the project directory, run:
+
+   ```bash
+   npm run reset:test-data -- --yes
+   ```
+
+3. In the installed development app, open:
+
+   **Settings → Developer tools → Reset synced app data**
+
+4. The app stays signed in, performs a clean sync, and opens the authenticated
+   app with the now-empty remote dataset. It does not recreate demo, debt,
+   group, invitation, payment, or transaction records.
+
+The developer-tool actions only appear in development builds. The command uses
+the Supabase CLI and the linked project; it does not need `psql` or a database
+password. Verify the linked project before running a destructive reset:
+
+```bash
+npx supabase projects list
+```
+
+To target the local Supabase stack instead, run:
+
+```bash
+npm run reset:test-data -- --local --yes
+```
+
+### Full local reset: sign out and erase this device
+
+Use this only when you intentionally want to remove the local identity and redo
+first-run setup:
+
+**Settings → Developer tools → Sign out and erase all local data**
+
+This signs out and deletes the local Supabase session, onboarding state,
+preferences, local database records, and sync state. It does not delete the
+hosted Auth user.
+
+### Delete hosted Auth users too
+
+Deleting Auth users is opt-in and is not part of the normal reset workflow:
+
+```bash
+npm run reset:test-data -- --delete-users --yes
+```
+
+This removes public test data and hosted Supabase Auth users. Existing login
+sessions will no longer be usable.
+
+For the exact persistence and table classification, see
+[`docs/development-resets.md`](docs/development-resets.md).
+
 ## Supabase
 
 Supabase is optional during development. The clean prelaunch setup is documented in `supabase/README.md`.

@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Alert, StyleSheet, Text, View } from "react-native";
 
 import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
 import { GlassCard, SettingsRow, StatCard } from "@/src/components/ui/Finance";
@@ -20,6 +20,109 @@ import { useAuth } from "@/src/state/AuthProvider";
 export function SettingsScreen() {
   const data = useAppData();
   const auth = useAuth();
+
+  function confirmSyncedDataReset() {
+    Alert.alert(
+      "Reset synced app data?",
+      "Clears local financial and sync data, then downloads the current remote dataset. Your login, onboarding, and preferences stay intact.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Reset synced data",
+          style: "destructive",
+          onPress: async () => {
+            await data.resetSyncedData();
+            router.replace("/(tabs)");
+          },
+        },
+      ],
+    );
+  }
+
+  function confirmLocalDataOnlyReset() {
+    Alert.alert(
+      "Clear local data on this device?",
+      "Deletes local financial and sync records without signing out or immediately downloading cloud records again. Onboarding and preferences stay intact.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Clear local data",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await data.clearLocalDataOnly();
+              router.replace("/(tabs)");
+              Alert.alert("Local data cleared", "You are still signed in. A later sync or app restart can download existing cloud records again.");
+            } catch (error) {
+              Alert.alert(
+                "Could not clear local data",
+                error instanceof Error ? error.message : "The local database reset failed.",
+              );
+            }
+          },
+        },
+      ],
+    );
+  }
+
+  function confirmFullLocalReset() {
+    Alert.alert(
+      "Sign out and erase all local data?",
+      "This removes your session, onboarding state, preferences, and every local record from this device.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Continue",
+          style: "destructive",
+          // iOS can discard an alert presented while the previous alert is
+          // still dismissing. Schedule the stronger confirmation separately.
+          onPress: () => setTimeout(showFinalFullResetConfirmation, 300),
+        },
+      ],
+    );
+  }
+
+  function showFinalFullResetConfirmation() {
+    Alert.alert(
+      "Final confirmation",
+      "You will need to sign in and complete first-run setup again.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Sign out and erase",
+          style: "destructive",
+          onPress: performFullLocalReset,
+        },
+      ],
+    );
+  }
+
+  async function performFullLocalReset() {
+    let signOutError: unknown = null;
+    try {
+      await auth.eraseLocalSession();
+    } catch (error) {
+      // Local records and preferences must remain erasable when the network or
+      // hosted Auth service is unavailable.
+      signOutError = error;
+    }
+
+    try {
+      await data.resetLocalData();
+      router.replace("/first-run");
+      if (signOutError) {
+        Alert.alert(
+          "Local data erased",
+          "Local records and preferences were erased, but Supabase sign-out failed. Reconnect and sign out again before using this device.",
+        );
+      }
+    } catch (error) {
+      Alert.alert(
+        "Could not erase local data",
+        error instanceof Error ? error.message : "The local database reset failed.",
+      );
+    }
+  }
 
   if (data.loading || auth.loading) {
     return <LoadingState />;
@@ -73,6 +176,40 @@ export function SettingsScreen() {
           <Button title="Sign in" onPress={() => router.push("/auth")} />
         )}
       </GlassCard>
+
+      {__DEV__ ? (
+        <>
+          <SectionTitle
+            title="Developer tools"
+            subtitle="Development builds only. Cloud records are not deleted here."
+          />
+          <GlassCard tone="coral">
+            <View style={styles.sectionColumn}>
+              <SettingsRow
+                icon="phone-portrait-outline"
+                title="Clear local data on this device"
+                subtitle="Stay signed in and do not sync immediately"
+                value="Clear"
+                onPress={confirmLocalDataOnlyReset}
+              />
+              <SettingsRow
+                icon="refresh-outline"
+                title="Reset synced app data"
+                subtitle="Keep login, onboarding, and preferences"
+                value="Reset"
+                onPress={confirmSyncedDataReset}
+              />
+              <SettingsRow
+                icon="trash-outline"
+                title="Sign out and erase all local data"
+                subtitle="Remove identity, onboarding, preferences, and records"
+                value="Erase"
+                onPress={confirmFullLocalReset}
+              />
+            </View>
+          </GlassCard>
+        </>
+      ) : null}
 
       <SectionTitle
         title="Profile & preferences"
