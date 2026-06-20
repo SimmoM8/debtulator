@@ -1,10 +1,13 @@
 import { router } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, StyleSheet, Text, View } from "react-native";
+import { Animated, StyleSheet, View } from "react-native";
 
 import {
+  DebtLedgerSection,
+  debtSectionTotalLabel,
+} from "@/src/components/DebtLedgerSection";
+import {
   GlassCard,
-  ListRow,
   SearchFilterBar,
   SingleSelectFilterList,
   StatCard,
@@ -18,27 +21,10 @@ import {
   LoadingState,
   PageHeader,
   Screen,
-  SectionTitle,
 } from "@/src/components/ui/Primitives";
-import {
-  palette,
-  shadows,
-  spacing,
-  typefaces,
-  typography,
-} from "@/src/constants/design";
-import { estimateMoneyMap } from "@/src/services/currency";
+import { shadows } from "@/src/constants/design";
 import { entryDirectionText } from "@/src/services/ledger";
 import { useAppData } from "@/src/state/AppDataProvider";
-import type {
-  AppSettings,
-  CurrencyCode,
-  CurrencyRate,
-  LedgerEntry,
-  Member,
-  SharedGroupMember,
-} from "@/src/types/models";
-import { formatMoney } from "@/src/utils/money";
 
 type DebtFilter = "all" | "you-owe" | "owed-to-you" | "due-soon";
 
@@ -283,11 +269,11 @@ export function DebtsScreen() {
         ]}
       />
 
-      <LedgerSection
+      <DebtLedgerSection
         title="You owe"
         subtitle="Things you still need to pay."
         entries={youOwe}
-        summaryAmount={sectionTotalLabel(
+        summaryAmount={debtSectionTotalLabel(
           youOwe,
           data.settings,
           data.currencyRates,
@@ -296,11 +282,11 @@ export function DebtsScreen() {
         members={data.members}
         sharedGroupMembers={data.sharedGroupMembers}
       />
-      <LedgerSection
+      <DebtLedgerSection
         title="Owed to you"
         subtitle="Things other people still owe you."
         entries={owedToYou}
-        summaryAmount={sectionTotalLabel(
+        summaryAmount={debtSectionTotalLabel(
           owedToYou,
           data.settings,
           data.currencyRates,
@@ -318,167 +304,6 @@ export function DebtsScreen() {
         </GlassCard>
       ) : null}
     </Screen>
-  );
-}
-
-function LedgerSection({
-  title,
-  subtitle,
-  entries,
-  summaryAmount,
-  summaryTone,
-  members,
-  sharedGroupMembers,
-}: {
-  title: string;
-  subtitle: string;
-  entries: LedgerEntry[];
-  summaryAmount: string;
-  summaryTone: "positive" | "negative" | "neutral";
-  members: Member[];
-  sharedGroupMembers: SharedGroupMember[];
-}) {
-  if (!entries.length) {
-    return null;
-  }
-
-  return (
-    <>
-      <SectionTitle
-        title={title}
-        subtitle={subtitle}
-        action={
-          <Text
-            style={[
-              styles.sectionAmount,
-              summaryTone === "positive"
-                ? styles.sectionAmountPositive
-                : summaryTone === "negative"
-                  ? styles.sectionAmountNegative
-                  : styles.sectionAmountNeutral,
-            ]}
-          >
-            {summaryAmount}
-          </Text>
-        }
-      />
-      <GlassCard tone={title === "You owe" ? "coral" : "lavender"}>
-        <View style={styles.listColumn}>
-          {entries.map((entry, index) => (
-            <ListRow
-              key={entry.id}
-              title={entry.title}
-              subtitle={
-                entry.groupId
-                  ? "Shared"
-                  : entry.kind === "expense_obligation"
-                    ? "Bills"
-                    : entryDirectionText(entry, members, sharedGroupMembers)
-              }
-              amount={formatMoney(
-                entry.remainingAmount <= 0.005
-                  ? entry.originalAmount
-                  : entry.remainingAmount,
-                entry.currency as CurrencyCode,
-              )}
-              trailingLabel={debtDueLabel(entry)}
-              trailingTone={debtDueTone(entry)}
-              icon={entry.groupId ? "people-outline" : "wallet-outline"}
-              iconTone={entry.groupId ? "teal" : "indigo"}
-              showDivider={index < entries.length - 1}
-              onPress={() => openEntry(entry)}
-            />
-          ))}
-        </View>
-      </GlassCard>
-    </>
-  );
-}
-
-function openEntry(
-  entry: Pick<LedgerEntry, "kind" | "sourceId" | "expenseId" | "groupId">,
-) {
-  if (entry.kind === "simple_debt") {
-    router.push({ pathname: "/debt/[id]", params: { id: entry.sourceId } });
-    return;
-  }
-  if (entry.kind === "group_direct_debt" && entry.groupId) {
-    router.push({ pathname: "/group/[id]", params: { id: entry.groupId } });
-    return;
-  }
-  router.push({
-    pathname: "/expense/[id]",
-    params: { id: entry.expenseId ?? entry.sourceId },
-  });
-}
-
-function debtDueLabel(entry: LedgerEntry) {
-  if (entry.remainingAmount <= 0.005 || entry.status === "settled") {
-    return "Settled";
-  }
-
-  if (!entry.dueDate) {
-    return entry.toId === "me" ? "Waiting on them" : "No due date";
-  }
-
-  const today = new Date().toISOString().slice(0, 10);
-  if (entry.dueDate < today) {
-    return "Overdue";
-  }
-
-  const todayTime = new Date(`${today}T00:00:00Z`).getTime();
-  const dueTime = new Date(`${entry.dueDate}T00:00:00Z`).getTime();
-  const days = Math.max(0, Math.round((dueTime - todayTime) / 86400000));
-
-  if (days === 0) {
-    return "Due today";
-  }
-  if (days === 1) {
-    return "Due tomorrow";
-  }
-  return `Due in ${days} days`;
-}
-
-function debtDueTone(
-  entry: LedgerEntry,
-): "teal" | "amber" | "coral" | "muted" | "indigo" {
-  if (entry.remainingAmount <= 0.005 || entry.status === "settled") {
-    return "teal";
-  }
-  if (!entry.dueDate) {
-    return "muted";
-  }
-  const today = new Date().toISOString().slice(0, 10);
-  if (entry.dueDate < today) {
-    return "coral";
-  }
-  const todayTime = new Date(`${today}T00:00:00Z`).getTime();
-  const dueTime = new Date(`${entry.dueDate}T00:00:00Z`).getTime();
-  const days = Math.max(0, Math.round((dueTime - todayTime) / 86400000));
-  return days <= 2 ? "coral" : "indigo";
-}
-
-function sectionTotalLabel(
-  entries: LedgerEntry[],
-  settings: AppSettings,
-  currencyRates: CurrencyRate[],
-) {
-  const totalsByCurrency = entries.reduce<Record<string, number>>(
-    (acc, entry) => {
-      const amount =
-        entry.remainingAmount <= 0.005
-          ? entry.originalAmount
-          : entry.remainingAmount;
-
-      acc[entry.currency] = (acc[entry.currency] ?? 0) + amount;
-      return acc;
-    },
-    {},
-  );
-
-  return formatMoney(
-    estimateMoneyMap(totalsByCurrency, settings, currencyRates),
-    settings.baseCurrency,
   );
 }
 
@@ -521,22 +346,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     backgroundColor: "rgba(255,255,255,0.18)",
     ...shadows.soft,
-  },
-  listColumn: {
-    gap: spacing.sm,
-  },
-  sectionAmount: {
-    fontSize: typography.size.xl,
-    lineHeight: typography.line.xl,
-    fontFamily: typefaces.displayMedium,
-  },
-  sectionAmountPositive: {
-    color: palette.success,
-  },
-  sectionAmountNegative: {
-    color: palette.danger,
-  },
-  sectionAmountNeutral: {
-    color: palette.textSecondary,
   },
 });
