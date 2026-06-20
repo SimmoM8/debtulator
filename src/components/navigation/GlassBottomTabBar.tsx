@@ -7,7 +7,6 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FloatingAddButton, GlassCard } from "@/src/components/ui/Finance";
-import { MenuListContent } from "@/src/components/ui/MenuList";
 import {
     palette,
     radii,
@@ -50,38 +49,27 @@ const visibleTabs: TabConfig[] = [
 
 const quickActions: {
   label: string;
-  subtitle: string;
   icon: IconName;
   href: Parameters<typeof router.push>[0];
 }[] = [
   {
     label: "Add debt",
-    subtitle: "Create a simple balance with one person",
-    icon: "receipt-outline",
+    icon: "receipt",
     href: "/debt/form",
   },
   {
-    label: "Record payment",
-    subtitle: "Log money movement against open balances",
-    icon: "card-outline",
-    href: "/payment/form",
-  },
-  {
-    label: "Split expense",
-    subtitle: "Add an group expense and calculate shares",
-    icon: "pie-chart-outline",
-    href: "/expense/form",
-  },
-  {
-    label: "Invite member",
-    subtitle: "Create a member profile for debts and groups",
-    icon: "person-add-outline",
+    label: "Add member",
+    icon: "person-add",
     href: "/member/form",
   },
   {
+    label: "Add expense",
+    icon: "pie-chart",
+    href: "/expense/form",
+  },
+  {
     label: "Add group",
-    subtitle: "Start a trip, household, or shared space",
-    icon: "calendar-outline",
+    icon: "calendar",
     href: "/group/form",
   },
 ];
@@ -126,23 +114,35 @@ export function GlassBottomTabBar({
           pointerEvents="box-none"
           style={[styles.menuWrap, { bottom: 112 + insets.bottom }]}
         >
-          <GlassCard tone="lavender" style={styles.menuCard}>
-            <MenuListContent
-              sections={[
-                {
-                  title: "Quick actions",
-                  items: quickActions.map((action) => ({
-                    label: action.label,
-                    subtitle: action.subtitle,
-                    icon: action.icon,
-                    onPress: () => {
-                      setMenuOpen(false);
-                      router.push(action.href);
-                    },
-                  })),
-                },
-              ]}
-            />
+          <GlassCard
+            tone="lavender"
+            style={styles.menuCard}
+            wrapperStyle={styles.menuCardWrap}
+          >
+            <View style={styles.actionList}>
+              {quickActions.map((action) => (
+                <Pressable
+                  key={action.label}
+                  accessibilityRole="button"
+                  accessibilityLabel={action.label}
+                  onPress={() => {
+                    setMenuOpen(false);
+                    router.push(action.href);
+                  }}
+                  style={({ pressed }) => [
+                    styles.actionRow,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Ionicons
+                    name={action.icon}
+                    size={22}
+                    color={palette.primary}
+                  />
+                  <Text style={styles.actionLabel}>{action.label}</Text>
+                </Pressable>
+              ))}
+            </View>
           </GlassCard>
         </View>
       ) : null}
@@ -252,7 +252,31 @@ const styles = StyleSheet.create({
   },
   menuCard: {
     width: "100%",
+  },
+  menuCardWrap: {
+    width: "100%",
     maxWidth: 360,
+  },
+  actionList: {
+    gap: spacing.sm,
+  },
+  actionRow: {
+    minHeight: 56,
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderIndigoSoft,
+    backgroundColor: palette.surfaceGlassElevated,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  actionLabel: {
+    flex: 1,
+    color: palette.textPrimary,
+    fontSize: typography.size.lg,
+    fontFamily: typefaces.bodyStrong,
   },
   barWrap: {
     position: "absolute",
