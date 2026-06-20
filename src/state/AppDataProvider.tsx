@@ -715,8 +715,9 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           return repo.updateMember(member, input);
         }),
       sendMemberLinkRequest: (memberId, input) =>
-        runAndRefresh((repo) => {
-          const member = snapshot.members.find((item) => item.id === memberId);
+        runAndRefresh(async (repo) => {
+          const latest = await repo.load();
+          const member = latest.members.find((item) => item.id === memberId);
           if (!member) {
             throw new Error('Member not found.');
           }

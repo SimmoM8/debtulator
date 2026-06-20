@@ -7,7 +7,6 @@ export type SignedUpMemberProfile = {
   lastName: string | null;
   displayName: string;
   email: string | null;
-  phone: string | null;
   avatarUrl: string | null;
   baseCurrency: CurrencyCode;
 };
@@ -18,7 +17,6 @@ type SignedUpMemberProfileRow = {
   last_name: string | null;
   display_name: string;
   email: string | null;
-  phone: string | null;
   avatar_url: string | null;
   base_currency: CurrencyCode;
 };
@@ -49,7 +47,6 @@ export async function searchSignedUpMemberProfiles(input: {
     lastName: profile.last_name,
     displayName: profile.display_name,
     email: profile.email,
-    phone: profile.phone,
     avatarUrl: profile.avatar_url,
     baseCurrency: profile.base_currency,
   })) satisfies SignedUpMemberProfile[];

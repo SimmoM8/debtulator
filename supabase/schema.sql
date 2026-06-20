@@ -140,7 +140,6 @@ returns table (
   last_name text,
   display_name text,
   email text,
-  phone text,
   avatar_url text,
   base_currency text
 )
@@ -158,7 +157,6 @@ as $$
     profile.last_name,
     profile.display_name,
     profile.email,
-    profile.phone,
     profile.avatar_url,
     profile.base_currency
   from public.profiles profile
@@ -205,6 +203,22 @@ create table public.link_requests (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+do $$
+begin
+  if exists (
+    select 1 from pg_publication where pubname = 'supabase_realtime'
+  ) and not exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'link_requests'
+  ) then
+    alter publication supabase_realtime add table public.link_requests;
+  end if;
+end;
+$$;
 
 create table public.shared_debt_records (
   id uuid primary key default gen_random_uuid(),

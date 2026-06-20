@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -22,6 +22,7 @@ import {
   searchSignedUpMemberProfiles,
   type SignedUpMemberProfile,
 } from "@/src/services/profileSearch";
+import { createRemoteLinkRequest } from "@/src/services/stage2Sync";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
 
@@ -52,6 +53,8 @@ export function MemberFormScreen() {
   );
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const createdMemberId = useRef<string | null>(null);
+  const remoteLinkRequestId = useRef<string | null>(null);
 
   const displayName = [firstName.trim(), lastName.trim()].filter(Boolean).join(" ");
 
@@ -116,7 +119,7 @@ export function MemberFormScreen() {
     setFirstName(profile.firstName ?? fallbackParts[0] ?? "");
     setLastName(profile.lastName ?? fallbackParts.slice(1).join(" "));
     setEmail(profile.email ?? "");
-    setPhone(profile.phone ?? "");
+    setPhone("");
     setProfileQuery(profile.displayName);
     setProfileResults([]);
   }
@@ -140,11 +143,6 @@ export function MemberFormScreen() {
       notes,
       email,
       phone,
-      linkedProfileDisplayName: selectedProfile?.displayName,
-      linkedProfileEmail: selectedProfile?.email,
-      linkedProfilePhone: selectedProfile?.phone,
-      linkedUserId: selectedProfile?.id,
-      linkStatus: selectedProfile ? ("linked" as const) : undefined,
       tags: selectedTags,
     };
 
@@ -152,7 +150,38 @@ export function MemberFormScreen() {
       if (member) {
         await data.updateMember(member.id, input);
       } else {
-        await data.createMember(input);
+        const created = createdMemberId.current
+          ? data.members.find((item) => item.id === createdMemberId.current)
+          : await data.createMember(input);
+
+        if (!created) {
+          throw new Error("Unable to find the locally created member.");
+        }
+        createdMemberId.current = created.id;
+
+        if (selectedProfile) {
+          const requesterUserId = auth.identity.authenticatedUserId;
+          if (!requesterUserId) {
+            throw new Error("Sign in before sending a member link request.");
+          }
+
+          const remoteId =
+            remoteLinkRequestId.current ??
+            (await createRemoteLinkRequest({
+              requesterUserId,
+              targetUserId: selectedProfile.id,
+              targetEmail: selectedProfile.email,
+              requesterMemberId: created.id,
+              requesterLabel: created.displayName,
+            }));
+          remoteLinkRequestId.current = remoteId;
+          await data.sendMemberLinkRequest(created.id, {
+            requesterUserId,
+            targetUserId: selectedProfile.id,
+            targetEmail: selectedProfile.email,
+            remoteId,
+          });
+        }
       }
       router.back();
     } catch (error) {
@@ -232,7 +261,7 @@ export function MemberFormScreen() {
                   <View style={styles.profileResultCopy}>
                     <Text style={styles.profileName}>{profile.displayName}</Text>
                     <Text style={styles.profileMeta} numberOfLines={1}>
-                      {profile.email ?? profile.phone ?? "Signed-up member"}
+                      {profile.email ?? "Signed-up member"}
                     </Text>
                   </View>
                 </Pressable>
@@ -248,7 +277,6 @@ export function MemberFormScreen() {
             <ReadOnlyDetail label="First name" value={firstName} />
             <ReadOnlyDetail label="Last name" value={lastName || "—"} />
             <ReadOnlyDetail label="Email" value={email || "—"} />
-            <ReadOnlyDetail label="Phone" value={phone || "—"} />
           </View>
         ) : (
           <>

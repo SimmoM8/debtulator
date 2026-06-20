@@ -1,5 +1,6 @@
 import type { Session, User } from '@supabase/supabase-js';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 
 import { DEFAULT_BASE_CURRENCY } from '@/src/constants/currencies';
 import { isSupabaseConfigured, supabase } from '@/src/services/supabase';
@@ -396,6 +397,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       syncStage2RecordsRef.current().catch(() => undefined);
       runRemoteDataSyncRef.current().catch(() => undefined);
     }
+  }, [data.ready, user?.id]);
+
+  useEffect(() => {
+    if (!supabase || !user?.id || !data.ready) {
+      return;
+    }
+
+    const realtimeClient = supabase;
+    let syncTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleLinkRequestSync = () => {
+      if (syncTimer) {
+        clearTimeout(syncTimer);
+      }
+      // Debounce bursts and allow the initiating device to persist its local
+      // request record before processing the matching realtime event.
+      syncTimer = setTimeout(() => {
+        syncStage2RecordsRef.current().catch(() => undefined);
+      }, 250);
+    };
+
+    const channel = realtimeClient
+      .channel(`link-requests:${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'link_requests' },
+        scheduleLinkRequestSync,
+      )
+      .subscribe();
+
+    const appStateSubscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        scheduleLinkRequestSync();
+      }
+    });
+
+    return () => {
+      if (syncTimer) {
+        clearTimeout(syncTimer);
+      }
+      appStateSubscription.remove();
+      void realtimeClient.removeChannel(channel);
+    };
   }, [data.ready, user?.id]);
 
   useEffect(() => {
