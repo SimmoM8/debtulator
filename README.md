@@ -44,17 +44,6 @@ Key local sync/support tables include:
 
 ## Resetting Development Data
 
-### Clear only this phone or simulator and stay logged in
-
-In a development build, open:
-
-**Settings → Developer tools → Clear local data on this device**
-
-This deletes local SQLite domain and sync records while preserving the login
-session, completed onboarding, and preferences. It does not contact Supabase or
-start an immediate sync. Existing cloud records can return the next time the app
-starts or a sync is requested.
-
 ### Normal reset: keep your login and onboarding
 
 Use this workflow for routine testing. It deletes the hosted application data
@@ -75,9 +64,13 @@ onboarding, theme, and other device preferences.
    npm run reset:test-data -- --yes
    ```
 
+   This dynamically truncates every table in the `public` schema with
+   `RESTART IDENTITY CASCADE`. It preserves the schema, migrations, functions,
+   triggers, RLS policies, and `auth.users`.
+
 3. In the installed development app, open:
 
-   **Settings → Developer tools → Reset synced app data**
+   **Settings → Developer tools → Clear local data and reset sync**
 
 4. The app stays signed in, performs a clean sync, and opens the authenticated
    app with the now-empty remote dataset. It does not recreate demo, debt,

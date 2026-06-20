@@ -23,39 +23,21 @@ export function SettingsScreen() {
 
   function confirmSyncedDataReset() {
     Alert.alert(
-      "Reset synced app data?",
-      "Clears local financial and sync data, then downloads the current remote dataset. Your login, onboarding, and preferences stay intact.",
+      "Clear local data and reset sync?",
+      "Clears local financial and sync data, then runs a clean sync. Your login, onboarding, and preferences stay intact. Run npm run reset:test-data first if the cloud dataset should also be empty.",
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: "Reset synced data",
-          style: "destructive",
-          onPress: async () => {
-            await data.resetSyncedData();
-            router.replace("/(tabs)");
-          },
-        },
-      ],
-    );
-  }
-
-  function confirmLocalDataOnlyReset() {
-    Alert.alert(
-      "Clear local data on this device?",
-      "Deletes local financial and sync records without signing out or immediately downloading cloud records again. Onboarding and preferences stay intact.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Clear local data",
+          text: "Clear and sync",
           style: "destructive",
           onPress: async () => {
             try {
-              await data.clearLocalDataOnly();
+              await data.resetSyncedData();
               router.replace("/(tabs)");
-              Alert.alert("Local data cleared", "You are still signed in. A later sync or app restart can download existing cloud records again.");
+              Alert.alert("Local data cleared", "You are still signed in. A clean sync is now running.");
             } catch (error) {
               Alert.alert(
-                "Could not clear local data",
+                "Could not reset synced data",
                 error instanceof Error ? error.message : "The local database reset failed.",
               );
             }
@@ -186,16 +168,9 @@ export function SettingsScreen() {
           <GlassCard tone="coral">
             <View style={styles.sectionColumn}>
               <SettingsRow
-                icon="phone-portrait-outline"
-                title="Clear local data on this device"
-                subtitle="Stay signed in and do not sync immediately"
-                value="Clear"
-                onPress={confirmLocalDataOnlyReset}
-              />
-              <SettingsRow
                 icon="refresh-outline"
-                title="Reset synced app data"
-                subtitle="Keep login, onboarding, and preferences"
+                title="Clear local data and reset sync"
+                subtitle="Stay signed in, preserve preferences, then sync"
                 value="Reset"
                 onPress={confirmSyncedDataReset}
               />

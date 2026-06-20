@@ -33,11 +33,6 @@ those concepts live in these tables and record `sync_status` fields.
 
 ## Hosted test-data reset
 
-For a device-only clear that preserves login and does not immediately sync, use
-**Settings → Developer tools → Clear local data on this device**. Existing
-hosted records remain unchanged and can be downloaded by a later sync or app
-restart.
-
 Log in with the Supabase CLI and link this repository to the intended test
 project. The reset uses the linked project by default and does not require
 `psql` or a database password.
@@ -53,11 +48,12 @@ Pass `--local` to target the local Supabase stack instead. A direct connection
 can still be selected by setting `SUPABASE_DB_URL`; never put that credential in
 an `EXPO_PUBLIC_*` variable or in the mobile build.
 
-The default truncates public application tables with `RESTART IDENTITY CASCADE`
-and preserves `auth.users`, credentials, and the schema. Profiles are recreated
+The default dynamically discovers and truncates every `public` table with
+`RESTART IDENTITY CASCADE` and preserves `auth.users`, credentials, and the
+schema. Profiles are recreated
 idempotently from authenticated user metadata at app bootstrap. The opt-in flag
 also truncates Auth users and their dependent sessions.
 
-After the hosted reset, use **Settings → Developer tools → Reset synced app
-data**. The authenticated session and onboarding remain independent from local
+After the hosted reset, use **Settings → Developer tools → Clear local data and
+reset sync**. The authenticated session and onboarding remain independent from local
 or remote domain-data existence, and the clean pull leaves the dashboard empty.
