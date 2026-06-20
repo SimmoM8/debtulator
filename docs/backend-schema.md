@@ -8,12 +8,6 @@ The active cloud schema source of truth is:
 supabase/schema.sql
 ```
 
-The optional demo seed file is:
-
-```txt
-supabase/seed.sql
-```
-
 ## Current approach
 
 `schema.sql` is intentionally destructive. It drops and recreates the development Supabase schema, helper functions, Row Level Security policies, and attachment storage bucket.
@@ -90,7 +84,6 @@ For a fresh prelaunch backend:
 2. Run `supabase/schema.sql` in the Supabase SQL editor.
 3. Add `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` to the app environment.
 4. Create/sign up a test user.
-5. Optionally run `supabase/seed.sql`.
 
 ## Future production migration strategy
 

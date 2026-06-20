@@ -52,7 +52,6 @@ For a fresh development backend:
 2. Run `supabase/schema.sql` in the Supabase SQL editor.
 3. Add `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` locally.
 4. Create/sign up a test user.
-5. Optionally run `supabase/seed.sql`.
 
 `supabase/schema.sql` is intentionally destructive and is meant for prelaunch development only. After launch, cloud schema changes should move to additive, data-preserving migrations.
 

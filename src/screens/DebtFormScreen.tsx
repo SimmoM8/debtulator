@@ -93,9 +93,7 @@ export function DebtFormScreen() {
   const confirmationUserId =
     auth.identity.authenticatedUserId ??
     originalVerification?.requesterUserId ??
-    (selectedMember?.linkedUserId?.startsWith("demo_user_")
-      ? "demo_user_local"
-      : null);
+    null;
 
   const memberOptions = useMemo(
     () =>
