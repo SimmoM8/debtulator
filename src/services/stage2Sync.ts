@@ -46,6 +46,41 @@ export async function createRemoteLinkRequest(input: {
   return data.id as string;
 }
 
+export async function hasAcceptedMemberLink(targetUserId: string) {
+  if (!supabase) {
+    return false;
+  }
+
+  const { data, error: rpcError } = await supabase.rpc('has_accepted_member_link', {
+    p_other_user_id: targetUserId,
+  });
+  if (!rpcError && data === true) {
+    return true;
+  }
+
+  // Keep re-linking functional while a newly added RPC is still propagating,
+  // and independently verify the relationship using rows already visible to
+  // this user under link_requests RLS.
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  if (authError || !authData.user) {
+    throw authError ?? new Error('Sign in before restoring a member link.');
+  }
+  const callerId = authData.user.id;
+  const { data: acceptedRequests, error: requestError } = await supabase
+    .from('link_requests')
+    .select('requester_user_id, target_user_id')
+    .eq('status', 'accepted')
+    .or(`requester_user_id.eq.${callerId},target_user_id.eq.${callerId}`);
+  if (requestError) {
+    throw rpcError ?? requestError;
+  }
+  return (acceptedRequests ?? []).some(
+    (request) =>
+      (request.requester_user_id === callerId && request.target_user_id === targetUserId) ||
+      (request.target_user_id === callerId && request.requester_user_id === targetUserId),
+  );
+}
+
 export async function respondToRemoteLinkRequest(
   linkRequest: LinkRequest,
   status: Extract<LinkRequest['status'], 'accepted' | 'rejected'>,

@@ -5,6 +5,7 @@ import { Alert, Modal, Pressable, StyleSheet, Text, TextInput, View } from "reac
 
 import { DebtLedgerSection, debtSectionTotalLabel } from "@/src/components/DebtLedgerSection";
 import { GroupRow } from "@/src/components/EntityRows";
+import { MobileMenuModal } from "@/src/components/ui/MenuList";
 import { TagInput } from "@/src/components/ui/TagInput";
 import {
     Button,
@@ -45,6 +46,7 @@ export function MemberDetailScreen() {
   const [tagsDraft, setTagsDraft] = useState<string[] | null>(null);
   const [tagsOpen, setTagsOpen] = useState(false);
   const [savingTags, setSavingTags] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
 
   const memberEntries = useMemo(
     () => (member ? entriesForMember(member.id, data.ledgerEntries) : []),
@@ -142,6 +144,25 @@ export function MemberDetailScreen() {
     }
   }
 
+  function deleteMember() {
+    setOptionsOpen(false);
+    Alert.alert(
+      "Delete member?",
+      "This removes the member from your members list while preserving existing debt and payment history.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            await data.updateMember(currentMember.id, { archived: true });
+            router.back();
+          },
+        },
+      ],
+    );
+  }
+
   return (
     <Screen>
       <Modal visible={tagsOpen} transparent animationType="fade" onRequestClose={() => setTagsOpen(false)}>
@@ -169,16 +190,42 @@ export function MemberDetailScreen() {
         title="Member"
         action={
           <IconButton
-            icon="create-outline"
-            label="Edit member"
-            onPress={() =>
-              router.push({
-                pathname: "/member/form",
-                params: { id: currentMember.id },
-              })
-            }
+            icon="ellipsis-horizontal"
+            label="Member options"
+            onPress={() => setOptionsOpen(true)}
           />
         }
+      />
+
+      <MobileMenuModal
+        visible={optionsOpen}
+        title="Member options"
+        onClose={() => setOptionsOpen(false)}
+        sections={[
+          {
+            items: [
+              {
+                label: "Edit member",
+                subtitle: "Update name, contact details, tags, and notes",
+                icon: "create-outline",
+                onPress: () => {
+                  setOptionsOpen(false);
+                  router.push({
+                    pathname: "/member/form",
+                    params: { id: currentMember.id },
+                  });
+                },
+              },
+              {
+                label: "Delete member",
+                subtitle: "Remove this member from your members list",
+                icon: "trash-outline",
+                destructive: true,
+                onPress: deleteMember,
+              },
+            ],
+          },
+        ]}
       />
 
       <Card tone={netBalance < -0.005 ? "coral" : "mint"} style={styles.heroCard}>

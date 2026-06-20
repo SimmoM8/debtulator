@@ -22,7 +22,10 @@ import {
   searchSignedUpMemberProfiles,
   type SignedUpMemberProfile,
 } from "@/src/services/profileSearch";
-import { createRemoteLinkRequest } from "@/src/services/stage2Sync";
+import {
+  createRemoteLinkRequest,
+  hasAcceptedMemberLink,
+} from "@/src/services/stage2Sync";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
 
@@ -150,16 +153,68 @@ export function MemberFormScreen() {
       if (member) {
         await data.updateMember(member.id, input);
       } else {
+        const archivedLinkedMember = selectedProfile
+          ? data.members.find(
+              (item) =>
+                item.archived && item.linkedUserId === selectedProfile.id,
+            )
+          : undefined;
+        if (archivedLinkedMember && selectedProfile) {
+          await data.updateMember(archivedLinkedMember.id, {
+            ...input,
+            notes: notes.trim() ? notes : archivedLinkedMember.notes,
+            tags: selectedTags.length ? selectedTags : archivedLinkedMember.tags,
+            archived: false,
+            linkedUserId: selectedProfile.id,
+            linkStatus: "linked",
+            linkedProfileDisplayName: selectedProfile.displayName,
+            linkedProfileEmail: selectedProfile.email,
+          });
+          router.back();
+          return;
+        }
+
+        const acceptedLinkInLocalData = selectedProfile
+          ? data.linkRequests.some(
+              (request) =>
+                request.status === "accepted" &&
+                ((request.requesterUserId === auth.identity.authenticatedUserId &&
+                  request.targetUserId === selectedProfile.id) ||
+                  (request.targetUserId === auth.identity.authenticatedUserId &&
+                    request.requesterUserId === selectedProfile.id)),
+            )
+          : false;
+        const acceptedLink = selectedProfile
+          ? acceptedLinkInLocalData ||
+            (await hasAcceptedMemberLink(selectedProfile.id))
+          : false;
         const created = createdMemberId.current
           ? data.members.find((item) => item.id === createdMemberId.current)
-          : await data.createMember(input);
+          : await data.createMember(
+              acceptedLink && selectedProfile
+                ? {
+                    ...input,
+                    linkedUserId: selectedProfile.id,
+                    linkStatus: "linked",
+                    linkedProfileDisplayName: selectedProfile.displayName,
+                    linkedProfileEmail: selectedProfile.email,
+                  }
+                : input,
+            );
 
         if (!created) {
           throw new Error("Unable to find the locally created member.");
         }
         createdMemberId.current = created.id;
 
-        if (selectedProfile) {
+        if (acceptedLink && selectedProfile && created.linkStatus !== "linked") {
+          await data.updateMember(created.id, {
+            linkedUserId: selectedProfile.id,
+            linkStatus: "linked",
+            linkedProfileDisplayName: selectedProfile.displayName,
+            linkedProfileEmail: selectedProfile.email,
+          });
+        } else if (selectedProfile && !acceptedLink) {
           const requesterUserId = auth.identity.authenticatedUserId;
           if (!requesterUserId) {
             throw new Error("Sign in before sending a member link request.");
