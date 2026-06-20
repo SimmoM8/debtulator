@@ -3,11 +3,24 @@ import type { CurrencyCode } from "@/src/types/models";
 
 export type SignedUpMemberProfile = {
   id: string;
+  firstName: string | null;
+  lastName: string | null;
   displayName: string;
   email: string | null;
   phone: string | null;
   avatarUrl: string | null;
   baseCurrency: CurrencyCode;
+};
+
+type SignedUpMemberProfileRow = {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  display_name: string;
+  email: string | null;
+  phone: string | null;
+  avatar_url: string | null;
+  base_currency: CurrencyCode;
 };
 
 export async function searchSignedUpMemberProfiles(input: {
@@ -20,24 +33,20 @@ export async function searchSignedUpMemberProfiles(input: {
     return [];
   }
 
-  const pattern = `%${query.replaceAll("%", "").replaceAll(",", "")}%`;
-  let request = supabase
-    .from("profiles")
-    .select("id, display_name, email, phone, avatar_url, base_currency")
-    .or(`display_name.ilike.${pattern},email.ilike.${pattern},phone.ilike.${pattern}`)
-    .limit(input.limit ?? 8);
-
-  if (input.excludeUserId) {
-    request = request.neq("id", input.excludeUserId);
-  }
-
-  const { data, error } = await request;
+  const { data, error } = await supabase.rpc("search_member_profiles", {
+    search_query: query,
+    result_limit: input.limit ?? 8,
+  });
   if (error) {
     throw error;
   }
 
-  return (data ?? []).map((profile) => ({
+  return ((data ?? []) as SignedUpMemberProfileRow[])
+    .filter((profile) => profile.id !== input.excludeUserId)
+    .map((profile) => ({
     id: profile.id,
+    firstName: profile.first_name,
+    lastName: profile.last_name,
     displayName: profile.display_name,
     email: profile.email,
     phone: profile.phone,

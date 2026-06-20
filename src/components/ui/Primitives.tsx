@@ -427,6 +427,7 @@ export function TextField({
   keyboardType,
   multiline,
   secureTextEntry,
+  editable = true,
   style,
 }: {
   label: string;
@@ -441,6 +442,7 @@ export function TextField({
     | "phone-pad";
   multiline?: boolean;
   secureTextEntry?: boolean;
+  editable?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
   return (
@@ -457,6 +459,7 @@ export function TextField({
           keyboardType={keyboardType}
           multiline={multiline}
           secureTextEntry={secureTextEntry}
+          editable={editable}
           style={[styles.input, multiline && styles.inputMultiline]}
         />
       </View>
