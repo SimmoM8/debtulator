@@ -114,7 +114,6 @@ export function GlassCard({
             <BlurView
               tint="light"
               intensity={18}
-              experimentalBlurMethod="dimezisBlurView"
               pointerEvents="none"
               style={StyleSheet.absoluteFill}
             />
@@ -123,7 +122,6 @@ export function GlassCard({
           <BlurView
             tint="light"
             intensity={18}
-            experimentalBlurMethod="dimezisBlurView"
             pointerEvents="none"
             style={StyleSheet.absoluteFill}
           />
