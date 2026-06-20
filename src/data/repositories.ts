@@ -373,8 +373,8 @@ export class DebtulatorRepository {
     return loadSnapshot(this.db);
   }
 
-  async reset(seed = true) {
-    await resetDatabase(this.db, seed);
+  async reset() {
+    await resetDatabase(this.db);
   }
 
   async restoreBackup(rawJson: string, mode: BackupMode): Promise<RestoreResult> {
@@ -382,7 +382,7 @@ export class DebtulatorRepository {
     const plan = buildRestorePlan(rawJson, current, mode);
 
     if (mode === 'replace_local') {
-      await resetDatabase(this.db, false);
+      await resetDatabase(this.db);
     }
 
     if (plan.settings) {

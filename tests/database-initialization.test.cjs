@@ -40,8 +40,7 @@ const {
   mapProfileRow,
   migrate,
   resetDatabase,
-  seedDefaults,
-  seedIfEmpty,
+  initializeDefaults,
 } = require('../src/data/database.ts');
 
 class FakeDatabase {
@@ -54,7 +53,13 @@ class FakeDatabase {
       members: 0,
       debts: 0,
       groups: 0,
+      group_invites: 0,
       shared_expenses: 0,
+      group_debts: 0,
+      payments: 0,
+      settlements: 0,
+      settlement_lines: 0,
+      sync_queue: 0,
     };
   }
 
@@ -132,37 +137,51 @@ class FakeDatabase {
   }
 }
 
-test('no-demo reset persists demo seeding opt-out across later empty database opens', async () => {
+test('database reset stays empty across later database opens', async () => {
   const db = new FakeDatabase();
 
-  await resetDatabase(db, false);
-  await seedIfEmpty(db);
+  await resetDatabase(db);
+  await initializeDefaults(db);
 
-  assert.equal(db.settings.get('__demoSeeding'), 'disabled');
   assert.equal(db.settings.get('baseCurrency'), 'SEK');
   assert.deepEqual(db.domainRows, {
     members: 0,
     debts: 0,
     groups: 0,
+    group_invites: 0,
     shared_expenses: 0,
+    group_debts: 0,
+    payments: 0,
+    settlements: 0,
+    settlement_lines: 0,
+    sync_queue: 0,
   });
 });
 
-test('empty first-run database still seeds demo data when demo seeding was not disabled', async () => {
+test('empty first-run database creates settings but no domain or sync records', async () => {
   const db = new FakeDatabase();
 
-  await seedIfEmpty(db);
+  await initializeDefaults(db);
 
-  assert.notEqual(db.settings.get('__demoSeeding'), 'disabled');
-  assert.ok(db.domainRows.members > 0);
-  assert.ok(db.domainRows.groups > 0);
-  assert.ok(db.domainRows.debts > 0 || db.domainRows.shared_expenses > 0);
+  assert.equal(db.settings.get('baseCurrency'), 'SEK');
+  assert.deepEqual(db.domainRows, {
+    members: 0,
+    debts: 0,
+    groups: 0,
+    group_invites: 0,
+    shared_expenses: 0,
+    group_debts: 0,
+    payments: 0,
+    settlements: 0,
+    settlement_lines: 0,
+    sync_queue: 0,
+  });
 });
 
 test('default settings include first-run startup preferences', async () => {
   const db = new FakeDatabase();
 
-  await seedDefaults(db);
+  await initializeDefaults(db);
   const settings = await getSettings(db);
 
   assert.equal(settings.hasCompletedFirstRun, false);
@@ -174,7 +193,7 @@ test('existing local data auto-completes first-run default on upgrade', async ()
   const db = new FakeDatabase();
   db.domainRows.members = 1;
 
-  await seedDefaults(db);
+  await initializeDefaults(db);
   const settings = await getSettings(db);
 
   assert.equal(settings.hasCompletedFirstRun, true);

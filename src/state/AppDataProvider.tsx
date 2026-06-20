@@ -308,7 +308,7 @@ type AppDataContextValue = DatabaseSnapshot & {
   syncSummary: ReturnType<typeof buildSyncSummary>;
   refresh: () => Promise<void>;
   retryBoot: () => void;
-  resetLocalData: (seed?: boolean) => Promise<void>;
+  resetLocalData: () => Promise<void>;
   upsertProfile: (profile: UserProfile) => Promise<UserProfile>;
   upsertLinkRequest: (linkRequest: LinkRequest) => Promise<LinkRequest>;
   upsertDebtVerification: (verification: DebtVerification) => Promise<DebtVerification>;
@@ -684,8 +684,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       syncSummary,
       refresh,
       retryBoot,
-      resetLocalData: async (seed = true) => {
-        await runAndRefresh((repo) => repo.reset(seed));
+      resetLocalData: async () => {
+        await runAndRefresh((repo) => repo.reset());
       },
       upsertProfile: (profile) => runAndRefresh((repo) => repo.upsertProfile(profile)),
       upsertLinkRequest: (linkRequest) => runAndRefresh((repo) => repo.upsertLinkRequest(linkRequest)),

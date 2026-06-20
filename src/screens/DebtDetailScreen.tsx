@@ -173,9 +173,7 @@ export function DebtDetailScreen() {
   const currentUserId =
     auth.identity.authenticatedUserId ??
     creationConfirmation?.requesterUserId ??
-    (member?.linkedUserId?.startsWith("demo_user_")
-      ? "demo_user_local"
-      : null);
+    null;
   const currentConfirmations = isCloudSyncedMember
     ? getCurrentConfirmations(debtConfirmationRecords)
     : [];

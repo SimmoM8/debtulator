@@ -7,7 +7,6 @@ This folder has a simplified prelaunch setup:
 | File | Purpose |
 | --- | --- |
 | `schema.sql` | Destructive reset file that creates the latest cloud schema from scratch. |
-| `seed.sql` | Optional demo data for one signed-up Supabase Auth user. |
 | `README.md` | Setup notes for the development backend. |
 
 ## Important
@@ -77,33 +76,13 @@ The app can create a user through its sign-up flow. You can also create one in S
 2. Create a test user.
 3. Use that user when signing into the app.
 
-## 5. Optional seed data
-
-After at least one auth user exists, run `seed.sql` from the SQL editor.
-
-The seed file uses the first Supabase Auth user as the demo owner and creates:
-
-- one profile
-- one shared demo group
-- owner participant record
-- a few group members
-- one pending invite
-- one shared expense
-- one direct group debt
-- one shared comment
-- a notification
-- group activity log rows
-
-If there are no auth users yet, the seed file exits with a notice and does nothing.
-
 ## Reset workflow during development
 
 When the cloud schema gets messy:
 
 1. Run `schema.sql` again.
 2. Create or keep a test auth user.
-3. Run `seed.sql` again if demo cloud data is useful.
-4. Restart the app and sign in again.
+3. Restart the app and sign in again.
 
 This only resets Supabase cloud data. It does not reset the app's local SQLite database on your device/simulator.
 

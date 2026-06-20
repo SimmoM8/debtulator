@@ -110,7 +110,7 @@ export function DeleteAccountScreen() {
               }
 
               if (deleteLocalData && !keepLocalArchive) {
-                await data.resetLocalData(false);
+                await data.resetLocalData();
               }
 
               Alert.alert(
