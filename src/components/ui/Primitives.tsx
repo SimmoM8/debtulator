@@ -1,9 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
+    Animated,
     Modal,
     Pressable,
     ScrollView,
@@ -823,6 +824,80 @@ export function SegmentedControl<T extends string>({
   );
 }
 
+export function SlidingSectionSwitcher<T extends string>({
+  sections,
+  activeSection,
+  onChange,
+}: {
+  sections: { key: T; label: string }[];
+  activeSection: T;
+  onChange: (section: T) => void;
+}) {
+  const [width, setWidth] = useState(0);
+  const translate = useRef(new Animated.Value(0)).current;
+  const activeIndex = Math.max(
+    sections.findIndex((section) => section.key === activeSection),
+    0,
+  );
+  const segmentWidth = sections.length > 0 ? width / sections.length : 0;
+
+  useEffect(() => {
+    Animated.timing(translate, {
+      toValue: activeIndex * segmentWidth,
+      duration: 210,
+      useNativeDriver: true,
+    }).start();
+  }, [activeIndex, segmentWidth, translate]);
+
+  return (
+    <View style={styles.sectionSwitcherShell}>
+      <View
+        style={styles.sectionSwitcher}
+        onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
+      >
+        {width ? (
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.sectionSwitcherThumb,
+              {
+                width: segmentWidth - 8,
+                transform: [{ translateX: translate }],
+              },
+            ]}
+          />
+        ) : null}
+        {sections.map((section) => {
+          const active = section.key === activeSection;
+          return (
+            <Pressable
+              key={section.key}
+              accessibilityRole="tab"
+              accessibilityLabel={section.label}
+              accessibilityState={{ selected: active }}
+              onPress={() => onChange(section.key)}
+              style={({ pressed }) => [
+                styles.sectionSwitcherItem,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Text
+                numberOfLines={1}
+                style={[
+                  styles.sectionSwitcherText,
+                  active && styles.sectionSwitcherTextActive,
+                ]}
+              >
+                {section.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 export function SelectChips<T extends string>({
   label,
   options,
@@ -1552,6 +1627,55 @@ const styles = StyleSheet.create({
     fontFamily: typefaces.bodyStrong,
   },
   segmentTextActive: {
+    color: palette.primary,
+  },
+  sectionSwitcherShell: {
+    marginBottom: spacing.md,
+  },
+  sectionSwitcher: {
+    position: "relative",
+    flexDirection: "row",
+    borderRadius: radii.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255,255,255,0.82)",
+    backgroundColor: "rgba(255,255,255,0.56)",
+    padding: 4,
+    overflow: "hidden",
+    shadowColor: palette.shadow,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 2,
+  },
+  sectionSwitcherThumb: {
+    position: "absolute",
+    top: 4,
+    bottom: 4,
+    left: 4,
+    borderRadius: radii.pill,
+    backgroundColor: "rgba(255,255,255,0.92)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderGlass,
+    shadowColor: palette.shadow,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  sectionSwitcherItem: {
+    flex: 1,
+    minHeight: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radii.pill,
+    paddingHorizontal: spacing.xs,
+  },
+  sectionSwitcherText: {
+    color: palette.textSecondary,
+    fontSize: typography.size.sm,
+    fontFamily: typefaces.bodyStrong,
+  },
+  sectionSwitcherTextActive: {
     color: palette.primary,
   },
   chipWrap: {

@@ -1,9 +1,9 @@
+import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { Alert, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { DebtRow, GroupRow } from "@/src/components/EntityRows";
-import { DebtulatorOrbitIllustration } from "@/src/components/illustrations/DebtulatorOrbitIllustration";
 import { LinkStatusBadge, TagChips } from "@/src/components/ui/Badges";
 import { BalanceStack } from "@/src/components/ui/Money";
 import {
@@ -14,11 +14,12 @@ import {
     LoadingState,
     PageHeader,
     Screen,
-    SectionTitle,
+    SlidingSectionSwitcher,
     TextField,
 } from "@/src/components/ui/Primitives";
 import {
     palette,
+    radii,
     spacing,
     typefaces,
     typography,
@@ -36,7 +37,11 @@ import { createRemoteLinkRequest } from "@/src/services/stage2Sync";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
 import type { LedgerEntry, MoneyMap } from "@/src/types/models";
-import { addMoney } from "@/src/utils/money";
+import { addMoney, formatMoney } from "@/src/utils/money";
+import { initials } from "@/src/utils/text";
+
+type MemberDetailSectionKey = "overview" | "debts" | "payments" | "groups";
+type IconName = keyof typeof Ionicons.glyphMap;
 
 export function MemberDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -47,6 +52,8 @@ export function MemberDetailScreen() {
     member?.email ?? member?.phone ?? "",
   );
   const [linkMessage, setLinkMessage] = useState("");
+  const [activeSection, setActiveSection] =
+    useState<MemberDetailSectionKey>("overview");
 
   const memberEntries = useMemo(
     () => (member ? entriesForMember(member.id, data.ledgerEntries) : []),
@@ -68,6 +75,18 @@ export function MemberDetailScreen() {
     () => calculateTrustBalances(member?.id ?? "", memberEntries),
     [member?.id, memberEntries],
   );
+  const memberPayments = useMemo(
+    () =>
+      member
+        ? data.payments.filter(
+            (payment) =>
+              payment.relatedMemberId === member.id ||
+              payment.payerMemberId === member.id ||
+              payment.payeeMemberId === member.id,
+          )
+        : [],
+    [data.payments, member],
+  );
 
   if (data.loading) {
     return <LoadingState />;
@@ -84,14 +103,15 @@ export function MemberDetailScreen() {
     );
   }
   const currentMember = member;
+  const memberBalance = data.memberBalances[currentMember.id] ?? {};
+  const memberSections: { key: MemberDetailSectionKey; label: string }[] = [
+    { key: "overview", label: "Overview" },
+    { key: "debts", label: "Debts" },
+    { key: "payments", label: "Payments" },
+    { key: "groups", label: "Groups" },
+  ];
 
   async function exportPdf() {
-    const memberPayments = data.payments.filter(
-      (payment) =>
-        payment.relatedMemberId === currentMember.id ||
-        payment.payerMemberId === currentMember.id ||
-        payment.payeeMemberId === currentMember.id,
-    );
     const memberSettlements = data.settlements.filter(
       (settlement) => settlement.memberId === currentMember.id,
     );
@@ -148,7 +168,8 @@ export function MemberDetailScreen() {
   return (
     <Screen>
       <PageHeader
-        title="Member details"
+        detailLabel="Member"
+        title={currentMember.displayName}
         action={
           <IconButton
             icon="create-outline"
@@ -156,7 +177,7 @@ export function MemberDetailScreen() {
             onPress={() =>
               router.push({
                 pathname: "/member/form",
-                params: { id: member.id },
+                params: { id: currentMember.id },
               })
             }
           />
@@ -165,317 +186,388 @@ export function MemberDetailScreen() {
 
       <Card tone="peach" style={styles.heroCard}>
         <View style={styles.heroGlow} />
-        <View style={styles.heroTop}>
+        <View style={styles.heroHeading}>
+          <View style={styles.avatarLarge}>
+            <Text style={styles.avatarLargeText}>
+              {initials(currentMember.displayName)}
+            </Text>
+          </View>
           <View style={styles.heroCopy}>
             <Text style={styles.heroLabel}>Relationship ledger</Text>
-            <Text style={styles.heroTitle}>Net balance with this member</Text>
+            <Text numberOfLines={2} style={styles.heroTitle}>
+              {currentMember.displayName}
+            </Text>
+            <Text style={styles.heroSubtitle}>Net balance with this member</Text>
             <BalanceStack
-              balances={data.memberBalances[member.id] ?? {}}
+              balances={memberBalance}
               settings={data.settings}
               currencyRates={data.currencyRates}
               empty="Settled with this member"
             />
             <View style={styles.badgeLine}>
-              <LinkStatusBadge status={member.linkStatus} />
+              <LinkStatusBadge status={currentMember.linkStatus} />
+              {currentMember.archived ? (
+                <View style={styles.archivedBadge}>
+                  <Text style={styles.archivedBadgeText}>archived</Text>
+                </View>
+              ) : null}
             </View>
           </View>
-          <View style={styles.heroArtWrap}>
-            <DebtulatorOrbitIllustration width={132} height={104} compact />
-          </View>
         </View>
-        <TagChips tags={member.tags} />
-        {member.email || member.phone ? (
-          <View style={styles.metaBlock}>
-            {member.email ? (
-              <Text style={styles.metaText}>{member.email}</Text>
-            ) : null}
-            {member.phone ? (
-              <Text style={styles.metaText}>{member.phone}</Text>
-            ) : null}
-          </View>
-        ) : null}
-        {member.notes ? <Text style={styles.body}>{member.notes}</Text> : null}
+
         <View style={styles.actionRow}>
-          <Button
+          <HeroAction
             title="Add debt"
             icon="add"
             onPress={() =>
               router.push({
                 pathname: "/debt/form",
-                params: { memberId: member.id },
+                params: { memberId: currentMember.id },
               })
             }
           />
-          <Button
-            title="Record settlement"
+          <HeroAction
+            title="Settlement"
             icon="card"
-            variant="secondary"
             onPress={() =>
               router.push({
                 pathname: "/payment/form",
-                params: { memberId: member.id },
+                params: { memberId: currentMember.id },
               })
             }
           />
-          <Button
-            title="Send reminder"
+          <HeroAction
+            title="Reminder"
             icon="notifications"
-            variant="secondary"
             onPress={() =>
               data.createSoftReminder({
                 senderUserId: auth.identity.authenticatedUserId,
-                recipientUserId: member.linkedUserId,
-                relatedMemberId: member.id,
+                recipientUserId: currentMember.linkedUserId,
+                relatedMemberId: currentMember.id,
                 relatedGroupId: null,
                 relatedRecordId: null,
                 message: `${auth.identity.displayName} shared a reminder about an open balance.`,
               })
             }
           />
-          <Button
-            title={member.archived ? "Restore" : "Archive"}
-            icon={member.archived ? "archive-outline" : "archive"}
-            variant="secondary"
+          <HeroAction
+            title={currentMember.archived ? "Restore" : "Archive"}
+            icon={currentMember.archived ? "archive-outline" : "archive"}
             onPress={toggleMemberArchive}
           />
-          <Button
-            title="Export PDF"
+          <HeroAction
+            title="Export"
             icon="document-text"
-            variant="secondary"
             onPress={exportPdf}
           />
         </View>
       </Card>
 
-      <Card>
-        <SectionTitle
-          title="Link member"
-          subtitle="Linking enables verification but does not share historical debts automatically."
-        />
-        {member.linkStatus === "linked" ? (
-          <>
-            <Text style={styles.body}>
-              Linked to{" "}
-              {member.linkedProfileDisplayName ??
-                member.linkedProfileEmail ??
-                member.linkedUserId}
-              . You can still call this member {member.displayName} in your
-              local ledger.
-            </Text>
-            <Button
-              title="Unlink member"
-              icon="link-outline"
-              variant="secondary"
-              onPress={() =>
-                data.unlinkMember(member.id, auth.identity.authenticatedUserId)
-              }
-            />
-          </>
-        ) : (
-          <>
-            <Text style={styles.body}>
-              Enter an email or phone to send a link request. Accepting a link
-              request does not expose old private debts.
-            </Text>
-            <TextField
-              label="Email or phone"
-              value={linkTarget}
-              onChangeText={setLinkTarget}
-              placeholder="name@example.com"
-              keyboardType={
-                linkTarget.includes("@") ? "email-address" : "default"
-              }
-            />
-            <TextField
-              label="Message"
-              value={linkMessage}
-              onChangeText={setLinkMessage}
-              placeholder="Optional"
-              multiline
-            />
-            <Button
-              title={
-                member.linkStatus === "invite_pending"
-                  ? "Resend link request"
-                  : "Link member"
-              }
-              icon="link"
-              onPress={async () => {
-                if (!auth.identity.authenticatedUserId) {
-                  Alert.alert(
-                    "Account required",
-                    "Sign in before linking a member to a real user.",
-                  );
-                  return;
-                }
-                const cleanTarget = linkTarget.trim();
-                const remoteId = await createRemoteLinkRequest({
-                  requesterUserId: auth.identity.authenticatedUserId,
-                  targetEmail: cleanTarget.includes("@") ? cleanTarget : null,
-                  targetPhone: cleanTarget.includes("@") ? null : cleanTarget,
-                  requesterMemberId: member.id,
-                  requesterLabel: member.displayName,
-                  message: linkMessage,
-                });
-                await data.sendMemberLinkRequest(member.id, {
-                  requesterUserId: auth.identity.authenticatedUserId,
-                  targetEmail: cleanTarget.includes("@") ? cleanTarget : null,
-                  targetPhone: cleanTarget.includes("@") ? null : cleanTarget,
-                  message: linkMessage,
-                  remoteId,
-                });
-              }}
-              disabled={!linkTarget.trim()}
-            />
-          </>
-        )}
-      </Card>
-
-      <Card tone={member.linkStatus === "linked" ? "blue" : "default"}>
-        <SectionTitle
-          title="Trust levels"
-          subtitle={
-            member.linkStatus === "linked"
-              ? "Shared verified balances stay separate from private totals."
-              : "Unlinked members show local/private balance only."
-          }
-        />
-        {member.linkStatus === "linked" ? (
-          <>
-            <TrustBalance
-              label="Verified"
-              balances={trustBalances.verified}
-              data={data}
-            />
-            <TrustBalance
-              label="Pending"
-              balances={trustBalances.pending}
-              data={data}
-            />
-            <TrustBalance
-              label="Rejected/Disputed"
-              balances={trustBalances.rejectedDisputed}
-              data={data}
-            />
-            <TrustBalance
-              label="Private total"
-              balances={trustBalances.privateTotal}
-              data={data}
-            />
-          </>
-        ) : (
-          <>
-            <TrustBalance
-              label="Local/private"
-              balances={data.memberBalances[member.id] ?? {}}
-              data={data}
-            />
-            <Text style={styles.body}>
-              Link member to request verification.
-            </Text>
-          </>
-        )}
-      </Card>
-
-      <SectionTitle
-        title="Debt history"
-        subtitle="Includes direct debts and group split obligations involving this member."
+      <SlidingSectionSwitcher
+        sections={memberSections}
+        activeSection={activeSection}
+        onChange={setActiveSection}
       />
-      <Card>
-        {memberEntries.length > 0 ? (
-          memberEntries.map((entry) => (
-            <DebtRow
-              key={entry.id}
-              entry={entry}
-              members={data.members}
-              group={
-                entry.groupId
-                  ? data.groups.find((group) => group.id === entry.groupId)
-                  : undefined
+
+      {activeSection === "overview" ? (
+        <>
+          <Card tone="lavender" style={styles.detailsCard}>
+            <CardHeading
+              title="Details"
+              subtitle="Local profile details for this relationship."
+            />
+            <DetailRow
+              label="Contact"
+              value={
+                currentMember.email || currentMember.phone ? (
+                  <View style={styles.inlineValueStack}>
+                    {currentMember.email ? (
+                      <Text style={styles.detailValueText}>
+                        {currentMember.email}
+                      </Text>
+                    ) : null}
+                    {currentMember.phone ? (
+                      <Text style={styles.detailValueText}>
+                        {currentMember.phone}
+                      </Text>
+                    ) : null}
+                  </View>
+                ) : (
+                  "No contact added"
+                )
               }
             />
-          ))
-        ) : (
-          <EmptyState
-            title="No debt history"
-            body="Add a simple debt or include this member in an group expense."
-          />
-        )}
-      </Card>
+            <DetailRow
+              label="Tags"
+              value={
+                currentMember.tags.length ? (
+                  <TagChips tags={currentMember.tags} />
+                ) : (
+                  "No tags"
+                )
+              }
+            />
+            <View style={styles.notesBlock}>
+              <Text style={styles.notesLabel}>Notes</Text>
+              <Text style={styles.notesBody}>
+                {currentMember.notes || "No notes added"}
+              </Text>
+            </View>
+          </Card>
 
-      <SectionTitle
-        title="Payment history"
-        subtitle="Recorded payments and settlement records with this member."
-      />
-      <Card>
-        {data.payments.filter(
-          (payment) =>
-            payment.relatedMemberId === member.id ||
-            payment.payerMemberId === member.id ||
-            payment.payeeMemberId === member.id,
-        ).length > 0 ? (
-          data.payments
-            .filter(
-              (payment) =>
-                payment.relatedMemberId === member.id ||
-                payment.payerMemberId === member.id ||
-                payment.payeeMemberId === member.id,
-            )
-            .map((payment) => (
-              <View key={payment.id} style={styles.trustRow}>
-                <Text style={styles.trustLabel}>{payment.paymentDate}</Text>
+          <Card style={styles.detailsCard}>
+            <CardHeading
+              title="Link member"
+              subtitle="Linking enables verification but does not share historical debts automatically."
+            />
+            {currentMember.linkStatus === "linked" ? (
+              <>
+                <View style={styles.connectedRow}>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={20}
+                    color={palette.positive}
+                  />
+                  <Text style={styles.body}>
+                    Linked to{" "}
+                    {currentMember.linkedProfileDisplayName ??
+                      currentMember.linkedProfileEmail ??
+                      currentMember.linkedUserId}
+                    .
+                  </Text>
+                </View>
+                <Button
+                  title="Unlink member"
+                  icon="link-outline"
+                  variant="secondary"
+                  onPress={() =>
+                    data.unlinkMember(
+                      currentMember.id,
+                      auth.identity.authenticatedUserId,
+                    )
+                  }
+                />
+              </>
+            ) : (
+              <>
                 <Text style={styles.body}>
-                  {payment.amount} {payment.currency} ·{" "}
-                  {payment.status.replaceAll("_", " ")}
+                  Enter an email or phone to send a link request. Accepting a
+                  link request does not expose old private debts.
                 </Text>
+                <TextField
+                  label="Email or phone"
+                  value={linkTarget}
+                  onChangeText={setLinkTarget}
+                  placeholder="name@example.com"
+                  keyboardType={
+                    linkTarget.includes("@") ? "email-address" : "default"
+                  }
+                />
+                <TextField
+                  label="Message"
+                  value={linkMessage}
+                  onChangeText={setLinkMessage}
+                  placeholder="Optional"
+                  multiline
+                />
+                <Button
+                  title={
+                    currentMember.linkStatus === "invite_pending"
+                      ? "Resend link request"
+                      : "Link member"
+                  }
+                  icon="link"
+                  onPress={async () => {
+                    if (!auth.identity.authenticatedUserId) {
+                      Alert.alert(
+                        "Account required",
+                        "Sign in before linking a member to a real user.",
+                      );
+                      return;
+                    }
+                    const cleanTarget = linkTarget.trim();
+                    const remoteId = await createRemoteLinkRequest({
+                      requesterUserId: auth.identity.authenticatedUserId,
+                      targetEmail: cleanTarget.includes("@")
+                        ? cleanTarget
+                        : null,
+                      targetPhone: cleanTarget.includes("@")
+                        ? null
+                        : cleanTarget,
+                      requesterMemberId: currentMember.id,
+                      requesterLabel: currentMember.displayName,
+                      message: linkMessage,
+                    });
+                    await data.sendMemberLinkRequest(currentMember.id, {
+                      requesterUserId: auth.identity.authenticatedUserId,
+                      targetEmail: cleanTarget.includes("@")
+                        ? cleanTarget
+                        : null,
+                      targetPhone: cleanTarget.includes("@")
+                        ? null
+                        : cleanTarget,
+                      message: linkMessage,
+                      remoteId,
+                    });
+                  }}
+                  disabled={!linkTarget.trim()}
+                />
+              </>
+            )}
+          </Card>
+
+          <Card
+            tone={currentMember.linkStatus === "linked" ? "blue" : "default"}
+            style={styles.detailsCard}
+          >
+            <CardHeading
+              title="Trust levels"
+              subtitle={
+                currentMember.linkStatus === "linked"
+                  ? "Shared verified balances stay separate from private totals."
+                  : "Unlinked members show local/private balance only."
+              }
+            />
+            {currentMember.linkStatus === "linked" ? (
+              <>
+                <TrustBalance
+                  label="Verified"
+                  balances={trustBalances.verified}
+                  data={data}
+                />
+                <TrustBalance
+                  label="Pending"
+                  balances={trustBalances.pending}
+                  data={data}
+                />
+                <TrustBalance
+                  label="Rejected/Disputed"
+                  balances={trustBalances.rejectedDisputed}
+                  data={data}
+                />
+                <TrustBalance
+                  label="Private total"
+                  balances={trustBalances.privateTotal}
+                  data={data}
+                />
+              </>
+            ) : (
+              <>
+                <TrustBalance
+                  label="Local/private"
+                  balances={memberBalance}
+                  data={data}
+                />
+                <Text style={styles.body}>
+                  Link member to request verification.
+                </Text>
+              </>
+            )}
+          </Card>
+        </>
+      ) : null}
+
+      {activeSection === "debts" ? (
+        <Card style={styles.detailsCard}>
+          <CardHeading
+            title="Debt history"
+            subtitle="Direct debts and group obligations involving this member."
+          />
+          {memberEntries.length > 0 ? (
+            memberEntries.map((entry) => (
+              <DebtRow
+                key={entry.id}
+                entry={entry}
+                members={data.members}
+                group={
+                  entry.groupId
+                    ? data.groups.find((group) => group.id === entry.groupId)
+                    : undefined
+                }
+              />
+            ))
+          ) : (
+            <EmptyState
+              title="No debt history"
+              body="Add a simple debt or include this member in a group expense."
+            />
+          )}
+        </Card>
+      ) : null}
+
+      {activeSection === "payments" ? (
+        <Card style={styles.detailsCard}>
+          <CardHeading
+            title="Payment history"
+            subtitle="Recorded payments and settlement records with this member."
+          />
+          {memberPayments.length > 0 ? (
+            memberPayments.map((payment) => (
+              <View key={payment.id} style={styles.trustRow}>
+                <View style={styles.paymentDatePill}>
+                  <Text style={styles.paymentDateText}>
+                    {formatShortDate(payment.paymentDate)}
+                  </Text>
+                </View>
+                <View style={styles.paymentCopy}>
+                  <Text style={styles.trustLabel}>
+                    {formatMoney(payment.amount, payment.currency)}
+                  </Text>
+                  <Text style={styles.paymentMeta}>
+                    {payment.status.replaceAll("_", " ")}
+                  </Text>
+                </View>
               </View>
             ))
-        ) : (
-          <EmptyState
-            title="No payment history"
-            body="Record a payment or settlement to reduce open balances."
-          />
-        )}
-      </Card>
+          ) : (
+            <EmptyState
+              title="No payment history"
+              body="Record a payment or settlement to reduce open balances."
+            />
+          )}
+        </Card>
+      ) : null}
 
-      <SectionTitle
-        title="Groups"
-        subtitle="Structured groups this member belongs to."
-      />
-      <Card>
-        {memberGroups.length > 0 ? (
-          memberGroups.map((group) => {
-            if (!group) {
-              return null;
-            }
-            const explanation = explainGroupSettlement(
-              group.id,
-              data.ledgerEntries,
-            );
-            return (
-              <View key={group.id}>
-                <GroupRow
-                  group={group}
-                  memberCount={
-                    data.groupMembers.filter(
-                      (groupMember) => groupMember.groupId === group.id,
-                    ).length
-                  }
-                  balance={explanation.participantNets[member.id] ?? {}}
-                  settings={data.settings}
-                  currencyRates={data.currencyRates}
-                  unsettled={explanation.suggestions.length > 0}
-                />
-              </View>
-            );
-          })
-        ) : (
-          <EmptyState
-            title="No groups yet"
-            body="Add this member to a group or group to split expenses."
+      {activeSection === "groups" ? (
+        <Card style={styles.detailsCard}>
+          <CardHeading
+            title="Groups"
+            subtitle="Structured groups this member belongs to."
           />
-        )}
-      </Card>
+          {memberGroups.length > 0 ? (
+            memberGroups.map((group) => {
+              if (!group) {
+                return null;
+              }
+              const explanation = explainGroupSettlement(
+                group.id,
+                data.ledgerEntries,
+              );
+              return (
+                <View key={group.id}>
+                  <GroupRow
+                    group={group}
+                    memberCount={
+                      data.groupMembers.filter(
+                        (groupMember) => groupMember.groupId === group.id,
+                      ).length
+                    }
+                    balance={explanation.participantNets[currentMember.id] ?? {}}
+                    settings={data.settings}
+                    currencyRates={data.currencyRates}
+                    unsettled={explanation.suggestions.length > 0}
+                  />
+                </View>
+              );
+            })
+          ) : (
+            <EmptyState
+              title="No groups yet"
+              body="Add this member to a group to split expenses."
+            />
+          )}
+        </Card>
+      ) : null}
     </Screen>
   );
 }
@@ -483,96 +575,304 @@ export function MemberDetailScreen() {
 const styles = StyleSheet.create({
   heroCard: {
     overflow: "hidden",
+    marginTop: spacing.sm,
+    marginBottom: spacing.xxl,
+    padding: spacing.xxl,
+    gap: spacing.xl,
+    borderColor: palette.borderIndigoSoft,
   },
   heroGlow: {
     position: "absolute",
-    top: -26,
-    right: -12,
-    width: 176,
-    height: 176,
-    borderRadius: 88,
-    backgroundColor: "rgba(221,214,254,0.24)",
+    top: -52,
+    right: -34,
+    width: 210,
+    height: 210,
+    borderRadius: 105,
+    backgroundColor: "rgba(253,186,155,0.2)",
   },
-  heroTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  heroHeading: {
+    alignItems: "center",
     gap: spacing.lg,
-    flexWrap: "wrap",
   },
   heroCopy: {
-    flex: 1,
-    minWidth: 220,
+    alignItems: "center",
     gap: spacing.sm,
+    width: "100%",
   },
   heroLabel: {
-    color: palette.muted,
-    fontSize: typography.size.sm,
-    fontFamily: typefaces.bodyStrong,
+    color: palette.brand,
+    fontSize: typography.size.xs,
+    fontFamily: typefaces.bodyHeavy,
     textTransform: "uppercase",
-    letterSpacing: 0.4,
+    letterSpacing: 0.6,
   },
   heroTitle: {
     color: palette.ink,
-    fontSize: typography.size.h1,
-    lineHeight: typography.line.displayMd,
+    fontSize: typography.size.displaySm,
+    lineHeight: typography.line.displaySm,
     fontFamily: typefaces.displayMedium,
+    textAlign: "center",
   },
-  heroArtWrap: {
-    width: 142,
-    height: 112,
-    borderRadius: 24,
-    backgroundColor: "rgba(255,255,255,0.38)",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderGlass,
+  heroSubtitle: {
+    color: palette.faint,
+    fontSize: typography.size.sm,
+    fontFamily: typefaces.body,
+  },
+  avatarLarge: {
+    width: 74,
+    height: 74,
+    borderRadius: radii.pill,
+    backgroundColor: palette.surfaceGlassStrong,
+    borderWidth: 1.5,
+    borderColor: palette.borderIndigo,
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: palette.shadow,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    elevation: 2,
   },
-  label: {
-    color: palette.brandDark,
-    fontSize: typography.size.sm,
+  avatarLargeText: {
+    color: palette.brand,
+    fontSize: typography.size.h2,
     fontFamily: typefaces.bodyHeavy,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-  },
-  metaBlock: {
-    gap: spacing.xs,
-  },
-  metaText: {
-    color: palette.muted,
-    fontSize: typography.size.base,
-    fontFamily: typefaces.bodyStrong,
   },
   body: {
     color: palette.ink,
-    fontSize: typography.size.lg,
-    lineHeight: typography.line.h3,
+    fontSize: typography.size.base,
+    lineHeight: typography.line.xl,
     fontFamily: typefaces.body,
+    flexShrink: 1,
   },
   actionRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.md,
+    justifyContent: "center",
+    gap: spacing.sm,
   },
   badgeLine: {
     flexDirection: "row",
     flexWrap: "wrap",
+    justifyContent: "center",
     gap: spacing.xs,
+  },
+  archivedBadge: {
+    borderRadius: radii.pill,
+    backgroundColor: palette.surfaceMuted,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
+  },
+  archivedBadgeText: {
+    color: palette.muted,
+    fontSize: typography.size.xs,
+    fontFamily: typefaces.bodyStrong,
+  },
+  heroAction: {
+    minHeight: 38,
+    borderRadius: radii.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderGlass,
+    backgroundColor: "rgba(255,255,255,0.64)",
+    paddingHorizontal: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.xs,
+  },
+  heroActionPressed: {
+    opacity: 0.72,
+  },
+  heroActionText: {
+    color: palette.brand,
+    fontSize: typography.size.sm,
+    fontFamily: typefaces.bodyStrong,
+  },
+  detailsCard: {
+    gap: 0,
+    marginBottom: spacing.md,
+  },
+  cardHeading: {
+    paddingBottom: spacing.md,
+    marginBottom: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: palette.borderIndigoSoft,
+    gap: 2,
+  },
+  cardHeadingTitle: {
+    color: palette.textPrimary,
+    fontSize: typography.size.xl,
+    lineHeight: typography.line.xl,
+    fontFamily: typefaces.displayMedium,
+  },
+  cardHeadingSubtitle: {
+    color: palette.muted,
+    fontSize: typography.size.md,
+    lineHeight: typography.line.lg,
+    fontFamily: typefaces.body,
+  },
+  detailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: spacing.lg,
+    paddingVertical: spacing.lg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: palette.line,
+  },
+  detailLabel: {
+    color: palette.muted,
+    fontSize: typography.size.base,
+    fontFamily: typefaces.bodyHeavy,
+  },
+  detailValue: {
+    flex: 1,
+    alignItems: "flex-end",
+  },
+  detailValueText: {
+    color: palette.ink,
+    fontSize: typography.size.base,
+    lineHeight: typography.line.lg,
+    fontFamily: typefaces.bodyStrong,
+    textAlign: "right",
+  },
+  inlineValueStack: {
+    alignItems: "flex-end",
+    gap: 2,
+  },
+  notesBlock: {
+    paddingTop: spacing.lg,
+    gap: spacing.sm,
+  },
+  notesLabel: {
+    color: palette.muted,
+    fontSize: typography.size.base,
+    fontFamily: typefaces.bodyHeavy,
+  },
+  notesBody: {
+    color: palette.ink,
+    fontSize: typography.size.base,
+    lineHeight: typography.line.xl,
+    fontFamily: typefaces.body,
+  },
+  connectedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginBottom: spacing.md,
   },
   trustRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.lg,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: palette.line,
   },
   trustLabel: {
     color: palette.ink,
-    fontSize: typography.size.lg,
+    fontSize: typography.size.base,
     fontFamily: typefaces.bodyHeavy,
   },
+  paymentDatePill: {
+    minWidth: 68,
+    borderRadius: radii.pill,
+    backgroundColor: palette.surfaceLavender,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    alignItems: "center",
+  },
+  paymentDateText: {
+    color: palette.brand,
+    fontSize: typography.size.xs,
+    fontFamily: typefaces.bodyStrong,
+  },
+  paymentCopy: {
+    flex: 1,
+    alignItems: "flex-end",
+    gap: 2,
+  },
+  paymentMeta: {
+    color: palette.muted,
+    fontSize: typography.size.sm,
+    fontFamily: typefaces.body,
+  },
 });
+
+function HeroAction({
+  title,
+  icon,
+  onPress,
+}: {
+  title: string;
+  icon: IconName;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.heroAction,
+        pressed && styles.heroActionPressed,
+      ]}
+    >
+      <Ionicons name={icon} size={15} color={palette.brand} />
+      <Text style={styles.heroActionText}>{title}</Text>
+    </Pressable>
+  );
+}
+
+function CardHeading({
+  title,
+  subtitle,
+}: {
+  title: string;
+  subtitle?: string;
+}) {
+  return (
+    <View style={styles.cardHeading}>
+      <Text style={styles.cardHeadingTitle}>{title}</Text>
+      {subtitle ? (
+        <Text style={styles.cardHeadingSubtitle}>{subtitle}</Text>
+      ) : null}
+    </View>
+  );
+}
+
+function DetailRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | React.ReactNode;
+}) {
+  return (
+    <View style={styles.detailRow}>
+      <Text style={styles.detailLabel}>{label}</Text>
+      <View style={styles.detailValue}>
+        {typeof value === "string" ? (
+          <Text style={styles.detailValueText}>{value}</Text>
+        ) : (
+          value
+        )}
+      </View>
+    </View>
+  );
+}
+
+function formatShortDate(value: string) {
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+}
 
 function calculateTrustBalances(memberId: string, entries: LedgerEntry[]) {
   const verified: MoneyMap = {};
