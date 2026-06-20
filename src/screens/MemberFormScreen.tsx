@@ -22,7 +22,6 @@ import {
   searchSignedUpMemberProfiles,
   type SignedUpMemberProfile,
 } from "@/src/services/profileSearch";
-import { createRemoteLinkRequest } from "@/src/services/stage2Sync";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
 
@@ -32,7 +31,9 @@ export function MemberFormScreen() {
   const auth = useAuth();
   const member = data.members.find((item) => item.id === id);
 
-  const [displayName, setDisplayName] = useState(member?.displayName ?? "");
+  const existingNameParts = member?.displayName.trim().split(/\s+/) ?? [];
+  const [firstName, setFirstName] = useState(existingNameParts[0] ?? "");
+  const [lastName, setLastName] = useState(existingNameParts.slice(1).join(" "));
   const [notes, setNotes] = useState(member?.notes ?? "");
   const [email, setEmail] = useState(member?.email ?? "");
   const [phone, setPhone] = useState(member?.phone ?? "");
@@ -49,6 +50,10 @@ export function MemberFormScreen() {
   const [profileSearchError, setProfileSearchError] = useState<string | null>(
     null,
   );
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const displayName = [firstName.trim(), lastName.trim()].filter(Boolean).join(" ");
 
   const usedTagNames = useMemo(
     () => data.tags.map((tag) => tag.name),
@@ -62,15 +67,12 @@ export function MemberFormScreen() {
 
     const query = profileQuery.trim();
     if (query.length < 2) {
-      setProfileResults([]);
-      setProfileSearchLoading(false);
-      setProfileSearchError(null);
       return;
     }
 
     let cancelled = false;
-    setProfileSearchLoading(true);
     const timeout = setTimeout(() => {
+      setProfileSearchLoading(true);
       searchSignedUpMemberProfiles({
         query,
         excludeUserId: auth.identity.authenticatedUserId,
@@ -110,14 +112,29 @@ export function MemberFormScreen() {
 
   function selectProfile(profile: SignedUpMemberProfile) {
     setSelectedProfile(profile);
-    setDisplayName(profile.displayName);
+    const fallbackParts = profile.displayName.trim().split(/\s+/);
+    setFirstName(profile.firstName ?? fallbackParts[0] ?? "");
+    setLastName(profile.lastName ?? fallbackParts.slice(1).join(" "));
     setEmail(profile.email ?? "");
     setPhone(profile.phone ?? "");
     setProfileQuery(profile.displayName);
     setProfileResults([]);
   }
 
+  function clearSelectedProfile() {
+    setSelectedProfile(null);
+    setProfileQuery("");
+    setProfileResults([]);
+    setFirstName("");
+    setLastName("");
+    setEmail("");
+    setPhone("");
+  }
+
   async function save() {
+    if (saving || !firstName.trim()) return;
+    setSaving(true);
+    setSaveError(null);
     const input = {
       displayName,
       notes,
@@ -126,43 +143,33 @@ export function MemberFormScreen() {
       linkedProfileDisplayName: selectedProfile?.displayName,
       linkedProfileEmail: selectedProfile?.email,
       linkedProfilePhone: selectedProfile?.phone,
+      linkedUserId: selectedProfile?.id,
+      linkStatus: selectedProfile ? ("linked" as const) : undefined,
       tags: selectedTags,
     };
 
-    if (member) {
-      await data.updateMember(member.id, input);
-    } else {
-      const created = await data.createMember(input);
-      if (selectedProfile && auth.identity.authenticatedUserId) {
-        const remoteId = await createRemoteLinkRequest({
-          requesterUserId: auth.identity.authenticatedUserId,
-          targetUserId: selectedProfile.id,
-          targetEmail: selectedProfile.email,
-          targetPhone: selectedProfile.phone,
-          requesterMemberId: created.id,
-          requesterLabel: created.displayName,
-        });
-        await data.sendMemberLinkRequest(created.id, {
-          requesterUserId: auth.identity.authenticatedUserId,
-          targetUserId: selectedProfile.id,
-          targetEmail: selectedProfile.email,
-          targetPhone: selectedProfile.phone,
-          remoteId,
-        });
+    try {
+      if (member) {
+        await data.updateMember(member.id, input);
+      } else {
+        await data.createMember(input);
       }
+      router.back();
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Unable to add member.");
+    } finally {
+      setSaving(false);
     }
-
-    router.back();
   }
 
   return (
     <Screen
       footer={
         <Button
-          title={member ? "Save member" : "Create member"}
+          title={member ? "Save member" : selectedProfile ? "Add linked member" : "Create member"}
           icon="checkmark"
           onPress={save}
-          disabled={!displayName.trim()}
+          disabled={!firstName.trim() || saving}
         />
       }
     >
@@ -178,8 +185,13 @@ export function MemberFormScreen() {
             value={profileQuery}
             onChangeText={(value) => {
               setProfileQuery(value);
-              setSelectedProfile(null);
+              setProfileSearchError(null);
+              if (value.trim().length < 2) {
+                setProfileResults([]);
+                setProfileSearchLoading(false);
+              }
             }}
+            editable={!selectedProfile}
             placeholder="Search name, email, phone"
           />
           {profileSearchLoading ? (
@@ -192,9 +204,12 @@ export function MemberFormScreen() {
             <Text style={styles.searchError}>{profileSearchError}</Text>
           ) : null}
           {selectedProfile ? (
-            <Text style={styles.selectedProfileText}>
-              Selected {selectedProfile.displayName}
-            </Text>
+            <View style={styles.selectedProfileRow}>
+              <Text style={styles.selectedProfileText}>Linked account selected</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel="Clear selected linked member" onPress={clearSelectedProfile}>
+                <Text style={styles.clearSelection}>Clear</Text>
+              </Pressable>
+            </View>
           ) : null}
           {profileResults.length ? (
             <View style={styles.profileResults}>
@@ -228,26 +243,21 @@ export function MemberFormScreen() {
       ) : null}
 
       <Card tone="peach">
-        <TextField
-          label="Name"
-          value={displayName}
-          onChangeText={setDisplayName}
-          placeholder="Daniel"
-        />
-        <TextField
-          label="Email"
-          value={email}
-          onChangeText={setEmail}
-          placeholder="name@example.com"
-          keyboardType="email-address"
-        />
-        <TextField
-          label="Phone"
-          value={phone}
-          onChangeText={setPhone}
-          placeholder="+46 ..."
-          keyboardType="phone-pad"
-        />
+        {selectedProfile ? (
+          <View style={styles.linkedDetails}>
+            <ReadOnlyDetail label="First name" value={firstName} />
+            <ReadOnlyDetail label="Last name" value={lastName || "—"} />
+            <ReadOnlyDetail label="Email" value={email || "—"} />
+            <ReadOnlyDetail label="Phone" value={phone || "—"} />
+          </View>
+        ) : (
+          <>
+            <TextField label="First name" value={firstName} onChangeText={setFirstName} placeholder="Daniel" />
+            <TextField label="Last name (optional)" value={lastName} onChangeText={setLastName} placeholder="Andersson" />
+            <TextField label="Email (optional)" value={email} onChangeText={setEmail} placeholder="name@example.com" keyboardType="email-address" />
+            <TextField label="Phone (optional)" value={phone} onChangeText={setPhone} placeholder="+46 ..." keyboardType="phone-pad" />
+          </>
+        )}
         <TagInput
           value={selectedTags}
           onChange={setSelectedTags}
@@ -260,8 +270,18 @@ export function MemberFormScreen() {
           placeholder="How you know them"
           multiline
         />
+        {saveError ? <Text style={styles.searchError}>{saveError}</Text> : null}
       </Card>
     </Screen>
+  );
+}
+
+function ReadOnlyDetail({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.readOnlyDetail}>
+      <Text style={styles.readOnlyLabel}>{label}</Text>
+      <Text style={styles.readOnlyValue}>{value}</Text>
+    </View>
   );
 }
 
@@ -286,6 +306,32 @@ const styles = StyleSheet.create({
     color: palette.primary,
     fontSize: typography.size.sm,
     fontFamily: typefaces.bodyStrong,
+  },
+  selectedProfileRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  clearSelection: {
+    color: palette.danger,
+    fontSize: typography.size.sm,
+    fontFamily: typefaces.bodyStrong,
+  },
+  linkedDetails: {
+    gap: 14,
+  },
+  readOnlyDetail: {
+    gap: 4,
+  },
+  readOnlyLabel: {
+    color: palette.muted,
+    fontSize: typography.size.sm,
+    fontFamily: typefaces.bodyStrong,
+  },
+  readOnlyValue: {
+    color: palette.textPrimary,
+    fontSize: typography.size.base,
+    fontFamily: typefaces.body,
   },
   profileResults: {
     gap: 6,
