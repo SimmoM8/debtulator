@@ -309,6 +309,9 @@ type AppDataContextValue = DatabaseSnapshot & {
   refresh: () => Promise<void>;
   retryBoot: () => void;
   resetLocalData: () => Promise<void>;
+  resetSyncedData: () => Promise<void>;
+  clearLocalDataOnly: () => Promise<void>;
+  syncedDataResetVersion: number;
   upsertProfile: (profile: UserProfile) => Promise<UserProfile>;
   upsertLinkRequest: (linkRequest: LinkRequest) => Promise<LinkRequest>;
   upsertDebtVerification: (verification: DebtVerification) => Promise<DebtVerification>;
@@ -576,6 +579,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [bootAttempt, setBootAttempt] = useState(0);
+  const [syncedDataResetVersion, setSyncedDataResetVersion] = useState(0);
 
   useEffect(() => {
     let mounted = true;
@@ -688,6 +692,14 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       resetLocalData: async () => {
         await runAndRefresh((repo) => repo.reset());
       },
+      resetSyncedData: async () => {
+        await runAndRefresh((repo) => repo.resetSyncedData());
+        setSyncedDataResetVersion((version) => version + 1);
+      },
+      clearLocalDataOnly: async () => {
+        await runAndRefresh((repo) => repo.resetSyncedData());
+      },
+      syncedDataResetVersion,
       upsertProfile: (profile) => runAndRefresh((repo) => repo.upsertProfile(profile)),
       upsertLinkRequest: (linkRequest) => runAndRefresh((repo) => repo.upsertLinkRequest(linkRequest)),
       upsertDebtVerification: (verification) => runAndRefresh((repo) => repo.upsertDebtVerification(verification)),
@@ -1017,6 +1029,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       runAndRefresh,
       snapshot,
       syncSummary,
+      syncedDataResetVersion,
     ],
   );
 

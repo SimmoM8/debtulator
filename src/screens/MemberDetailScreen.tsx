@@ -1,11 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
-import { DebtRow, GroupRow } from "@/src/components/EntityRows";
-import { LinkStatusBadge, TagChips } from "@/src/components/ui/Badges";
-import { BalanceStack } from "@/src/components/ui/Money";
+import { DebtLedgerSection, debtSectionTotalLabel } from "@/src/components/DebtLedgerSection";
+import { GroupRow } from "@/src/components/EntityRows";
+import { TagInput } from "@/src/components/ui/TagInput";
 import {
     Button,
     Card,
@@ -15,7 +15,6 @@ import {
     PageHeader,
     Screen,
     SlidingSectionSwitcher,
-    TextField,
 } from "@/src/components/ui/Primitives";
 import {
     palette,
@@ -24,36 +23,28 @@ import {
     typefaces,
     typography,
 } from "@/src/constants/design";
-import {
-    memberPdfLines,
-    shareExport,
-    writePdfExport,
-} from "@/src/services/export";
+import { estimateMoneyMap } from "@/src/services/currency";
 import {
     entriesForMember,
     explainGroupSettlement,
 } from "@/src/services/ledger";
-import { createRemoteLinkRequest } from "@/src/services/stage2Sync";
 import { useAppData } from "@/src/state/AppDataProvider";
-import { useAuth } from "@/src/state/AuthProvider";
-import type { LedgerEntry, MoneyMap } from "@/src/types/models";
-import { addMoney, formatMoney } from "@/src/utils/money";
+import { formatMoney } from "@/src/utils/money";
 import { initials } from "@/src/utils/text";
 
 type MemberDetailSectionKey = "overview" | "debts" | "payments" | "groups";
-type IconName = keyof typeof Ionicons.glyphMap;
 
 export function MemberDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const data = useAppData();
-  const auth = useAuth();
   const member = data.members.find((item) => item.id === id);
-  const [linkTarget, setLinkTarget] = useState(
-    member?.email ?? member?.phone ?? "",
-  );
-  const [linkMessage, setLinkMessage] = useState("");
   const [activeSection, setActiveSection] =
     useState<MemberDetailSectionKey>("overview");
+  const [notesDraft, setNotesDraft] = useState<string | null>(null);
+  const [savingNotes, setSavingNotes] = useState(false);
+  const [tagsDraft, setTagsDraft] = useState<string[] | null>(null);
+  const [tagsOpen, setTagsOpen] = useState(false);
+  const [savingTags, setSavingTags] = useState(false);
 
   const memberEntries = useMemo(
     () => (member ? entriesForMember(member.id, data.ledgerEntries) : []),
@@ -70,10 +61,6 @@ export function MemberDetailScreen() {
             .filter(Boolean)
         : [],
     [data.groupMembers, data.groups, member],
-  );
-  const trustBalances = useMemo(
-    () => calculateTrustBalances(member?.id ?? "", memberEntries),
-    [member?.id, memberEntries],
   );
   const memberPayments = useMemo(
     () =>
@@ -104,6 +91,23 @@ export function MemberDetailScreen() {
   }
   const currentMember = member;
   const memberBalance = data.memberBalances[currentMember.id] ?? {};
+  const netBalance = estimateMoneyMap(memberBalance, data.settings, data.currencyRates);
+  const openMemberEntries = memberEntries.filter(
+    (entry) =>
+      entry.status !== "archived" &&
+      entry.status !== "settled" &&
+      entry.paymentStatus !== "paid" &&
+      entry.remainingAmount > 0.005,
+  );
+  const memberYouOwe = openMemberEntries.filter((entry) => entry.fromId === "me");
+  const memberOwesYou = openMemberEntries.filter((entry) => entry.toId === "me");
+  const notesValue = notesDraft ?? currentMember.notes ?? "";
+  const notesChanged = notesValue.trim() !== (currentMember.notes ?? "").trim();
+  const tagsValue = tagsDraft ?? currentMember.tags;
+  const tagsChanged = JSON.stringify(tagsValue) !== JSON.stringify(currentMember.tags);
+  const usedTagNames = Array.from(
+    new Set([...data.tags.map((tag) => tag.name), ...currentMember.tags]),
+  );
   const memberSections: { key: MemberDetailSectionKey; label: string }[] = [
     { key: "overview", label: "Overview" },
     { key: "debts", label: "Debts" },
@@ -111,65 +115,58 @@ export function MemberDetailScreen() {
     { key: "groups", label: "Groups" },
   ];
 
-  async function exportPdf() {
-    const memberSettlements = data.settlements.filter(
-      (settlement) => settlement.memberId === currentMember.id,
-    );
-    const uri = await writePdfExport(
-      `debtulator-${currentMember.displayName}.pdf`,
-      memberPdfLines({
-        member: currentMember,
-        entries: memberEntries,
-        payments: memberPayments,
-        settlements: memberSettlements,
-        snapshot: data,
-        options: {
-          includePrivateNotes: data.settings.includePrivateNotesInExports,
-          includeComments: data.settings.includeCommentsInExports,
-          includeAttachments: data.settings.includeAttachmentsInExports,
-          includeRejectedDisputed:
-            data.settings.includeRejectedDisputedInExports,
-          includeArchived: data.settings.includeArchivedInExports,
-        },
-      }),
-    );
-    await data.createExportLog({
-      userId: auth.identity.authenticatedUserId,
-      exportType: "pdf",
-      targetType: "member",
-      targetId: currentMember.id,
-      metadata: { uri },
-    });
-    await shareExport(uri, `${currentMember.displayName} PDF`);
+  async function saveNotes() {
+    if (!notesChanged || savingNotes) return;
+    setSavingNotes(true);
+    try {
+      await data.updateMember(currentMember.id, { notes: notesValue });
+      setNotesDraft(null);
+    } catch {
+      Alert.alert("Could not save notes", "Your notes could not be saved. Please try again.");
+    } finally {
+      setSavingNotes(false);
+    }
   }
 
-  function toggleMemberArchive() {
-    if (currentMember.archived) {
-      void data.updateMember(currentMember.id, { archived: false });
-      return;
+  async function saveTags() {
+    if (!tagsChanged || savingTags) return;
+    setSavingTags(true);
+    try {
+      await data.updateMember(currentMember.id, { tags: tagsValue });
+      setTagsDraft(null);
+      setTagsOpen(false);
+    } catch {
+      Alert.alert("Could not save tags", "Your tags could not be saved. Please try again.");
+    } finally {
+      setSavingTags(false);
     }
-
-    Alert.alert(
-      "Archive member?",
-      "This hides the member from active member lists while keeping existing ledger history.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Archive",
-          style: "destructive",
-          onPress: () => {
-            void data.updateMember(currentMember.id, { archived: true });
-          },
-        },
-      ],
-    );
   }
 
   return (
     <Screen>
+      <Modal visible={tagsOpen} transparent animationType="fade" onRequestClose={() => setTagsOpen(false)}>
+        <View style={styles.tagsModalOverlay}>
+          <Pressable style={styles.tagsModalBackdrop} onPress={() => setTagsOpen(false)} />
+          <Card style={styles.tagsModalCard}>
+            <View style={styles.tagsModalHeader}>
+              <View>
+                <Text style={styles.tagsModalTitle}>Tags</Text>
+                <Text style={styles.tagsModalSubtitle}>Add or remove tags for this member.</Text>
+              </View>
+              <IconButton icon="close" label="Close tags editor" onPress={() => setTagsOpen(false)} />
+            </View>
+            <TagInput value={tagsValue} onChange={setTagsDraft} usedTags={usedTagNames} />
+            <View style={styles.tagsModalActions}>
+              <Button title="Cancel" variant="ghost" onPress={() => setTagsOpen(false)} style={styles.tagsModalButton} />
+              <Button title={savingTags ? "Saving..." : "Save"} disabled={!tagsChanged || savingTags} onPress={() => void saveTags()} style={styles.tagsModalButton} />
+            </View>
+          </Card>
+        </View>
+      </Modal>
+
       <PageHeader
         detailLabel="Member"
-        title={currentMember.displayName}
+        title="Member"
         action={
           <IconButton
             icon="create-outline"
@@ -184,82 +181,24 @@ export function MemberDetailScreen() {
         }
       />
 
-      <Card tone="peach" style={styles.heroCard}>
-        <View style={styles.heroGlow} />
-        <View style={styles.heroHeading}>
-          <View style={styles.avatarLarge}>
-            <Text style={styles.avatarLargeText}>
-              {initials(currentMember.displayName)}
-            </Text>
-          </View>
-          <View style={styles.heroCopy}>
-            <Text style={styles.heroLabel}>Relationship ledger</Text>
-            <Text numberOfLines={2} style={styles.heroTitle}>
-              {currentMember.displayName}
-            </Text>
-            <Text style={styles.heroSubtitle}>Net balance with this member</Text>
-            <BalanceStack
-              balances={memberBalance}
-              settings={data.settings}
-              currencyRates={data.currencyRates}
-              empty="Settled with this member"
-            />
-            <View style={styles.badgeLine}>
-              <LinkStatusBadge status={currentMember.linkStatus} />
-              {currentMember.archived ? (
-                <View style={styles.archivedBadge}>
-                  <Text style={styles.archivedBadgeText}>archived</Text>
-                </View>
-              ) : null}
-            </View>
-          </View>
+      <Card tone={netBalance < -0.005 ? "coral" : "mint"} style={styles.heroCard}>
+        <View style={styles.avatarLarge}>
+          <Text style={styles.avatarLargeText}>{initials(currentMember.displayName)}</Text>
         </View>
-
-        <View style={styles.actionRow}>
-          <HeroAction
-            title="Add debt"
-            icon="add"
-            onPress={() =>
-              router.push({
-                pathname: "/debt/form",
-                params: { memberId: currentMember.id },
-              })
-            }
-          />
-          <HeroAction
-            title="Settlement"
-            icon="card"
-            onPress={() =>
-              router.push({
-                pathname: "/payment/form",
-                params: { memberId: currentMember.id },
-              })
-            }
-          />
-          <HeroAction
-            title="Reminder"
-            icon="notifications"
-            onPress={() =>
-              data.createSoftReminder({
-                senderUserId: auth.identity.authenticatedUserId,
-                recipientUserId: currentMember.linkedUserId,
-                relatedMemberId: currentMember.id,
-                relatedGroupId: null,
-                relatedRecordId: null,
-                message: `${auth.identity.displayName} shared a reminder about an open balance.`,
-              })
-            }
-          />
-          <HeroAction
-            title={currentMember.archived ? "Restore" : "Archive"}
-            icon={currentMember.archived ? "archive-outline" : "archive"}
-            onPress={toggleMemberArchive}
-          />
-          <HeroAction
-            title="Export"
-            icon="document-text"
-            onPress={exportPdf}
-          />
+        <Text numberOfLines={2} style={styles.heroTitle}>{currentMember.displayName}</Text>
+        <Text style={styles.heroAmount}>
+          {formatMoney(Math.abs(netBalance), data.settings.baseCurrency)}
+        </Text>
+        <View style={[
+          styles.directionPill,
+          netBalance < -0.005 ? styles.directionPillNegative : styles.directionPillPositive,
+        ]}>
+          <Text style={[
+            styles.directionPillText,
+            netBalance < -0.005 ? styles.directionPillTextNegative : styles.directionPillTextPositive,
+          ]}>
+            {netBalance > 0.005 ? "They owe you" : netBalance < -0.005 ? "You owe" : "Settled"}
+          </Text>
         </View>
       </Card>
 
@@ -272,10 +211,7 @@ export function MemberDetailScreen() {
       {activeSection === "overview" ? (
         <>
           <Card tone="lavender" style={styles.detailsCard}>
-            <CardHeading
-              title="Details"
-              subtitle="Local profile details for this relationship."
-            />
+            <DetailRow label="Open debts" value={String(openMemberEntries.length)} />
             <DetailRow
               label="Contact"
               value={
@@ -300,200 +236,67 @@ export function MemberDetailScreen() {
             <DetailRow
               label="Tags"
               value={
-                currentMember.tags.length ? (
-                  <TagChips tags={currentMember.tags} />
-                ) : (
-                  "No tags"
-                )
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Edit member tags"
+                  onPress={() => {
+                    setTagsDraft(currentMember.tags);
+                    setTagsOpen(true);
+                  }}
+                  style={({ pressed }) => [styles.tagsEditButton, pressed && styles.actionPressed]}
+                >
+                  <Text style={styles.tagsEditButtonText}>
+                    {currentMember.tags.length
+                      ? `${currentMember.tags.length} ${currentMember.tags.length === 1 ? "tag" : "tags"}`
+                      : "Add tags"}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={14} color={palette.brand} />
+                </Pressable>
               }
             />
             <View style={styles.notesBlock}>
               <Text style={styles.notesLabel}>Notes</Text>
-              <Text style={styles.notesBody}>
-                {currentMember.notes || "No notes added"}
-              </Text>
-            </View>
-          </Card>
-
-          <Card style={styles.detailsCard}>
-            <CardHeading
-              title="Link member"
-              subtitle="Linking enables verification but does not share historical debts automatically."
-            />
-            {currentMember.linkStatus === "linked" ? (
-              <>
-                <View style={styles.connectedRow}>
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={20}
-                    color={palette.positive}
-                  />
-                  <Text style={styles.body}>
-                    Linked to{" "}
-                    {currentMember.linkedProfileDisplayName ??
-                      currentMember.linkedProfileEmail ??
-                      currentMember.linkedUserId}
-                    .
-                  </Text>
-                </View>
-                <Button
-                  title="Unlink member"
-                  icon="link-outline"
-                  variant="secondary"
-                  onPress={() =>
-                    data.unlinkMember(
-                      currentMember.id,
-                      auth.identity.authenticatedUserId,
-                    )
-                  }
-                />
-              </>
-            ) : (
-              <>
-                <Text style={styles.body}>
-                  Enter an email or phone to send a link request. Accepting a
-                  link request does not expose old private debts.
-                </Text>
-                <TextField
-                  label="Email or phone"
-                  value={linkTarget}
-                  onChangeText={setLinkTarget}
-                  placeholder="name@example.com"
-                  keyboardType={
-                    linkTarget.includes("@") ? "email-address" : "default"
-                  }
-                />
-                <TextField
-                  label="Message"
-                  value={linkMessage}
-                  onChangeText={setLinkMessage}
-                  placeholder="Optional"
+              <View style={styles.notesInputShell}>
+                <TextInput
+                  accessibilityLabel="Member notes"
+                  value={notesValue}
+                  onChangeText={setNotesDraft}
+                  placeholder="Add notes"
+                  placeholderTextColor={palette.faint}
                   multiline
+                  textAlignVertical="top"
+                  style={styles.notesInput}
                 />
-                <Button
-                  title={
-                    currentMember.linkStatus === "invite_pending"
-                      ? "Resend link request"
-                      : "Link member"
-                  }
-                  icon="link"
-                  onPress={async () => {
-                    if (!auth.identity.authenticatedUserId) {
-                      Alert.alert(
-                        "Account required",
-                        "Sign in before linking a member to a real user.",
-                      );
-                      return;
-                    }
-                    const cleanTarget = linkTarget.trim();
-                    const remoteId = await createRemoteLinkRequest({
-                      requesterUserId: auth.identity.authenticatedUserId,
-                      targetEmail: cleanTarget.includes("@")
-                        ? cleanTarget
-                        : null,
-                      targetPhone: cleanTarget.includes("@")
-                        ? null
-                        : cleanTarget,
-                      requesterMemberId: currentMember.id,
-                      requesterDisplayName: auth.identity.displayName,
-                      message: linkMessage,
-                    });
-                    await data.sendMemberLinkRequest(currentMember.id, {
-                      requesterUserId: auth.identity.authenticatedUserId,
-                      requesterDisplayName: auth.identity.displayName,
-                      targetEmail: cleanTarget.includes("@")
-                        ? cleanTarget
-                        : null,
-                      targetPhone: cleanTarget.includes("@")
-                        ? null
-                        : cleanTarget,
-                      message: linkMessage,
-                      remoteId,
-                    });
-                  }}
-                  disabled={!linkTarget.trim()}
-                />
-              </>
-            )}
-          </Card>
-
-          <Card
-            tone={currentMember.linkStatus === "linked" ? "blue" : "default"}
-            style={styles.detailsCard}
-          >
-            <CardHeading
-              title="Trust levels"
-              subtitle={
-                currentMember.linkStatus === "linked"
-                  ? "Shared verified balances stay separate from private totals."
-                  : "Unlinked members show local/private balance only."
-              }
-            />
-            {currentMember.linkStatus === "linked" ? (
-              <>
-                <TrustBalance
-                  label="Verified"
-                  balances={trustBalances.verified}
-                  data={data}
-                />
-                <TrustBalance
-                  label="Pending"
-                  balances={trustBalances.pending}
-                  data={data}
-                />
-                <TrustBalance
-                  label="Rejected/Disputed"
-                  balances={trustBalances.rejectedDisputed}
-                  data={data}
-                />
-                <TrustBalance
-                  label="Private total"
-                  balances={trustBalances.privateTotal}
-                  data={data}
-                />
-              </>
-            ) : (
-              <>
-                <TrustBalance
-                  label="Local/private"
-                  balances={memberBalance}
-                  data={data}
-                />
-                <Text style={styles.body}>
-                  Link member to request verification.
-                </Text>
-              </>
-            )}
+                {notesChanged ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Save member notes"
+                    disabled={savingNotes}
+                    onPress={() => void saveNotes()}
+                    style={({ pressed }) => [styles.notesSaveAction, pressed && styles.actionPressed]}
+                  >
+                    {savingNotes ? <Text style={styles.notesSavingText}>...</Text> : <Ionicons name="checkmark" size={15} color={palette.brand} />}
+                  </Pressable>
+                ) : null}
+              </View>
+            </View>
           </Card>
         </>
       ) : null}
 
       {activeSection === "debts" ? (
-        <Card style={styles.detailsCard}>
-          <CardHeading
-            title="Debt history"
-            subtitle="Direct debts and group obligations involving this member."
-          />
-          {memberEntries.length > 0 ? (
-            memberEntries.map((entry) => (
-              <DebtRow
-                key={entry.id}
-                entry={entry}
-                members={data.members}
-                group={
-                  entry.groupId
-                    ? data.groups.find((group) => group.id === entry.groupId)
-                    : undefined
-                }
-              />
-            ))
-          ) : (
+        <>
+          <DebtLedgerSection title="You owe" subtitle="Things you still need to pay." entries={memberYouOwe} summaryAmount={debtSectionTotalLabel(memberYouOwe, data.settings, data.currencyRates)} summaryTone="negative" members={data.members} sharedGroupMembers={data.sharedGroupMembers} />
+          <DebtLedgerSection title="Owed to you" subtitle="Things this member still owes you." entries={memberOwesYou} summaryAmount={debtSectionTotalLabel(memberOwesYou, data.settings, data.currencyRates)} summaryTone="positive" members={data.members} sharedGroupMembers={data.sharedGroupMembers} />
+          {!openMemberEntries.length ? (
+            <Card tone="lavender">
             <EmptyState
-              title="No debt history"
-              body="Add a simple debt or include this member in a group expense."
+              title="No open debts"
+              body="There are no unsettled debts with this member."
             />
-          )}
-        </Card>
+            </Card>
+          ) : null}
+        </>
       ) : null}
 
       {activeSection === "payments" ? (
@@ -575,37 +378,12 @@ export function MemberDetailScreen() {
 
 const styles = StyleSheet.create({
   heroCard: {
-    overflow: "hidden",
     marginTop: spacing.sm,
     marginBottom: spacing.xxl,
     padding: spacing.xxl,
-    gap: spacing.xl,
+    gap: spacing.md,
     borderColor: palette.borderIndigoSoft,
-  },
-  heroGlow: {
-    position: "absolute",
-    top: -52,
-    right: -34,
-    width: 210,
-    height: 210,
-    borderRadius: 105,
-    backgroundColor: "rgba(253,186,155,0.2)",
-  },
-  heroHeading: {
     alignItems: "center",
-    gap: spacing.lg,
-  },
-  heroCopy: {
-    alignItems: "center",
-    gap: spacing.sm,
-    width: "100%",
-  },
-  heroLabel: {
-    color: palette.brand,
-    fontSize: typography.size.xs,
-    fontFamily: typefaces.bodyHeavy,
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
   },
   heroTitle: {
     color: palette.ink,
@@ -614,10 +392,31 @@ const styles = StyleSheet.create({
     fontFamily: typefaces.displayMedium,
     textAlign: "center",
   },
-  heroSubtitle: {
-    color: palette.faint,
+  heroAmount: {
+    color: palette.ink,
+    fontSize: typography.size.h1,
+    fontFamily: typefaces.display,
+  },
+  directionPill: {
+    borderRadius: radii.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 7,
+  },
+  directionPillPositive: {
+    backgroundColor: palette.positiveSoft,
+  },
+  directionPillNegative: {
+    backgroundColor: palette.negativeSoft,
+  },
+  directionPillText: {
     fontSize: typography.size.sm,
-    fontFamily: typefaces.body,
+    fontFamily: typefaces.bodyHeavy,
+  },
+  directionPillTextPositive: {
+    color: palette.positive,
+  },
+  directionPillTextNegative: {
+    color: palette.negative,
   },
   avatarLarge: {
     width: 74,
@@ -638,56 +437,6 @@ const styles = StyleSheet.create({
     color: palette.brand,
     fontSize: typography.size.h2,
     fontFamily: typefaces.bodyHeavy,
-  },
-  body: {
-    color: palette.ink,
-    fontSize: typography.size.base,
-    lineHeight: typography.line.xl,
-    fontFamily: typefaces.body,
-    flexShrink: 1,
-  },
-  actionRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    gap: spacing.sm,
-  },
-  badgeLine: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    gap: spacing.xs,
-  },
-  archivedBadge: {
-    borderRadius: radii.pill,
-    backgroundColor: palette.surfaceMuted,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 5,
-  },
-  archivedBadgeText: {
-    color: palette.muted,
-    fontSize: typography.size.xs,
-    fontFamily: typefaces.bodyStrong,
-  },
-  heroAction: {
-    minHeight: 38,
-    borderRadius: radii.pill,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderGlass,
-    backgroundColor: "rgba(255,255,255,0.64)",
-    paddingHorizontal: spacing.md,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.xs,
-  },
-  heroActionPressed: {
-    opacity: 0.72,
-  },
-  heroActionText: {
-    color: palette.brand,
-    fontSize: typography.size.sm,
-    fontFamily: typefaces.bodyStrong,
   },
   detailsCard: {
     gap: 0,
@@ -714,17 +463,17 @@ const styles = StyleSheet.create({
   },
   detailRow: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: spacing.lg,
-    paddingVertical: spacing.lg,
+    gap: spacing.md,
+    paddingVertical: spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: palette.line,
   },
   detailLabel: {
     color: palette.muted,
-    fontSize: typography.size.base,
-    fontFamily: typefaces.bodyHeavy,
+    fontSize: typography.size.md,
+    fontFamily: typefaces.bodyStrong,
   },
   detailValue: {
     flex: 1,
@@ -732,9 +481,8 @@ const styles = StyleSheet.create({
   },
   detailValueText: {
     color: palette.ink,
-    fontSize: typography.size.base,
-    lineHeight: typography.line.lg,
-    fontFamily: typefaces.bodyStrong,
+    fontSize: typography.size.md,
+    fontFamily: typefaces.body,
     textAlign: "right",
   },
   inlineValueStack: {
@@ -742,26 +490,88 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   notesBlock: {
-    paddingTop: spacing.lg,
-    gap: spacing.sm,
+    gap: spacing.xs,
+    paddingTop: spacing.md,
   },
   notesLabel: {
     color: palette.muted,
-    fontSize: typography.size.base,
-    fontFamily: typefaces.bodyHeavy,
+    fontSize: typography.size.md,
+    fontFamily: typefaces.bodyStrong,
   },
-  notesBody: {
-    color: palette.ink,
-    fontSize: typography.size.base,
-    lineHeight: typography.line.xl,
-    fontFamily: typefaces.body,
-  },
-  connectedRow: {
+  tagsEditButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
-    marginBottom: spacing.md,
+    gap: spacing.xs,
+    paddingVertical: 4,
+    paddingLeft: spacing.sm,
   },
+  tagsEditButtonText: {
+    color: palette.brand,
+    fontSize: typography.size.sm,
+    fontFamily: typefaces.bodyStrong,
+  },
+  notesInputShell: {
+    position: "relative",
+    minHeight: 86,
+    borderRadius: radii.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
+  },
+  notesInput: {
+    minHeight: 86,
+    color: palette.ink,
+    fontSize: typography.size.md,
+    lineHeight: typography.line.xl,
+    fontFamily: typefaces.body,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: 40,
+  },
+  notesSaveAction: {
+    position: "absolute",
+    right: spacing.sm,
+    bottom: spacing.sm,
+    width: 28,
+    height: 28,
+    borderRadius: radii.pill,
+    backgroundColor: palette.lavenderMist,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderIndigo,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  notesSavingText: {
+    color: palette.brand,
+    fontSize: typography.size.xs,
+    fontFamily: typefaces.bodyStrong,
+  },
+  actionPressed: { opacity: 0.7 },
+  tagsModalOverlay: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: spacing.screen,
+  },
+  tagsModalBackdrop: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: palette.overlayStrong,
+  },
+  tagsModalCard: { width: "100%", maxWidth: 520, gap: spacing.lg },
+  tagsModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.md,
+  },
+  tagsModalTitle: { color: palette.ink, fontSize: typography.size.xl, fontFamily: typefaces.displayMedium },
+  tagsModalSubtitle: { color: palette.muted, fontSize: typography.size.sm, fontFamily: typefaces.body },
+  tagsModalActions: { flexDirection: "row", gap: spacing.sm },
+  tagsModalButton: { flex: 1 },
   trustRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -800,31 +610,6 @@ const styles = StyleSheet.create({
     fontFamily: typefaces.body,
   },
 });
-
-function HeroAction({
-  title,
-  icon,
-  onPress,
-}: {
-  title: string;
-  icon: IconName;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={title}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.heroAction,
-        pressed && styles.heroActionPressed,
-      ]}
-    >
-      <Ionicons name={icon} size={15} color={palette.brand} />
-      <Text style={styles.heroActionText}>{title}</Text>
-    </Pressable>
-  );
-}
 
 function CardHeading({
   title,
@@ -873,56 +658,4 @@ function formatShortDate(value: string) {
     month: "short",
     day: "numeric",
   });
-}
-
-function calculateTrustBalances(memberId: string, entries: LedgerEntry[]) {
-  const verified: MoneyMap = {};
-  const pending: MoneyMap = {};
-  const rejectedDisputed: MoneyMap = {};
-  const privateTotal: MoneyMap = {};
-
-  for (const entry of entries) {
-    const signedAmount =
-      entry.toId === "me" && entry.fromId === memberId
-        ? entry.amount
-        : -entry.amount;
-    addMoney(privateTotal, entry.currency, signedAmount);
-    if (entry.verificationStatus === "verified") {
-      addMoney(verified, entry.currency, signedAmount);
-    }
-    if (entry.verificationStatus === "pending") {
-      addMoney(pending, entry.currency, signedAmount);
-    }
-    if (
-      entry.verificationStatus === "rejected" ||
-      entry.verificationStatus === "disputed"
-    ) {
-      addMoney(rejectedDisputed, entry.currency, signedAmount);
-    }
-  }
-
-  return { verified, pending, rejectedDisputed, privateTotal };
-}
-
-function TrustBalance({
-  label,
-  balances,
-  data,
-}: {
-  label: string;
-  balances: MoneyMap;
-  data: ReturnType<typeof useAppData>;
-}) {
-  return (
-    <View style={styles.trustRow}>
-      <Text style={styles.trustLabel}>{label}</Text>
-      <BalanceStack
-        balances={balances}
-        settings={data.settings}
-        currencyRates={data.currencyRates}
-        empty="None"
-        align="right"
-      />
-    </View>
-  );
 }
