@@ -48,6 +48,26 @@ export function RequestsScreen() {
   const email = auth.identity.email?.toLowerCase() ?? null;
   const normalizedQuery = query.trim().toLowerCase();
 
+  async function respondToLinkRequest(
+    request: (typeof data.linkRequests)[number],
+    status: "accepted" | "rejected",
+  ) {
+    if (!userId) return;
+    try {
+      await respondToRemoteLinkRequest(request, status);
+      await data.respondToLinkRequest(request.id, status, userId);
+    } catch (error) {
+      const message =
+        error && typeof error === "object" && "message" in error
+          ? String(error.message)
+          : "The request could not be updated. Please try again.";
+      Alert.alert(
+        "Could not update link request",
+        message,
+      );
+    }
+  }
+
   const incomingLinks = useMemo(
     () =>
       data.linkRequests.filter(
@@ -279,27 +299,15 @@ export function RequestsScreen() {
                 actions={[
                   {
                     label: "Accept",
-                    onPress: async () => {
-                      if (!userId) return;
-                      await respondToRemoteLinkRequest(request, "accepted");
-                      await data.respondToLinkRequest(
-                        request.id,
-                        "accepted",
-                        userId,
-                      );
+                    onPress: () => {
+                      void respondToLinkRequest(request, "accepted");
                     },
                   },
                   {
                     label: "Reject",
                     variant: "secondary" as const,
-                    onPress: async () => {
-                      if (!userId) return;
-                      await respondToRemoteLinkRequest(request, "rejected");
-                      await data.respondToLinkRequest(
-                        request.id,
-                        "rejected",
-                        userId,
-                      );
+                    onPress: () => {
+                      void respondToLinkRequest(request, "rejected");
                     },
                   },
                 ]}
