@@ -15,7 +15,7 @@ export async function createRemoteLinkRequest(input: {
   targetEmail?: string | null;
   targetPhone?: string | null;
   requesterMemberId: string;
-  requesterLabel: string;
+  requesterDisplayName: string;
   message?: string | null;
 }) {
   if (!supabase) {
@@ -30,7 +30,9 @@ export async function createRemoteLinkRequest(input: {
       target_email: input.targetEmail ?? null,
       target_phone: input.targetPhone ?? null,
       requester_member_local_or_remote_id: input.requesterMemberId,
-      requester_label: input.requesterLabel,
+      // A database trigger replaces this with the authoritative requester
+      // profile name. The value remains a fallback for incomplete profiles.
+      requester_label: input.requesterDisplayName,
       message: input.message ?? null,
       status: 'pending',
     })
@@ -44,23 +46,18 @@ export async function createRemoteLinkRequest(input: {
   return data.id as string;
 }
 
-export async function updateRemoteLinkRequest(
+export async function respondToRemoteLinkRequest(
   linkRequest: LinkRequest,
-  status: LinkRequest['status'],
-  actorUserId?: string | null,
+  status: Extract<LinkRequest['status'], 'accepted' | 'rejected'>,
 ) {
   if (!supabase || !linkRequest.remoteId) {
     return;
   }
 
-  const { error } = await supabase
-    .from('link_requests')
-    .update({
-      status,
-      target_user_id: status === 'accepted' ? actorUserId ?? linkRequest.targetUserId : linkRequest.targetUserId,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', linkRequest.remoteId);
+  const { error } = await supabase.rpc('respond_to_member_link_request', {
+    p_request_id: linkRequest.remoteId,
+    p_status: status,
+  });
 
   if (error) {
     throw error;

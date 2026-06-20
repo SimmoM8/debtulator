@@ -395,11 +395,12 @@ export function MemberDetailScreen() {
                         ? null
                         : cleanTarget,
                       requesterMemberId: currentMember.id,
-                      requesterLabel: currentMember.displayName,
+                      requesterDisplayName: auth.identity.displayName,
                       message: linkMessage,
                     });
                     await data.sendMemberLinkRequest(currentMember.id, {
                       requesterUserId: auth.identity.authenticatedUserId,
+                      requesterDisplayName: auth.identity.displayName,
                       targetEmail: cleanTarget.includes("@")
                         ? cleanTarget
                         : null,

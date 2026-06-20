@@ -27,7 +27,7 @@ import {
 } from "@/src/constants/design";
 import {
     respondRemoteDebtVerification,
-    updateRemoteLinkRequest,
+    respondToRemoteLinkRequest,
 } from "@/src/services/stage2Sync";
 import { updateRemoteGroupInvite } from "@/src/services/stage3Sync";
 import { useAppData } from "@/src/state/AppDataProvider";
@@ -280,15 +280,12 @@ export function RequestsScreen() {
                   {
                     label: "Accept",
                     onPress: async () => {
-                      await updateRemoteLinkRequest(
-                        request,
-                        "accepted",
-                        userId,
-                      );
+                      if (!userId) return;
+                      await respondToRemoteLinkRequest(request, "accepted");
                       await data.respondToLinkRequest(
                         request.id,
                         "accepted",
-                        userId ?? "me",
+                        userId,
                       );
                     },
                   },
@@ -296,15 +293,12 @@ export function RequestsScreen() {
                     label: "Reject",
                     variant: "secondary" as const,
                     onPress: async () => {
-                      await updateRemoteLinkRequest(
-                        request,
-                        "rejected",
-                        userId,
-                      );
+                      if (!userId) return;
+                      await respondToRemoteLinkRequest(request, "rejected");
                       await data.respondToLinkRequest(
                         request.id,
                         "rejected",
-                        userId ?? "me",
+                        userId,
                       );
                     },
                   },

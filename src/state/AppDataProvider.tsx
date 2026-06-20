@@ -332,6 +332,7 @@ type AppDataContextValue = DatabaseSnapshot & {
     memberId: string,
     input: {
       requesterUserId: string;
+      requesterDisplayName?: string | null;
       targetUserId?: string | null;
       targetEmail?: string | null;
       targetPhone?: string | null;

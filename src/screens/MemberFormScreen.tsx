@@ -172,11 +172,12 @@ export function MemberFormScreen() {
               targetUserId: selectedProfile.id,
               targetEmail: selectedProfile.email,
               requesterMemberId: created.id,
-              requesterLabel: created.displayName,
+              requesterDisplayName: auth.identity.displayName,
             }));
           remoteLinkRequestId.current = remoteId;
           await data.sendMemberLinkRequest(created.id, {
             requesterUserId,
+            requesterDisplayName: auth.identity.displayName,
             targetUserId: selectedProfile.id,
             targetEmail: selectedProfile.email,
             remoteId,

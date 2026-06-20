@@ -288,6 +288,7 @@ type CreateRecurringTemplateInput = {
 type LinkMemberInput = {
   member: Member;
   requesterUserId: string;
+  requesterDisplayName?: string | null;
   targetUserId?: string | null;
   targetEmail?: string | null;
   targetPhone?: string | null;
@@ -2191,7 +2192,7 @@ export class DebtulatorRepository {
       targetEmail: cleanOptional(input.targetEmail),
       targetPhone: cleanOptional(input.targetPhone),
       requesterMemberId: input.member.id,
-      requesterLabel: input.member.displayName,
+      requesterLabel: cleanOptional(input.requesterDisplayName) ?? input.member.displayName,
       status: 'pending',
       message: cleanOptional(input.message),
       createdAt: timestamp,
@@ -2236,14 +2237,14 @@ export class DebtulatorRepository {
     };
     await insertLinkRequest(this.db, updatedRequest);
 
+    const snapshot = await loadSnapshot(this.db);
     const localMember = await this.db.getFirstAsync<{ id: string }>(
       `SELECT id FROM members WHERE id = ?`,
       [linkRequest.requesterMemberId],
     );
 
     if (localMember) {
-      const members = await loadSnapshot(this.db).then((snapshot) => snapshot.members);
-      const member = members.find((item) => item.id === linkRequest.requesterMemberId);
+      const member = snapshot.members.find((item) => item.id === linkRequest.requesterMemberId);
       if (member) {
         await insertMember(this.db, {
           ...member,
@@ -2251,6 +2252,18 @@ export class DebtulatorRepository {
           linkedUserId: status === 'accepted' ? actorUserId : member.linkedUserId,
           syncStatus: 'pending_update',
           updatedAt: timestamp,
+        });
+      }
+    } else if (status === 'accepted' && linkRequest.requesterUserId !== actorUserId) {
+      const reciprocalMember = snapshot.members.find(
+        (member) => member.linkedUserId === linkRequest.requesterUserId,
+      );
+      if (!reciprocalMember) {
+        await this.createMember({
+          displayName: linkRequest.requesterLabel,
+          linkedUserId: linkRequest.requesterUserId,
+          linkStatus: 'linked',
+          linkedProfileDisplayName: linkRequest.requesterLabel,
         });
       }
     }

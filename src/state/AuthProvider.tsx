@@ -163,6 +163,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    const linkedUserIds = new Set(
+      data.members.flatMap((member) => (member.linkedUserId ? [member.linkedUserId] : [])),
+    );
     for (const row of remote.linkRequests ?? []) {
       const existing = data.linkRequests.find((request) => request.remoteId === row.id);
       const linkRequest: LinkRequest = {
@@ -196,6 +199,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             linkedUserId: row.status === 'accepted' ? row.target_user_id : member.linkedUserId,
             linkedProfileEmail: row.status === 'accepted' ? row.target_email : member.linkedProfileEmail,
             linkedProfilePhone: row.status === 'accepted' ? row.target_phone : member.linkedProfilePhone,
+          });
+        }
+      } else if (
+        row.status === 'accepted' &&
+        row.target_user_id === user.id &&
+        !linkedUserIds.has(row.requester_user_id)
+      ) {
+        await data.createMember({
+          displayName: row.requester_label,
+          linkedUserId: row.requester_user_id,
+          linkStatus: 'linked',
+          linkedProfileDisplayName: row.requester_label,
+        });
+        linkedUserIds.add(row.requester_user_id);
+      } else if (row.status === 'accepted' && row.target_user_id === user.id) {
+        const reciprocalMember = data.members.find(
+          (member) => member.linkedUserId === row.requester_user_id,
+        );
+        if (reciprocalMember) {
+          const autoNamed =
+            !reciprocalMember.linkedProfileDisplayName ||
+            reciprocalMember.displayName === reciprocalMember.linkedProfileDisplayName;
+          await data.updateMember(reciprocalMember.id, {
+            displayName: autoNamed ? row.requester_label : reciprocalMember.displayName,
+            linkedProfileDisplayName: row.requester_label,
           });
         }
       }
