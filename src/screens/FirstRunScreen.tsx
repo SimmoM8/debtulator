@@ -1,8 +1,8 @@
-import { router } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect, useState } from 'react';
-import { Animated, Easing, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
+import React, { useState } from 'react';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
+import { AnimatedBrandBar, AuthBackgroundPattern } from '@/src/components/auth/AuthFlowVisuals';
 import { CurrencySelect } from '@/src/components/ui/CurrencySelect';
 import { Button, Card, PageHeader, Screen, TextField } from '@/src/components/ui/Primitives';
 import { palette, spacing, typefaces, typography } from '@/src/constants/design';
@@ -15,49 +15,15 @@ type FirstRunStep = 'choice' | 'local';
 export function FirstRunScreen() {
   const data = useAppData();
   const auth = useAuth();
+  const params = useLocalSearchParams<{ local?: string }>();
   const { height, width } = useWindowDimensions();
-  const [step, setStep] = useState<FirstRunStep>('choice');
+  const [step, setStep] = useState<FirstRunStep>(params.local === '1' ? 'local' : 'choice');
   const [name, setName] = useState('');
   const [currency, setCurrency] = useState<CurrencyCode>(data.settings.baseCurrency);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [accentMotion] = useState(() => new Animated.Value(0));
-
-  useEffect(() => {
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(accentMotion, {
-          toValue: 1,
-          duration: 3000,
-          easing: Easing.linear,
-          useNativeDriver: false,
-        }),
-        Animated.timing(accentMotion, {
-          toValue: 0,
-          duration: 3000,
-          easing: Easing.linear,
-          useNativeDriver: false,
-        }),
-      ]),
-    );
-    animation.start();
-    return () => animation.stop();
-  }, [accentMotion]);
-
-  const accentPrimaryWidth = accentMotion.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: ['58%', '40%', '24%'],
-  });
-  const accentMintWidth = accentMotion.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: ['28%', '38%', '34%'],
-  });
-  const accentPeachWidth = accentMotion.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: ['14%', '22%', '42%'],
-  });
 
   async function signIn() {
     setSubmitting(true);
@@ -110,13 +76,7 @@ export function FirstRunScreen() {
 
       {step === 'choice' ? (
         <View style={[styles.centerStage, { minHeight: Math.max(520, height - 180) }]}>
-          <View pointerEvents="none" style={styles.visualField}>
-            <View style={[styles.colorPlane, styles.colorPlaneTop]} />
-            <View style={[styles.colorPlane, styles.colorPlaneBottom]} />
-            <View style={[styles.patternLine, styles.patternLineOne]} />
-            <View style={[styles.patternLine, styles.patternLineTwo]} />
-            <View style={[styles.patternLine, styles.patternLineThree]} />
-          </View>
+          <AuthBackgroundPattern />
 
           <View style={styles.welcome}>
             <Text style={styles.welcomeTitle}>Welcome to Debtulator</Text>
@@ -128,34 +88,7 @@ export function FirstRunScreen() {
             wrapperStyle={[styles.signInCardWrap, { maxWidth: width >= 900 ? 720 : 680 }]}
             style={styles.signInCard}
           >
-            <View pointerEvents="none" style={styles.cardAccent}>
-              <View style={styles.accentTrack}>
-                <Animated.View style={[styles.accentSegment, styles.accentStart, { width: accentPrimaryWidth }]}>
-                  <LinearGradient
-                    colors={[palette.primary, '#5756C4', '#43B9A0']}
-                    start={{ x: 0, y: 0.5 }}
-                    end={{ x: 1, y: 0.5 }}
-                    style={StyleSheet.absoluteFill}
-                  />
-                </Animated.View>
-                <Animated.View style={[styles.accentSegment, styles.accentOverlap, { width: accentMintWidth }]}>
-                  <LinearGradient
-                    colors={['#43B9A0', palette.mint, '#9ACFAD']}
-                    start={{ x: 0, y: 0.5 }}
-                    end={{ x: 1, y: 0.5 }}
-                    style={StyleSheet.absoluteFill}
-                  />
-                </Animated.View>
-                <Animated.View style={[styles.accentSegment, styles.accentOverlap, styles.accentEnd, { width: accentPeachWidth }]}>
-                  <LinearGradient
-                    colors={['#9ACFAD', palette.peach]}
-                    start={{ x: 0, y: 0.5 }}
-                    end={{ x: 1, y: 0.5 }}
-                    style={StyleSheet.absoluteFill}
-                  />
-                </Animated.View>
-              </View>
-            </View>
+            <View style={styles.cardAccent}><AnimatedBrandBar /></View>
             <Text style={styles.cardTitle}>Sign in</Text>
             <TextField label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" placeholder="you@example.com" />
             <TextField label="Password" value={password} onChangeText={setPassword} secureTextEntry />
@@ -198,57 +131,6 @@ const styles = StyleSheet.create({
     position: 'relative',
     width: '100%',
   },
-  visualField: {
-    bottom: -96,
-    left: -spacing.screen,
-    position: 'absolute',
-    right: -spacing.screen,
-    top: -96,
-  },
-  colorPlane: {
-    borderRadius: 44,
-    position: 'absolute',
-  },
-  colorPlaneTop: {
-    backgroundColor: 'rgba(221,214,254,0.22)',
-    height: 260,
-    right: -150,
-    top: -28,
-    transform: [{ rotate: '-10deg' }],
-    width: 390,
-  },
-  colorPlaneBottom: {
-    backgroundColor: 'rgba(253,186,155,0.12)',
-    bottom: -52,
-    height: 280,
-    left: -176,
-    transform: [{ rotate: '-8deg' }],
-    width: 430,
-  },
-  patternLine: {
-    backgroundColor: 'rgba(55,48,163,0.07)',
-    borderRadius: 999,
-    height: 2,
-    position: 'absolute',
-    transform: [{ rotate: '-16deg' }],
-  },
-  patternLineOne: {
-    right: -82,
-    top: '22%',
-    width: 280,
-  },
-  patternLineTwo: {
-    backgroundColor: 'rgba(47,191,143,0.1)',
-    bottom: '24%',
-    left: -108,
-    width: 300,
-  },
-  patternLineThree: {
-    backgroundColor: 'rgba(253,186,155,0.14)',
-    bottom: '13%',
-    right: -118,
-    width: 220,
-  },
   welcome: {
     alignItems: 'center',
     gap: spacing.xs,
@@ -279,35 +161,7 @@ const styles = StyleSheet.create({
   },
   cardAccent: {
     marginBottom: spacing.sm,
-    shadowColor: palette.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.22,
-    shadowRadius: 7,
     width: '100%',
-  },
-  accentTrack: {
-    borderRadius: 999,
-    elevation: 2,
-    flexDirection: 'row',
-    height: 8,
-    overflow: 'hidden',
-    position: 'relative',
-    width: '100%',
-  },
-  accentSegment: {
-    height: 8,
-    overflow: 'hidden',
-  },
-  accentStart: {
-    borderBottomLeftRadius: 999,
-    borderTopLeftRadius: 999,
-  },
-  accentOverlap: {
-    marginLeft: -2,
-  },
-  accentEnd: {
-    borderBottomRightRadius: 999,
-    borderTopRightRadius: 999,
   },
   cardTitle: {
     color: palette.textPrimary,

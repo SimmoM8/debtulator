@@ -1,8 +1,9 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 import { DebtulatorOrbitIllustration } from '@/src/components/illustrations/DebtulatorOrbitIllustration';
+import { AnimatedBrandBar, AuthBackgroundPattern } from '@/src/components/auth/AuthFlowVisuals';
 import {
   Button,
   Card,
@@ -29,6 +30,7 @@ type AuthMode = 'signin' | 'signup' | 'forgot';
 export function AuthScreen() {
   const auth = useAuth();
   const data = useAppData();
+  const { height, width } = useWindowDimensions();
   const params = useLocalSearchParams<{ mode?: string; firstRun?: string }>();
   const initialMode: AuthMode = params.mode === 'signup' ? 'signup' : params.mode === 'forgot' ? 'forgot' : 'signin';
   const firstRun = params.firstRun === '1';
@@ -100,6 +102,80 @@ export function AuthScreen() {
     !email.trim() ||
     (mode !== 'forgot' && password.length < 6) ||
     (mode === 'signup' && (!firstName.trim() || !lastName.trim() || !phone.trim()));
+
+  if (mode === 'signup') {
+    return (
+      <Screen>
+        <View style={[styles.signupStage, { minHeight: Math.max(680, height - 120) }]}>
+          <AuthBackgroundPattern />
+
+          <View style={styles.signupWelcome}>
+            <Text style={styles.signupTitle}>Create your account</Text>
+            <Text style={styles.signupSubtitle}>A few details to get started.</Text>
+          </View>
+
+          <Card
+            tone="lavender"
+            wrapperStyle={[styles.signupCardWrap, { maxWidth: width >= 900 ? 720 : 680 }]}
+            style={styles.signupCard}
+          >
+            <View style={styles.signupAccent}><AnimatedBrandBar /></View>
+
+            <View style={styles.twoColumn}>
+              <TextField label="First name" value={firstName} onChangeText={setFirstName} placeholder="First name" style={styles.columnField} />
+              <TextField label="Last name" value={lastName} onChangeText={setLastName} placeholder="Last name" style={styles.columnField} />
+            </View>
+            <TextField label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" placeholder="you@example.com" />
+            <TextField label="Password" value={password} onChangeText={setPassword} secureTextEntry />
+            <TextField label="Mobile" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="+46..." />
+            <View style={styles.twoColumn}>
+              <DropdownSelect
+                label="Country"
+                value={country}
+                options={SUPPORTED_COUNTRIES}
+                style={styles.columnField}
+                onChange={(nextCountry) => {
+                  setCountry(nextCountry);
+                  setBaseCurrency(currencyForCountry(nextCountry));
+                }}
+              />
+              <DropdownSelect
+                label="Default currency"
+                value={baseCurrency}
+                options={currencyOptions}
+                style={styles.columnField}
+                onChange={setBaseCurrency}
+              />
+            </View>
+
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+            {message ? <Text style={styles.message}>{message}</Text> : null}
+            <Button title="Create account" icon="person-add" onPress={submit} disabled={disabled} />
+          </Card>
+
+          <View style={[styles.signupActions, { maxWidth: width >= 900 ? 720 : 680 }]}>
+            <Text style={styles.signupActionText}>
+              Already have an account?{' '}
+              <Text
+                style={styles.signupActionLink}
+                onPress={() => (firstRun ? router.replace('/first-run') : setMode('signin'))}
+              >
+                Sign in
+              </Text>
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Skip for now"
+              onPress={() => (firstRun ? router.replace('/first-run?local=1') : router.back())}
+              style={styles.signupSkip}
+            >
+              <Text style={styles.signupSkipText}>Skip for now</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Screen>
+    );
+  }
 
   return (
     <Screen
@@ -201,6 +277,71 @@ export function AuthScreen() {
 }
 
 const styles = StyleSheet.create({
+  signupStage: {
+    alignItems: 'center',
+    gap: spacing.lg,
+    justifyContent: 'center',
+    position: 'relative',
+    width: '100%',
+  },
+  signupWelcome: {
+    alignItems: 'center',
+    gap: spacing.xs,
+    maxWidth: 560,
+  },
+  signupTitle: {
+    color: palette.textPrimary,
+    fontFamily: typefaces.displayMedium,
+    fontSize: typography.size.h1,
+    lineHeight: typography.line.displaySm,
+    textAlign: 'center',
+  },
+  signupSubtitle: {
+    color: palette.muted,
+    fontFamily: typefaces.body,
+    fontSize: typography.size.base,
+    lineHeight: typography.line.xl,
+    textAlign: 'center',
+  },
+  signupCardWrap: {
+    width: '100%',
+  },
+  signupCard: {
+    gap: spacing.lg,
+    overflow: 'hidden',
+    paddingHorizontal: spacing.xxl,
+    paddingVertical: spacing.xxl,
+  },
+  signupAccent: {
+    marginBottom: spacing.sm,
+    width: '100%',
+  },
+  signupActions: {
+    alignItems: 'center',
+    gap: spacing.xs,
+    width: '100%',
+  },
+  signupActionText: {
+    color: palette.muted,
+    fontFamily: typefaces.body,
+    fontSize: typography.size.base,
+    lineHeight: typography.line.xl,
+    textAlign: 'center',
+  },
+  signupActionLink: {
+    color: palette.textPrimary,
+    fontFamily: typefaces.bodyStrong,
+  },
+  signupSkip: {
+    borderRadius: 999,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  signupSkipText: {
+    color: palette.muted,
+    fontFamily: typefaces.bodyStrong,
+    fontSize: typography.size.sm,
+  },
   heroCard: {
     alignItems: 'center',
     flexDirection: 'row',
