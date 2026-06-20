@@ -86,18 +86,20 @@ const toneStyles: Record<
 export function GlassCard({
   children,
   style,
+  wrapperStyle,
   tone = "lavender",
   allowOverflow = false,
 }: {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
+  wrapperStyle?: StyleProp<ViewStyle>;
   tone?: Tone;
   allowOverflow?: boolean;
 }) {
   const toneStyle = toneStyles[tone];
 
   return (
-    <View style={styles.cardLift}>
+    <View style={[styles.cardLift, wrapperStyle]}>
       <View
         style={[
           styles.card,

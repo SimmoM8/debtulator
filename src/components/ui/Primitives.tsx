@@ -220,10 +220,12 @@ export function PageHeader({
 export function Card({
   children,
   style,
+  wrapperStyle,
   tone = "default",
 }: {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
+  wrapperStyle?: StyleProp<ViewStyle>;
   tone?: "default" | "mint" | "coral" | "amber" | "blue" | "peach" | "lavender";
 }) {
   const mappedTone =
@@ -236,7 +238,7 @@ export function Card({
           : tone;
 
   return (
-    <GlassCard tone={mappedTone} style={style}>
+    <GlassCard tone={mappedTone} style={style} wrapperStyle={wrapperStyle}>
       {children}
     </GlassCard>
   );

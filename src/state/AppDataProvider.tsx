@@ -523,6 +523,8 @@ const emptySnapshot: DatabaseSnapshot = {
   currencyRates: [],
   settings: {
     baseCurrency: 'SEK',
+    hasCompletedFirstRun: false,
+    localDisplayName: null,
     showEstimatedBase: true,
     theme: 'system',
     convertedSettlementOptIn: false,

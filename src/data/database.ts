@@ -497,9 +497,12 @@ type SettingRow = {
 
 type UserProfileRow = {
   id: string;
+  first_name: string | null;
+  last_name: string | null;
   display_name: string;
   email: string | null;
   phone: string | null;
+  country: string | null;
   avatar_url: string | null;
   base_currency: CurrencyCode;
   created_at: string;
@@ -1105,9 +1108,12 @@ export async function migrate(db: SQLite.SQLiteDatabase) {
 
     CREATE TABLE IF NOT EXISTS user_profiles (
       id TEXT PRIMARY KEY NOT NULL,
+      first_name TEXT,
+      last_name TEXT,
       display_name TEXT NOT NULL,
       email TEXT,
       phone TEXT,
+      country TEXT,
       avatar_url TEXT,
       base_currency TEXT NOT NULL,
       created_at TEXT NOT NULL,
@@ -1347,6 +1353,9 @@ export async function migrate(db: SQLite.SQLiteDatabase) {
   await ensureColumn(db, 'members', 'linked_profile_email', 'TEXT');
   await ensureColumn(db, 'members', 'linked_profile_phone', 'TEXT');
   await ensureColumn(db, 'members', 'sync_status', "TEXT NOT NULL DEFAULT 'local_only'");
+  await ensureColumn(db, 'user_profiles', 'first_name', 'TEXT');
+  await ensureColumn(db, 'user_profiles', 'last_name', 'TEXT');
+  await ensureColumn(db, 'user_profiles', 'country', 'TEXT');
 
   await ensureColumn(db, 'groups', 'local_id', 'TEXT');
   await ensureColumn(db, 'groups', 'remote_id', 'TEXT');
@@ -1657,15 +1666,9 @@ export async function resetDatabase(db: SQLite.SQLiteDatabase, seed = true) {
 
 export async function seedIfEmpty(db: SQLite.SQLiteDatabase) {
   await seedDefaults(db);
-  const row = await db.getFirstAsync<{ count: number }>(
-    `SELECT
-      (SELECT COUNT(*) FROM members) +
-      (SELECT COUNT(*) FROM debts) +
-      (SELECT COUNT(*) FROM groups) +
-      (SELECT COUNT(*) FROM shared_expenses) AS count`,
-  );
+  const count = await getDomainRecordCount(db);
 
-  if ((row?.count ?? 0) === 0 && !(await isDemoSeedingDisabled(db))) {
+  if (count === 0 && !(await isDemoSeedingDisabled(db))) {
     await seedDemoData(db);
   }
 }
@@ -1686,8 +1689,19 @@ async function isDemoSeedingDisabled(db: SQLite.SQLiteDatabase) {
 
 export async function seedDefaults(db: SQLite.SQLiteDatabase) {
   const timestamp = nowIso();
+  const existingFirstRunSetting = await db.getFirstAsync<{ value: string }>(
+    `SELECT value FROM app_settings WHERE key = ?`,
+    ['hasCompletedFirstRun'],
+  );
+  const firstRunDefault = existingFirstRunSetting
+    ? existingFirstRunSetting.value
+    : (await getDomainRecordCount(db)) > 0
+      ? 'true'
+      : 'false';
   const defaults: Record<keyof AppSettings, string> = {
     baseCurrency: DEFAULT_BASE_CURRENCY,
+    hasCompletedFirstRun: firstRunDefault,
+    localDisplayName: '',
     showEstimatedBase: 'true',
     theme: 'system',
     convertedSettlementOptIn: 'false',
@@ -1739,6 +1753,17 @@ export async function seedDefaults(db: SQLite.SQLiteDatabase) {
       [currency, rate, timestamp],
     );
   }
+}
+
+async function getDomainRecordCount(db: SQLite.SQLiteDatabase) {
+  const row = await db.getFirstAsync<{ count: number }>(
+    `SELECT
+      (SELECT COUNT(*) FROM members) +
+      (SELECT COUNT(*) FROM debts) +
+      (SELECT COUNT(*) FROM groups) +
+      (SELECT COUNT(*) FROM shared_expenses) AS count`,
+  );
+  return row?.count ?? 0;
 }
 
 export async function seedDemoData(db: SQLite.SQLiteDatabase) {
@@ -3038,6 +3063,8 @@ export async function getSettings(db: SQLite.SQLiteDatabase): Promise<AppSetting
   const values = Object.fromEntries(rows.map((row) => [row.key, row.value]));
   return {
     baseCurrency: ((values.baseCurrency as CurrencyCode | undefined) ?? DEFAULT_BASE_CURRENCY),
+    hasCompletedFirstRun: values.hasCompletedFirstRun === 'true',
+    localDisplayName: values.localDisplayName && values.localDisplayName !== 'null' ? values.localDisplayName : null,
     showEstimatedBase: values.showEstimatedBase !== 'false',
     theme: values.theme === 'light' || values.theme === 'dark' ? values.theme : 'system',
     convertedSettlementOptIn: values.convertedSettlementOptIn === 'true',
@@ -3477,13 +3504,16 @@ export async function insertGroupActivityLog(db: SQLite.SQLiteDatabase, activity
 export async function insertProfile(db: SQLite.SQLiteDatabase, profile: UserProfile) {
   await db.runAsync(
     `INSERT OR REPLACE INTO user_profiles
-      (id, display_name, email, phone, avatar_url, base_currency, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id, first_name, last_name, display_name, email, phone, country, avatar_url, base_currency, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       profile.id,
+      profile.firstName,
+      profile.lastName,
       profile.displayName,
       profile.email,
       profile.phone,
+      profile.country,
       profile.avatarUrl,
       profile.baseCurrency,
       profile.createdAt,
@@ -4433,9 +4463,12 @@ export function mapGroupActivityLogRow(row: GroupActivityLogRow): GroupActivityL
 export function mapProfileRow(row: UserProfileRow): UserProfile {
   return {
     id: row.id,
+    firstName: row.first_name,
+    lastName: row.last_name,
     displayName: row.display_name,
     email: row.email,
     phone: row.phone,
+    country: row.country,
     avatarUrl: row.avatar_url,
     baseCurrency: row.base_currency,
     createdAt: row.created_at,

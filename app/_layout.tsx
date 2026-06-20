@@ -9,12 +9,13 @@ import {
     Sora_700Bold,
     useFonts as useSoraFonts,
 } from "@expo-google-fonts/sora";
-import { DefaultTheme, Stack, ThemeProvider } from "expo-router";
+import { DefaultTheme, Stack, ThemeProvider, router, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect } from "react";
 import {
     ActivityIndicator,
+    Image,
     Pressable,
     StyleSheet,
     Text,
@@ -36,7 +37,7 @@ import {
     installGlobalCrashHandler,
 } from "@/src/services/telemetry";
 import { AppDataProvider, useAppData } from "@/src/state/AppDataProvider";
-import { AuthProvider } from "@/src/state/AuthProvider";
+import { AuthProvider, useAuth } from "@/src/state/AuthProvider";
 
 export const unstable_settings = {
   anchor: "(tabs)",
@@ -96,39 +97,42 @@ export default function RootLayout() {
           <ErrorBoundary>
             <AppDataGate>
               <AuthProvider>
-                <Stack screenOptions={{ headerShown: false }}>
-                  <Stack.Screen name="(tabs)" />
-                  <Stack.Screen name="member/[id]" />
-                  <Stack.Screen name="member/form" />
-                  <Stack.Screen name="debt/[id]" />
-                  <Stack.Screen name="debt/form" />
-                  <Stack.Screen name="debt/history" />
-                  <Stack.Screen name="group/[id]" />
-                  <Stack.Screen name="group/form" />
-                  <Stack.Screen name="expense/[id]" />
-                  <Stack.Screen name="expense/form" />
-                  <Stack.Screen name="attachment/[id]" />
-                  <Stack.Screen name="analytics" />
-                  <Stack.Screen name="export" />
-                  <Stack.Screen name="full-export" />
-                  <Stack.Screen name="import-csv" />
-                  <Stack.Screen name="suggestions" />
-                  <Stack.Screen name="sync" />
-                  <Stack.Screen name="conflicts" />
-                  <Stack.Screen name="conflict/[id]" />
-                  <Stack.Screen name="notifications" />
-                  <Stack.Screen name="backup" />
-                  <Stack.Screen name="privacy" />
-                  <Stack.Screen name="delete-account" />
-                  <Stack.Screen name="language" />
-                  <Stack.Screen name="accessibility" />
-                  <Stack.Screen name="payment/[id]" />
-                  <Stack.Screen name="payment/form" />
-                  <Stack.Screen name="settlement/[id]" />
-                  <Stack.Screen name="recurring/index" />
-                  <Stack.Screen name="recurring/form" />
-                  <Stack.Screen name="auth" />
-                </Stack>
+                <StartupRouteGate>
+                  <Stack screenOptions={{ headerShown: false }}>
+                    <Stack.Screen name="(tabs)" />
+                    <Stack.Screen name="member/[id]" />
+                    <Stack.Screen name="member/form" />
+                    <Stack.Screen name="debt/[id]" />
+                    <Stack.Screen name="debt/form" />
+                    <Stack.Screen name="debt/history" />
+                    <Stack.Screen name="group/[id]" />
+                    <Stack.Screen name="group/form" />
+                    <Stack.Screen name="expense/[id]" />
+                    <Stack.Screen name="expense/form" />
+                    <Stack.Screen name="attachment/[id]" />
+                    <Stack.Screen name="analytics" />
+                    <Stack.Screen name="export" />
+                    <Stack.Screen name="full-export" />
+                    <Stack.Screen name="import-csv" />
+                    <Stack.Screen name="suggestions" />
+                    <Stack.Screen name="sync" />
+                    <Stack.Screen name="conflicts" />
+                    <Stack.Screen name="conflict/[id]" />
+                    <Stack.Screen name="notifications" />
+                    <Stack.Screen name="backup" />
+                    <Stack.Screen name="privacy" />
+                    <Stack.Screen name="delete-account" />
+                    <Stack.Screen name="language" />
+                    <Stack.Screen name="accessibility" />
+                    <Stack.Screen name="payment/[id]" />
+                    <Stack.Screen name="payment/form" />
+                    <Stack.Screen name="settlement/[id]" />
+                    <Stack.Screen name="recurring/index" />
+                    <Stack.Screen name="recurring/form" />
+                    <Stack.Screen name="auth" />
+                    <Stack.Screen name="first-run" />
+                  </Stack>
+                </StartupRouteGate>
               </AuthProvider>
             </AppDataGate>
           </ErrorBoundary>
@@ -182,11 +186,36 @@ function AppDataGate({ children }: { children: React.ReactNode }) {
   if (data.loading || !data.ready) {
     return (
       <View style={styles.gate}>
+        <Image
+          source={require("../assets/images/icon.png")}
+          style={styles.gateLogo}
+          resizeMode="contain"
+        />
         <ActivityIndicator color={palette.brand} />
-        <Text style={styles.gateBody}>Opening local ledger...</Text>
+        <Text style={styles.gateTitle}>Debtulator</Text>
+        <Text style={styles.gateBody}>Opening your local ledger...</Text>
       </View>
     );
   }
+
+  return children;
+}
+
+function StartupRouteGate({ children }: { children: React.ReactNode }) {
+  const data = useAppData();
+  const auth = useAuth();
+  const segments = useSegments();
+  const rootSegment = segments[0];
+
+  useEffect(() => {
+    if (auth.loading || data.settings.hasCompletedFirstRun) {
+      return;
+    }
+    if (rootSegment === "first-run" || rootSegment === "auth") {
+      return;
+    }
+    router.replace("/first-run");
+  }, [auth.loading, data.settings.hasCompletedFirstRun, rootSegment]);
 
   return children;
 }
@@ -211,6 +240,10 @@ const styles = StyleSheet.create({
     fontFamily: typefaces.displayMedium,
     fontSize: typography.size.h2,
     textAlign: "center",
+  },
+  gateLogo: {
+    height: 96,
+    width: 96,
   },
   gateBody: {
     color: palette.muted,
