@@ -151,7 +151,6 @@ export function GlassBottomTabBar({
           <BlurView
             tint="light"
             intensity={26}
-            experimentalBlurMethod="dimezisBlurView"
             style={StyleSheet.absoluteFill}
           />
           <View style={styles.bar}>
