@@ -47,6 +47,7 @@ type AuthContextValue = {
   resetPassword: (email: string) => Promise<void>;
   updateProfile: (input: Partial<Pick<UserProfile, 'firstName' | 'lastName' | 'displayName' | 'phone' | 'country' | 'baseCurrency'>>) => Promise<void>;
   refreshProfile: () => Promise<void>;
+  refreshSync: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -631,6 +632,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [data.settings.baseCurrency, localProfile, upsertLocalAndRemoteProfile, user],
   );
 
+  const refreshSync = useCallback(async () => {
+    addTelemetryBreadcrumb('sync', 'manual_refresh_started', { hasUser: Boolean(user) });
+    try {
+      if (!user) {
+        await data.refresh();
+        addTelemetryBreadcrumb('sync', 'manual_refresh_completed', { hasUser: false });
+        return;
+      }
+
+      await refreshProfile();
+      await syncStage2Records();
+      await runRemoteDataSync();
+      await data.refresh();
+      addTelemetryBreadcrumb('sync', 'manual_refresh_completed', { hasUser: true });
+    } catch (error) {
+      addTelemetryBreadcrumb('sync', 'manual_refresh_failed', { hasUser: Boolean(user) });
+      captureTelemetryException(error, 'manual_sync_refresh', { source: 'pull_to_refresh' });
+    }
+  }, [data, refreshProfile, runRemoteDataSync, syncStage2Records, user]);
+
   const identity = useMemo<Identity>(
     () => ({
       localUserId: 'me',
@@ -657,8 +678,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       resetPassword,
       updateProfile,
       refreshProfile,
+      refreshSync,
     }),
-    [identity, loading, refreshProfile, resetPassword, session, signIn, signOut, signUp, updateProfile, user],
+    [identity, loading, refreshProfile, refreshSync, resetPassword, session, signIn, signOut, signUp, updateProfile, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

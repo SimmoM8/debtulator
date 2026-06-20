@@ -7,6 +7,7 @@ import {
     Animated,
     Modal,
     Pressable,
+    RefreshControl,
     ScrollView,
     StyleProp,
     StyleSheet,
@@ -36,6 +37,7 @@ import {
     typefaces,
     typography,
 } from "@/src/constants/design";
+import { useAuth } from "@/src/state/AuthProvider";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -52,7 +54,18 @@ export function Screen({
 }) {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const auth = useAuth();
+  const [refreshing, setRefreshing] = useState(false);
   const bottomReserve = footer ? 144 : 112;
+  const refresh = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await auth.refreshSync();
+    } finally {
+      setRefreshing(false);
+    }
+  };
   const content = (
     <View style={[styles.content, { maxWidth: width >= 960 ? 1100 : 760 }]}>
       {children}
@@ -91,6 +104,14 @@ export function Screen({
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={refresh}
+              colors={[palette.primary]}
+              tintColor={palette.primary}
+            />
+          }
         >
           {content}
         </ScrollView>
