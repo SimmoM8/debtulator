@@ -51,30 +51,36 @@ and rebuildable local data, but keeps the test user, login session, completed
 onboarding, theme, and other device preferences.
 
 1. Link this repository to the development Supabase project once (skip this if
-   it is already linked):
+   it is already linked), push migrations, and deploy the guarded reset function:
 
    ```bash
    npx supabase login
    npx supabase link --project-ref YOUR_PROJECT_REF
+   npx supabase db push
+   npx supabase secrets set ENABLE_DEVELOPMENT_RESET=true DEVELOPMENT_RESET_USER_IDS=YOUR_AUTH_USER_UUID
+   npx supabase functions deploy reset-test-data
    ```
 
-2. From the project directory, run:
-
-   ```bash
-   npm run reset:test-data -- --yes
-   ```
-
-   This dynamically truncates every table in the `public` schema with
-   `RESTART IDENTITY CASCADE`. It preserves the schema, migrations, functions,
-   triggers, RLS policies, and `auth.users`.
-
-3. In the installed development app, open:
+2. In the installed development app, open:
 
    **Settings → Developer tools → Clear local data and reset sync**
 
-4. The app stays signed in, performs a clean sync, and opens the authenticated
+3. The button calls the allowlisted server-side reset, which dynamically
+   truncates every `public` table with `RESTART IDENTITY CASCADE`. It then clears
+   local SQLite and performs a clean sync. The app stays signed in and opens the authenticated
    app with the now-empty remote dataset. It does not recreate demo, debt,
    group, invitation, payment, or transaction records.
+
+The service-role key remains in Supabase's Edge Function environment and is
+never bundled into the mobile app. Do not enable or deploy this function in a
+production project. `DEVELOPMENT_RESET_USER_IDS` is a comma-separated allowlist
+of Supabase Auth user UUIDs permitted to use the button.
+
+The equivalent terminal-only fallback remains available:
+
+```bash
+npm run reset:test-data -- --yes
+```
 
 The developer-tool actions only appear in development builds. The command uses
 the Supabase CLI and the linked project; it does not need `psql` or a database

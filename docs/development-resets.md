@@ -40,6 +40,9 @@ project. The reset uses the linked project by default and does not require
 ```bash
 npx supabase login
 npx supabase link --project-ref YOUR_PROJECT_REF
+npx supabase db push
+npx supabase secrets set ENABLE_DEVELOPMENT_RESET=true DEVELOPMENT_RESET_USER_IDS=YOUR_AUTH_USER_UUID
+npx supabase functions deploy reset-test-data
 npm run reset:test-data -- --yes
 npm run reset:test-data -- --delete-users --yes
 ```
@@ -57,3 +60,8 @@ also truncates Auth users and their dependent sessions.
 After the hosted reset, use **Settings → Developer tools → Clear local data and
 reset sync**. The authenticated session and onboarding remain independent from local
 or remote domain-data existence, and the clean pull leaves the dashboard empty.
+
+The button invokes the `reset-test-data` Edge Function. It fails closed unless
+`ENABLE_DEVELOPMENT_RESET=true`, validates the caller's JWT, requires their Auth
+UUID in `DEVELOPMENT_RESET_USER_IDS`, and calls a reset RPC granted only to
+`service_role`. Never deploy or enable this function in production.

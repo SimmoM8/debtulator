@@ -1291,6 +1291,39 @@ create policy audit_logs_actor on public.audit_logs for all using (actor_user_id
 create policy account_deletion_requests_user_select on public.account_deletion_requests for select using (subject_user_id = auth.uid());
 create policy account_deletion_requests_user_insert on public.account_deletion_requests for insert with check (user_id = auth.uid() and subject_user_id = auth.uid() and status = 'requested' and anonymization_status = 'not_started' and request_channel = 'mobile');
 
+-- Development reset primitive. Only the allowlisted reset Edge Function may
+-- invoke this through its server-held service-role client.
+create or replace function public.reset_development_test_data()
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  table_list text;
+begin
+  if coalesce(auth.role(), '') <> 'service_role' then
+    raise exception 'Service role required.';
+  end if;
+
+  select string_agg(
+    format('%I.%I', schemaname, tablename),
+    ', '
+    order by tablename
+  )
+  into table_list
+  from pg_catalog.pg_tables
+  where schemaname = 'public';
+
+  if table_list is not null then
+    execute 'truncate table ' || table_list || ' restart identity cascade';
+  end if;
+end;
+$$;
+
+revoke all on function public.reset_development_test_data() from public, anon, authenticated;
+grant execute on function public.reset_development_test_data() to service_role;
+
 -- Indexes used by sync, pull hydration, and common filters.
 create index groups_owner_idx on public.groups(owner_user_id, updated_at);
 create index group_participants_user_idx on public.group_participants(user_id, group_id, status);
