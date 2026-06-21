@@ -4,9 +4,7 @@ import { router } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
     Animated,
-    Modal,
     Pressable,
-    ScrollView,
     StyleSheet,
     Text,
     View,
@@ -15,6 +13,7 @@ import {
 
 import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
 import { GlassCard, ListRow } from "@/src/components/ui/Finance";
+import { MobileMenuModal } from "@/src/components/ui/MenuList";
 import {
     EmptyState,
     IconButton,
@@ -638,69 +637,24 @@ function CompactCurrencySelector({
         <Ionicons name="chevron-down" size={14} color={palette.primary} />
       </Pressable>
 
-      <Modal
+      <MobileMenuModal
         visible={open}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setOpen(false)}
-      >
-        <View style={styles.currencyOverlay}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Close currency selector"
-            style={styles.currencyBackdrop}
-            onPress={() => setOpen(false)}
-          />
-          <GlassCard tone="lavender" style={styles.currencyMenu}>
-            <Text style={styles.currencyMenuTitle}>Summary currency</Text>
-            <Text style={styles.currencyMenuBody}>
-              Estimated totals use the local exchange-rate table.
-            </Text>
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.currencyOptionList}
-            >
-              {CURRENCIES.map((currency) => {
-                const active = currency === value;
-
-                return (
-                  <Pressable
-                    key={currency}
-                    accessibilityRole="button"
-                    accessibilityLabel={currency}
-                    accessibilityState={{ selected: active }}
-                    onPress={() => {
-                      onChange(currency);
-                      setOpen(false);
-                    }}
-                    style={({ pressed }) => [
-                      styles.currencyOption,
-                      active && styles.currencyOptionActive,
-                      pressed && styles.quickActionTilePressed,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.currencyOptionText,
-                        active && styles.currencyOptionTextActive,
-                      ]}
-                    >
-                      {currency}
-                    </Text>
-                    {active ? (
-                      <Ionicons
-                        name="checkmark"
-                        size={18}
-                        color={palette.primary}
-                      />
-                    ) : null}
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </GlassCard>
-        </View>
-      </Modal>
+        onClose={() => setOpen(false)}
+        sections={[
+          {
+            items: CURRENCIES.map((currency) => ({
+              label: currency,
+              subtitle: "Use for estimated summary values",
+              icon: "cash-outline",
+              active: currency === value,
+              onPress: () => {
+                onChange(currency);
+                setOpen(false);
+              },
+            })),
+          },
+        ]}
+      />
     </>
   );
 }
@@ -909,62 +863,6 @@ const styles = StyleSheet.create({
     fontSize: typography.size.xs,
     lineHeight: typography.line.xs,
     fontFamily: typefaces.body,
-  },
-  currencyOverlay: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: spacing.screen,
-  },
-  currencyBackdrop: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: "rgba(17,24,39,0.18)",
-  },
-  currencyMenu: {
-    width: "100%",
-    maxWidth: 320,
-    gap: spacing.sm,
-  },
-  currencyMenuTitle: {
-    color: palette.textPrimary,
-    fontSize: typography.size.xl,
-    lineHeight: typography.line.xl,
-    fontFamily: typefaces.displayMedium,
-  },
-  currencyMenuBody: {
-    color: palette.textSecondary,
-    fontSize: typography.size.sm,
-    lineHeight: typography.line.base,
-    fontFamily: typefaces.body,
-  },
-  currencyOptionList: {
-    gap: spacing.sm,
-    paddingTop: spacing.xs,
-  },
-  currencyOption: {
-    minHeight: 46,
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderGlass,
-    backgroundColor: "rgba(255,255,255,0.64)",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.md,
-  },
-  currencyOptionActive: {
-    borderColor: palette.borderIndigo,
-    backgroundColor: "rgba(221,214,254,0.24)",
-  },
-  currencyOptionText: {
-    color: palette.textPrimary,
-    fontSize: typography.size.base,
-    lineHeight: typography.line.basePlus,
-    fontFamily: typefaces.bodyStrong,
-  },
-  currencyOptionTextActive: {
-    color: palette.primary,
-    fontFamily: typefaces.bodyHeavy,
   },
   actionGrid: {
     flexDirection: "row",

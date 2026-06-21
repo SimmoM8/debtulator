@@ -505,6 +505,9 @@ export function DropdownSelect<T extends string>({
 }) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
+  const [anchor, setAnchor] = React.useState({ x: 0, y: 0, width: 0, height: 0 });
+  const anchorRef = React.useRef<View>(null);
+  const window = useWindowDimensions();
   const selected = options.find((option) => option.value === value);
   const filteredOptions = React.useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -516,20 +519,42 @@ export function DropdownSelect<T extends string>({
     );
   }, [options, query]);
 
-  React.useEffect(() => {
-    if (!open) {
+  const openDropdown = React.useCallback(() => {
+    anchorRef.current?.measureInWindow((x, y, width, height) => {
       setQuery("");
-    }
-  }, [open]);
+      setAnchor({ x, y, width, height });
+      setOpen(true);
+    });
+  }, []);
+
+  const dropdownPosition = React.useMemo(() => {
+    const gutter = spacing.md;
+    const gap = spacing.xs;
+    const width = window.width - gutter * 2;
+    const left = gutter;
+    const below = window.height - anchor.y - anchor.height - gutter - gap;
+    const above = anchor.y - gutter - gap;
+    const opensBelow = below >= Math.min(320, above);
+
+    return {
+      left,
+      width,
+      maxHeight: Math.max(160, opensBelow ? below : above),
+      ...(opensBelow
+        ? { top: anchor.y + anchor.height + gap }
+        : { bottom: window.height - anchor.y + gap }),
+    };
+  }, [anchor, window.height, window.width]);
 
   return (
     <View style={[styles.field, style]}>
       {label ? <Text style={styles.label}>{label}</Text> : null}
       <Pressable
+        ref={anchorRef}
         accessibilityRole="button"
         accessibilityLabel={label ?? placeholder}
         accessibilityHint="Opens a dropdown selector"
-        onPress={() => setOpen(true)}
+        onPress={openDropdown}
         style={({ pressed }) => [
           styles.inputShell,
           styles.dropdownShell,
@@ -554,72 +579,78 @@ export function DropdownSelect<T extends string>({
         transparent
         onRequestClose={() => setOpen(false)}
       >
-        <View style={styles.dropdownOverlay}>
+        <Pressable
+          accessible={false}
+          style={styles.dropdownOverlay}
+          onPress={() => setOpen(false)}
+        >
           <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Close selector"
-            style={styles.dropdownBackdrop}
-            onPress={() => setOpen(false)}
-          />
-          <GlassCard style={styles.dropdownMenu}>
-            {label ? <Text style={styles.dropdownTitle}>{label}</Text> : null}
-            <View style={styles.dropdownSearchShell}>
-              <Ionicons name="search" size={16} color={palette.muted} />
-              <TextInput
-                value={query}
-                onChangeText={setQuery}
-                placeholder="Search"
-                placeholderTextColor={palette.textTertiary}
-                style={styles.dropdownSearchInput}
-              />
-            </View>
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.dropdownList}
+            accessible={false}
+            style={[styles.dropdownMenuPosition, dropdownPosition]}
+            onPress={(event) => event.stopPropagation()}
+          >
+            <GlassCard
+              wrapperStyle={styles.dropdownMenuWrapper}
+              style={styles.dropdownMenu}
             >
-              {filteredOptions.map((option) => {
-                const active = option.value === value;
-                return (
-                  <Pressable
-                    key={option.value}
-                    accessibilityRole="button"
-                    accessibilityLabel={option.label}
-                    accessibilityState={{ selected: active }}
-                    onPress={() => {
-                      onChange(option.value);
-                      setOpen(false);
-                    }}
-                    style={({ pressed }) => [
-                      styles.dropdownOption,
-                      active && styles.dropdownOptionActive,
-                      pressed && styles.pressed,
-                    ]}
-                  >
-                    <Text
-                      numberOfLines={1}
-                      style={[
-                        styles.dropdownOptionText,
-                        active && styles.dropdownOptionTextActive,
+              <View style={styles.dropdownSearchShell}>
+                <Ionicons name="search" size={16} color={palette.muted} />
+                <TextInput
+                  value={query}
+                  onChangeText={setQuery}
+                  placeholder="Search"
+                  placeholderTextColor={palette.textTertiary}
+                  style={styles.dropdownSearchInput}
+                />
+              </View>
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.dropdownList}
+              >
+                {filteredOptions.map((option) => {
+                  const active = option.value === value;
+                  return (
+                    <Pressable
+                      key={option.value}
+                      accessibilityRole="button"
+                      accessibilityLabel={option.label}
+                      accessibilityState={{ selected: active }}
+                      onPress={() => {
+                        onChange(option.value);
+                        setOpen(false);
+                      }}
+                      style={({ pressed }) => [
+                        styles.dropdownOption,
+                        active && styles.dropdownOptionActive,
+                        pressed && styles.pressed,
                       ]}
                     >
-                      {option.label}
-                    </Text>
-                    {active ? (
-                      <Ionicons
-                        name="checkmark"
-                        size={18}
-                        color={palette.primary}
-                      />
-                    ) : null}
-                  </Pressable>
-                );
-              })}
-              {!filteredOptions.length ? (
-                <Text style={styles.dropdownEmpty}>No matches</Text>
-              ) : null}
-            </ScrollView>
-          </GlassCard>
-        </View>
+                      <Text
+                        numberOfLines={1}
+                        style={[
+                          styles.dropdownOptionText,
+                          active && styles.dropdownOptionTextActive,
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                      {active ? (
+                        <Ionicons
+                          name="checkmark"
+                          size={18}
+                          color={palette.primary}
+                        />
+                      ) : null}
+                    </Pressable>
+                  );
+                })}
+                {!filteredOptions.length ? (
+                  <Text style={styles.dropdownEmpty}>No matches</Text>
+                ) : null}
+              </ScrollView>
+            </GlassCard>
+          </Pressable>
+        </Pressable>
       </Modal>
     </View>
   );
@@ -643,12 +674,6 @@ export function DatePickerField({
     monthFromIso(value),
   );
 
-  React.useEffect(() => {
-    if (open) {
-      setVisibleMonth(monthFromIso(value));
-    }
-  }, [open, value]);
-
   const days = React.useMemo(() => calendarDays(visibleMonth), [visibleMonth]);
   const selected = parseIsoDate(value);
   const monthLabel = new Date(
@@ -664,7 +689,10 @@ export function DatePickerField({
         accessibilityRole="button"
         accessibilityLabel={label}
         accessibilityHint="Opens a date picker"
-        onPress={() => setOpen(true)}
+        onPress={() => {
+          setVisibleMonth(monthFromIso(value));
+          setOpen(true);
+        }}
         style={({ pressed }) => [
           styles.inputShell,
           styles.dropdownShell,
@@ -686,14 +714,20 @@ export function DatePickerField({
         transparent
         onRequestClose={() => setOpen(false)}
       >
-        <View style={styles.dropdownOverlay}>
+        <Pressable
+          accessible={false}
+          style={[styles.dropdownOverlay, styles.datePickerOverlay]}
+          onPress={() => setOpen(false)}
+        >
           <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Close date picker"
-            style={styles.dropdownBackdrop}
-            onPress={() => setOpen(false)}
-          />
-          <GlassCard style={styles.datePickerMenu}>
+            accessible={false}
+            style={styles.datePickerPosition}
+            onPress={(event) => event.stopPropagation()}
+          >
+            <GlassCard
+              wrapperStyle={styles.datePickerMenuWrapper}
+              style={styles.datePickerMenu}
+            >
             <View style={styles.datePickerHeader}>
               <IconButton
                 icon="chevron-back"
@@ -784,8 +818,9 @@ export function DatePickerField({
                 }}
               />
             </View>
-          </GlassCard>
-        </View>
+            </GlassCard>
+          </Pressable>
+        </Pressable>
       </Modal>
     </View>
   );
@@ -1503,16 +1538,18 @@ const styles = StyleSheet.create({
     fontFamily: typefaces.body,
   },
   dropdownOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: "flex-end",
-    padding: spacing.md,
+    flex: 1,
+    backgroundColor: "rgba(17,24,39,0.42)",
   },
-  dropdownBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(17,24,39,0.18)",
+  dropdownMenuPosition: {
+    position: "absolute",
+  },
+  dropdownMenuWrapper: {
+    width: "100%",
+    maxHeight: "100%",
   },
   dropdownMenu: {
-    maxHeight: "72%",
+    maxHeight: "100%",
     gap: spacing.sm,
     padding: spacing.md,
   },
@@ -1572,6 +1609,20 @@ const styles = StyleSheet.create({
   datePickerMenu: {
     gap: spacing.md,
     padding: spacing.md,
+  },
+  datePickerOverlay: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: spacing.md,
+  },
+  datePickerPosition: {
+    width: "100%",
+    maxWidth: 400,
+    maxHeight: "100%",
+  },
+  datePickerMenuWrapper: {
+    width: "100%",
+    maxHeight: "100%",
   },
   datePickerHeader: {
     flexDirection: "row",

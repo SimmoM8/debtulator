@@ -3,7 +3,7 @@ import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { BlurView } from "expo-blur";
 import { router } from "expo-router";
 import React, { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FloatingAddButton, GlassCard } from "@/src/components/ui/Finance";
@@ -102,50 +102,55 @@ export function GlassBottomTabBar({
 
   return (
     <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
-      {menuOpen ? (
+      <Modal
+        visible={menuOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMenuOpen(false)}
+      >
         <Pressable
           accessible={false}
           style={styles.overlay}
           onPress={() => setMenuOpen(false)}
-        />
-      ) : null}
-      {menuOpen ? (
-        <View
-          pointerEvents="box-none"
-          style={[styles.menuWrap, { bottom: 112 + insets.bottom }]}
         >
-          <GlassCard
-            tone="lavender"
-            style={styles.menuCard}
-            wrapperStyle={styles.menuCardWrap}
+          <Pressable
+            accessible={false}
+            style={[styles.menuWrap, { bottom: 112 + insets.bottom }]}
+            onPress={(event) => event.stopPropagation()}
           >
-            <View style={styles.actionList}>
-              {quickActions.map((action) => (
-                <Pressable
-                  key={action.label}
-                  accessibilityRole="button"
-                  accessibilityLabel={action.label}
-                  onPress={() => {
-                    setMenuOpen(false);
-                    router.push(action.href);
-                  }}
-                  style={({ pressed }) => [
-                    styles.actionRow,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <Ionicons
-                    name={action.icon}
-                    size={22}
-                    color={palette.primary}
-                  />
-                  <Text style={styles.actionLabel}>{action.label}</Text>
-                </Pressable>
-              ))}
-            </View>
-          </GlassCard>
-        </View>
-      ) : null}
+            <GlassCard
+              tone="lavender"
+              style={styles.menuCard}
+              wrapperStyle={styles.menuCardWrap}
+            >
+              <View style={styles.actionList}>
+                {quickActions.map((action) => (
+                  <Pressable
+                    key={action.label}
+                    accessibilityRole="button"
+                    accessibilityLabel={action.label}
+                    onPress={() => {
+                      setMenuOpen(false);
+                      router.push(action.href);
+                    }}
+                    style={({ pressed }) => [
+                      styles.actionRow,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Ionicons
+                      name={action.icon}
+                      size={22}
+                      color={palette.primary}
+                    />
+                    <Text style={styles.actionLabel}>{action.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </GlassCard>
+          </Pressable>
+        </Pressable>
+      </Modal>
       <View style={[styles.barWrap, { paddingBottom: insets.bottom + 10 }]}>
         <View style={styles.barShadow}>
           <BlurView
@@ -241,8 +246,8 @@ function TabItem({
 
 const styles = StyleSheet.create({
   overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(17,24,39,0.14)",
+    flex: 1,
+    backgroundColor: "rgba(17,24,39,0.42)",
   },
   menuWrap: {
     position: "absolute",

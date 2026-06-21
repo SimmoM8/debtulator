@@ -10,6 +10,7 @@ import {
   TextInput,
   View,
   ViewStyle,
+  useWindowDimensions,
 } from "react-native";
 
 import { GlassCard } from "@/src/components/ui/Finance";
@@ -37,6 +38,9 @@ export function MemberMultiSelect({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [anchor, setAnchor] = useState({ x: 0, y: 0, width: 0, height: 0 });
+  const anchorRef = React.useRef<View>(null);
+  const window = useWindowDimensions();
   const selected = useMemo(() => new Set(values), [values]);
   const selectedOptions = options.filter((option) => selected.has(option.value));
   const filteredOptions = useMemo(() => {
@@ -48,6 +52,33 @@ export function MemberMultiSelect({
       option.label.toLowerCase().includes(normalized),
     );
   }, [options, query]);
+
+  function openDropdown() {
+    anchorRef.current?.measureInWindow((x, y, width, height) => {
+      setQuery("");
+      setAnchor({ x, y, width, height });
+      setOpen(true);
+    });
+  }
+
+  const dropdownPosition = useMemo(() => {
+    const gutter = 12;
+    const gap = 4;
+    const width = window.width - gutter * 2;
+    const left = gutter;
+    const below = window.height - anchor.y - anchor.height - gutter - gap;
+    const above = anchor.y - gutter - gap;
+    const opensBelow = below >= Math.min(320, above);
+
+    return {
+      left,
+      width,
+      maxHeight: Math.max(160, opensBelow ? below : above),
+      ...(opensBelow
+        ? { top: anchor.y + anchor.height + gap }
+        : { bottom: window.height - anchor.y + gap }),
+    };
+  }, [anchor, window.height, window.width]);
 
   function toggle(value: string) {
     onChange(
@@ -65,10 +96,11 @@ export function MemberMultiSelect({
     <View style={[styles.field, style]}>
       <Text style={styles.label}>{label}</Text>
       <Pressable
+        ref={anchorRef}
         accessibilityRole="button"
         accessibilityLabel={label}
         accessibilityHint="Opens a member selector"
-        onPress={() => setOpen(true)}
+        onPress={openDropdown}
         style={({ pressed }) => [
           styles.inputShell,
           styles.selectorShell,
@@ -117,69 +149,72 @@ export function MemberMultiSelect({
         transparent
         onRequestClose={() => setOpen(false)}
       >
-        <View style={styles.overlay}>
+        <Pressable
+          accessible={false}
+          style={styles.overlay}
+          onPress={() => setOpen(false)}
+        >
           <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Close member selector"
-            style={styles.backdrop}
-            onPress={() => setOpen(false)}
-          />
-          <GlassCard style={styles.menu}>
-            <Text style={styles.menuTitle}>{label}</Text>
-            <View style={styles.searchShell}>
-              <Ionicons name="search" size={16} color={palette.muted} />
-              <TextInput
-                value={query}
-                onChangeText={setQuery}
-                placeholder="Search"
-                placeholderTextColor={palette.textTertiary}
-                style={styles.searchInput}
-              />
-            </View>
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.optionList}
-            >
-              {filteredOptions.map((option) => {
-                const active = selected.has(option.value);
-                return (
-                  <Pressable
-                    key={option.value}
-                    accessibilityRole="button"
-                    accessibilityLabel={option.label}
-                    accessibilityState={{ selected: active }}
-                    onPress={() => toggle(option.value)}
-                    style={({ pressed }) => [
-                      styles.option,
-                      active && styles.optionActive,
-                      pressed && styles.pressed,
-                    ]}
-                  >
-                    <Text
-                      numberOfLines={1}
-                      style={[
-                        styles.optionText,
-                        active && styles.optionTextActive,
+            accessible={false}
+            style={[styles.menuPosition, dropdownPosition]}
+            onPress={(event) => event.stopPropagation()}
+          >
+            <GlassCard wrapperStyle={styles.menuWrapper} style={styles.menu}>
+              <View style={styles.searchShell}>
+                <Ionicons name="search" size={16} color={palette.muted} />
+                <TextInput
+                  value={query}
+                  onChangeText={setQuery}
+                  placeholder="Search"
+                  placeholderTextColor={palette.textTertiary}
+                  style={styles.searchInput}
+                />
+              </View>
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.optionList}
+              >
+                {filteredOptions.map((option) => {
+                  const active = selected.has(option.value);
+                  return (
+                    <Pressable
+                      key={option.value}
+                      accessibilityRole="button"
+                      accessibilityLabel={option.label}
+                      accessibilityState={{ selected: active }}
+                      onPress={() => toggle(option.value)}
+                      style={({ pressed }) => [
+                        styles.option,
+                        active && styles.optionActive,
+                        pressed && styles.pressed,
                       ]}
                     >
-                      {option.label}
-                    </Text>
-                    {active ? (
-                      <Ionicons
-                        name="checkmark"
-                        size={18}
-                        color={palette.primary}
-                      />
-                    ) : null}
-                  </Pressable>
-                );
-              })}
-              {!filteredOptions.length ? (
-                <Text style={styles.emptyText}>No matches</Text>
-              ) : null}
-            </ScrollView>
-          </GlassCard>
-        </View>
+                      <Text
+                        numberOfLines={1}
+                        style={[
+                          styles.optionText,
+                          active && styles.optionTextActive,
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                      {active ? (
+                        <Ionicons
+                          name="checkmark"
+                          size={18}
+                          color={palette.primary}
+                        />
+                      ) : null}
+                    </Pressable>
+                  );
+                })}
+                {!filteredOptions.length ? (
+                  <Text style={styles.emptyText}>No matches</Text>
+                ) : null}
+              </ScrollView>
+            </GlassCard>
+          </Pressable>
+        </Pressable>
       </Modal>
     </View>
   );
@@ -255,23 +290,20 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: "flex-end",
-    padding: 12,
+    flex: 1,
+    backgroundColor: "rgba(17,24,39,0.42)",
   },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(17,24,39,0.18)",
+  menuPosition: {
+    position: "absolute",
+  },
+  menuWrapper: {
+    width: "100%",
+    maxHeight: "100%",
   },
   menu: {
-    maxHeight: "72%",
+    maxHeight: "100%",
     gap: 12,
     padding: 12,
-  },
-  menuTitle: {
-    color: palette.textPrimary,
-    fontSize: typography.size.lg,
-    fontFamily: typefaces.displayMedium,
   },
   searchShell: {
     minHeight: 44,

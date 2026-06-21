@@ -144,16 +144,6 @@ export function AppMenuButton() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
-  const currentLabel = useMemo(() => {
-    for (const section of sections) {
-      const match = section.items.find((item) => item.href === pathname);
-      if (match) {
-        return match.label;
-      }
-    }
-    return "Browse";
-  }, [pathname]);
-
   const menuSections = useMemo<MenuListSection[]>(
     () =>
       sections.map((section) => ({
@@ -186,8 +176,6 @@ export function AppMenuButton() {
       />
       <MobileMenuModal
         visible={open}
-        title="Navigate"
-        statusLabel={currentLabel}
         sections={menuSections}
         onClose={() => setOpen(false)}
       />

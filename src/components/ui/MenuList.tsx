@@ -11,8 +11,7 @@ import {
   ViewStyle,
 } from "react-native";
 
-import { GlassCard, StatusPill } from "@/src/components/ui/Finance";
-import { IconButton } from "@/src/components/ui/Primitives";
+import { GlassCard } from "@/src/components/ui/Finance";
 import {
   palette,
   spacing,
@@ -39,14 +38,10 @@ export type MenuListSection = {
 
 export function MobileMenuModal({
   visible,
-  title,
-  statusLabel,
   sections,
   onClose,
 }: {
   visible: boolean;
-  title: string;
-  statusLabel?: string;
   sections: MenuListSection[];
   onClose: () => void;
 }) {
@@ -57,24 +52,41 @@ export function MobileMenuModal({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
-        <Pressable accessible={false} style={styles.backdrop} onPress={onClose} />
-        <GlassCard tone="lavender" style={styles.menuCard}>
-          <View style={styles.headerRow}>
-            <Text style={styles.title}>{title}</Text>
-            <View style={styles.headerMeta}>
-              {statusLabel ? <StatusPill label={statusLabel} tone="indigo" /> : null}
-              <IconButton icon="close" label={`Close ${title}`} onPress={onClose} />
-            </View>
-          </View>
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.scrollContent}
+      <Pressable accessible={false} style={styles.overlay} onPress={onClose}>
+        <Pressable
+          accessible={false}
+          style={styles.menuCardWrapper}
+          onPress={(event) => event.stopPropagation()}
+        >
+          <GlassCard
+            tone="lavender"
+            wrapperStyle={styles.menuCardInner}
+            style={styles.menuCard}
           >
-            <MenuListContent sections={sections} />
-          </ScrollView>
-        </GlassCard>
-      </View>
+            <View style={styles.closeRow}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Close menu"
+                hitSlop={8}
+                onPress={onClose}
+                style={({ pressed }) => [
+                  styles.closeButton,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Ionicons name="close" size={22} color={palette.textSecondary} />
+              </Pressable>
+            </View>
+            <ScrollView
+              style={styles.scrollView}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.scrollContent}
+            >
+              <MenuListContent sections={sections} />
+            </ScrollView>
+          </GlassCard>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 }
@@ -123,45 +135,21 @@ function MenuRow({ item }: { item: MenuListItem }) {
         pressed && !item.disabled && styles.pressed,
       ]}
     >
-      <View
+      <Ionicons
+        name={item.icon}
+        size={20}
+        color={active ? palette.surface : toneColor}
+      />
+      <Text
+        numberOfLines={1}
         style={[
-          styles.itemIcon,
-          active && styles.itemIconActive,
-          item.destructive && !active && styles.itemIconDanger,
+          styles.itemLabel,
+          active && styles.itemLabelActive,
+          item.destructive && !active && styles.itemLabelDanger,
         ]}
       >
-        <Ionicons
-          name={item.icon}
-          size={18}
-          color={active ? palette.surface : toneColor}
-        />
-      </View>
-      <View style={styles.itemCopy}>
-        <Text
-          style={[
-            styles.itemLabel,
-            active && styles.itemLabelActive,
-            item.destructive && !active && styles.itemLabelDanger,
-          ]}
-        >
-          {item.label}
-        </Text>
-        {item.subtitle ? (
-          <Text
-            style={[
-              styles.itemSubtitle,
-              active && styles.itemSubtitleActive,
-            ]}
-          >
-            {item.subtitle}
-          </Text>
-        ) : null}
-      </View>
-      <Ionicons
-        name="chevron-forward"
-        size={16}
-        color={active ? palette.surface : palette.textTertiary}
-      />
+        {item.label}
+      </Text>
     </Pressable>
   );
 }
@@ -170,38 +158,44 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: "flex-start",
-    backgroundColor: "rgba(17,24,39,0.18)",
+    backgroundColor: "rgba(17,24,39,0.42)",
     paddingHorizontal: spacing.screen,
-    paddingTop: 70,
-    paddingBottom: 24,
+    paddingTop: 64,
+    paddingBottom: spacing.xl,
   },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
+  menuCardWrapper: {
+    width: "100%",
+    maxWidth: 320,
+    maxHeight: "100%",
+    alignSelf: "flex-end",
+  },
+  menuCardInner: {
+    width: "100%",
+    maxHeight: "100%",
   },
   menuCard: {
-    maxHeight: "88%",
+    maxHeight: "100%",
+    padding: spacing.md,
   },
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: spacing.md,
-  },
-  headerMeta: {
+  closeRow: {
+    minHeight: 28,
     alignItems: "flex-end",
-    gap: spacing.sm,
+    justifyContent: "center",
   },
-  title: {
-    flex: 1,
-    color: palette.textPrimary,
-    fontSize: typography.size.h1,
-    fontFamily: typefaces.displayMedium,
+  closeButton: {
+    width: 28,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  scrollView: {
+    flexShrink: 1,
   },
   scrollContent: {
-    paddingTop: spacing.md,
+    paddingVertical: spacing.xxs,
   },
   sectionList: {
-    gap: spacing.lg,
+    gap: spacing.md,
   },
   section: {
     gap: spacing.sm,
@@ -213,19 +207,16 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   itemList: {
-    gap: spacing.sm,
+    gap: 2,
   },
   item: {
-    minHeight: 68,
-    borderRadius: 20,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderIndigoSoft,
-    backgroundColor: palette.surfaceGlassElevated,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 14,
+    minHeight: 44,
+    borderRadius: 12,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   itemActive: {
     backgroundColor: palette.primary,
@@ -234,25 +225,8 @@ const styles = StyleSheet.create({
   itemDisabled: {
     opacity: 0.5,
   },
-  itemIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    backgroundColor: "rgba(55,48,163,0.1)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  itemIconActive: {
-    backgroundColor: "rgba(255,255,255,0.16)",
-  },
-  itemIconDanger: {
-    backgroundColor: palette.dangerSoft,
-  },
-  itemCopy: {
-    flex: 1,
-    gap: 2,
-  },
   itemLabel: {
+    flex: 1,
     color: palette.textPrimary,
     fontSize: typography.size.lg,
     fontFamily: typefaces.bodyStrong,
@@ -262,15 +236,6 @@ const styles = StyleSheet.create({
   },
   itemLabelDanger: {
     color: palette.danger,
-  },
-  itemSubtitle: {
-    color: palette.textTertiary,
-    fontSize: typography.size.sm,
-    lineHeight: typography.line.basePlus,
-    fontFamily: typefaces.body,
-  },
-  itemSubtitleActive: {
-    color: "rgba(255,255,255,0.78)",
   },
   pressed: {
     opacity: 0.8,
