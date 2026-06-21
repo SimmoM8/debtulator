@@ -241,7 +241,6 @@ export function DebtsScreen() {
 
       <MobileMenuModal
         visible={optionsOpen}
-        title="Debt options"
         onClose={() => setOptionsOpen(false)}
         sections={[
           {

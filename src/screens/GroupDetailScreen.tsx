@@ -486,7 +486,6 @@ export function GroupDetailScreen() {
 
       <MobileMenuModal
         visible={optionsOpen}
-        title="Group actions"
         onClose={() => setOptionsOpen(false)}
         sections={[
           {

@@ -155,7 +155,6 @@ export function GroupsScreen() {
 
       <MobileMenuModal
         visible={optionsOpen}
-        title="Group options"
         onClose={() => setOptionsOpen(false)}
         sections={[
           {

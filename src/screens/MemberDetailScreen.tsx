@@ -240,7 +240,6 @@ export function MemberDetailScreen() {
 
       <MobileMenuModal
         visible={optionsOpen}
-        title="Member options"
         onClose={() => setOptionsOpen(false)}
         sections={[
           {

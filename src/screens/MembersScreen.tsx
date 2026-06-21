@@ -236,7 +236,6 @@ export function MembersScreen() {
 
       <MobileMenuModal
         visible={optionsOpen}
-        title="Member options"
         onClose={() => setOptionsOpen(false)}
         sections={[
           {
