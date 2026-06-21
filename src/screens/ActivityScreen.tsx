@@ -1,10 +1,9 @@
-import { Ionicons } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
 import { View } from "react-native";
 
+import { ActivityTimelineRow } from "@/src/components/ActivityTimelineRow";
 import {
   GlassCard,
-  ListRow,
   SearchFilterBar,
   SingleSelectFilterList,
 } from "@/src/components/ui/Finance";
@@ -18,7 +17,10 @@ import {
 import {
   activityActorLabel,
   activityCategory,
-  activityTitle,
+  activityConfirmationStatus,
+  activityDetailRows,
+  activitySentence,
+  activitySummary,
   buildUserActivity,
 } from "@/src/services/activity";
 import { useAppData } from "@/src/state/AppDataProvider";
@@ -47,12 +49,15 @@ export function ActivityScreen() {
           auth.identity.authenticatedUserId,
           data.profiles,
           data.sharedGroupMembers,
+          data.members,
         );
         const matchesFilter =
           filter === "all" || activityCategory(event.targetType) === filter;
         const matchesQuery =
           !normalizedQuery ||
-          activityTitle(event.action).toLowerCase().includes(normalizedQuery) ||
+          activitySentence(actor, event.action)
+            .toLowerCase()
+            .includes(normalizedQuery) ||
           actor.toLowerCase().includes(normalizedQuery) ||
           event.targetType.toLowerCase().includes(normalizedQuery);
         return matchesFilter && matchesQuery;
@@ -85,18 +90,23 @@ export function ActivityScreen() {
         {events.length ? (
           <View>
             {events.map((event, index) => (
-              <ListRow
+              <ActivityTimelineRow
                 key={event.id}
-                title={activityTitle(event.action)}
-                subtitle={activityActorLabel(
-                  event.actorUserId,
-                  auth.identity.authenticatedUserId,
-                  data.profiles,
-                  data.sharedGroupMembers,
+                title={activitySentence(
+                  activityActorLabel(
+                    event.actorUserId,
+                    auth.identity.authenticatedUserId,
+                    data.profiles,
+                    data.sharedGroupMembers,
+                    data.members,
+                  ),
+                  event.action,
                 )}
-                meta={new Date(event.createdAt).toLocaleString()}
-                icon={activityIcon(event.targetType)}
-                showDivider={index < events.length - 1}
+                createdAt={event.createdAt}
+                detail={activitySummary(event, data)}
+                confirmationStatus={activityConfirmationStatus(event)}
+                details={activityDetailRows(event)}
+                isLast={index === events.length - 1}
               />
             ))}
           </View>
@@ -130,13 +140,6 @@ export function ActivityScreen() {
       </FilterSheet>
     </Screen>
   );
-}
-
-function activityIcon(targetType: string): keyof typeof Ionicons.glyphMap {
-  if (activityCategory(targetType) === "payments") return "card-outline";
-  if (activityCategory(targetType) === "groups") return "people-outline";
-  if (activityCategory(targetType) === "account") return "person-outline";
-  return "wallet-outline";
 }
 
 const FILTER_OPTIONS = [

@@ -11,6 +11,7 @@ import {
 } from "react-native";
 
 import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
+import { ActivityTimelineRow } from "@/src/components/ActivityTimelineRow";
 import { GlassCard, ListRow } from "@/src/components/ui/Finance";
 import { MobileMenuModal } from "@/src/components/ui/MenuList";
 import {
@@ -31,8 +32,10 @@ import {
 import { CURRENCIES } from "@/src/constants/currencies";
 import {
   activityActorLabel,
-  activityCategory,
-  activityTitle,
+  activityConfirmationStatus,
+  activityDetailRows,
+  activitySentence,
+  activitySummary,
   buildUserActivity,
 } from "@/src/services/activity";
 import { estimateMoneyMap } from "@/src/services/currency";
@@ -495,18 +498,23 @@ export function DashboardScreen() {
         {recentActivity.length ? (
           <View style={styles.listColumn}>
             {recentActivity.map((activity, index) => (
-              <ListRow
+              <ActivityTimelineRow
                 key={activity.id}
-                title={activityTitle(activity.action)}
-                subtitle={activityActorLabel(
-                  activity.actorUserId,
-                  auth.identity.authenticatedUserId,
-                  data.profiles,
-                  data.sharedGroupMembers,
+                title={activitySentence(
+                  activityActorLabel(
+                    activity.actorUserId,
+                    auth.identity.authenticatedUserId,
+                    data.profiles,
+                    data.sharedGroupMembers,
+                    data.members,
+                  ),
+                  activity.action,
                 )}
-                meta={new Date(activity.createdAt).toLocaleString()}
-                icon={activityIcon(activity.targetType)}
-                showDivider={index < recentActivity.length - 1}
+                createdAt={activity.createdAt}
+                detail={activitySummary(activity, data)}
+                confirmationStatus={activityConfirmationStatus(activity)}
+                details={activityDetailRows(activity)}
+                isLast={index === recentActivity.length - 1}
               />
             ))}
           </View>
@@ -519,13 +527,6 @@ export function DashboardScreen() {
       </GlassCard>
     </Screen>
   );
-}
-
-function activityIcon(targetType: string): keyof typeof Ionicons.glyphMap {
-  if (activityCategory(targetType) === "payments") return "card-outline";
-  if (activityCategory(targetType) === "groups") return "people-outline";
-  if (activityCategory(targetType) === "account") return "person-outline";
-  return "wallet-outline";
 }
 
 function openEntry(

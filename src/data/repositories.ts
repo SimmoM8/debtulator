@@ -2179,11 +2179,28 @@ export class DebtulatorRepository {
   }
 
   async upsertProfile(profile: UserProfile) {
+    const snapshot = await loadSnapshot(this.db);
+    const previous = snapshot.profiles.find((item) => item.id === profile.id);
+    const changedFields = previous
+      ? [
+          ['displayName', previous.displayName, profile.displayName],
+          ['email', previous.email, profile.email],
+          ['phone', previous.phone, profile.phone],
+          ['country', previous.country, profile.country],
+          ['avatar', previous.avatarUrl, profile.avatarUrl],
+          ['baseCurrency', previous.baseCurrency, profile.baseCurrency],
+        ]
+          .filter(([, before, after]) => before !== after)
+          .map(([field]) => field)
+      : ['displayName', 'baseCurrency'];
     await insertProfile(this.db, profile);
-    await this.logActivity('profile', profile.id, 'profile_updated', profile.id, {
-      displayName: profile.displayName,
-      baseCurrency: profile.baseCurrency,
-    });
+    if (!previous || changedFields.length > 0) {
+      await this.logActivity('profile', profile.id, 'profile_updated', profile.id, {
+        displayName: profile.displayName,
+        baseCurrency: profile.baseCurrency,
+        changedFields,
+      });
+    }
     return profile;
   }
 
