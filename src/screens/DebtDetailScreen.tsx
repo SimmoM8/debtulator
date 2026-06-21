@@ -14,6 +14,7 @@ import {
 
 import { AvatarStack } from "@/src/components/ui/Finance";
 import { ActivityTimelineRow } from "@/src/components/ActivityTimelineRow";
+import { ConfirmationMarker } from "@/src/components/ConfirmationMarker";
 import { MobileMenuModal } from "@/src/components/ui/MenuList";
 import { Amount } from "@/src/components/ui/Money";
 import { TagInput } from "@/src/components/ui/TagInput";
@@ -1275,19 +1276,7 @@ export function DebtDetailScreen() {
               <View style={styles.dueValue}>
                 <View style={styles.dueDatePrimary}>
                   {dueDateConfirmationStatus ? (
-                    <Ionicons
-                      name={
-                        dueDateConfirmationStatus === "rejected"
-                          ? "close-circle"
-                          : "time"
-                      }
-                      size={14}
-                      color={
-                        dueDateConfirmationStatus === "rejected"
-                          ? palette.negative
-                          : palette.warning
-                      }
-                    />
+                    <ConfirmationMarker status={dueDateConfirmationStatus} />
                   ) : null}
                   {currentDebt.dueDate ? (
                     <Text style={styles.dueValueDate}>{dueLabel}</Text>
@@ -1442,12 +1431,7 @@ export function DebtDetailScreen() {
                     </Text>
                     {hasOrphanedPendingConfirmation ? (
                       <View style={styles.confirmationItem}>
-                        <View
-                          style={[
-                            styles.confirmationIndicator,
-                            styles.confirmationIndicatorPending,
-                          ]}
-                        />
+                        <ConfirmationMarker status="pending" />
                         <View style={styles.confirmationItemCopy}>
                           <Text style={styles.confirmationItemTitle}>
                             {isMissingCreationConfirmation
@@ -1780,13 +1764,8 @@ function ConfirmationGroup({
           verification.requesterUserId === currentUserId;
         return (
           <View key={verification.id} style={styles.confirmationItem}>
-            <View
-              style={[
-                styles.confirmationIndicator,
-                verification.status === "rejected"
-                  ? styles.confirmationIndicatorRejected
-                  : styles.confirmationIndicatorPending,
-              ]}
+            <ConfirmationMarker
+              status={verification.status === "rejected" ? "rejected" : "pending"}
             />
             <View style={styles.confirmationItemCopy}>
               <Text style={styles.confirmationItemTitle}>
@@ -1868,13 +1847,8 @@ function PaymentConfirmationGroup({
           payment.createdByUserId === currentUserId;
         return (
           <View key={payment.id} style={styles.confirmationItem}>
-            <View
-              style={[
-                styles.confirmationIndicator,
-                payment.confirmationStatus === "rejected"
-                  ? styles.confirmationIndicatorRejected
-                  : styles.confirmationIndicatorPending,
-              ]}
+            <ConfirmationMarker
+              status={payment.confirmationStatus === "rejected" ? "rejected" : "pending"}
             />
             <View style={styles.confirmationItemCopy}>
               <Text style={styles.confirmationItemTitle}>Payment</Text>

@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { GlassCard } from "@/src/components/ui/Finance";
+import { ConfirmationMarker } from "@/src/components/ConfirmationMarker";
 
 import {
   palette,
@@ -49,23 +50,7 @@ export function ActivityTimelineRow({
                 {title}
               </Text>
               {confirmationStatus ? (
-                <View
-                  accessibilityLabel={
-                    confirmationStatus === "rejected"
-                      ? "Change rejected"
-                      : "Awaiting confirmation"
-                  }
-                  style={[
-                    styles.confirmationMarker,
-                    confirmationStatus === "rejected"
-                      ? styles.confirmationMarkerRejected
-                      : styles.confirmationMarkerPending,
-                  ]}
-                >
-                  {confirmationStatus === "rejected" ? (
-                    <Ionicons name="close" size={9} color={palette.surface} />
-                  ) : null}
-                </View>
+                <ConfirmationMarker status={confirmationStatus} />
               ) : null}
             </View>
             <Text style={styles.detail} numberOfLines={1} ellipsizeMode="tail">
@@ -211,22 +196,6 @@ const styles = StyleSheet.create({
     color: palette.muted,
     fontSize: typography.size.sm,
     fontFamily: typefaces.body,
-  },
-  confirmationMarker: {
-    flexShrink: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radii.pill,
-  },
-  confirmationMarkerPending: {
-    width: 8,
-    height: 8,
-    backgroundColor: palette.warning,
-  },
-  confirmationMarkerRejected: {
-    width: 14,
-    height: 14,
-    backgroundColor: palette.negative,
   },
   dateTime: { minWidth: 88, alignItems: "flex-end", gap: 2 },
   date: {
