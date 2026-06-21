@@ -14,6 +14,7 @@ import {
 import { palette, spacing, typefaces,
 typography,
 } from "@/src/constants/design";
+import { resetHostedDevelopmentData } from "@/src/services/developmentReset";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
 
@@ -24,7 +25,7 @@ export function SettingsScreen() {
   function confirmSyncedDataReset() {
     Alert.alert(
       "Clear local data and reset sync?",
-      "Clears local financial and sync data, then runs a clean sync. Your login, onboarding, and preferences stay intact. Run npm run reset:test-data first if the cloud dataset should also be empty.",
+      "Deletes every hosted public data table and all local app data, then runs a clean sync. Your login, onboarding, and preferences stay intact.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -32,13 +33,14 @@ export function SettingsScreen() {
           style: "destructive",
           onPress: async () => {
             try {
+              await resetHostedDevelopmentData();
               await data.resetSyncedData();
               router.replace("/(tabs)");
-              Alert.alert("Local data cleared", "You are still signed in. A clean sync is now running.");
+              Alert.alert("App data reset", "Hosted and local data were cleared. You are still signed in and a clean sync is now running.");
             } catch (error) {
               Alert.alert(
                 "Could not reset synced data",
-                error instanceof Error ? error.message : "The local database reset failed.",
+                error instanceof Error ? error.message : "The hosted or local reset failed.",
               );
             }
           },
@@ -170,7 +172,7 @@ export function SettingsScreen() {
               <SettingsRow
                 icon="refresh-outline"
                 title="Clear local data and reset sync"
-                subtitle="Stay signed in, preserve preferences, then sync"
+                subtitle="Clear hosted and local data, stay signed in, then sync"
                 value="Reset"
                 onPress={confirmSyncedDataReset}
               />
