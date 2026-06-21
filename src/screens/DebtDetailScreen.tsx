@@ -13,6 +13,7 @@ import {
 } from "react-native";
 
 import { AvatarStack } from "@/src/components/ui/Finance";
+import { ActivityTimelineRow } from "@/src/components/ActivityTimelineRow";
 import { MobileMenuModal } from "@/src/components/ui/MenuList";
 import { Amount } from "@/src/components/ui/Money";
 import { TagInput } from "@/src/components/ui/TagInput";
@@ -1541,7 +1542,10 @@ export function DebtDetailScreen() {
             {visibleActivityItems.map((activity, index) => (
               <ActivityTimelineRow
                 key={activity.id}
-                item={activity}
+                title={activity.title}
+                detail={activity.detail}
+                createdAt={activity.createdAt}
+                confirmationStatus={activity.confirmationStatus}
                 isLast={index === visibleActivityItems.length - 1}
               />
             ))}
@@ -1923,65 +1927,6 @@ function PaymentConfirmationGroup({
           </View>
         );
       })}
-    </View>
-  );
-}
-
-function ActivityTimelineRow({
-  item,
-  isLast,
-}: {
-  item: ActivityItem;
-  isLast: boolean;
-}) {
-  return (
-    <View style={styles.timelineRow}>
-      <View style={styles.timelineTrack}>
-        <View style={styles.timelineDot} />
-        {!isLast ? <View style={styles.timelineLine} /> : null}
-      </View>
-      <View
-        style={[styles.timelineContent, !isLast && styles.timelineContentGap]}
-      >
-        <View style={styles.activityTitleRow}>
-          <Text style={styles.activityTitle}>{item.title}</Text>
-          {item.confirmationStatus ? (
-            <View
-              accessibilityLabel={
-                item.confirmationStatus === "rejected"
-                  ? "Change rejected"
-                  : "Awaiting confirmation"
-              }
-              style={[
-                styles.activityConfirmationMarker,
-                item.confirmationStatus === "rejected"
-                  ? styles.activityConfirmationMarkerRejected
-                  : styles.activityConfirmationMarkerPending,
-              ]}
-            >
-              <Ionicons
-                name={
-                  item.confirmationStatus === "rejected"
-                    ? "close-circle"
-                    : "time"
-                }
-                size={14}
-                color={
-                  item.confirmationStatus === "rejected"
-                    ? palette.negative
-                    : palette.warning
-                }
-              />
-            </View>
-          ) : null}
-        </View>
-        <View style={styles.activityMeta}>
-          {item.detail ? (
-            <Text style={styles.activityDetail}>{item.detail}</Text>
-          ) : null}
-          <Text style={styles.activityDate}>{formatDate(item.createdAt)}</Text>
-        </View>
-      </View>
     </View>
   );
 }
