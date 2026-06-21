@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Animated,
+  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -13,7 +14,6 @@ import {
 import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
 import { ActivityTimelineRow } from "@/src/components/ActivityTimelineRow";
 import { GlassCard, ListRow } from "@/src/components/ui/Finance";
-import { MobileMenuModal } from "@/src/components/ui/MenuList";
 import {
   EmptyState,
   IconButton,
@@ -658,14 +658,33 @@ function CompactCurrencySelector({
   onChange: (currency: CurrencyCode) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [anchor, setAnchor] = useState({ x: 0, y: 0, width: 0, height: 0 });
+  const anchorRef = React.useRef<View>(null);
+  const window = useWindowDimensions();
+  const dropdownPosition = {
+    left: spacing.md,
+    width: window.width - spacing.md * 2,
+    maxHeight: 320,
+    ...(window.height - anchor.y - anchor.height >= 220
+      ? { top: anchor.y + anchor.height + spacing.xs }
+      : { bottom: window.height - anchor.y + spacing.xs }),
+  };
+
+  function openSelector() {
+    anchorRef.current?.measureInWindow((x, y, width, height) => {
+      setAnchor({ x, y, width, height });
+      setOpen(true);
+    });
+  }
 
   return (
     <>
       <Pressable
+        ref={anchorRef}
         accessibilityRole="button"
         accessibilityLabel={`Summary currency, ${value}`}
         accessibilityHint="Opens currency selector for estimated summary values"
-        onPress={() => setOpen(true)}
+        onPress={openSelector}
         style={({ pressed }) => [
           styles.currencyPill,
           pressed && styles.quickActionTilePressed,
@@ -676,24 +695,62 @@ function CompactCurrencySelector({
         <Ionicons name="chevron-down" size={14} color={palette.primary} />
       </Pressable>
 
-      <MobileMenuModal
+      <Modal
         visible={open}
-        onClose={() => setOpen(false)}
-        sections={[
-          {
-            items: CURRENCIES.map((currency) => ({
-              label: currency,
-              subtitle: "Use for estimated summary values",
-              icon: "cash-outline",
-              active: currency === value,
-              onPress: () => {
-                onChange(currency);
-                setOpen(false);
-              },
-            })),
-          },
-        ]}
-      />
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOpen(false)}
+      >
+        <Pressable
+          accessible={false}
+          style={styles.currencyDropdownOverlay}
+          onPress={() => setOpen(false)}
+        >
+          <Pressable
+            accessible={false}
+            style={[styles.currencyDropdownPosition, dropdownPosition]}
+            onPress={(event) => event.stopPropagation()}
+          >
+            <GlassCard style={styles.currencyDropdownMenu}>
+              {CURRENCIES.map((currency) => {
+                const active = currency === value;
+                return (
+                  <Pressable
+                    key={currency}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                    onPress={() => {
+                      onChange(currency);
+                      setOpen(false);
+                    }}
+                    style={({ pressed }) => [
+                      styles.currencyDropdownOption,
+                      active && styles.currencyDropdownOptionActive,
+                      pressed && styles.quickActionTilePressed,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.currencyDropdownOptionText,
+                        active && styles.currencyDropdownOptionTextActive,
+                      ]}
+                    >
+                      {currency}
+                    </Text>
+                    {active ? (
+                      <Ionicons
+                        name="checkmark"
+                        size={18}
+                        color={palette.primary}
+                      />
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </GlassCard>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </>
   );
 }
@@ -746,6 +803,27 @@ const styles = StyleSheet.create({
     lineHeight: typography.line.xs,
     fontFamily: typefaces.bodyHeavy,
   },
+  currencyDropdownOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(17,24,39,0.42)",
+  },
+  currencyDropdownPosition: { position: "absolute" },
+  currencyDropdownMenu: { padding: spacing.sm, gap: 2 },
+  currencyDropdownOption: {
+    minHeight: 44,
+    borderRadius: 12,
+    paddingHorizontal: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  currencyDropdownOptionActive: { backgroundColor: palette.lavenderMist },
+  currencyDropdownOptionText: {
+    color: palette.textPrimary,
+    fontSize: typography.size.base,
+    fontFamily: typefaces.bodyStrong,
+  },
+  currencyDropdownOptionTextActive: { color: palette.primary },
   heroMainRow: {
     flexDirection: "column",
     alignItems: "center",
