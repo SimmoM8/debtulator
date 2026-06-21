@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Animated,
@@ -895,7 +895,7 @@ export function SlidingSectionSwitcher<T extends string>({
   onChange: (section: T) => void;
 }) {
   const [width, setWidth] = useState(0);
-  const translate = useRef(new Animated.Value(0)).current;
+  const [translate] = useState(() => new Animated.Value(0));
   const activeIndex = Math.max(
     sections.findIndex((section) => section.key === activeSection),
     0,
@@ -1265,7 +1265,7 @@ const styles = StyleSheet.create({
     width: "100%",
     paddingHorizontal: spacing.screen,
     paddingTop: spacing.md,
-    gap: spacing.lg,
+    gap: spacing.xxl,
   },
   footerWrap: {
     position: "absolute",
