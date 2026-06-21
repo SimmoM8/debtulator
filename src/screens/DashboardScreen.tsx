@@ -1,49 +1,54 @@
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-    Animated,
-    Pressable,
-    StyleSheet,
-    Text,
-    View,
-    useWindowDimensions,
+  Animated,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
 } from "react-native";
 
 import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
 import { GlassCard, ListRow } from "@/src/components/ui/Finance";
 import { MobileMenuModal } from "@/src/components/ui/MenuList";
 import {
-    EmptyState,
-    IconButton,
-    LoadingState,
-    Screen,
-    SectionActionLink,
-    SectionTitle,
+  EmptyState,
+  IconButton,
+  LoadingState,
+  Screen,
+  SectionActionLink,
+  SectionTitle,
 } from "@/src/components/ui/Primitives";
 import {
-    palette,
-    shadows,
-    spacing,
-    typefaces,
-    typography,
+  palette,
+  shadows,
+  spacing,
+  typefaces,
+  typography,
 } from "@/src/constants/design";
 import { CURRENCIES } from "@/src/constants/currencies";
+import {
+  activityActorLabel,
+  activityCategory,
+  activityTitle,
+  buildUserActivity,
+} from "@/src/services/activity";
 import { estimateMoneyMap } from "@/src/services/currency";
 import {
-    calculatePersonalTotals,
-    entryDirectionText,
+  calculatePersonalTotals,
+  entryDirectionText,
 } from "@/src/services/ledger";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
 import type {
-    AppSettings,
-    CurrencyCode,
-    CurrencyRate,
-    LedgerEntry,
-    Member,
-    SharedGroupMember,
+  AppSettings,
+  CurrencyCode,
+  CurrencyRate,
+  LedgerEntry,
+  Member,
+  SharedGroupMember,
 } from "@/src/types/models";
 import { formatMoney } from "@/src/utils/money";
 
@@ -96,9 +101,98 @@ export function DashboardScreen() {
         overdue: entry.dueDate ? entry.dueDate < today : false,
       }));
   }, [data.ledgerEntries, today]);
+  const recentDebts = useMemo(() => {
+    const debtUpdatedAt = new Map(
+      data.debts.map((debt) => [debt.id, debt.updatedAt]),
+    );
+    const expenseUpdatedAt = new Map(
+      data.sharedExpenses.map((expense) => [expense.id, expense.updatedAt]),
+    );
+    const groupDebtUpdatedAt = new Map(
+      data.groupDebts.map((debt) => [debt.id, debt.updatedAt]),
+    );
+    const paymentUpdatedAtBySource = new Map<string, string>();
+
+    data.settlementLines.forEach((line) => {
+      if (!line.paymentId) return;
+      const payment = data.payments.find((item) => item.id === line.paymentId);
+      if (!payment) return;
+      const key = `${line.sourceRecordType}:${line.sourceRecordId}`;
+      const timestamp = payment.updatedAt || payment.createdAt;
+      if (timestamp > (paymentUpdatedAtBySource.get(key) ?? "")) {
+        paymentUpdatedAtBySource.set(key, timestamp);
+      }
+    });
+
+    return [...data.ledgerEntries]
+      .sort((first, second) =>
+        interactionTimestamp(second).localeCompare(interactionTimestamp(first)),
+      )
+      .slice(0, 4);
+
+    function interactionTimestamp(entry: LedgerEntry) {
+      const sourceType =
+        entry.kind === "simple_debt"
+          ? "simple_debt"
+          : entry.kind === "group_direct_debt"
+            ? "group_debt"
+            : entry.kind === "overpayment_credit"
+              ? "overpayment_credit"
+              : "shared_expense_obligation";
+      const recordTimestamp =
+        entry.kind === "simple_debt"
+          ? debtUpdatedAt.get(entry.sourceId)
+          : entry.kind === "group_direct_debt"
+            ? groupDebtUpdatedAt.get(entry.sourceId)
+            : entry.kind === "expense_obligation"
+              ? expenseUpdatedAt.get(entry.expenseId ?? entry.sourceId)
+              : undefined;
+      return (
+        [
+          recordTimestamp,
+          paymentUpdatedAtBySource.get(`${sourceType}:${entry.sourceId}`),
+        ]
+          .filter((value): value is string => Boolean(value))
+          .sort()
+          .at(-1) ?? entry.date
+      );
+    }
+  }, [
+    data.debts,
+    data.groupDebts,
+    data.ledgerEntries,
+    data.payments,
+    data.settlementLines,
+    data.sharedExpenses,
+  ]);
   const recentActivity = useMemo(
-    () => data.ledgerEntries.slice(0, 4),
-    [data.ledgerEntries],
+    () =>
+      buildUserActivity({
+        activityLogs: data.activityLogs,
+        auditLogs: data.auditLogs,
+        groupActivityLogs: data.groupActivityLogs,
+        debts: data.debts,
+        debtVerifications: data.debtVerifications,
+        groupDebts: data.groupDebts,
+        payments: data.payments,
+        sharedExpenses: data.sharedExpenses,
+        currentUserId: auth.identity.authenticatedUserId,
+      })
+        .sort((first, second) =>
+          second.createdAt.localeCompare(first.createdAt),
+        )
+        .slice(0, 5),
+    [
+      data.activityLogs,
+      data.auditLogs,
+      data.debts,
+      data.debtVerifications,
+      data.groupActivityLogs,
+      data.groupDebts,
+      data.payments,
+      data.sharedExpenses,
+      auth.identity.authenticatedUserId,
+    ],
   );
   const activeSharedGroups = useMemo(
     () =>
@@ -111,11 +205,6 @@ export function DashboardScreen() {
     data.linkRequests.filter((item) => item.status === "pending").length +
     data.groupInvites.filter((item) => item.status === "pending").length +
     data.debtVerifications.filter((item) => item.status === "pending").length;
-  const netEstimatedInBase = estimateMoneyMap(
-    totals.net,
-    data.settings,
-    data.currencyRates,
-  );
   const dueSoonIOwe = useMemo(
     () =>
       dueSoonEntries
@@ -148,24 +237,6 @@ export function DashboardScreen() {
         ),
     [data.currencyRates, data.settings, dueSoonEntries],
   );
-  const netSummaryLabel =
-    netEstimatedInBase > 0
-      ? "You're ahead"
-      : netEstimatedInBase < 0
-        ? "You're behind"
-        : "All square";
-  const netSummaryIcon =
-    netEstimatedInBase > 0
-      ? "arrow-up-circle"
-      : netEstimatedInBase < 0
-        ? "arrow-down-circle"
-        : "remove-circle";
-  const netStatusTone =
-    netEstimatedInBase > 0
-      ? palette.success
-      : netEstimatedInBase < 0
-        ? palette.danger
-        : palette.textSecondary;
   const iOweEstimated = estimateMoneyMap(
     totals.iOwe,
     data.settings,
@@ -176,9 +247,6 @@ export function DashboardScreen() {
     data.settings,
     data.currencyRates,
   );
-  const exposureTotal = iOweEstimated + owedToMeEstimated;
-  const owedToMeRatio =
-    exposureTotal > 0 ? owedToMeEstimated / exposureTotal : 0.5;
   const summaryMetrics = [
     {
       label: "You owe",
@@ -280,58 +348,16 @@ export function DashboardScreen() {
       </View>
 
       <Animated.View style={heroAnimatedStyle}>
-        <GlassCard tone="lavender" style={styles.heroCard} allowOverflow>
-          <LinearGradient
-            pointerEvents="none"
-            colors={
-              [
-                "rgba(255,255,255,0.96)",
-                "rgba(246,243,255,0.9)",
-                "rgba(253,186,155,0.16)",
-              ] as const
-            }
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.heroGlow}
-          />
-          <LinearGradient
-            pointerEvents="none"
-            colors={
-              [
-                "rgba(55,48,163,0.16)",
-                "rgba(253,186,155,0.18)",
-                "rgba(47,191,143,0.1)",
-              ] as const
-            }
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.heroAccent}
-          />
-
-          <View
-            style={[
-              styles.heroMainRow,
-              compactSummary && styles.heroMainRowCompact,
-            ]}
-          >
+        <GlassCard style={styles.heroCard}>
+          <View style={styles.heroMainRow}>
             <View style={styles.netSpotlight}>
-              <View style={styles.netLabelRow}>
-                <Text style={styles.netSpotlightLabel}>Net position</Text>
-                <View
-                  style={[styles.netStatusPill, { borderColor: netStatusTone }]}
-                >
-                  <Ionicons
-                    name={netSummaryIcon}
-                    size={13}
-                    color={netStatusTone}
-                  />
-                  <Text style={[styles.netStatusText, { color: netStatusTone }]}>
-                    {netSummaryLabel}
-                  </Text>
-                </View>
-              </View>
+              <Text style={styles.netSpotlightLabel}>Net position</Text>
               <Text style={styles.netSpotlightValue} numberOfLines={1}>
-                {signedMoneyLabel(totals.net, data.settings, data.currencyRates)}
+                {signedMoneyLabel(
+                  totals.net,
+                  data.settings,
+                  data.currencyRates,
+                )}
               </Text>
             </View>
             <CompactCurrencySelector
@@ -345,92 +371,21 @@ export function DashboardScreen() {
           <Animated.View
             style={[styles.summaryPanel, summaryDetailsAnimatedStyle]}
           >
-            <View style={styles.balanceTrack}>
-              <View style={styles.balanceTrackBase}>
-                <View
-                  style={[
-                    styles.balanceTrackFill,
-                    { width: `${Math.round(owedToMeRatio * 100)}%` },
-                  ]}
-                />
-              </View>
-              <View style={styles.balanceTrackLabels}>
-                <Text style={styles.balanceTrackLabel}>Out</Text>
-                <Text style={styles.balanceTrackLabel}>In</Text>
-              </View>
-            </View>
-
             <View
               style={[
                 styles.summaryMetrics,
                 compactSummary && styles.summaryMetricsCompact,
               ]}
             >
-              {summaryMetrics.map((metric, index) => (
-                <SummaryMetric
-                  key={metric.label}
-                  {...metric}
-                  emphasized={index === 1}
-                />
+              {summaryMetrics.map((metric) => (
+                <SummaryMetric key={metric.label} {...metric} />
               ))}
             </View>
           </Animated.View>
         </GlassCard>
       </Animated.View>
 
-      <SectionTitle
-        title="Due soon"
-        subtitle="What needs attention next, without extra noise."
-        action={
-          <SectionActionLink
-            label="View all"
-            onPress={() => router.push("/debts")}
-          />
-        }
-      />
-      <GlassCard tone="lavender">
-        {nextActionEntries.length ? (
-          <View style={styles.listColumn}>
-            {nextActionEntries.map(({ entry, overdue }, index) => (
-              <ListRow
-                key={entry.id}
-                title={entry.title}
-                subtitle={entryDirectionText(
-                  entry,
-                  data.members,
-                  data.sharedGroupMembers,
-                )}
-                amount={formatMoney(entry.remainingAmount, entry.currency)}
-                status={overdue ? "Needs action" : "Due soon"}
-                statusTone={overdue ? "coral" : "amber"}
-                meta={entry.dueDate ? `Due ${entry.dueDate}` : undefined}
-                icon={
-                  entry.kind === "expense_obligation"
-                    ? "receipt-outline"
-                    : "wallet-outline"
-                }
-                avatars={participantLabels(
-                  entry,
-                  data.members,
-                  data.sharedGroupMembers,
-                )}
-                showDivider={index < nextActionEntries.length - 1}
-                onPress={() => openEntry(entry)}
-              />
-            ))}
-          </View>
-        ) : (
-          <EmptyState
-            title="Nothing due soon"
-            body="You don’t have any upcoming deadlines in this view."
-          />
-        )}
-      </GlassCard>
-
-      <SectionTitle
-        title="Quick actions"
-        subtitle="Common tasks stay visible without taking over the screen."
-      />
+      <SectionTitle title="Quick actions" />
       <View style={styles.actionGrid}>
         {QUICK_ACTIONS.map((action) => (
           <Pressable
@@ -449,41 +404,128 @@ export function DashboardScreen() {
         ))}
       </View>
 
+      {nextActionEntries.length ? (
+        <>
+          <SectionTitle
+            title="Due soon"
+            action={
+              <SectionActionLink
+                label="View all"
+                onPress={() => router.push("/debts")}
+              />
+            }
+          />
+          <GlassCard tone="lavender">
+            <View style={styles.listColumn}>
+              {nextActionEntries.map(({ entry, overdue }, index) => (
+                <ListRow
+                  key={entry.id}
+                  title={entry.title}
+                  subtitle={entryDirectionText(
+                    entry,
+                    data.members,
+                    data.sharedGroupMembers,
+                  )}
+                  amount={formatMoney(entry.remainingAmount, entry.currency)}
+                  status={overdue ? "Needs action" : "Due soon"}
+                  statusTone={overdue ? "coral" : "amber"}
+                  meta={entry.dueDate ? `Due ${entry.dueDate}` : undefined}
+                  icon={
+                    entry.kind === "expense_obligation"
+                      ? "receipt-outline"
+                      : "wallet-outline"
+                  }
+                  avatars={participantLabels(
+                    entry,
+                    data.members,
+                    data.sharedGroupMembers,
+                  )}
+                  showDivider={index < nextActionEntries.length - 1}
+                  onPress={() => openEntry(entry)}
+                />
+              ))}
+            </View>
+          </GlassCard>
+        </>
+      ) : (
+        <>
+          <SectionTitle title="Recent debts" />
+          <GlassCard tone="peach">
+            {recentDebts.length ? (
+              <View style={styles.listColumn}>
+                {recentDebts.map((entry, index) => (
+                  <ListRow
+                    key={entry.id}
+                    title={entry.title}
+                    subtitle={entryDirectionText(
+                      entry,
+                      data.members,
+                      data.sharedGroupMembers,
+                    )}
+                    amount={formatMoney(entry.originalAmount, entry.currency)}
+                    status={activityStatus(entry)}
+                    statusTone={activityTone(entry)}
+                    meta={entry.date}
+                    icon={entry.groupId ? "people-outline" : "wallet-outline"}
+                    showDivider={index < recentDebts.length - 1}
+                    onPress={() => openEntry(entry)}
+                  />
+                ))}
+              </View>
+            ) : (
+              <EmptyState
+                title="No recent debts"
+                body="Debts you create, edit, or pay will show up here."
+              />
+            )}
+          </GlassCard>
+        </>
+      )}
+
       <SectionTitle
         title="Recent activity"
-        subtitle="The latest changes across your ledger."
+        action={
+          <SectionActionLink
+            label="View all"
+            onPress={() => router.push("/activity")}
+          />
+        }
       />
-      <GlassCard tone="peach">
+      <GlassCard tone="lavender">
         {recentActivity.length ? (
           <View style={styles.listColumn}>
-            {recentActivity.map((entry, index) => (
+            {recentActivity.map((activity, index) => (
               <ListRow
-                key={entry.id}
-                title={entry.title}
-                subtitle={entryDirectionText(
-                  entry,
-                  data.members,
+                key={activity.id}
+                title={activityTitle(activity.action)}
+                subtitle={activityActorLabel(
+                  activity.actorUserId,
+                  auth.identity.authenticatedUserId,
+                  data.profiles,
                   data.sharedGroupMembers,
                 )}
-                amount={formatMoney(entry.originalAmount, entry.currency)}
-                status={activityStatus(entry)}
-                statusTone={activityTone(entry)}
-                meta={entry.date}
-                icon={entry.groupId ? "people-outline" : "wallet-outline"}
+                meta={new Date(activity.createdAt).toLocaleString()}
+                icon={activityIcon(activity.targetType)}
                 showDivider={index < recentActivity.length - 1}
-                onPress={() => openEntry(entry)}
               />
             ))}
           </View>
         ) : (
           <EmptyState
             title="No recent activity"
-            body="Your new debts, payments, and shared expenses will show up here."
+            body="Relevant actions from you and other participants will show up here."
           />
         )}
       </GlassCard>
     </Screen>
   );
+}
+
+function activityIcon(targetType: string): keyof typeof Ionicons.glyphMap {
+  if (activityCategory(targetType) === "payments") return "card-outline";
+  if (activityCategory(targetType) === "groups") return "people-outline";
+  if (activityCategory(targetType) === "account") return "person-outline";
+  return "wallet-outline";
 }
 
 function openEntry(
@@ -578,7 +620,6 @@ function SummaryMetric({
   icon,
   tone,
   softTone,
-  emphasized = false,
 }: {
   label: string;
   value: string;
@@ -586,12 +627,9 @@ function SummaryMetric({
   icon: keyof typeof Ionicons.glyphMap;
   tone: string;
   softTone: string;
-  emphasized?: boolean;
 }) {
   return (
-    <View
-      style={[styles.summaryMetric, emphasized && styles.summaryMetricEmphasis]}
-    >
+    <View style={styles.summaryMetric}>
       <View style={[styles.summaryMetricIcon, { backgroundColor: softTone }]}>
         <Ionicons name={icon} size={15} color={tone} />
       </View>
@@ -686,40 +724,13 @@ const styles = StyleSheet.create({
     gap: spacing.xl,
     paddingTop: 18,
     paddingBottom: 16,
-    backgroundColor: "rgba(255,255,255,0.82)",
-    overflow: "hidden",
-  },
-  heroGlow: {
-    ...StyleSheet.absoluteFill,
-    opacity: 1,
-  },
-  heroAccent: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: 0,
-    height: 4,
-  },
-  netStatusPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    backgroundColor: "rgba(255,255,255,0.72)",
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-  },
-  netStatusText: {
-    fontSize: typography.size.xs,
-    lineHeight: typography.line.xs,
-    fontFamily: typefaces.bodyStrong,
+    backgroundColor: palette.surfaceGlassElevated,
   },
   currencyPill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    alignSelf: "flex-start",
+    alignSelf: "center",
     borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderIndigo,
@@ -735,78 +746,34 @@ const styles = StyleSheet.create({
     fontFamily: typefaces.bodyHeavy,
   },
   heroMainRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: spacing.xl,
-  },
-  heroMainRowCompact: {
     flexDirection: "column",
-    alignItems: "stretch",
+    alignItems: "center",
     gap: spacing.md,
   },
   netSpotlight: {
-    flex: 1,
-    alignItems: "flex-start",
+    width: "100%",
+    alignItems: "center",
     justifyContent: "center",
     gap: 5,
-  },
-  netLabelRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: spacing.sm,
   },
   netSpotlightLabel: {
     color: palette.textSecondary,
     fontSize: typography.size.xs,
     lineHeight: typography.line.sm,
     fontFamily: typefaces.body,
-    textAlign: "left",
+    textAlign: "center",
   },
   netSpotlightValue: {
     color: palette.primaryDeep,
     fontSize: typography.size.displayXl,
     lineHeight: typography.line.displayXl,
     fontFamily: typefaces.display,
-    textAlign: "left",
+    textAlign: "center",
     letterSpacing: 0,
   },
   summaryPanel: {
     gap: spacing.lg,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: palette.borderIndigoSoft,
-    paddingTop: spacing.lg,
-  },
-  balanceTrack: {
-    gap: spacing.sm,
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderIndigoSoft,
-    backgroundColor: "rgba(255,255,255,0.48)",
-    padding: spacing.sm,
-  },
-  balanceTrackBase: {
-    height: 7,
-    borderRadius: 999,
-    backgroundColor: "rgba(255,107,107,0.14)",
-    overflow: "hidden",
-  },
-  balanceTrackFill: {
-    alignSelf: "flex-end",
-    height: "100%",
-    borderRadius: 999,
-    backgroundColor: "rgba(55,48,163,0.72)",
-  },
-  balanceTrackLabels: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  balanceTrackLabel: {
-    color: palette.textTertiary,
-    fontSize: typography.size.xxs,
-    lineHeight: typography.line.xxs,
-    fontFamily: typefaces.bodyStrong,
+    paddingTop: spacing.sm,
   },
   summaryMetrics: {
     flexDirection: "row",
@@ -828,10 +795,6 @@ const styles = StyleSheet.create({
     borderColor: palette.borderGlass,
     backgroundColor: "rgba(255,255,255,0.62)",
     padding: spacing.md,
-  },
-  summaryMetricEmphasis: {
-    borderColor: palette.borderIndigo,
-    backgroundColor: "rgba(246,243,255,0.72)",
   },
   summaryMetricIcon: {
     width: 34,

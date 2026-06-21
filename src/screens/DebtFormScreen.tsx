@@ -21,7 +21,12 @@ import {
   Screen,
   TextField,
 } from "@/src/components/ui/Primitives";
-import { palette, shadows, typefaces, typography } from "@/src/constants/design";
+import {
+  palette,
+  shadows,
+  typefaces,
+  typography,
+} from "@/src/constants/design";
 import { createRemoteDebtVerification } from "@/src/services/stage2Sync";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
@@ -164,9 +169,7 @@ export function DebtFormScreen() {
       (Number(amount) !== debt.amount ||
         direction !== debt.direction ||
         (dueDate || null) !== debt.dueDate);
-    const memberChanged = Boolean(
-      debt && selectedMemberId !== debt.memberId,
-    );
+    const memberChanged = Boolean(debt && selectedMemberId !== debt.memberId);
     if (
       memberChanged &&
       debt?.visibility === "shared_with_involved_member" &&
@@ -208,11 +211,7 @@ export function DebtFormScreen() {
     requestAmendment = false,
   ) {
     const savedDebt = debt
-      ? await data.updateDebt(
-        debt.id,
-        input,
-        confirmationUserId,
-      )
+      ? await data.updateDebt(debt.id, input, confirmationUserId)
       : await data.createDebt(input);
 
     const linkedMember = data.members.find(
@@ -317,7 +316,7 @@ export function DebtFormScreen() {
         title={debt ? "Edit debt" : "Add debt"}
       />
 
-      <Card tone="lavender">
+      <Card tone={direction === "i_owe_them" ? "peach" : "mint"}>
         {!isSharedGroupDebt ? (
           <DirectionToggle value={direction} onChange={setDirection} />
         ) : null}
@@ -442,9 +441,9 @@ function DirectionToggle({
   onChange: (value: DebtDirection) => void;
 }) {
   const [width, setWidth] = useState(0);
-  const translate = React.useRef(
-    new Animated.Value(value === "they_owe_me" ? 0 : 1),
-  ).current;
+  const [translate] = useState(
+    () => new Animated.Value(value === "they_owe_me" ? 0 : 1),
+  );
   const segmentWidth = width / DIRECTION_OPTIONS.length;
 
   React.useEffect(() => {
@@ -467,6 +466,9 @@ function DirectionToggle({
             pointerEvents="none"
             style={[
               styles.directionThumb,
+              value === "i_owe_them"
+                ? styles.directionThumbIOwe
+                : styles.directionThumbTheyOwe,
               {
                 width: segmentWidth - 6,
                 transform: [{ translateX: translate }],
@@ -491,7 +493,10 @@ function DirectionToggle({
               <Text
                 style={[
                   styles.directionOptionText,
-                  active && styles.directionOptionTextActive,
+                  active &&
+                    (value === "i_owe_them"
+                      ? styles.directionOptionTextIOwe
+                      : styles.directionOptionTextTheyOwe),
                 ]}
               >
                 {option.label}
@@ -536,7 +541,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderIndigoSoft,
-    backgroundColor: "rgba(255,255,255,0.54)",
+    backgroundColor: "rgba(255,255,255,0.62)",
     padding: 3,
     flexDirection: "row",
     position: "relative",
@@ -549,9 +554,15 @@ const styles = StyleSheet.create({
     left: 3,
     borderRadius: 15,
     borderWidth: 1,
-    borderColor: "rgba(55,48,163,0.18)",
-    backgroundColor: "rgba(255,255,255,0.72)",
     ...shadows.soft,
+  },
+  directionThumbIOwe: {
+    borderColor: "rgba(223,105,70,0.28)",
+    backgroundColor: "rgba(253,186,155,0.48)",
+  },
+  directionThumbTheyOwe: {
+    borderColor: "rgba(47,191,143,0.28)",
+    backgroundColor: "rgba(47,191,143,0.2)",
   },
   directionOption: {
     flex: 1,
@@ -565,8 +576,11 @@ const styles = StyleSheet.create({
     fontSize: typography.size.base,
     fontFamily: typefaces.bodyStrong,
   },
-  directionOptionTextActive: {
-    color: palette.primary,
+  directionOptionTextIOwe: {
+    color: "#A8432D",
+  },
+  directionOptionTextTheyOwe: {
+    color: "#14795A",
   },
   amountRow: {
     flexDirection: "row",
