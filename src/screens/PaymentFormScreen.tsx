@@ -39,12 +39,14 @@ export function PaymentFormScreen() {
     debtId,
     groupId,
     memberId,
+    settleAll,
     payerId: initialPayerId,
     payeeId: initialPayeeId,
   } = useLocalSearchParams<{
     debtId?: string;
     groupId?: string;
     memberId?: string;
+    settleAll?: string;
     payerId?: string;
     payeeId?: string;
   }>();
@@ -90,18 +92,41 @@ export function PaymentFormScreen() {
   );
   const defaultPayer = initialPayerId ?? focusedEntry?.fromId ?? "me";
   const defaultPayee = initialPayeeId ?? focusedEntry?.toId ?? "me";
+  const settleAllEntries =
+    settleAll === "true"
+      ? candidateEntries.filter(
+          (entry) => entry.fromId === defaultPayer && entry.toId === defaultPayee,
+        )
+      : [];
+  const initialCurrency =
+    focusedEntry?.currency ??
+    settleAllEntries[0]?.currency ??
+    data.settings.baseCurrency;
+  const initialSettlementEntries = settleAllEntries.filter(
+    (entry) => entry.currency === initialCurrency,
+  );
   const [payerId, setPayerId] = useState<ParticipantId>(defaultPayer);
   const [payeeId, setPayeeId] = useState<ParticipantId>(defaultPayee);
   const [currency, setCurrency] = useState<CurrencyCode>(
-    focusedEntry?.currency ?? data.settings.baseCurrency,
+    initialCurrency,
   );
   const [amount, setAmount] = useState(
-    String(focusedEntry?.remainingAmount ?? ""),
+    String(
+      focusedEntry?.remainingAmount ??
+        (initialSettlementEntries.length
+          ? initialSettlementEntries.reduce(
+              (total, entry) => total + entry.remainingAmount,
+              0,
+            )
+          : ""),
+    ),
   );
   const [paymentDate, setPaymentDate] = useState(todayIsoDate());
   const [notes, setNotes] = useState("");
   const [selectedEntryIds, setSelectedEntryIds] = useState<string[]>(
-    focusedEntry ? [focusedEntry.id] : [],
+    focusedEntry
+      ? [focusedEntry.id]
+      : initialSettlementEntries.map((entry) => entry.id),
   );
 
   const participantOptions = useMemo(
@@ -147,7 +172,9 @@ export function PaymentFormScreen() {
         : undefined;
     const focusedMember = focusedDebt
       ? data.members.find((member) => member.id === focusedDebt.memberId)
-      : undefined;
+      : memberId
+        ? data.members.find((member) => member.id === memberId)
+        : undefined;
     const sharedWithLinkedMember =
       focusedMember?.linkStatus === "linked" &&
       Boolean(focusedMember.linkedUserId) &&
