@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useMemo, useState } from "react";
-import { Alert, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { Alert, Animated, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { DebtLedgerSection, debtSectionTotalLabel } from "@/src/components/DebtLedgerSection";
 import { GroupRow } from "@/src/components/EntityRows";
@@ -163,8 +163,49 @@ export function MemberDetailScreen() {
     );
   }
 
+  const paymentDirectionParams =
+    netBalance < -0.005
+      ? { payerId: "me", payeeId: currentMember.id }
+      : { payerId: currentMember.id, payeeId: "me" };
+
   return (
-    <Screen>
+    <Screen
+      footer={
+        <View style={styles.footerActions}>
+          <Button
+            title="Settle up"
+            icon="checkmark-circle"
+            disabled={!openMemberEntries.length || Math.abs(netBalance) <= 0.005}
+            onPress={() =>
+              router.push({
+                pathname: "/payment/form",
+                params: {
+                  memberId: currentMember.id,
+                  ...paymentDirectionParams,
+                  settleAll: "true",
+                },
+              })
+            }
+            style={styles.footerButton}
+          />
+          <Button
+            title="Add payment"
+            icon="card"
+            variant="secondary"
+            onPress={() =>
+              router.push({
+                pathname: "/payment/form",
+                params: {
+                  memberId: currentMember.id,
+                  ...paymentDirectionParams,
+                },
+              })
+            }
+            style={styles.footerButton}
+          />
+        </View>
+      }
+    >
       <Modal visible={tagsOpen} transparent animationType="fade" onRequestClose={() => setTagsOpen(false)}>
         <View style={styles.tagsModalOverlay}>
           <Pressable style={styles.tagsModalBackdrop} onPress={() => setTagsOpen(false)} />
@@ -186,8 +227,8 @@ export function MemberDetailScreen() {
       </Modal>
 
       <PageHeader
-        detailLabel="Member"
-        title="Member"
+        detailLabel="Member profile"
+        title={currentMember.displayName}
         action={
           <IconButton
             icon="ellipsis-horizontal"
@@ -229,13 +270,58 @@ export function MemberDetailScreen() {
       />
 
       <Card tone={netBalance < -0.005 ? "coral" : "mint"} style={styles.heroCard}>
-        <View style={styles.avatarLarge}>
-          <Text style={styles.avatarLargeText}>{initials(currentMember.displayName)}</Text>
+        <View pointerEvents="none" style={styles.heroGlowTop} />
+        <View pointerEvents="none" style={styles.heroGlowBottom} />
+
+        <View style={styles.heroHeading}>
+          <Text style={[
+            styles.heroEyebrow,
+            { color: netBalance < -0.005 ? palette.negative : palette.positive },
+          ]}>
+            Net balance
+          </Text>
         </View>
-        <Text numberOfLines={2} style={styles.heroTitle}>{currentMember.displayName}</Text>
-        <Text style={styles.heroAmount}>
-          {formatMoney(Math.abs(netBalance), data.settings.baseCurrency)}
-        </Text>
+
+        <View style={styles.participantFlow}>
+          <MemberParticipant label="You" highlight />
+          <View style={styles.flowArrowWrap}>
+            {netBalance >= -0.005 ? (
+              <RelationshipArrow
+                direction="toward-you"
+                color={palette.positive}
+                settled={Math.abs(netBalance) <= 0.005}
+              />
+            ) : null}
+            <View style={styles.flowArrowLine} />
+            {netBalance < -0.005 ? (
+              <RelationshipArrow
+                direction="away-from-you"
+                color={palette.negative}
+                settled={false}
+              />
+            ) : null}
+          </View>
+          <MemberParticipant
+            label={currentMember.displayName}
+            linked={currentMember.linkStatus === "linked"}
+          />
+        </View>
+
+        <View style={styles.amountBlock}>
+          <Text style={[
+            styles.heroAmount,
+            { color: netBalance < -0.005 ? palette.negative : palette.positive },
+          ]}>
+            {formatMoney(Math.abs(netBalance), data.settings.baseCurrency)}
+          </Text>
+          <Text style={styles.amountCaption}>
+            from <Text style={[
+              styles.amountCaptionCount,
+              { color: netBalance < -0.005 ? palette.negative : palette.positive },
+            ]}>{openMemberEntries.length}</Text> open {openMemberEntries.length === 1 ? "debt" : "debts"}
+          </Text>
+        </View>
+
         <View style={[
           styles.directionPill,
           netBalance < -0.005 ? styles.directionPillNegative : styles.directionPillPositive,
@@ -244,7 +330,11 @@ export function MemberDetailScreen() {
             styles.directionPillText,
             netBalance < -0.005 ? styles.directionPillTextNegative : styles.directionPillTextPositive,
           ]}>
-            {netBalance > 0.005 ? "They owe you" : netBalance < -0.005 ? "You owe" : "Settled"}
+            {netBalance > 0.005
+              ? `${currentMember.displayName} owes you`
+              : netBalance < -0.005
+                ? `You owe ${currentMember.displayName}`
+                : "You are settled up"}
           </Text>
         </View>
       </Card>
@@ -262,11 +352,11 @@ export function MemberDetailScreen() {
             <DetailRow
               label="Contact"
               value={
-                currentMember.email || currentMember.phone ? (
+                currentMember.email || currentMember.phone || currentMember.linkedProfileEmail ? (
                   <View style={styles.inlineValueStack}>
-                    {currentMember.email ? (
+                    {currentMember.email || currentMember.linkedProfileEmail ? (
                       <Text style={styles.detailValueText}>
-                        {currentMember.email}
+                        {currentMember.email ?? currentMember.linkedProfileEmail}
                       </Text>
                     ) : null}
                     {currentMember.phone ? (
@@ -424,30 +514,144 @@ export function MemberDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  footerActions: {
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  footerButton: {
+    flex: 1,
+  },
   heroCard: {
+    overflow: "hidden",
     marginTop: spacing.sm,
     marginBottom: spacing.xxl,
     padding: spacing.xxl,
-    gap: spacing.md,
+    gap: spacing.xl,
     borderColor: palette.borderIndigoSoft,
     alignItems: "center",
   },
-  heroTitle: {
-    color: palette.ink,
-    fontSize: typography.size.displaySm,
-    lineHeight: typography.line.displaySm,
-    fontFamily: typefaces.displayMedium,
+  heroGlowTop: {
+    position: "absolute",
+    width: 210,
+    height: 210,
+    borderRadius: 105,
+    top: -105,
+    right: -65,
+    backgroundColor: "rgba(221,214,254,0.24)",
+  },
+  heroGlowBottom: {
+    position: "absolute",
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    bottom: -105,
+    left: -55,
+    backgroundColor: "rgba(47,191,143,0.08)",
+  },
+  heroHeading: {
+    alignItems: "center",
+  },
+  heroEyebrow: {
+    fontSize: typography.size.lg,
+    fontFamily: typefaces.bodyHeavy,
+  },
+  participantFlow: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    paddingHorizontal: spacing.sm,
+  },
+  participantChip: {
+    width: 94,
+    alignItems: "center",
+    gap: spacing.xs,
+  },
+  participantAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: radii.pill,
+    borderWidth: 1.5,
+    borderColor: palette.border,
+    backgroundColor: palette.surfaceMuted,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: palette.shadow,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  participantAvatarHighlight: {
+    backgroundColor: palette.blueSoft,
+    borderColor: palette.borderIndigo,
+  },
+  participantAvatarLinked: {
+    borderColor: palette.positive,
+  },
+  participantAvatarText: {
+    color: palette.muted,
+    fontSize: typography.size.lg,
+    fontFamily: typefaces.bodyHeavy,
+  },
+  participantAvatarTextHighlight: {
+    color: palette.brand,
+  },
+  participantName: {
+    color: palette.muted,
+    fontSize: typography.size.sm,
+    lineHeight: typography.line.lg,
+    fontFamily: typefaces.bodyStrong,
     textAlign: "center",
   },
+  participantLinkMark: {
+    position: "absolute",
+    top: -3,
+    right: -3,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: palette.surface,
+    backgroundColor: palette.surfaceMuted,
+  },
+  participantLinkMarkConnected: {
+    backgroundColor: palette.positive,
+  },
+  flowArrowWrap: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  flowArrowLine: {
+    flex: 1,
+    height: 1.5,
+    backgroundColor: palette.line,
+  },
+  amountBlock: {
+    alignItems: "center",
+    gap: spacing.xs,
+  },
   heroAmount: {
-    color: palette.ink,
-    fontSize: typography.size.h1,
+    fontSize: typography.size.displaySm,
+    lineHeight: typography.line.displaySm,
     fontFamily: typefaces.display,
+  },
+  amountCaption: {
+    color: palette.muted,
+    fontSize: typography.size.sm,
+    fontFamily: typefaces.body,
+  },
+  amountCaptionCount: {
+    fontFamily: typefaces.bodyHeavy,
   },
   directionPill: {
     borderRadius: radii.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 7,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
   },
   directionPillPositive: {
     backgroundColor: palette.positiveSoft,
@@ -464,26 +668,6 @@ const styles = StyleSheet.create({
   },
   directionPillTextNegative: {
     color: palette.negative,
-  },
-  avatarLarge: {
-    width: 74,
-    height: 74,
-    borderRadius: radii.pill,
-    backgroundColor: palette.surfaceGlassStrong,
-    borderWidth: 1.5,
-    borderColor: palette.borderIndigo,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: palette.shadow,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 14,
-    elevation: 2,
-  },
-  avatarLargeText: {
-    color: palette.brand,
-    fontSize: typography.size.h2,
-    fontFamily: typefaces.bodyHeavy,
   },
   detailsCard: {
     gap: 0,
@@ -657,6 +841,105 @@ const styles = StyleSheet.create({
     fontFamily: typefaces.body,
   },
 });
+
+function MemberParticipant({
+  label,
+  highlight = false,
+  linked,
+}: {
+  label: string;
+  highlight?: boolean;
+  linked?: boolean;
+}) {
+  return (
+    <View style={styles.participantChip}>
+      <View
+        style={[
+          styles.participantAvatar,
+          highlight && styles.participantAvatarHighlight,
+          linked && styles.participantAvatarLinked,
+        ]}
+      >
+        <Text
+          style={[
+            styles.participantAvatarText,
+            highlight && styles.participantAvatarTextHighlight,
+          ]}
+        >
+          {highlight ? "Y" : initials(label)}
+        </Text>
+        {!highlight ? (
+          <View
+            accessible
+            accessibilityLabel={linked ? "Connected member" : "Local member"}
+            style={[
+              styles.participantLinkMark,
+              linked && styles.participantLinkMarkConnected,
+            ]}
+          >
+            <Ionicons
+              name={linked ? "checkmark" : "link-outline"}
+              size={11}
+              color={linked ? palette.surface : palette.muted}
+            />
+          </View>
+        ) : null}
+      </View>
+      <Text numberOfLines={2} style={styles.participantName}>{label}</Text>
+    </View>
+  );
+}
+
+function RelationshipArrow({
+  direction,
+  color,
+  settled,
+}: {
+  direction: "toward-you" | "away-from-you";
+  color: string;
+  settled: boolean;
+}) {
+  const [animation] = useState(() => new Animated.Value(0));
+
+  useEffect(() => {
+    if (settled) return;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(animation, {
+          toValue: 1,
+          duration: 520,
+          useNativeDriver: true,
+        }),
+        Animated.timing(animation, {
+          toValue: 0,
+          duration: 520,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [animation, settled]);
+
+  const translateX = animation.interpolate({
+    inputRange: [0, 1],
+    outputRange: direction === "toward-you" ? [0, -8] : [0, 8],
+  });
+  const opacity = animation.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [0.42, 1, 0.42],
+  });
+
+  return (
+    <Animated.View style={{ opacity: settled ? 0.55 : opacity, transform: [{ translateX }] }}>
+      <Ionicons
+        name={settled ? "swap-horizontal" : direction === "toward-you" ? "arrow-back" : "arrow-forward"}
+        size={22}
+        color={settled ? palette.muted : color}
+      />
+    </Animated.View>
+  );
+}
 
 function CardHeading({
   title,

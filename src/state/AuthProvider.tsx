@@ -4,6 +4,7 @@ import { AppState } from 'react-native';
 
 import { DEFAULT_BASE_CURRENCY } from '@/src/constants/currencies';
 import { isSupabaseConfigured, supabase } from '@/src/services/supabase';
+import { getAcceptedLinkedMemberProfile } from '@/src/services/profileSearch';
 import { fetchRemoteStage2Records } from '@/src/services/stage2Sync';
 import { canRetrySyncEntry } from '@/src/services/stage6Sync';
 import { runSyncEngine } from '@/src/services/sync/syncEngine';
@@ -168,6 +169,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       data.members.flatMap((member) => (member.linkedUserId ? [member.linkedUserId] : [])),
     );
     for (const row of remote.linkRequests ?? []) {
+      const acceptedLinkedUserId =
+        row.status === 'accepted'
+          ? row.requester_user_id === user.id
+            ? row.target_user_id
+            : row.requester_user_id
+          : null;
+      const acceptedProfile = acceptedLinkedUserId
+        ? await getAcceptedLinkedMemberProfile(acceptedLinkedUserId)
+        : null;
       const existing = data.linkRequests.find((request) => request.remoteId === row.id);
       const linkRequest: LinkRequest = {
         id: existing?.id ?? `link_remote_${row.id}`,
@@ -198,7 +208,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     ? 'unlinked'
                     : member.linkStatus,
             linkedUserId: row.status === 'accepted' ? row.target_user_id : member.linkedUserId,
-            linkedProfileEmail: row.status === 'accepted' ? row.target_email : member.linkedProfileEmail,
+            linkedProfileDisplayName:
+              row.status === 'accepted'
+                ? acceptedProfile?.displayName ?? member.linkedProfileDisplayName
+                : member.linkedProfileDisplayName,
+            linkedProfileEmail:
+              row.status === 'accepted'
+                ? acceptedProfile?.email ?? row.target_email
+                : member.linkedProfileEmail,
             linkedProfilePhone: row.status === 'accepted' ? row.target_phone : member.linkedProfilePhone,
           });
         }
@@ -208,10 +225,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         !linkedUserIds.has(row.requester_user_id)
       ) {
         await data.createMember({
-          displayName: row.requester_label,
+          displayName: acceptedProfile?.displayName ?? row.requester_label,
+          email: acceptedProfile?.email,
           linkedUserId: row.requester_user_id,
           linkStatus: 'linked',
-          linkedProfileDisplayName: row.requester_label,
+          linkedProfileDisplayName: acceptedProfile?.displayName ?? row.requester_label,
+          linkedProfileEmail: acceptedProfile?.email,
         });
         linkedUserIds.add(row.requester_user_id);
       } else if (row.status === 'accepted' && row.target_user_id === user.id) {
@@ -223,8 +242,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             !reciprocalMember.linkedProfileDisplayName ||
             reciprocalMember.displayName === reciprocalMember.linkedProfileDisplayName;
           await data.updateMember(reciprocalMember.id, {
-            displayName: autoNamed ? row.requester_label : reciprocalMember.displayName,
-            linkedProfileDisplayName: row.requester_label,
+            displayName:
+              autoNamed
+                ? acceptedProfile?.displayName ?? row.requester_label
+                : reciprocalMember.displayName,
+            email: reciprocalMember.email ?? acceptedProfile?.email,
+            linkedProfileDisplayName: acceptedProfile?.displayName ?? row.requester_label,
+            linkedProfileEmail: acceptedProfile?.email ?? reciprocalMember.linkedProfileEmail,
           });
         }
       }
