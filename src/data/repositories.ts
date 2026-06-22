@@ -2235,6 +2235,7 @@ export class DebtulatorRepository {
       memberId: input.member.id,
       targetEmail: linkRequest.targetEmail,
       targetPhone: linkRequest.targetPhone,
+      status: linkRequest.status,
     });
     return linkRequest;
   }
@@ -2292,6 +2293,7 @@ export class DebtulatorRepository {
 
     await this.logActivity('link_request', linkRequest.id, `member_link_${status}`, actorUserId, {
       memberId: linkRequest.requesterMemberId,
+      status,
     });
     return updatedRequest;
   }

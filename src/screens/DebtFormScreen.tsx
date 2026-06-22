@@ -162,6 +162,11 @@ export function DebtFormScreen() {
       dueDate,
       tags: selectedTags,
       ...(debt ? {} : { groupId: groupId ?? null }),
+      ...(!debt &&
+      selectedMember &&
+      ["invite_pending", "link_rejected"].includes(selectedMember.linkStatus)
+        ? { verificationStatus: "pending" as const }
+        : {}),
     };
 
     const approvalFieldsChanged =
