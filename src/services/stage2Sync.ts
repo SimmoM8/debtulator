@@ -308,5 +308,62 @@ export async function fetchRemoteStage2Records(input: { userId: string; email?: 
     throw verificationError;
   }
 
-  return { linkRequests, sharedDebts, verifications };
+  const { data: payments, error: paymentError } = await supabase
+    .from('payments')
+    .select('*')
+    .is('group_id', null)
+    .or(`payer_user_id.eq.${input.userId},payee_user_id.eq.${input.userId}`)
+    .order('updated_at', { ascending: false });
+  if (paymentError) {
+    throw paymentError;
+  }
+
+  const paymentIds = (payments ?? []).map((payment) => payment.id as string);
+  const settlementLinesResult = paymentIds.length
+    ? await supabase
+        .from('settlement_lines')
+        .select('*')
+        .in('payment_id', paymentIds)
+        .order('updated_at', { ascending: false })
+    : { data: [], error: null };
+  if (settlementLinesResult.error) {
+    throw settlementLinesResult.error;
+  }
+
+  const settlementIds = Array.from(
+    new Set(
+      (settlementLinesResult.data ?? []).map(
+        (line) => line.settlement_id as string,
+      ),
+    ),
+  );
+  const settlementsResult = settlementIds.length
+    ? await supabase
+        .from('settlements')
+        .select('*')
+        .in('id', settlementIds)
+        .order('updated_at', { ascending: false })
+    : { data: [], error: null };
+  if (settlementsResult.error) {
+    throw settlementsResult.error;
+  }
+
+  const { data: notifications, error: notificationError } = await supabase
+    .from('notifications')
+    .select('*')
+    .eq('user_id', input.userId)
+    .order('created_at', { ascending: false });
+  if (notificationError) {
+    throw notificationError;
+  }
+
+  return {
+    linkRequests,
+    sharedDebts,
+    verifications,
+    payments,
+    settlements: settlementsResult.data ?? [],
+    settlementLines: settlementLinesResult.data ?? [],
+    notifications,
+  };
 }

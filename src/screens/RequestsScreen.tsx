@@ -26,6 +26,7 @@ import {
     typography,
 } from "@/src/constants/design";
 import {
+    respondRemotePaymentConfirmation,
     respondRemoteDebtVerification,
     respondToRemoteLinkRequest,
 } from "@/src/services/stage2Sync";
@@ -96,6 +97,17 @@ export function RequestsScreen() {
             (email && invite.invitedEmail?.toLowerCase() === email)),
       ),
     [data.groupInvites, email, userId],
+  );
+  const incomingPaymentConfirmations = useMemo(
+    () =>
+      data.payments.filter(
+        (payment) =>
+          payment.groupId === null &&
+          payment.confirmationStatus === "pending_confirmation" &&
+          payment.createdByUserId !== userId &&
+          (payment.payerUserId === userId || payment.payeeUserId === userId),
+      ),
+    [data.payments, userId],
   );
   const completedItems = useMemo(
     () => [
@@ -173,6 +185,26 @@ export function RequestsScreen() {
       }),
     [data.groups, incomingGroupInvites, normalizedQuery],
   );
+  const visiblePaymentConfirmations = useMemo(
+    () =>
+      incomingPaymentConfirmations.filter((payment) => {
+        const member = data.members.find(
+          (item) => item.id === payment.relatedMemberId,
+        );
+        return matchesQuery(normalizedQuery, [
+          member?.displayName,
+          payment.paymentDate,
+          payment.currency,
+          payment.notes,
+          payment.confirmationStatus,
+        ]);
+      }),
+    [
+      data.members,
+      incomingPaymentConfirmations,
+      normalizedQuery,
+    ],
+  );
   const visibleCompletedItems = useMemo(
     () =>
       completedItems.filter((item) =>
@@ -234,6 +266,7 @@ export function RequestsScreen() {
             value={String(
               incomingLinks.length +
                 incomingVerifications.length +
+                incomingPaymentConfirmations.length +
                 incomingGroupInvites.length,
             )}
             subtitle="Needs your answer"
@@ -402,6 +435,80 @@ export function RequestsScreen() {
                             },
                           ],
                         );
+                      },
+                    },
+                  ]}
+                />
+              );
+            })}
+          </RequestSection>
+
+          <RequestSection
+            title="Payment confirmations"
+            subtitle="Payments recorded against a shared debt that need your response."
+            emptyTitle="No payment confirmations"
+            emptyBody="New shared payments will show up here."
+          >
+            {visiblePaymentConfirmations.map((payment) => {
+              const member = data.members.find(
+                (item) => item.id === payment.relatedMemberId,
+              );
+              return (
+                <RequestCard
+                  key={payment.id}
+                  title={member ? `Payment with ${member.displayName}` : "Shared payment"}
+                  body={`Recorded on ${payment.paymentDate}${payment.notes ? ` · ${payment.notes}` : ""}`}
+                  amount={formatMoney(payment.amount, payment.currency)}
+                  status="Pending"
+                  tone="amber"
+                  actions={[
+                    {
+                      label: "Confirm",
+                      onPress: async () => {
+                        if (!userId || !payment.remoteId) {
+                          return;
+                        }
+                        try {
+                          await respondRemotePaymentConfirmation({
+                            paymentRemoteId: payment.remoteId,
+                            status: "confirmed",
+                          });
+                          await data.respondToPaymentConfirmation(
+                            payment.id,
+                            "confirmed",
+                            userId,
+                          );
+                        } catch {
+                          Alert.alert(
+                            "Could not confirm payment",
+                            "The response could not be saved. Please try again.",
+                          );
+                        }
+                      },
+                    },
+                    {
+                      label: "Reject",
+                      variant: "secondary" as const,
+                      onPress: async () => {
+                        if (!userId || !payment.remoteId) {
+                          return;
+                        }
+                        try {
+                          await respondRemotePaymentConfirmation({
+                            paymentRemoteId: payment.remoteId,
+                            status: "rejected",
+                          });
+                          await data.respondToPaymentConfirmation(
+                            payment.id,
+                            "rejected",
+                            userId,
+                          );
+                        } catch {
+                          Alert.alert(
+                            "Could not reject payment",
+                            "The response could not be saved. Please try again.",
+                          );
+                        }
                       },
                     },
                   ]}
