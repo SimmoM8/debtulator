@@ -1,12 +1,22 @@
 import { Ionicons } from "@expo/vector-icons";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { BlurView } from "expo-blur";
 import { router } from "expo-router";
 import React, { useState } from "react";
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { FloatingAddButton, GlassCard } from "@/src/components/ui/Finance";
+import {
+  FloatingAddButton,
+  GlassBackdrop,
+  GlassCard,
+} from "@/src/components/ui/Finance";
 import {
     palette,
     radii,
@@ -153,47 +163,45 @@ export function GlassBottomTabBar({
       </Modal>
       <View style={[styles.barWrap, { paddingBottom: insets.bottom + 10 }]}>
         <View style={styles.barShadow}>
-          <BlurView
-            tint="light"
-            intensity={26}
-            style={StyleSheet.absoluteFill}
-          />
-          <View style={styles.bar}>
-            {visibleTabs.slice(0, 2).map((tab) => (
-              <TabItem
-                key={tab.name}
-                config={tab}
-                active={activeRouteName === tab.name}
-                onPress={() => {
-                  setMenuOpen(false);
-                  handleTabPress(tab.name);
-                }}
-                badge={
-                  descriptors[
-                    state.routes.find((route) => route.name === tab.name)
-                      ?.key ?? ""
-                  ]?.options?.tabBarBadge
-                }
-              />
-            ))}
-            <View style={styles.centerSpace} />
-            {visibleTabs.slice(2).map((tab) => (
-              <TabItem
-                key={tab.name}
-                config={tab}
-                active={activeRouteName === tab.name}
-                onPress={() => {
-                  setMenuOpen(false);
-                  handleTabPress(tab.name);
-                }}
-                badge={
-                  descriptors[
-                    state.routes.find((route) => route.name === tab.name)
-                      ?.key ?? ""
-                  ]?.options?.tabBarBadge
-                }
-              />
-            ))}
+          <View style={styles.barSurface}>
+            <GlassBackdrop intensity={26} />
+            <View style={styles.bar}>
+              {visibleTabs.slice(0, 2).map((tab) => (
+                <TabItem
+                  key={tab.name}
+                  config={tab}
+                  active={activeRouteName === tab.name}
+                  onPress={() => {
+                    setMenuOpen(false);
+                    handleTabPress(tab.name);
+                  }}
+                  badge={
+                    descriptors[
+                      state.routes.find((route) => route.name === tab.name)
+                        ?.key ?? ""
+                    ]?.options?.tabBarBadge
+                  }
+                />
+              ))}
+              <View style={styles.centerSpace} />
+              {visibleTabs.slice(2).map((tab) => (
+                <TabItem
+                  key={tab.name}
+                  config={tab}
+                  active={activeRouteName === tab.name}
+                  onPress={() => {
+                    setMenuOpen(false);
+                    handleTabPress(tab.name);
+                  }}
+                  badge={
+                    descriptors[
+                      state.routes.find((route) => route.name === tab.name)
+                        ?.key ?? ""
+                    ]?.options?.tabBarBadge
+                  }
+                />
+              ))}
+            </View>
           </View>
         </View>
         <View style={[styles.addButtonWrap, { bottom: insets.bottom + 34 }]}>
@@ -292,11 +300,18 @@ const styles = StyleSheet.create({
   barShadow: {
     minHeight: 84,
     borderRadius: 30,
+    overflow: "visible",
+    backgroundColor:
+      Platform.OS === "android" ? palette.surface : "transparent",
+    ...shadows.card,
+  },
+  barSurface: {
+    minHeight: 84,
+    borderRadius: 30,
     overflow: "hidden",
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderIndigoSoft,
-    backgroundColor: palette.surfaceGlass,
-    ...shadows.card,
+    backgroundColor: palette.surfaceGlassStrong,
   },
   bar: {
     minHeight: 84,

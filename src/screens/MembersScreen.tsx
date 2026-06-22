@@ -1,23 +1,20 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useMemo, useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
     GlassCard,
     ListRow,
-    SearchFilterBar,
     SingleSelectFilterList,
     StatCard,
 } from "@/src/components/ui/Finance";
+import { CollectionPageControls } from "@/src/components/ui/CollectionPageControls";
 import { MobileMenuModal } from "@/src/components/ui/MenuList";
 import {
-    Button,
     EmptyState,
     FilterSheet,
-    IconButton,
     LoadingState,
-    PageHeader,
     Screen,
 } from "@/src/components/ui/Primitives";
 import {
@@ -40,35 +37,6 @@ export function MembersScreen() {
   const [filter, setFilter] = useState<MemberFilter>("all");
   const [filterOpen, setFilterOpen] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
-  const [statsWidth, setStatsWidth] = useState(0);
-  const quickFilterTranslate = useRef(new Animated.Value(0)).current;
-  const quickFilterOpacity = useRef(new Animated.Value(0)).current;
-  const quickFilterIndex =
-    filter === "you-owe" ? 0 : filter === "owed-to-you" ? 1 : null;
-  const quickFilterGlassTone =
-    filter === "you-owe"
-      ? {
-          borderColor: "rgba(255,107,107,0.52)",
-        }
-      : {
-          borderColor: "rgba(30,150,130,0.38)",
-        };
-
-  useEffect(() => {
-    const segmentWidth = statsWidth / 2;
-    Animated.parallel([
-      Animated.timing(quickFilterTranslate, {
-        toValue: quickFilterIndex === null ? 0 : quickFilterIndex * segmentWidth,
-        duration: 210,
-        useNativeDriver: true,
-      }),
-      Animated.timing(quickFilterOpacity, {
-        toValue: quickFilterIndex === null || !statsWidth ? 0 : 1,
-        duration: quickFilterIndex === null ? 130 : 180,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [quickFilterIndex, quickFilterOpacity, quickFilterTranslate, statsWidth]);
 
   const activeMatchedMembers = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -140,83 +108,54 @@ export function MembersScreen() {
 
   return (
     <Screen>
-      <PageHeader
+      <CollectionPageControls
         title="Members"
-        showBackButton={false}
-        action={
-          <IconButton
-            icon="ellipsis-horizontal"
-            label="Member options"
-            onPress={() => setOptionsOpen(true)}
-          />
-        }
-      />
-
-      <Button
-        title="Add member"
-        icon="add"
-        onPress={() => router.push("/member/form")}
-      />
-
-      <SearchFilterBar
-        value={query}
-        onChangeText={setQuery}
-        placeholder="Search members"
-        onPressFilter={() => setFilterOpen(true)}
+        addLabel="Add member"
+        onAdd={() => router.push("/member/form")}
+        optionsLabel="Member options"
+        onOpenOptions={() => setOptionsOpen(true)}
+        query={query}
+        onChangeQuery={setQuery}
+        searchPlaceholder="Search members"
+        onOpenFilters={() => setFilterOpen(true)}
         filterActive={filter !== "all"}
         filterLabel="Open member filters"
-      />
-
-      <GlassCard tone="lavender" allowOverflow>
-        <View
-          style={styles.statsRow}
-          onLayout={(event) => setStatsWidth(event.nativeEvent.layout.width)}
-        >
-          {statsWidth ? (
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                styles.quickFilterGlass,
-                quickFilterGlassTone,
-                {
-                  width: statsWidth / 2 - 8,
-                  opacity: quickFilterOpacity,
-                  transform: [{ translateX: quickFilterTranslate }],
-                },
-              ]}
+        summary={
+          <View style={styles.statsRow}>
+            <StatCard
+              label="You owe"
+              value={String(youOweCount)}
+              subtitle="People you still owe"
+              tone="coral"
+              compact
+              compactDensity="tight"
+              withDivider
+              selected={filter === "you-owe"}
+              onPress={() =>
+                setFilter((current) =>
+                  current === "you-owe" ? "all" : "you-owe"
+                )
+              }
+              accessibilityHint="Shows members you currently owe"
             />
-          ) : null}
-          <StatCard
-            label="You owe"
-            value={String(youOweCount)}
-            subtitle="People you still owe"
-            tone="coral"
-            compact
-            compactDensity="tight"
-            withDivider
-            selected={filter === "you-owe"}
-            onPress={() =>
-              setFilter((current) => (current === "you-owe" ? "all" : "you-owe"))
-            }
-            accessibilityHint="Shows members you currently owe"
-          />
-          <StatCard
-            label="Owes you"
-            value={String(owingYouCount)}
-            subtitle="People who should pay you"
-            tone="teal"
-            compact
-            compactDensity="tight"
-            selected={filter === "owed-to-you"}
-            onPress={() =>
-              setFilter((current) =>
-                current === "owed-to-you" ? "all" : "owed-to-you",
-              )
-            }
-            accessibilityHint="Shows members who currently owe you"
-          />
-        </View>
-      </GlassCard>
+            <StatCard
+              label="Owes you"
+              value={String(owingYouCount)}
+              subtitle="People who should pay you"
+              tone="teal"
+              compact
+              compactDensity="tight"
+              selected={filter === "owed-to-you"}
+              onPress={() =>
+                setFilter((current) =>
+                  current === "owed-to-you" ? "all" : "owed-to-you"
+                )
+              }
+              accessibilityHint="Shows members who currently owe you"
+            />
+          </View>
+        }
+      />
 
       <FilterSheet
         visible={filterOpen}
@@ -388,17 +327,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "stretch",
     gap: 0,
-    position: "relative",
-  },
-  quickFilterGlass: {
-    position: "absolute",
-    top: -5,
-    bottom: -5,
-    left: 4,
-    borderRadius: 18,
-    borderWidth: 1,
-    backgroundColor: "rgba(255,255,255,0.18)",
-    ...shadows.soft,
   },
   listColumn: {
     gap: 0,

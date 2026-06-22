@@ -1,6 +1,6 @@
 import { router } from "expo-router";
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, StyleSheet, View } from "react-native";
+import React, { useMemo, useState } from "react";
+import { StyleSheet, View } from "react-native";
 
 import {
   DebtLedgerSection,
@@ -8,21 +8,17 @@ import {
 } from "@/src/components/DebtLedgerSection";
 import {
   GlassCard,
-  SearchFilterBar,
   SingleSelectFilterList,
   StatCard,
 } from "@/src/components/ui/Finance";
+import { CollectionPageControls } from "@/src/components/ui/CollectionPageControls";
 import { MobileMenuModal } from "@/src/components/ui/MenuList";
 import {
-  Button,
   EmptyState,
   FilterSheet,
-  IconButton,
   LoadingState,
-  PageHeader,
   Screen,
 } from "@/src/components/ui/Primitives";
-import { shadows } from "@/src/constants/design";
 import { entryDirectionText } from "@/src/services/ledger";
 import { useAppData } from "@/src/state/AppDataProvider";
 
@@ -34,35 +30,6 @@ export function DebtsScreen() {
   const [filter, setFilter] = useState<DebtFilter>("all");
   const [filterOpen, setFilterOpen] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
-  const [statsWidth, setStatsWidth] = useState(0);
-  const quickFilterTranslate = useRef(new Animated.Value(0)).current;
-  const quickFilterOpacity = useRef(new Animated.Value(0)).current;
-  const quickFilterIndex =
-    filter === "you-owe" ? 0 : filter === "owed-to-you" ? 1 : null;
-  const quickFilterGlassTone =
-    filter === "you-owe"
-      ? {
-          borderColor: "rgba(255,107,107,0.52)",
-        }
-      : {
-          borderColor: "rgba(55,48,163,0.34)",
-        };
-
-  useEffect(() => {
-    const segmentWidth = statsWidth / 2;
-    Animated.parallel([
-      Animated.timing(quickFilterTranslate, {
-        toValue: quickFilterIndex === null ? 0 : quickFilterIndex * segmentWidth,
-        duration: 210,
-        useNativeDriver: true,
-      }),
-      Animated.timing(quickFilterOpacity, {
-        toValue: quickFilterIndex === null || !statsWidth ? 0 : 1,
-        duration: quickFilterIndex === null ? 130 : 180,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [quickFilterIndex, quickFilterOpacity, quickFilterTranslate, statsWidth]);
 
   const activeMatchedEntries = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -149,79 +116,54 @@ export function DebtsScreen() {
 
   return (
     <Screen>
-      <PageHeader
+      <CollectionPageControls
         title="Debts"
-        showBackButton={false}
-        action={
-          <IconButton
-            icon="ellipsis-horizontal"
-            label="Debt options"
-            onPress={() => setOptionsOpen(true)}
-          />
-        }
-      />
-
-      <Button title="Add debt" icon="add" onPress={() => router.push("/debt/form")} />
-
-      <SearchFilterBar
-        value={query}
-        onChangeText={setQuery}
-        placeholder="Search debts"
-        onPressFilter={() => setFilterOpen(true)}
+        addLabel="Add debt"
+        onAdd={() => router.push("/debt/form")}
+        optionsLabel="Debt options"
+        onOpenOptions={() => setOptionsOpen(true)}
+        query={query}
+        onChangeQuery={setQuery}
+        searchPlaceholder="Search debts"
+        onOpenFilters={() => setFilterOpen(true)}
         filterActive={filter !== "all"}
         filterLabel="Open debt filters"
-      />
-
-      <GlassCard tone="lavender" allowOverflow>
-        <View
-          style={styles.statsRow}
-          onLayout={(event) => setStatsWidth(event.nativeEvent.layout.width)}
-        >
-          {statsWidth ? (
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                styles.quickFilterGlass,
-                quickFilterGlassTone,
-                {
-                  width: statsWidth / 2 - 8,
-                  opacity: quickFilterOpacity,
-                  transform: [{ translateX: quickFilterTranslate }],
-                },
-              ]}
+        summary={
+          <View style={styles.statsRow}>
+            <StatCard
+              label="Owing"
+              value={String(owingCount)}
+              subtitle="Debts you still need to pay"
+              tone="coral"
+              compact
+              compactDensity="tight"
+              withDivider
+              selected={filter === "you-owe"}
+              onPress={() =>
+                setFilter((current) =>
+                  current === "you-owe" ? "all" : "you-owe"
+                )
+              }
+              accessibilityHint="Shows debts you still owe"
             />
-          ) : null}
-          <StatCard
-            label="Owing"
-            value={String(owingCount)}
-            subtitle="Debts you still need to pay"
-            tone="coral"
-            compact
-            compactDensity="tight"
-            withDivider
-            selected={filter === "you-owe"}
-            onPress={() =>
-              setFilter((current) => (current === "you-owe" ? "all" : "you-owe"))
-            }
-            accessibilityHint="Shows debts you still owe"
-          />
-          <StatCard
-            label="Owed"
-            value={String(owedCount)}
-            subtitle="Debts other people owe you"
-            tone="indigo"
-            compact
-            compactDensity="tight"
-            selected={filter === "owed-to-you"}
-            onPress={() =>
-              setFilter((current) =>
-                current === "owed-to-you" ? "all" : "owed-to-you",
-              )
-            }
-            accessibilityHint="Shows debts owed to you"
-          />
-        </View>
-      </GlassCard>
+            <StatCard
+              label="Owed"
+              value={String(owedCount)}
+              subtitle="Debts other people owe you"
+              tone="indigo"
+              compact
+              compactDensity="tight"
+              selected={filter === "owed-to-you"}
+              onPress={() =>
+                setFilter((current) =>
+                  current === "owed-to-you" ? "all" : "owed-to-you"
+                )
+              }
+              accessibilityHint="Shows debts owed to you"
+            />
+          </View>
+        }
+      />
 
       <FilterSheet
         visible={filterOpen}
@@ -334,16 +276,5 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "stretch",
     gap: 0,
-    position: "relative",
-  },
-  quickFilterGlass: {
-    position: "absolute",
-    top: -5,
-    bottom: -5,
-    left: 4,
-    borderRadius: 18,
-    borderWidth: 1,
-    backgroundColor: "rgba(255,255,255,0.18)",
-    ...shadows.soft,
   },
 });

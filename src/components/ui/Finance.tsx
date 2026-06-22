@@ -3,6 +3,7 @@ import { BlurView } from "expo-blur";
 import React from "react";
 import {
     Animated,
+    Platform,
     Pressable,
     StyleSheet,
     Text,
@@ -83,6 +84,26 @@ const toneStyles: Record<
   },
 };
 
+/**
+ * Android needs a BlurTargetView for real-time blur in Expo SDK 56. The rounded
+ * surface already provides the material tint there; adding another native view
+ * creates rectangular compositing artifacts on some Android renderers.
+ */
+export function GlassBackdrop({ intensity = 18 }: { intensity?: number }) {
+  if (Platform.OS === "android") {
+    return null;
+  }
+
+  return (
+    <BlurView
+      tint="light"
+      intensity={intensity}
+      pointerEvents="none"
+      style={StyleSheet.absoluteFill}
+    />
+  );
+}
+
 export function GlassCard({
   children,
   style,
@@ -99,40 +120,35 @@ export function GlassCard({
   const toneStyle = toneStyles[tone];
 
   return (
-    <View style={[styles.cardLift, wrapperStyle]}>
+    <View
+      style={[
+        styles.cardLift,
+        Platform.OS !== "android" && shadows.card,
+        wrapperStyle,
+      ]}
+    >
       <View
         style={[
           styles.card,
+          Platform.OS === "android" && shadows.card,
           {
             borderColor: toneStyle.border,
-            backgroundColor: palette.surfaceGlassElevated,
+            backgroundColor:
+              Platform.OS === "android"
+                ? palette.surface
+                : palette.surfaceGlassElevated,
           },
           allowOverflow && styles.cardOverflowVisible,
           style,
         ]}
       >
-        {allowOverflow ? (
-          <View pointerEvents="none" style={styles.cardBlurClip}>
-            <BlurView
-              tint="light"
-              intensity={18}
-              pointerEvents="none"
-              style={StyleSheet.absoluteFill}
-            />
-          </View>
-        ) : (
-          <BlurView
-            tint="light"
-            intensity={18}
-            pointerEvents="none"
-            style={StyleSheet.absoluteFill}
+        <View pointerEvents="none" style={styles.cardMaterialClip}>
+          <GlassBackdrop />
+          <View style={styles.cardSheen} />
+          <View
+            style={[styles.cardGlow, { backgroundColor: toneStyle.chip }]}
           />
-        )}
-        <View pointerEvents="none" style={styles.cardSheen} />
-        <View
-          pointerEvents="none"
-          style={[styles.cardGlow, { backgroundColor: toneStyle.chip }]}
-        />
+        </View>
         {children}
       </View>
     </View>
@@ -226,6 +242,7 @@ export function SearchFilterBar({
   onPressFilter,
   filterActive = false,
   filterLabel = "Open filters",
+  compact = false,
   style,
   ...props
 }: {
@@ -235,6 +252,7 @@ export function SearchFilterBar({
   onPressFilter: () => void;
   filterActive?: boolean;
   filterLabel?: string;
+  compact?: boolean;
   style?: StyleProp<ViewStyle>;
 } & Omit<TextInputProps, "value" | "onChangeText" | "style">) {
   return (
@@ -243,7 +261,10 @@ export function SearchFilterBar({
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        style={styles.searchToolbarField}
+        style={[
+          styles.searchToolbarField,
+          compact && styles.searchToolbarFieldCompact,
+        ]}
         {...props}
       />
       <Pressable
@@ -253,6 +274,7 @@ export function SearchFilterBar({
         onPress={onPressFilter}
         style={({ pressed }) => [
           styles.searchToolbarButton,
+          compact && styles.searchToolbarButtonCompact,
           filterActive && styles.searchToolbarButtonActive,
           pressed && styles.pressed,
         ]}
@@ -351,7 +373,7 @@ export function StatCard({
     compact && showCompactSubtitle && Boolean(subtitle);
   const showsCompactInfo =
     compact && Boolean(subtitle) && !compactSubtitleVisible;
-  const infoOpacity = React.useRef(new Animated.Value(0)).current;
+  const [infoOpacity] = React.useState(() => new Animated.Value(0));
   const hideTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const dismissInfo = React.useCallback(() => {
@@ -481,6 +503,8 @@ export function StatCard({
           { borderColor: toneStyle.border },
           compact && styles.statCardCompact,
           compact && compactDensity === "tight" && styles.statCardCompactTight,
+          selected && styles.statCardSelected,
+          selected && { backgroundColor: toneStyle.chip },
           compact &&
             withDivider &&
             (dividerSide === "left"
@@ -888,7 +912,6 @@ const styles = StyleSheet.create({
   cardLift: {
     borderRadius: radii.xl,
     overflow: "visible",
-    ...shadows.card,
   },
   card: {
     position: "relative",
@@ -901,7 +924,7 @@ const styles = StyleSheet.create({
   cardOverflowVisible: {
     overflow: "visible",
   },
-  cardBlurClip: {
+  cardMaterialClip: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: radii.xl,
     overflow: "hidden",
@@ -982,6 +1005,9 @@ const styles = StyleSheet.create({
   searchToolbarField: {
     flex: 1,
   },
+  searchToolbarFieldCompact: {
+    minHeight: 44,
+  },
   searchToolbarButton: {
     width: 48,
     height: 48,
@@ -995,6 +1021,10 @@ const styles = StyleSheet.create({
   searchToolbarButtonActive: {
     borderColor: palette.borderIndigo,
     backgroundColor: "rgba(221,214,254,0.38)",
+  },
+  searchToolbarButtonCompact: {
+    width: 44,
+    height: 44,
   },
   filterOptionList: {
     borderRadius: 18,
@@ -1064,11 +1094,15 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     gap: 4,
     alignItems: "center",
+    elevation: 0,
   },
   statCardCompactTight: {
     paddingHorizontal: 10,
     paddingVertical: 0,
     gap: 1,
+  },
+  statCardSelected: {
+    borderRadius: radii.md,
   },
   statCardCompactDivider: {
     borderRightWidth: StyleSheet.hairlineWidth,
