@@ -6,6 +6,7 @@ import type {
   GroupActivityLog,
   Group,
   GroupDebt,
+  LinkRequest,
   Member,
   Payment,
   SettlementLine,
@@ -28,6 +29,7 @@ export function buildUserActivity(input: {
   activityLogs: ActivityLog[];
   auditLogs: AuditLog[];
   groupActivityLogs: GroupActivityLog[];
+  linkRequests: LinkRequest[];
   debts: Debt[];
   debtVerifications: DebtVerification[];
   groupDebts: GroupDebt[];
@@ -43,7 +45,16 @@ export function buildUserActivity(input: {
       targetType: activity.entityKind,
       targetId: activity.entityId,
       createdAt: activity.createdAt,
-      metadata: activity.metadata,
+      metadata: {
+        ...activity.metadata,
+        ...(activity.entityKind === "link_request"
+          ? {
+              status: input.linkRequests.find(
+                (request) => request.id === activity.entityId,
+              )?.status,
+            }
+          : {}),
+      },
     })),
     ...input.groupActivityLogs.map((activity) => ({
       id: `group-activity-${activity.id}`,

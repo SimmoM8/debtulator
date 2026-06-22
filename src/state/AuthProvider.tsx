@@ -5,7 +5,7 @@ import { AppState } from 'react-native';
 import { DEFAULT_BASE_CURRENCY } from '@/src/constants/currencies';
 import { isSupabaseConfigured, supabase } from '@/src/services/supabase';
 import { getAcceptedLinkedMemberProfile } from '@/src/services/profileSearch';
-import { fetchRemoteStage2Records } from '@/src/services/stage2Sync';
+import { createRemoteDebtVerification, fetchRemoteStage2Records } from '@/src/services/stage2Sync';
 import { canRetrySyncEntry } from '@/src/services/stage6Sync';
 import { runSyncEngine } from '@/src/services/sync/syncEngine';
 import { addTelemetryBreadcrumb, captureTelemetryException, trackFirstSuccess, trackTelemetryEvent } from '@/src/services/telemetry';
@@ -58,6 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const data = useAppData();
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(isSupabaseConfigured);
+  const publishingPendingDebtIdsRef = useRef(new Set<string>());
 
   const user = session?.user ?? null;
   const localProfile = user ? data.profiles.find((profile) => profile.id === user.id) ?? null : null;
@@ -168,6 +169,81 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const linkedUserIds = new Set(
       data.members.flatMap((member) => (member.linkedUserId ? [member.linkedUserId] : [])),
     );
+    const publishPendingDebtConfirmations = async (
+      member: (typeof data.members)[number],
+      responderUserId: string,
+      pendingSince: string,
+    ) => {
+      const pendingDebts = data.debts.filter(
+        (debt) =>
+          debt.memberId === member.id &&
+          !debt.remoteId &&
+          (debt.verificationStatus === 'pending' ||
+            (debt.verificationStatus === 'local_only' &&
+              debt.createdAt >= pendingSince)),
+      );
+      for (const debt of pendingDebts) {
+        if (publishingPendingDebtIdsRef.current.has(debt.id)) {
+          continue;
+        }
+        publishingPendingDebtIdsRef.current.add(debt.id);
+        try {
+          const existingVerification = data.debtVerifications.find(
+            (verification) =>
+              verification.debtId === debt.id &&
+              verification.status === 'pending' &&
+              !verification.remoteId,
+          );
+          const local = existingVerification
+            ? { debt, verification: existingVerification }
+            : await data.requestDebtVerification(debt.id, {
+                requesterUserId: user.id,
+                responderUserId,
+                sharedNotes: debt.sharedNotes ?? debt.notes,
+                requestType: 'creation',
+                changeSummary: {
+                  changedFields: ['amount', 'direction', 'dueDate'],
+                  previous: { amount: null, direction: null, dueDate: null },
+                  proposed: {
+                    amount: debt.amount,
+                    direction: debt.direction,
+                    dueDate: debt.dueDate,
+                  },
+                },
+              });
+          const linkedMember = {
+            ...member,
+            linkedUserId: responderUserId,
+            linkStatus: 'linked' as const,
+          };
+          const remoteVerification = await createRemoteDebtVerification({
+            debt: local.debt,
+            member: linkedMember,
+            requesterUserId: user.id,
+            responderUserId,
+            sharedNotes: local.debt.sharedNotes ?? local.debt.notes,
+            requestType: 'creation',
+            changeSummary: local.verification.changeSummary,
+          });
+          if (!remoteVerification) {
+            throw new Error('Cloud confirmation is unavailable.');
+          }
+          await data.upsertDebt({
+            ...local.debt,
+            remoteId: remoteVerification.remoteDebtId,
+            syncStatus: 'synced',
+          });
+          await data.upsertDebtVerification({
+            ...local.verification,
+            remoteId: remoteVerification.remoteVerificationId,
+            remoteDebtId: remoteVerification.remoteDebtId,
+            syncStatus: 'synced',
+          });
+        } finally {
+          publishingPendingDebtIdsRef.current.delete(debt.id);
+        }
+      }
+    };
     for (const row of remote.linkRequests ?? []) {
       const acceptedLinkedUserId =
         row.status === 'accepted'
@@ -218,6 +294,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 : member.linkedProfileEmail,
             linkedProfilePhone: row.status === 'accepted' ? row.target_phone : member.linkedProfilePhone,
           });
+          if (row.status === 'accepted' && row.target_user_id) {
+            const pendingSince = (remote.linkRequests ?? [])
+              .filter(
+                (request) =>
+                  request.requester_user_id === user.id &&
+                  request.requester_member_local_or_remote_id === member.id,
+              )
+              .reduce(
+                (earliest, request) =>
+                  request.created_at < earliest ? request.created_at : earliest,
+                row.created_at,
+              );
+            await publishPendingDebtConfirmations(
+              member,
+              row.target_user_id,
+              pendingSince,
+            );
+          }
         }
       } else if (
         row.status === 'accepted' &&
@@ -489,6 +583,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'link_requests' },
+        scheduleLinkRequestSync,
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'shared_debt_records' },
+        scheduleLinkRequestSync,
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'debt_verifications' },
         scheduleLinkRequestSync,
       )
       .subscribe();
