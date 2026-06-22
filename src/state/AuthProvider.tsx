@@ -15,6 +15,9 @@ import type {
   Debt,
   DebtVerification,
   LinkRequest,
+  Payment,
+  Settlement,
+  SettlementLine,
   UserProfile,
 } from '@/src/types/models';
 import { nowIso } from '@/src/utils/id';
@@ -455,6 +458,167 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
       }
     }
+
+    const remoteLinesByPaymentId = new Map<string, (typeof remote.settlementLines)[number]>();
+    for (const row of remote.settlementLines ?? []) {
+      if (row.payment_id) {
+        remoteLinesByPaymentId.set(row.payment_id, row);
+      }
+    }
+
+    const syncedPaymentsByRemoteId = new Map(
+      data.payments
+        .filter((payment) => payment.remoteId)
+        .map((payment) => [payment.remoteId as string, payment]),
+    );
+    for (const row of remote.payments ?? []) {
+      const existing = syncedPaymentsByRemoteId.get(row.id);
+      const sourceDebt = syncedDebtsByRemoteId.get(
+        remoteLinesByPaymentId.get(row.id)?.source_record_id ?? '',
+      );
+      const payment: Payment = {
+        id: existing?.id ?? `payment_remote_${row.id}`,
+        localId: existing?.localId ?? null,
+        remoteId: row.id,
+        createdByUserId: row.created_by_user_id ?? null,
+        payerUserId: row.payer_user_id ?? null,
+        payeeUserId: row.payee_user_id ?? null,
+        payerMemberId: null,
+        payeeMemberId: null,
+        payerGroupMemberId: null,
+        payeeGroupMemberId: null,
+        groupId: null,
+        relatedMemberId: sourceDebt?.memberId ?? existing?.relatedMemberId ?? null,
+        amount: Number(row.amount),
+        currency: row.currency,
+        paymentDate: row.payment_date,
+        notes: row.notes ?? null,
+        status: row.status,
+        confirmationStatus: row.confirmation_status,
+        visibility: row.visibility,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        archivedAt: row.archived_at ?? null,
+        syncStatus: 'synced',
+      };
+      await data.upsertPayment(payment);
+      syncedPaymentsByRemoteId.set(row.id, payment);
+    }
+
+    const syncedSettlementsByRemoteId = new Map(
+      data.settlements
+        .filter((settlement) => settlement.remoteId)
+        .map((settlement) => [settlement.remoteId as string, settlement]),
+    );
+    for (const row of remote.settlements ?? []) {
+      const existing = syncedSettlementsByRemoteId.get(row.id);
+      const remoteLine = (remote.settlementLines ?? []).find(
+        (line) => line.settlement_id === row.id,
+      );
+      const sourceDebt = syncedDebtsByRemoteId.get(
+        remoteLine?.source_record_id ?? '',
+      );
+      const settlement: Settlement = {
+        id: existing?.id ?? `settlement_remote_${row.id}`,
+        localId: existing?.localId ?? null,
+        remoteId: row.id,
+        createdByUserId: row.created_by_user_id ?? null,
+        groupId: null,
+        memberId: sourceDebt?.memberId ?? existing?.memberId ?? null,
+        type: row.type,
+        currency: row.currency,
+        totalAmount: Number(row.total_amount),
+        status: row.status,
+        confirmationStatus: row.confirmation_status,
+        notes: row.notes ?? null,
+        originalCurrency: row.original_currency ?? null,
+        originalAmount:
+          row.original_amount === null || row.original_amount === undefined
+            ? null
+            : Number(row.original_amount),
+        settlementCurrency: row.settlement_currency ?? null,
+        settlementAmount:
+          row.settlement_amount === null || row.settlement_amount === undefined
+            ? null
+            : Number(row.settlement_amount),
+        exchangeRateUsed:
+          row.exchange_rate_used === null || row.exchange_rate_used === undefined
+            ? null
+            : Number(row.exchange_rate_used),
+        exchangeRateDate: row.exchange_rate_date ?? null,
+        conversionNote: row.conversion_note ?? null,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        archivedAt: row.archived_at ?? null,
+        syncStatus: 'synced',
+      };
+      await data.upsertSettlement(settlement);
+      syncedSettlementsByRemoteId.set(row.id, settlement);
+    }
+
+    for (const row of remote.settlementLines ?? []) {
+      const settlement = syncedSettlementsByRemoteId.get(row.settlement_id);
+      const payment = row.payment_id
+        ? syncedPaymentsByRemoteId.get(row.payment_id)
+        : null;
+      if (!settlement || (row.payment_id && !payment)) {
+        continue;
+      }
+      const existing = data.settlementLines.find(
+        (line) => line.remoteId === row.id,
+      );
+      const sourceDebt =
+        row.source_record_type === 'simple_debt'
+          ? syncedDebtsByRemoteId.get(row.source_record_id)
+          : null;
+      const line: SettlementLine = {
+        id: existing?.id ?? `settlement_line_remote_${row.id}`,
+        remoteId: row.id,
+        settlementId: settlement.id,
+        paymentId: payment?.id ?? null,
+        sourceRecordType: row.source_record_type,
+        sourceRecordId: sourceDebt?.id ?? row.source_record_id,
+        appliedAmount: Number(row.applied_amount),
+        currency: row.currency,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        syncStatus: 'synced',
+      };
+      await data.upsertSettlementLine(line);
+    }
+
+    for (const row of remote.notifications ?? []) {
+      const alreadyStored = data.notifications.some(
+        (notification) => notification.metadata.remoteNotificationId === row.id,
+      );
+      if (alreadyStored) {
+        continue;
+      }
+      const payment =
+        row.target_type === 'payment'
+          ? syncedPaymentsByRemoteId.get(row.target_id)
+          : null;
+      const debt =
+        row.target_type === 'debt'
+          ? syncedDebtsByRemoteId.get(row.target_id)
+          : null;
+      const targetType = payment ? 'payment' : debt ? 'debt' : null;
+      await data.createNotification({
+        userId: user.id,
+        type: row.type,
+        title: row.title,
+        body: row.body,
+        targetType,
+        targetId: payment?.id ?? debt?.id ?? null,
+        readAt: row.read_at ?? null,
+        metadata: {
+          ...(row.metadata && typeof row.metadata === 'object'
+            ? row.metadata
+            : {}),
+          remoteNotificationId: row.id,
+        },
+      });
+    }
   }, [data, user]);
 
   const runRemoteDataSync = useCallback(async () => {
@@ -593,6 +757,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'debt_verifications' },
+        scheduleLinkRequestSync,
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'payments' },
+        scheduleLinkRequestSync,
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'settlements' },
+        scheduleLinkRequestSync,
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'settlement_lines' },
+        scheduleLinkRequestSync,
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'notifications' },
         scheduleLinkRequestSync,
       )
       .subscribe();
