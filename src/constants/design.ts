@@ -1,3 +1,5 @@
+import { Platform } from "react-native";
+
 export const palette = {
   primary: "#3730A3",
   primaryDeep: "#24185F",
@@ -135,20 +137,29 @@ export const typefaces = {
 };
 
 export const shadows = {
-  card: {
-    shadowColor: palette.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 7,
-    elevation: 2,
-  },
-  soft: {
-    shadowColor: palette.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
-  },
+  card: Platform.select({
+    android: {
+      shadowColor: palette.shadow,
+      elevation: 2,
+    },
+    default: {
+      shadowColor: palette.shadow,
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.11,
+      shadowRadius: 4,
+    },
+  }),
+  soft: Platform.select({
+    // Elevation on small, nested, or animated Android surfaces produces
+    // rectangular hardware layers instead of the intended soft outline.
+    android: {},
+    default: {
+      shadowColor: palette.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.07,
+      shadowRadius: 2.5,
+    },
+  }),
 };
 
 export const gradients = {

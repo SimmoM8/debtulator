@@ -5,20 +5,16 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import {
     AvatarStack,
     GlassCard,
-    SearchFilterBar,
     SingleSelectFilterList,
     StatCard,
 } from "@/src/components/ui/Finance";
+import { CollectionPageControls } from "@/src/components/ui/CollectionPageControls";
 import { MobileMenuModal } from "@/src/components/ui/MenuList";
 import {
-    Button,
     EmptyState,
     FilterSheet,
-    IconButton,
     LoadingState,
-    PageHeader,
     Screen,
-    SectionTitle,
 } from "@/src/components/ui/Primitives";
 import { palette, spacing, typefaces,
 typography,
@@ -79,63 +75,50 @@ export function GroupsScreen() {
 
   return (
     <Screen>
-      <PageHeader
+      <CollectionPageControls
         title="Groups"
-        showBackButton={false}
-        action={
-          <IconButton
-            icon="ellipsis-horizontal"
-            label="Group options"
-            onPress={() => setOptionsOpen(true)}
-          />
-        }
-      />
-
-      <Button
-        title="Add group"
-        icon="add"
-        onPress={() => router.push("/group/form")}
-      />
-
-      <SearchFilterBar
-        value={query}
-        onChangeText={setQuery}
-        placeholder="Search groups"
-        onPressFilter={() => setFilterOpen(true)}
+        addLabel="Add group"
+        onAdd={() => router.push("/group/form")}
+        optionsLabel="Group options"
+        onOpenOptions={() => setOptionsOpen(true)}
+        query={query}
+        onChangeQuery={setQuery}
+        searchPlaceholder="Search groups"
+        onOpenFilters={() => setFilterOpen(true)}
         filterActive={filter !== "all"}
         filterLabel="Open group filters"
+        summaryTone="peach"
+        summary={
+          <View style={styles.statsRow}>
+            <StatCard
+              label="Shared"
+              value={String(sharedCount)}
+              subtitle="Groups with other people"
+              tone="peach"
+              compact
+              compactDensity="tight"
+              withDivider
+            />
+            <StatCard
+              label="Active"
+              value={String(activeCount)}
+              subtitle="Currently in motion"
+              tone="indigo"
+              compact
+              compactDensity="tight"
+              withDivider
+            />
+            <StatCard
+              label="Settled"
+              value={String(settledCount)}
+              subtitle="Closed out groups"
+              tone="teal"
+              compact
+              compactDensity="tight"
+            />
+          </View>
+        }
       />
-
-      <GlassCard tone="peach" allowOverflow>
-        <View style={styles.statsRow}>
-          <StatCard
-            label="Shared"
-            value={String(sharedCount)}
-            subtitle="Groups with other people"
-            tone="peach"
-            compact
-            compactDensity="tight"
-            withDivider
-          />
-          <StatCard
-            label="Active"
-            value={String(activeCount)}
-            subtitle="Currently in motion"
-            tone="indigo"
-            compact
-            compactDensity="tight"
-            withDivider
-          />
-          <StatCard
-            label="Settled"
-            value={String(settledCount)}
-            subtitle="Closed out groups"
-            tone="teal"
-            compact
-            compactDensity="tight"
-          />
-        </View>
-      </GlassCard>
 
       <FilterSheet
         visible={filterOpen}
@@ -173,10 +156,6 @@ export function GroupsScreen() {
         ]}
       />
 
-      <SectionTitle
-        title="Your groups"
-        subtitle="Warm, readable summaries for plans and shared expense spaces."
-      />
       {groups.length ? (
         <View style={styles.groupColumn}>
           {groups.map((group) => {

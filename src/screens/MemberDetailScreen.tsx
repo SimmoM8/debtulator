@@ -20,6 +20,7 @@ import {
 import {
     palette,
     radii,
+    shadows,
     spacing,
     typefaces,
     typography,
@@ -575,11 +576,7 @@ const styles = StyleSheet.create({
     backgroundColor: palette.surfaceMuted,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: palette.shadow,
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 2,
+    ...shadows.soft,
   },
   participantAvatarHighlight: {
     backgroundColor: palette.blueSoft,
