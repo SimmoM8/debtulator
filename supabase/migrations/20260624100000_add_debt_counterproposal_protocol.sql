@@ -1,0 +1,395 @@
+-- A debt has one canonical accepted state plus review-only proposals. A
+-- counterproposal closes the incoming proposal and reverses requester and
+-- responder without mutating the canonical debt.
+
+alter table public.debt_verifications
+add column if not exists supersedes_verification_id uuid
+references public.debt_verifications(id) on delete set null;
+
+create index if not exists debt_verifications_pending_debt_users_idx
+on public.debt_verifications (debt_id, requester_user_id, responder_user_id, requested_at desc)
+where status = 'pending';
+
+create index if not exists debt_verifications_supersedes_idx
+on public.debt_verifications (supersedes_verification_id)
+where supersedes_verification_id is not null;
+
+create or replace function public.debt_review_fields(
+  p_request_type text,
+  p_change_summary jsonb
+)
+returns text[]
+language sql
+immutable
+set search_path = ''
+as $$
+  select case
+    when p_request_type = 'creation' then array['creation']::text[]
+    else coalesce(
+      array(
+        select jsonb_array_elements_text(
+          coalesce(p_change_summary -> 'changedFields', '[]'::jsonb)
+        )
+      ),
+      array[]::text[]
+    )
+  end;
+$$;
+
+create or replace function public.debt_review_fields_overlap(
+  p_first_type text,
+  p_first_summary jsonb,
+  p_second_type text,
+  p_second_summary jsonb
+)
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+  select
+    p_first_type = 'creation'
+    or p_second_type = 'creation'
+    or public.debt_review_fields(p_first_type, p_first_summary)
+       && public.debt_review_fields(p_second_type, p_second_summary);
+$$;
+
+revoke all on function public.debt_review_fields(text, jsonb) from public, anon;
+revoke all on function public.debt_review_fields_overlap(text, jsonb, text, jsonb)
+from public, anon;
+grant execute on function public.debt_review_fields(text, jsonb) to authenticated;
+grant execute on function public.debt_review_fields_overlap(text, jsonb, text, jsonb)
+to authenticated;
+
+create or replace function public.request_debt_verification(
+  p_debt_id uuid,
+  p_responder_user_id uuid,
+  p_request_type text default 'creation',
+  p_change_summary jsonb default null
+)
+returns public.debt_verifications
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  target_debt public.shared_debt_records;
+  pending_verification public.debt_verifications;
+  superseded_id uuid;
+  new_verification public.debt_verifications;
+begin
+  if (select auth.uid()) is null then
+    raise exception 'Authenticated user required';
+  end if;
+  if p_request_type not in ('creation', 'amendment') then
+    raise exception 'Invalid debt proposal type';
+  end if;
+  if not public.has_accepted_link_between((select auth.uid()), p_responder_user_id) then
+    raise exception 'An accepted member link is required for debt confirmation.';
+  end if;
+
+  select * into target_debt
+  from public.shared_debt_records
+  where id = p_debt_id
+    and (creator_user_id = (select auth.uid()) or involved_user_id = (select auth.uid()))
+  for update;
+  if target_debt.id is null then
+    raise exception 'Shared debt not found or permission denied';
+  end if;
+
+  for pending_verification in
+    select *
+    from public.debt_verifications verification
+    where verification.debt_id = p_debt_id
+      and verification.status = 'pending'
+      and public.debt_review_fields_overlap(
+        verification.request_type,
+        verification.change_summary,
+        p_request_type,
+        p_change_summary
+      )
+    order by verification.requested_at desc
+    for update
+  loop
+    if pending_verification.responder_user_id = (select auth.uid()) then
+      raise exception using
+        message = 'An incoming proposal already covers this change.',
+        detail = pending_verification.id::text,
+        hint = 'accept_or_counterproposal';
+    end if;
+    if pending_verification.requester_user_id = (select auth.uid()) then
+      update public.debt_verifications
+      set status = 'cancelled',
+          responded_at = now(),
+          updated_at = now()
+      where id = pending_verification.id;
+      superseded_id := pending_verification.id;
+    end if;
+  end loop;
+
+  insert into public.debt_verifications (
+    debt_id,
+    requester_user_id,
+    responder_user_id,
+    request_type,
+    change_summary,
+    status,
+    supersedes_verification_id
+  ) values (
+    p_debt_id,
+    (select auth.uid()),
+    p_responder_user_id,
+    p_request_type,
+    p_change_summary,
+    'pending',
+    superseded_id
+  ) returning * into new_verification;
+
+  update public.shared_debt_records
+  set verification_status = 'pending', updated_at = now()
+  where id = p_debt_id;
+
+  return new_verification;
+end;
+$$;
+
+create or replace function public.counter_debt_verification(
+  p_verification_id uuid,
+  p_change_summary jsonb,
+  p_reason text default null
+)
+returns public.debt_verifications
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  incoming public.debt_verifications;
+  counterproposal public.debt_verifications;
+begin
+  if (select auth.uid()) is null then
+    raise exception 'Authenticated user required';
+  end if;
+  if coalesce(jsonb_array_length(p_change_summary -> 'changedFields'), 0) = 0 then
+    raise exception 'A counterproposal must change at least one field';
+  end if;
+
+  select * into incoming
+  from public.debt_verifications
+  where id = p_verification_id
+    and responder_user_id = (select auth.uid())
+    and status = 'pending'
+  for update;
+  if incoming.id is null then
+    raise exception 'Pending debt proposal not found or permission denied';
+  end if;
+
+  update public.debt_verifications
+  set status = 'countered',
+      rejection_reason = nullif(btrim(p_reason), ''),
+      suggested_change = p_change_summary -> 'proposed',
+      responded_at = now(),
+      updated_at = now()
+  where id = incoming.id;
+
+  insert into public.debt_verifications (
+    debt_id,
+    requester_user_id,
+    responder_user_id,
+    request_type,
+    change_summary,
+    status,
+    supersedes_verification_id
+  ) values (
+    incoming.debt_id,
+    (select auth.uid()),
+    incoming.requester_user_id,
+    'amendment',
+    p_change_summary,
+    'pending',
+    incoming.id
+  ) returning * into counterproposal;
+
+  update public.shared_debt_records
+  set verification_status = 'pending', updated_at = now()
+  where id = incoming.debt_id;
+
+  return counterproposal;
+end;
+$$;
+
+revoke all on function public.request_debt_verification(uuid, uuid, text, jsonb)
+from public, anon;
+grant execute on function public.request_debt_verification(uuid, uuid, text, jsonb)
+to authenticated;
+revoke all on function public.counter_debt_verification(uuid, jsonb, text)
+from public, anon;
+grant execute on function public.counter_debt_verification(uuid, jsonb, text)
+to authenticated;
+
+-- Reinstall the responder RPC here as well so databases that received the
+-- earlier amendment migration manually also gain status-field application.
+create or replace function public.respond_to_debt_verification(
+  p_verification_id uuid,
+  p_status text,
+  p_rejection_reason text default null,
+  p_suggested_change jsonb default null
+)
+returns public.debt_verifications
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  updated_verification public.debt_verifications;
+  target_debt public.shared_debt_records;
+  proposed jsonb;
+  proposed_direction text;
+begin
+  if (select auth.uid()) is null then
+    raise exception 'Authenticated user required';
+  end if;
+  if p_status not in ('verified', 'rejected') then
+    raise exception 'Invalid verification response';
+  end if;
+
+  update public.debt_verifications
+  set status = p_status,
+      rejection_reason = case
+        when p_status = 'rejected' then nullif(btrim(p_rejection_reason), '')
+        else null
+      end,
+      suggested_change = case
+        when p_status = 'rejected' then p_suggested_change
+        else null
+      end,
+      responded_at = now(),
+      updated_at = now()
+  where id = p_verification_id
+    and responder_user_id = (select auth.uid())
+    and status = 'pending'
+  returning * into updated_verification;
+  if updated_verification.id is null then
+    raise exception 'Pending debt verification not found or permission denied';
+  end if;
+
+  select * into target_debt
+  from public.shared_debt_records
+  where id = updated_verification.debt_id;
+  if target_debt.id is null then
+    raise exception 'Shared debt not found';
+  end if;
+
+  proposed := coalesce(updated_verification.change_summary -> 'proposed', '{}'::jsonb);
+  proposed_direction := nullif(proposed ->> 'direction', '');
+  if proposed_direction in ('they_owe_me', 'i_owe_them')
+    and updated_verification.requester_user_id <> target_debt.creator_user_id
+  then
+    proposed_direction := case proposed_direction
+      when 'they_owe_me' then 'i_owe_them'
+      else 'they_owe_me'
+    end;
+  end if;
+
+  update public.shared_debt_records
+  set amount = case
+        when p_status = 'verified'
+          and updated_verification.request_type = 'amendment'
+          and jsonb_typeof(proposed -> 'amount') = 'number'
+          then (proposed ->> 'amount')::numeric
+        else amount
+      end,
+      title = case
+        when p_status = 'verified'
+          and updated_verification.request_type = 'amendment'
+          and nullif(btrim(proposed ->> 'title'), '') is not null
+          then btrim(proposed ->> 'title')
+        else title
+      end,
+      due_date = case
+        when p_status = 'verified'
+          and updated_verification.request_type = 'amendment'
+          and proposed ? 'dueDate'
+          then nullif(proposed ->> 'dueDate', '')::date
+        else due_date
+      end,
+      direction = case
+        when p_status = 'verified'
+          and updated_verification.request_type = 'amendment'
+          and proposed_direction in ('they_owe_me', 'i_owe_them')
+          then proposed_direction
+        else direction
+      end,
+      settlement_status = case
+        when p_status = 'verified'
+          and updated_verification.request_type = 'amendment'
+          and proposed ->> 'status' in ('active', 'archived')
+          then proposed ->> 'status'
+        else settlement_status
+      end,
+      verification_status = p_status,
+      suggested_change = case
+        when p_status = 'rejected' then p_suggested_change
+        else null
+      end,
+      updated_at = now()
+  where id = updated_verification.debt_id;
+
+  return updated_verification;
+end;
+$$;
+
+revoke all on function public.respond_to_debt_verification(uuid, text, text, jsonb)
+from public, anon;
+grant execute on function public.respond_to_debt_verification(uuid, text, text, jsonb)
+to authenticated;
+
+create or replace function public.notify_pending_debt_verification()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  insert into public.notifications (
+    user_id,
+    type,
+    title,
+    body,
+    target_type,
+    target_id,
+    metadata
+  ) values (
+    new.responder_user_id,
+    'verification_request',
+    case
+      when new.supersedes_verification_id is not null then 'Debt counterproposal'
+      when new.request_type = 'amendment' then 'Debt changes need review'
+      else 'New debt needs confirmation'
+    end,
+    'A linked member sent a debt proposal for your review.',
+    'debt',
+    new.debt_id::text,
+    jsonb_build_object(
+      'verificationRemoteId', new.id,
+      'notificationKind', case
+        when new.supersedes_verification_id is not null then 'counterproposal'
+        else 'confirmation_request'
+      end
+    )
+  );
+  return new;
+end;
+$$;
+
+revoke all on function public.notify_pending_debt_verification()
+from public, anon, authenticated;
+drop trigger if exists debt_verifications_notify_pending
+on public.debt_verifications;
+create trigger debt_verifications_notify_pending
+after insert on public.debt_verifications
+for each row
+when (new.status = 'pending')
+execute function public.notify_pending_debt_verification();
+
+notify pgrst, 'reload schema';

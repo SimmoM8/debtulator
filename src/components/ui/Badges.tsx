@@ -127,7 +127,9 @@ export function verificationLabel(status: VerificationStatus) {
     case "verified":
       return "confirmed";
     case "rejected":
-      return "contested";
+      return "rejected";
+    case "countered":
+      return "counterproposal sent";
     default:
       return status.replaceAll("_", " ");
   }

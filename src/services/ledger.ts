@@ -3,7 +3,9 @@ import type {
   CurrencyCode,
   CurrencyRate,
   Debt,
+  DebtVerification,
   GroupDebt,
+  GroupVerificationResponse,
   GroupSettlementSettings,
   GroupSettlementExplanation,
   ExcludedLedgerEntry,
@@ -42,6 +44,12 @@ const DEFAULT_SETTLEMENT_VERIFICATIONS: VerificationStatus[] = ['local_only', 'v
 const PERSONAL_BALANCE_EXCLUDED_VERIFICATIONS: VerificationStatus[] = ['rejected', 'disputed'];
 const EPSILON = 0.005;
 
+export type LedgerConfirmationContext = {
+  currentUserId?: string | null;
+  debtVerifications?: DebtVerification[];
+  groupVerificationResponses?: GroupVerificationResponse[];
+};
+
 export function buildLedgerEntries(
   debts: Debt[],
   sharedExpenses: SharedExpense[],
@@ -49,34 +57,56 @@ export function buildLedgerEntries(
   settlementLines: SettlementLine[] = [],
   payments: Payment[] = [],
   overpaymentCredits: OverpaymentCredit[] = [],
+  confirmationContext: LedgerConfirmationContext = {},
 ): LedgerEntry[] {
-  const simpleEntries: LedgerEntry[] = debts.map((debt) => ({
-    id: `ledger_${debt.id}`,
-    kind: 'simple_debt',
-    sourceId: debt.id,
-    groupId: debt.groupId,
-    fromId: debt.direction === 'they_owe_me' ? debt.memberId : 'me',
-    toId: debt.direction === 'they_owe_me' ? 'me' : debt.memberId,
-    amount: debt.amount,
-    originalAmount: debt.amount,
-    amountPaid: 0,
-    remainingAmount: debt.amount,
-    overpaidAmount: 0,
-    paymentStatus: debt.status === 'archived' ? 'archived' : 'unpaid',
-    currency: debt.currency,
-    title: debt.title,
-    notes: debt.notes,
-    date: debt.debtDate,
-    dueDate: debt.dueDate,
-    tags: debt.tags,
-    status: debt.status === 'settled' ? 'active' : debt.status,
-    verificationStatus: debt.verificationStatus,
-    visibility: debt.visibility,
-    syncStatus: debt.syncStatus,
-  }));
+  const simpleEntries: LedgerEntry[] = debts.flatMap((debt) => {
+    const projection = simpleDebtLedgerProjection(debt, confirmationContext);
+    if (!projection.include) {
+      return [];
+    }
+    return [
+      {
+        id: `ledger_${debt.id}`,
+        kind: 'simple_debt' as const,
+        sourceId: debt.id,
+        groupId: debt.groupId,
+        fromId: debt.direction === 'they_owe_me' ? debt.memberId : 'me',
+        toId: debt.direction === 'they_owe_me' ? 'me' : debt.memberId,
+        amount: debt.amount,
+        originalAmount: debt.amount,
+        amountPaid: 0,
+        remainingAmount: debt.amount,
+        overpaidAmount: 0,
+        paymentStatus:
+          debt.status === 'archived'
+            ? ('archived' as const)
+            : ('unpaid' as const),
+        currency: debt.currency,
+        title: debt.title,
+        notes: debt.notes,
+        date: debt.debtDate,
+        dueDate: debt.dueDate,
+        tags: debt.tags,
+        status: debt.status === 'settled' ? ('active' as const) : debt.status,
+        verificationStatus: projection.verificationStatus,
+        visibility: debt.visibility,
+        syncStatus: debt.syncStatus,
+      },
+    ];
+  });
 
-  const expenseEntries = sharedExpenses.flatMap((expense) =>
-    expense.generatedObligations.map<LedgerEntry>((obligation) => ({
+  const expenseEntries = sharedExpenses.flatMap((expense) => {
+    const projection = groupRecordLedgerProjection(
+      expense.creatorUserId,
+      expense.verificationStatus,
+      'expense',
+      expense.id,
+      confirmationContext,
+    );
+    if (!projection.include) {
+      return [];
+    }
+    return expense.generatedObligations.map<LedgerEntry>((obligation) => ({
       id: `ledger_${obligation.id}`,
       kind: 'expense_obligation',
       sourceId: obligation.id,
@@ -97,36 +127,53 @@ export function buildLedgerEntries(
       dueDate: expense.dueDate,
       tags: expense.tags,
       status: expense.status,
-      verificationStatus: expense.verificationStatus,
+      verificationStatus: projection.verificationStatus,
       visibility: expense.visibility,
       syncStatus: expense.syncStatus,
-    })),
-  );
+    }));
+  });
 
-  const groupDebtEntries: LedgerEntry[] = groupDebts.map((debt) => ({
-    id: `ledger_${debt.id}`,
-    kind: 'group_direct_debt',
-    sourceId: debt.id,
-    groupId: debt.groupId,
-    fromId: debt.debtorGroupMemberId,
-    toId: debt.creditorGroupMemberId,
-    amount: debt.amount,
-    originalAmount: debt.amount,
-    amountPaid: 0,
-    remainingAmount: debt.amount,
-    overpaidAmount: 0,
-    paymentStatus: debt.status === 'archived' ? 'archived' : 'unpaid',
-    currency: debt.currency,
-    title: debt.title,
-    notes: debt.notes,
-    date: debt.debtDate,
-    dueDate: debt.dueDate,
-    tags: debt.tags,
-    status: debt.status,
-    verificationStatus: debt.verificationStatus,
-    visibility: 'shared_group',
-    syncStatus: debt.syncStatus,
-  }));
+  const groupDebtEntries: LedgerEntry[] = groupDebts.flatMap((debt) => {
+    const projection = groupRecordLedgerProjection(
+      debt.creatorUserId,
+      debt.verificationStatus,
+      'debt',
+      debt.id,
+      confirmationContext,
+    );
+    if (!projection.include) {
+      return [];
+    }
+    return [
+      {
+        id: `ledger_${debt.id}`,
+        kind: 'group_direct_debt' as const,
+        sourceId: debt.id,
+        groupId: debt.groupId,
+        fromId: debt.debtorGroupMemberId,
+        toId: debt.creditorGroupMemberId,
+        amount: debt.amount,
+        originalAmount: debt.amount,
+        amountPaid: 0,
+        remainingAmount: debt.amount,
+        overpaidAmount: 0,
+        paymentStatus:
+          debt.status === 'archived'
+            ? ('archived' as const)
+            : ('unpaid' as const),
+        currency: debt.currency,
+        title: debt.title,
+        notes: debt.notes,
+        date: debt.debtDate,
+        dueDate: debt.dueDate,
+        tags: debt.tags,
+        status: debt.status,
+        verificationStatus: projection.verificationStatus,
+        visibility: 'shared_group' as const,
+        syncStatus: debt.syncStatus,
+      },
+    ];
+  });
 
   const overpaymentEntries = overpaymentCredits
     .filter((credit) => credit.status === 'open' && credit.amount > EPSILON)
@@ -159,7 +206,66 @@ export function buildLedgerEntries(
     [...simpleEntries, ...expenseEntries, ...groupDebtEntries, ...overpaymentEntries],
     settlementLines,
     payments,
+    confirmationContext.currentUserId,
   ).sort((a, b) => b.date.localeCompare(a.date));
+}
+
+function simpleDebtLedgerProjection(
+  debt: Debt,
+  context: LedgerConfirmationContext,
+): { include: boolean; verificationStatus: VerificationStatus } {
+  const currentUserId = context.currentUserId;
+  if (!currentUserId) {
+    return { include: true, verificationStatus: debt.verificationStatus };
+  }
+  const pending = (context.debtVerifications ?? [])
+    .filter(
+      (verification) =>
+        verification.debtId === debt.id && verification.status === 'pending',
+    )
+    .sort((first, second) => second.requestedAt.localeCompare(first.requestedAt))[0];
+  if (!pending) {
+    return { include: true, verificationStatus: debt.verificationStatus };
+  }
+  if (pending.requesterUserId === currentUserId) {
+    return { include: true, verificationStatus: 'local_only' };
+  }
+  if (pending.responderUserId === currentUserId) {
+    return pending.requestType === 'creation'
+      ? { include: false, verificationStatus: 'pending' }
+      : { include: true, verificationStatus: 'verified' };
+  }
+  return { include: false, verificationStatus: 'pending' };
+}
+
+function groupRecordLedgerProjection(
+  creatorUserId: string | null,
+  verificationStatus: VerificationStatus,
+  targetType: GroupVerificationResponse['targetType'],
+  targetId: string,
+  context: LedgerConfirmationContext,
+): { include: boolean; verificationStatus: VerificationStatus } {
+  const currentUserId = context.currentUserId;
+  if (
+    !currentUserId ||
+    !['pending', 'partially_verified'].includes(verificationStatus)
+  ) {
+    return { include: true, verificationStatus };
+  }
+  if (creatorUserId === currentUserId) {
+    return { include: true, verificationStatus: 'local_only' };
+  }
+  const response = (context.groupVerificationResponses ?? [])
+    .filter(
+      (item) =>
+        item.targetType === targetType &&
+        item.targetId === targetId &&
+        item.linkedUserId === currentUserId,
+    )
+    .sort((first, second) => second.updatedAt.localeCompare(first.updatedAt))[0];
+  return response?.responseStatus === 'verified'
+    ? { include: true, verificationStatus: 'verified' }
+    : { include: false, verificationStatus };
 }
 
 export function isActiveLedgerEntry(entry: LedgerEntry) {
@@ -366,17 +472,40 @@ export function sourceRecordTypeForEntry(entry: LedgerEntry): SettlementSourceRe
   }
 }
 
-export function activeSettlementLines(lines: SettlementLine[], payments: Payment[]) {
+export function activeSettlementLines(
+  lines: SettlementLine[],
+  payments: Payment[],
+  currentUserId?: string | null,
+) {
   const paymentById = new Map(payments.map((payment) => [payment.id, payment]));
+  const seenRemoteIds = new Set<string>();
   return lines.filter((line) => {
+    if (line.remoteId) {
+      if (seenRemoteIds.has(line.remoteId)) {
+        return false;
+      }
+      seenRemoteIds.add(line.remoteId);
+    }
     const payment = line.paymentId ? paymentById.get(line.paymentId) : null;
+    if (
+      payment?.confirmationStatus === 'pending_confirmation' &&
+      currentUserId &&
+      payment.createdByUserId !== currentUserId
+    ) {
+      return false;
+    }
     return !payment || !['rejected', 'cancelled', 'archived'].includes(payment.status);
   });
 }
 
-export function applySettlementsToEntries(entries: LedgerEntry[], lines: SettlementLine[], payments: Payment[]) {
+export function applySettlementsToEntries(
+  entries: LedgerEntry[],
+  lines: SettlementLine[],
+  payments: Payment[],
+  currentUserId?: string | null,
+) {
   const appliedBySource = new Map<string, number>();
-  for (const line of activeSettlementLines(lines, payments)) {
+  for (const line of activeSettlementLines(lines, payments, currentUserId)) {
     const key = `${line.sourceRecordType}:${line.sourceRecordId}:${line.currency}`;
     appliedBySource.set(key, roundMoney((appliedBySource.get(key) ?? 0) + line.appliedAmount));
   }

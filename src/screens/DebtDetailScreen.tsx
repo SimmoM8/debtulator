@@ -43,6 +43,7 @@ import {
 } from "@/src/services/export";
 import { buildLedgerEntries } from "@/src/services/ledger";
 import {
+  counterRemoteDebtVerification,
   createRemoteDebtVerification,
   respondRemotePaymentConfirmation,
   respondRemoteDebtVerification,
@@ -56,6 +57,7 @@ import type {
   CurrencyCode,
   Debt,
   DebtChangeSummary,
+  DebtReviewField,
   DebtStatus,
   DebtVerification,
   Payment,
@@ -118,6 +120,7 @@ export function DebtDetailScreen() {
         data.settlementLines,
         data.payments,
         data.overpaymentCredits,
+        { currentUserId: auth.identity.authenticatedUserId },
       )[0]
     : undefined;
 
@@ -225,7 +228,7 @@ export function DebtDetailScreen() {
     orphanedPendingActivities
       .map((activity) => activityConfirmationField(activity.action))
       .filter(
-        (field): field is "amount" | "direction" | "dueDate" =>
+        (field): field is DebtReviewField =>
           field !== "none" && field !== "debt",
       ),
   );
@@ -359,11 +362,99 @@ export function DebtDetailScreen() {
   );
 
   async function updateStatus(status: DebtStatus) {
-    await data.updateDebt(
-      currentDebt.id,
-      { status },
-      auth.identity.authenticatedUserId,
-    );
+    if (!isCloudSyncedMember || !currentUserId || !member?.linkedUserId) {
+      await data.updateDebt(currentDebt.id, { status }, currentUserId);
+      return;
+    }
+    const changeSummary: DebtChangeSummary = {
+      changedFields: ["status"],
+      previous: { status: currentDebt.status },
+      proposed: { status },
+    };
+    const incoming = data.debtVerifications
+      .filter(
+        (verification) =>
+          verification.debtId === currentDebt.id &&
+          verification.status === "pending" &&
+          verification.responderUserId === currentUserId &&
+          (verification.requestType === "creation" ||
+            verification.changeSummary?.changedFields.includes("status")),
+      )
+      .sort((a, b) => b.requestedAt.localeCompare(a.requestedAt))[0];
+    if (incoming) {
+      Alert.alert(
+        "A proposal is already waiting for you",
+        "The other member already proposed a status change. Accept theirs or send this status as a counterproposal.",
+        [
+          {
+            text: "Accept theirs",
+            onPress: () => void respondToConfirmation(incoming, "verified"),
+          },
+          {
+            text: "Propose mine",
+            onPress: () => void persistStatusProposal(status, changeSummary, incoming),
+          },
+        ],
+      );
+      return;
+    }
+    await persistStatusProposal(status, changeSummary);
+  }
+
+  async function persistStatusProposal(
+    status: DebtStatus,
+    changeSummary: DebtChangeSummary,
+    counteredVerification?: DebtVerification,
+  ) {
+    if (!currentUserId || !member?.linkedUserId) return;
+    const savedDebt = await data.updateDebt(currentDebt.id, { status }, currentUserId);
+    try {
+      if (counteredVerification) {
+        const local = await data.counterDebtVerification(
+          counteredVerification.id,
+          currentUserId,
+          changeSummary,
+        );
+        const remote = await counterRemoteDebtVerification({
+          verification: counteredVerification,
+          changeSummary,
+        });
+        if (!remote) throw new Error("Cloud counterproposal unavailable");
+        await data.upsertDebtVerification({
+          ...local.verification,
+          remoteId: remote.id,
+          remoteDebtId: remote.debt_id,
+          syncStatus: "synced",
+        });
+        return;
+      }
+      const local = await data.requestDebtVerification(savedDebt.id, {
+        requesterUserId: currentUserId,
+        responderUserId: member.linkedUserId,
+        requestType: "amendment",
+        changeSummary,
+      });
+      const remote = await createRemoteDebtVerification({
+        debt: local.debt,
+        member,
+        requesterUserId: currentUserId,
+        responderUserId: member.linkedUserId,
+        requestType: "amendment",
+        changeSummary,
+      });
+      if (!remote) throw new Error("Cloud confirmation unavailable");
+      await data.upsertDebtVerification({
+        ...local.verification,
+        remoteId: remote.remoteVerificationId,
+        remoteDebtId: remote.remoteDebtId,
+        syncStatus: "synced",
+      });
+    } catch {
+      Alert.alert(
+        "Confirmation pending",
+        "The status was saved locally, but its confirmation request could not be delivered yet.",
+      );
+    }
   }
 
   function settleUp() {
@@ -761,13 +852,23 @@ export function DebtDetailScreen() {
         : "Confirm this debt",
       confirmationDescription(verification, currentDebt),
       [
-        { text: "Cancel", style: "cancel" },
         {
           text: "Reject",
           style: "destructive",
           onPress: () => {
             void respondToConfirmation(verification, "rejected");
           },
+        },
+        {
+          text: "Propose alternative",
+          onPress: () =>
+            router.push({
+              pathname: "/debt/form",
+              params: {
+                id: currentDebt.id,
+                counterVerificationId: verification.id,
+              },
+            }),
         },
         {
           text: "Confirm",
@@ -2136,7 +2237,7 @@ function getCurrentConfirmations(verifications: DebtVerification[]) {
         verification.status !== "cancelled" &&
         (verification.requestType === "creation" ||
           verification.changeSummary?.changedFields.some((field) =>
-            ["amount", "direction", "dueDate"].includes(field),
+            ["amount", "direction", "dueDate", "title", "member", "status"].includes(field),
           )),
     )
     .sort((a, b) => b.requestedAt.localeCompare(a.requestedAt));
@@ -2215,6 +2316,8 @@ function confirmationFieldLabel(
       return "Amount";
     case "title":
       return "Title";
+    case "status":
+      return "Status";
   }
 }
 
@@ -2297,6 +2400,14 @@ function activityConfirmationField(action: string) {
       return "amount" as const;
     case "debt_direction_changed":
       return "direction" as const;
+    case "debt_title_changed":
+      return "title" as const;
+    case "debt_member_changed":
+      return "member" as const;
+    case "debt_archived":
+    case "debt_reopened":
+    case "debt_status_changed":
+      return "status" as const;
     case "debt_due_date_added":
     case "debt_due_date_changed":
     case "debt_due_date_removed":

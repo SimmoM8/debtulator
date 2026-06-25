@@ -306,6 +306,7 @@ type AppDataContextValue = DatabaseSnapshot & {
   memberBalances: Record<string, MoneyMap>;
   personalTotals: ReturnType<typeof calculatePersonalTotals>;
   syncSummary: ReturnType<typeof buildSyncSummary>;
+  setLedgerUserId: (userId: string | null) => void;
   refresh: () => Promise<void>;
   retryBoot: () => void;
   resetLocalData: () => Promise<void>;
@@ -372,6 +373,20 @@ type AppDataContextValue = DatabaseSnapshot & {
     actorUserId: string,
     rejectionReason?: string | null,
     suggestedChange?: SuggestedDebtChange | null,
+  ) => Promise<{ debt: Debt; verification: DebtVerification }>;
+  counterDebtVerification: (
+    verificationId: string,
+    actorUserId: string,
+    changeSummary: DebtChangeSummary,
+    remoteCounterproposal?: {
+      id: string;
+      debt_id: string;
+      requester_user_id: string;
+      responder_user_id: string;
+      requested_at: string;
+      created_at: string;
+      updated_at: string;
+    } | null,
   ) => Promise<{ debt: Debt; verification: DebtVerification }>;
   markDebtDisputed: (debtId: string, actorUserId?: string | null, disputeReason?: string | null) => Promise<Debt>;
   markDebtResolved: (debtId: string, actorUserId?: string | null, resolutionNote?: string | null) => Promise<Debt>;
@@ -579,6 +594,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [bootAttempt, setBootAttempt] = useState(0);
   const [syncedDataResetVersion, setSyncedDataResetVersion] = useState(0);
+  const [ledgerUserId, setLedgerUserId] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -662,14 +678,22 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         snapshot.settlementLines,
         snapshot.payments,
         snapshot.overpaymentCredits,
+        {
+          currentUserId: ledgerUserId,
+          debtVerifications: snapshot.debtVerifications,
+          groupVerificationResponses: snapshot.groupVerificationResponses,
+        },
       ),
     [
       snapshot.debts,
+      snapshot.debtVerifications,
       snapshot.groupDebts,
+      snapshot.groupVerificationResponses,
       snapshot.overpaymentCredits,
       snapshot.payments,
       snapshot.settlementLines,
       snapshot.sharedExpenses,
+      ledgerUserId,
     ],
   );
   const memberBalances = useMemo(() => calculateMemberBalances(ledgerEntries), [ledgerEntries]);
@@ -686,6 +710,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       memberBalances,
       personalTotals,
       syncSummary,
+      setLedgerUserId,
       refresh,
       retryBoot,
       resetLocalData: async () => {
@@ -782,6 +807,25 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
             throw new Error('Debt not found.');
           }
           return repo.respondToDebtVerification(verification, debt, status, actorUserId, rejectionReason, suggestedChange);
+        }),
+      counterDebtVerification: (verificationId, actorUserId, changeSummary, remoteCounterproposal = null) =>
+        runAndRefresh(async (repo) => {
+          const latest = await repo.load();
+          const verification = latest.debtVerifications.find((item) => item.id === verificationId);
+          if (!verification) {
+            throw new Error('Verification request not found.');
+          }
+          const debt = latest.debts.find((item) => item.id === verification.debtId);
+          if (!debt) {
+            throw new Error('Debt not found.');
+          }
+          return repo.counterDebtVerification(
+            verification,
+            debt,
+            actorUserId,
+            changeSummary,
+            remoteCounterproposal,
+          );
         }),
       markDebtDisputed: (debtId, actorUserId = null, disputeReason = null) =>
         runAndRefresh((repo) => {

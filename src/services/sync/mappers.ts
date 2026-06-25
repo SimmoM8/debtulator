@@ -409,6 +409,7 @@ export function mapRemoteGroupVerificationToLocal(row: RemoteRow, snapshot: Data
 
 export function mapLocalPaymentToRemote(payment: Payment, snapshot: DatabaseSnapshot) {
   return {
+    client_generated_id: payment.localId ?? payment.id,
     created_by_user_id: payment.createdByUserId,
     payer_user_id: payment.payerUserId,
     payee_user_id: payment.payeeUserId,
@@ -433,10 +434,16 @@ export function mapLocalPaymentToRemote(payment: Payment, snapshot: DatabaseSnap
 }
 
 export function mapRemotePaymentToLocal(row: RemoteRow, snapshot: DatabaseSnapshot): Payment {
-  const existing = snapshot.payments.find((payment) => payment.remoteId === row.id);
+  const existing = snapshot.payments.find(
+    (payment) =>
+      payment.remoteId === row.id ||
+      (row.client_generated_id &&
+        (payment.localId === row.client_generated_id ||
+          payment.id === row.client_generated_id)),
+  );
   return {
     id: existing?.id ?? createId('payment'),
-    localId: existing?.localId ?? null,
+    localId: existing?.localId ?? row.client_generated_id ?? null,
     remoteId: row.id,
     createdByUserId: row.created_by_user_id ?? null,
     payerUserId: row.payer_user_id ?? null,
@@ -467,6 +474,7 @@ export function mapRemotePaymentToLocal(row: RemoteRow, snapshot: DatabaseSnapsh
 
 export function mapLocalSettlementToRemote(settlement: Settlement, snapshot: DatabaseSnapshot) {
   return {
+    client_generated_id: settlement.localId ?? settlement.id,
     created_by_user_id: settlement.createdByUserId,
     group_id: settlement.groupId ? requiredRemoteId(snapshot, 'group', settlement.groupId, 'settlements.group_id') : null,
     member_id: settlement.memberId,
@@ -488,10 +496,16 @@ export function mapLocalSettlementToRemote(settlement: Settlement, snapshot: Dat
 }
 
 export function mapRemoteSettlementToLocal(row: RemoteRow, snapshot: DatabaseSnapshot): Settlement {
-  const existing = snapshot.settlements.find((settlement) => settlement.remoteId === row.id);
+  const existing = snapshot.settlements.find(
+    (settlement) =>
+      settlement.remoteId === row.id ||
+      (row.client_generated_id &&
+        (settlement.localId === row.client_generated_id ||
+          settlement.id === row.client_generated_id)),
+  );
   return {
     id: existing?.id ?? createId('settlement'),
-    localId: existing?.localId ?? null,
+    localId: existing?.localId ?? row.client_generated_id ?? null,
     remoteId: row.id,
     createdByUserId: row.created_by_user_id ?? null,
     groupId: row.group_id ? requiredLocalId(snapshot, 'group', row.group_id, 'settlements.group_id') : null,
@@ -518,6 +532,7 @@ export function mapRemoteSettlementToLocal(row: RemoteRow, snapshot: DatabaseSna
 
 export function mapLocalSettlementLineToRemote(line: SettlementLine, snapshot: DatabaseSnapshot) {
   return {
+    client_generated_id: line.id,
     settlement_id: requiredRemoteId(snapshot, 'settlement', line.settlementId, 'settlement_lines.settlement_id'),
     payment_id: line.paymentId ? requiredRemoteId(snapshot, 'payment', line.paymentId, 'settlement_lines.payment_id') : null,
     source_record_type: line.sourceRecordType,
@@ -528,7 +543,11 @@ export function mapLocalSettlementLineToRemote(line: SettlementLine, snapshot: D
 }
 
 export function mapRemoteSettlementLineToLocal(row: RemoteRow, snapshot: DatabaseSnapshot): SettlementLine {
-  const existing = snapshot.settlementLines.find((line) => line.remoteId === row.id);
+  const existing = snapshot.settlementLines.find(
+    (line) =>
+      line.remoteId === row.id ||
+      (row.client_generated_id && line.id === row.client_generated_id),
+  );
   return {
     id: existing?.id ?? createId('settlement_line'),
     remoteId: row.id,

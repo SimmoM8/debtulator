@@ -12,6 +12,7 @@ export type VerificationStatus =
   | 'partially_verified'
   | 'verified'
   | 'rejected'
+  | 'countered'
   | 'disputed'
   | 'resolved'
   | 'cancelled';
@@ -23,7 +24,8 @@ export type DebtReviewField =
   | 'direction'
   | 'amount'
   | 'title'
-  | 'dueDate';
+  | 'dueDate'
+  | 'status';
 
 export type DebtReviewValue = string | number | null;
 
@@ -878,6 +880,7 @@ export type DebtVerification = {
   status: VerificationStatus;
   rejectionReason: string | null;
   suggestedChange: SuggestedDebtChange | null;
+  supersedesVerificationId: string | null;
   requestedAt: string;
   respondedAt: string | null;
   createdAt: string;

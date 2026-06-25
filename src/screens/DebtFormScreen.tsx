@@ -27,7 +27,11 @@ import {
   typefaces,
   typography,
 } from "@/src/constants/design";
-import { createRemoteDebtVerification } from "@/src/services/stage2Sync";
+import {
+  counterRemoteDebtVerification,
+  createRemoteDebtVerification,
+  respondRemoteDebtVerification,
+} from "@/src/services/stage2Sync";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
 import type {
@@ -35,15 +39,17 @@ import type {
   Debt,
   DebtChangeSummary,
   DebtDirection,
+  DebtVerification,
   Member,
 } from "@/src/types/models";
 import { todayIsoDate } from "@/src/utils/id";
 
 export function DebtFormScreen() {
-  const { id, memberId, groupId } = useLocalSearchParams<{
+  const { id, memberId, groupId, counterVerificationId } = useLocalSearchParams<{
     id?: string;
     memberId?: string;
     groupId?: string;
+    counterVerificationId?: string;
   }>();
   const data = useAppData();
   const auth = useAuth();
@@ -169,21 +175,24 @@ export function DebtFormScreen() {
         : {}),
     };
 
-    const approvalFieldsChanged =
-      debt &&
-      (Number(amount) !== debt.amount ||
-        direction !== debt.direction ||
-        (dueDate || null) !== debt.dueDate);
+    const draftSummary = buildChangeSummary(debt, {
+      memberId: selectedMemberId,
+      amount: Number(amount),
+      direction,
+      title,
+      dueDate: dueDate || null,
+    });
+    const approvalFieldsChanged = Boolean(
+      debt && draftSummary.changedFields.length,
+    );
     const memberChanged = Boolean(debt && selectedMemberId !== debt.memberId);
     if (
       memberChanged &&
-      debt?.visibility === "shared_with_involved_member" &&
-      originalVerification &&
-      originalVerification.requesterUserId !== confirmationUserId
+      debt?.visibility === "shared_with_involved_member"
     ) {
       Alert.alert(
         "Member cannot be changed",
-        "Only the person who originally shared this debt can move it to another linked member.",
+        "A shared debt cannot be transferred between members as one change because that would affect two independent ledgers. Archive this debt with confirmation, then create a new debt for the other member.",
       );
       return;
     }
@@ -193,10 +202,50 @@ export function DebtFormScreen() {
       selectedMember?.linkStatus === "linked" &&
       Boolean(selectedMember.linkedUserId) &&
       Boolean(confirmationUserId);
+    const incomingProposal = debt
+      ? data.debtVerifications
+          .filter(
+            (verification) =>
+              verification.debtId === debt.id &&
+              verification.status === "pending" &&
+              verification.responderUserId === confirmationUserId &&
+              (verification.id === counterVerificationId ||
+                verification.requestType === "creation" ||
+                verification.changeSummary?.changedFields.some((field) =>
+                  draftSummary.changedFields.includes(field),
+                )),
+          )
+          .sort((a, b) => b.requestedAt.localeCompare(a.requestedAt))[0]
+      : undefined;
+    if (counterVerificationId && !draftSummary.changedFields.length) {
+      Alert.alert(
+        "Change something first",
+        "A counterproposal must contain a different value from the currently accepted debt.",
+      );
+      return;
+    }
+    if (requiresConfirmation && incomingProposal) {
+      Alert.alert(
+        "A proposal is already waiting for you",
+        "The other member has proposed a change to the same debt fields. You can accept their proposal or send your values back as a counterproposal.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Accept theirs",
+            onPress: () => void acceptIncomingProposal(incomingProposal),
+          },
+          {
+            text: "Propose mine",
+            onPress: () => void persist(input, true, incomingProposal),
+          },
+        ],
+      );
+      return;
+    }
     if (requiresConfirmation) {
       Alert.alert(
         "Confirmation required",
-        "Changing the amount, direction, or due date requires confirmation from the other member.",
+        "Changing shared debt details requires confirmation from the other member.",
         [
           { text: "Cancel", style: "cancel" },
           {
@@ -214,6 +263,7 @@ export function DebtFormScreen() {
   async function persist(
     input: Parameters<typeof data.createDebt>[0],
     requestAmendment = false,
+    counteredVerification?: DebtVerification,
   ) {
     const savedDebt = debt
       ? await data.updateDebt(debt.id, input, confirmationUserId)
@@ -228,12 +278,41 @@ export function DebtFormScreen() {
       Boolean(linkedMember.linkedUserId) &&
       (!debt || requestAmendment);
 
-    if (shouldRequestConfirmation && linkedMember) {
+    if (counteredVerification) {
+      const changeSummary = buildChangeSummary(debt, savedDebt);
+      const local = await data.counterDebtVerification(
+        counteredVerification.id,
+        confirmationUserId!,
+        changeSummary,
+      );
+      try {
+        const remote = await counterRemoteDebtVerification({
+          verification: counteredVerification,
+          changeSummary,
+        });
+        if (!remote) {
+          throw new Error("Cloud counterproposal is unavailable.");
+        }
+        await data.upsertDebtVerification({
+          ...local.verification,
+          remoteId: remote.id,
+          remoteDebtId: remote.debt_id,
+          syncStatus: "synced",
+        });
+      } catch {
+        Alert.alert(
+          "Counterproposal pending",
+          "Your values were saved locally, but the counterproposal could not be delivered yet.",
+        );
+      }
+    } else if (shouldRequestConfirmation && linkedMember) {
       try {
         await sendConfirmationRequest(
           savedDebt,
           linkedMember,
-          debt ? "amendment" : "creation",
+          !debt || savedDebt.memberId !== debt.memberId
+            ? "creation"
+            : "amendment",
           buildChangeSummary(debt, savedDebt),
         );
       } catch {
@@ -245,6 +324,26 @@ export function DebtFormScreen() {
     }
 
     router.back();
+  }
+
+  async function acceptIncomingProposal(verification: DebtVerification) {
+    if (!confirmationUserId) {
+      return;
+    }
+    try {
+      await respondRemoteDebtVerification({ verification, status: "verified" });
+      await data.respondToDebtVerification(
+        verification.id,
+        "verified",
+        confirmationUserId,
+      );
+      router.back();
+    } catch {
+      Alert.alert(
+        "Could not accept proposal",
+        "The proposal is still pending. Please try again.",
+      );
+    }
   }
 
   async function sendConfirmationRequest(
@@ -412,24 +511,37 @@ export function DebtFormScreen() {
 
 function buildChangeSummary(
   previousDebt: Debt | undefined,
-  proposedDebt: Debt,
+  proposedDebt: Pick<
+    Debt,
+    "memberId" | "amount" | "direction" | "title" | "dueDate"
+  >,
 ): DebtChangeSummary {
   const previous = {
+    member: previousDebt?.memberId ?? null,
     amount: previousDebt?.amount ?? null,
     direction: previousDebt?.direction ?? null,
+    title: previousDebt?.title ?? null,
     dueDate: previousDebt?.dueDate ?? null,
   };
   const proposed = {
+    member: proposedDebt.memberId,
     amount: proposedDebt.amount,
     direction: proposedDebt.direction,
+    title: proposedDebt.title.trim(),
     dueDate: proposedDebt.dueDate,
   };
   const changedFields: DebtChangeSummary["changedFields"] = [];
+  if (!previousDebt || previous.member !== proposed.member) {
+    changedFields.push("member");
+  }
   if (!previousDebt || previous.amount !== proposed.amount) {
     changedFields.push("amount");
   }
   if (!previousDebt || previous.direction !== proposed.direction) {
     changedFields.push("direction");
+  }
+  if (!previousDebt || previous.title !== proposed.title) {
+    changedFields.push("title");
   }
   if (!previousDebt || previous.dueDate !== proposed.dueDate) {
     changedFields.push("dueDate");

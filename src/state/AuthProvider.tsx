@@ -5,7 +5,11 @@ import { AppState } from 'react-native';
 import { DEFAULT_BASE_CURRENCY } from '@/src/constants/currencies';
 import { isSupabaseConfigured, supabase } from '@/src/services/supabase';
 import { getAcceptedLinkedMemberProfile } from '@/src/services/profileSearch';
-import { createRemoteDebtVerification, fetchRemoteStage2Records } from '@/src/services/stage2Sync';
+import {
+  counterRemoteDebtVerification,
+  createRemoteDebtVerification,
+  fetchRemoteStage2Records,
+} from '@/src/services/stage2Sync';
 import { canRetrySyncEntry } from '@/src/services/stage6Sync';
 import { runSyncEngine } from '@/src/services/sync/syncEngine';
 import { addTelemetryBreadcrumb, captureTelemetryException, trackFirstSuccess, trackTelemetryEvent } from '@/src/services/telemetry';
@@ -65,6 +69,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const user = session?.user ?? null;
   const localProfile = user ? data.profiles.find((profile) => profile.id === user.id) ?? null : null;
+  const setLedgerUserId = data.setLedgerUserId;
+
+  useEffect(() => {
+    setLedgerUserId(user?.id ?? null);
+  }, [setLedgerUserId, user?.id]);
 
   const upsertLocalAndRemoteProfile = useCallback(
     async (input: {
@@ -166,6 +175,119 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const remote = await fetchRemoteStage2Records({ userId: user.id, email: user.email ?? null });
     if (!remote) {
+      return;
+    }
+
+    let deliveredPendingProposal = false;
+    for (const pendingCounter of data.debtVerifications.filter(
+      (verification) =>
+        verification.requesterUserId === user.id &&
+        verification.status === 'pending' &&
+        !verification.remoteId &&
+        Boolean(verification.supersedesVerificationId),
+    )) {
+      const superseded = data.debtVerifications.find(
+        (verification) => verification.id === pendingCounter.supersedesVerificationId,
+      );
+      if (!superseded?.remoteId || !pendingCounter.changeSummary) continue;
+      try {
+        const remoteCounter = await counterRemoteDebtVerification({
+          verification: superseded,
+          changeSummary: pendingCounter.changeSummary,
+        });
+        if (remoteCounter) {
+          await data.upsertDebtVerification({
+            ...pendingCounter,
+            remoteId: remoteCounter.id,
+            remoteDebtId: remoteCounter.debt_id,
+            syncStatus: 'synced',
+          });
+          deliveredPendingProposal = true;
+        }
+      } catch {
+        // A successful earlier RPC can be reconciled from the remote rows below.
+      }
+    }
+
+    for (const pendingProposal of data.debtVerifications.filter(
+      (verification) =>
+        verification.requesterUserId === user.id &&
+        verification.status === 'pending' &&
+        !verification.remoteId &&
+        !verification.supersedesVerificationId,
+    )) {
+      const debt = data.debts.find((item) => item.id === pendingProposal.debtId);
+      const member = debt
+        ? data.members.find((item) => item.id === debt.memberId)
+        : undefined;
+      if (!debt || !member?.linkedUserId) continue;
+      const matchingRemoteDebt = debt.remoteId
+        ? (remote.sharedDebts ?? []).find((row) => row.id === debt.remoteId)
+        : (remote.sharedDebts ?? []).find(
+            (row) =>
+              row.creator_user_id === user.id &&
+              row.involved_user_id === pendingProposal.responderUserId &&
+              row.local_member_reference === (member.remoteId ?? member.id) &&
+              Number(row.amount) === debt.amount &&
+              row.currency === debt.currency &&
+              row.debt_date === debt.debtDate &&
+              row.title === debt.title,
+          );
+      const matchingRemoteVerification = (remote.verifications ?? []).find(
+        (row) =>
+          row.requester_user_id === user.id &&
+          row.responder_user_id === pendingProposal.responderUserId &&
+          row.request_type === pendingProposal.requestType &&
+          row.status === 'pending' &&
+          row.debt_id === matchingRemoteDebt?.id &&
+          JSON.stringify(row.change_summary ?? null) ===
+            JSON.stringify(pendingProposal.changeSummary ?? null),
+      );
+      if (matchingRemoteVerification) {
+        await data.upsertDebt({
+          ...debt,
+          remoteId: matchingRemoteVerification.debt_id,
+          syncStatus: 'synced',
+        });
+        await data.upsertDebtVerification({
+          ...pendingProposal,
+          remoteId: matchingRemoteVerification.id,
+          remoteDebtId: matchingRemoteVerification.debt_id,
+          syncStatus: 'synced',
+        });
+        deliveredPendingProposal = true;
+        continue;
+      }
+      try {
+        const result = await createRemoteDebtVerification({
+          debt,
+          member,
+          requesterUserId: user.id,
+          responderUserId: pendingProposal.responderUserId,
+          sharedNotes: debt.sharedNotes ?? debt.notes,
+          requestType: pendingProposal.requestType,
+          changeSummary: pendingProposal.changeSummary,
+        });
+        if (result) {
+          await data.upsertDebt({
+            ...debt,
+            remoteId: result.remoteDebtId,
+            syncStatus: 'synced',
+          });
+          await data.upsertDebtVerification({
+            ...pendingProposal,
+            remoteId: result.remoteVerificationId,
+            remoteDebtId: result.remoteDebtId,
+            syncStatus: 'synced',
+          });
+          deliveredPendingProposal = true;
+        }
+      } catch {
+        // Keep the optimistic local proposal pending for the next sync pass.
+      }
+    }
+    if (deliveredPendingProposal) {
+      await data.refresh();
       return;
     }
 
@@ -358,6 +480,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
     for (const row of remote.sharedDebts ?? []) {
       const existingDebt = data.debts.find((debt) => debt.remoteId === row.id);
+      const preserveRequesterProposal = Boolean(
+        existingDebt &&
+          (remote.verifications ?? []).some(
+            (verification) =>
+              verification.debt_id === row.id &&
+              verification.request_type === 'amendment' &&
+              verification.status === 'pending' &&
+              verification.requester_user_id === user.id,
+          ),
+      );
       const otherUserId = row.creator_user_id === user.id ? row.involved_user_id : row.creator_user_id;
       const existingMember = data.members.find((member) => member.linkedUserId === otherUserId);
       const member =
@@ -368,7 +500,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           linkStatus: 'linked',
           linkedProfileDisplayName: 'Linked Debtulator user',
         }));
-      const direction =
+      const remoteDirection =
         row.creator_user_id === user.id
           ? row.direction
           : row.direction === 'they_owe_me'
@@ -382,14 +514,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         verificationRequestId: existingDebt?.verificationRequestId ?? null,
         visibility: row.visibility,
         syncStatus: 'synced',
-        direction,
-        amount: Number(row.amount),
+        direction:
+          preserveRequesterProposal && existingDebt
+            ? existingDebt.direction
+            : remoteDirection,
+        amount:
+          preserveRequesterProposal && existingDebt
+            ? existingDebt.amount
+            : Number(row.amount),
         currency: row.currency,
         title: row.title,
         notes: existingDebt?.notes ?? null,
         sharedNotes: row.notes_visible_to_other_user,
         debtDate: row.debt_date,
-        dueDate: row.due_date,
+        dueDate:
+          preserveRequesterProposal && existingDebt
+            ? existingDebt.dueDate
+            : row.due_date,
         recurringTemplateId: null,
         tags: existingDebt?.tags ?? [],
         groupId: null,
@@ -411,7 +552,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     for (const row of remote.verifications ?? []) {
-      const existing = data.debtVerifications.find((verification) => verification.remoteId === row.id);
+      const supersededLocal = data.debtVerifications.find(
+        (verification) => verification.remoteId === row.supersedes_verification_id,
+      );
+      const existing = data.debtVerifications.find(
+        (verification) =>
+          verification.remoteId === row.id ||
+          (!verification.remoteId &&
+            verification.supersedesVerificationId === supersededLocal?.id),
+      );
+      const hasUndeliveredLocalCounter = Boolean(
+        existing &&
+          data.debtVerifications.some(
+            (verification) =>
+              verification.supersedesVerificationId === existing.id &&
+              verification.status === 'pending' &&
+              !verification.remoteId,
+          ),
+      );
       const debt = syncedDebtsByRemoteId.get(row.debt_id);
       const verification: DebtVerification = {
         id: existing?.id ?? `verify_remote_${row.id}`,
@@ -422,9 +580,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         responderUserId: row.responder_user_id,
         requestType: row.request_type ?? 'creation',
         changeSummary: row.change_summary ?? null,
-        status: row.status,
+        status: hasUndeliveredLocalCounter ? existing?.status ?? row.status : row.status,
         rejectionReason: row.rejection_reason,
         suggestedChange: row.suggested_change,
+        supersedesVerificationId: supersededLocal?.id ?? null,
         requestedAt: row.requested_at,
         respondedAt: row.responded_at,
         createdAt: row.created_at,
@@ -437,9 +596,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           notification.type === 'verification_request' &&
           notification.metadata.verificationRemoteId === row.id,
       );
+      const hasRemoteNotification = (remote.notifications ?? []).some(
+        (notification) =>
+          notification.metadata?.verificationRemoteId === row.id,
+      );
       if (
         !existing &&
         !alreadyNotified &&
+        !hasRemoteNotification &&
         row.status === 'pending' &&
         row.responder_user_id === user.id
       ) {
@@ -472,13 +636,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .map((payment) => [payment.remoteId as string, payment]),
     );
     for (const row of remote.payments ?? []) {
-      const existing = syncedPaymentsByRemoteId.get(row.id);
+      const existing =
+        syncedPaymentsByRemoteId.get(row.id) ??
+        data.payments.find(
+          (payment) =>
+            row.client_generated_id &&
+            (payment.localId === row.client_generated_id ||
+              payment.id === row.client_generated_id),
+        );
       const sourceDebt = syncedDebtsByRemoteId.get(
         remoteLinesByPaymentId.get(row.id)?.source_record_id ?? '',
       );
       const payment: Payment = {
         id: existing?.id ?? `payment_remote_${row.id}`,
-        localId: existing?.localId ?? null,
+        localId: existing?.localId ?? row.client_generated_id ?? null,
         remoteId: row.id,
         createdByUserId: row.created_by_user_id ?? null,
         payerUserId: row.payer_user_id ?? null,
@@ -511,7 +682,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .map((settlement) => [settlement.remoteId as string, settlement]),
     );
     for (const row of remote.settlements ?? []) {
-      const existing = syncedSettlementsByRemoteId.get(row.id);
+      const existing =
+        syncedSettlementsByRemoteId.get(row.id) ??
+        data.settlements.find(
+          (settlement) =>
+            row.client_generated_id &&
+            (settlement.localId === row.client_generated_id ||
+              settlement.id === row.client_generated_id),
+        );
       const remoteLine = (remote.settlementLines ?? []).find(
         (line) => line.settlement_id === row.id,
       );
@@ -520,7 +698,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       );
       const settlement: Settlement = {
         id: existing?.id ?? `settlement_remote_${row.id}`,
-        localId: existing?.localId ?? null,
+        localId: existing?.localId ?? row.client_generated_id ?? null,
         remoteId: row.id,
         createdByUserId: row.created_by_user_id ?? null,
         groupId: null,
@@ -565,7 +743,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         continue;
       }
       const existing = data.settlementLines.find(
-        (line) => line.remoteId === row.id,
+        (line) =>
+          line.remoteId === row.id ||
+          (row.client_generated_id && line.id === row.client_generated_id),
       );
       const sourceDebt =
         row.source_record_type === 'simple_debt'
