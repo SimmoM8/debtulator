@@ -536,6 +536,7 @@ type DebtVerificationRow = {
   status: VerificationStatus;
   rejection_reason: string | null;
   suggested_change_json: string | null;
+  supersedes_verification_id: string | null;
   requested_at: string;
   responded_at: string | null;
   created_at: string;
@@ -1144,6 +1145,7 @@ export async function migrate(db: SQLite.SQLiteDatabase) {
       status TEXT NOT NULL,
       rejection_reason TEXT,
       suggested_change_json TEXT,
+      supersedes_verification_id TEXT,
       requested_at TEXT NOT NULL,
       responded_at TEXT,
       created_at TEXT NOT NULL,
@@ -1380,6 +1382,7 @@ export async function migrate(db: SQLite.SQLiteDatabase) {
   await ensureColumn(db, 'debts', 'suggested_change_json', 'TEXT');
   await ensureColumn(db, 'debt_verifications', 'request_type', "TEXT NOT NULL DEFAULT 'creation'");
   await ensureColumn(db, 'debt_verifications', 'change_summary_json', 'TEXT');
+  await ensureColumn(db, 'debt_verifications', 'supersedes_verification_id', 'TEXT');
 
   await ensureColumn(db, 'shared_expenses', 'remote_id', 'TEXT');
   await ensureColumn(db, 'shared_expenses', 'creator_user_id', 'TEXT');
@@ -2596,9 +2599,9 @@ export async function insertDebtVerification(db: SQLite.SQLiteDatabase, verifica
     `INSERT OR REPLACE INTO debt_verifications
       (id, remote_id, debt_id, remote_debt_id, requester_user_id, responder_user_id,
        request_type, change_summary_json, status,
-       rejection_reason, suggested_change_json, requested_at, responded_at, created_at, updated_at,
+       rejection_reason, suggested_change_json, supersedes_verification_id, requested_at, responded_at, created_at, updated_at,
        sync_status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       verification.id,
       verification.remoteId,
@@ -2611,6 +2614,7 @@ export async function insertDebtVerification(db: SQLite.SQLiteDatabase, verifica
       verification.status,
       verification.rejectionReason,
       verification.suggestedChange ? toJson(verification.suggestedChange) : null,
+      verification.supersedesVerificationId,
       verification.requestedAt,
       verification.respondedAt,
       verification.createdAt,
@@ -3556,6 +3560,7 @@ export function mapDebtVerificationRow(row: DebtVerificationRow): DebtVerificati
     suggestedChange: row.suggested_change_json
       ? (parseJsonObject(row.suggested_change_json, {}) as DebtVerification['suggestedChange'])
       : null,
+    supersedesVerificationId: row.supersedes_verification_id,
     requestedAt: row.requested_at,
     respondedAt: row.responded_at,
     createdAt: row.created_at,

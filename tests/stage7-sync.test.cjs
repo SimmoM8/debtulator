@@ -454,9 +454,56 @@ test('payment push maps group participants to remote ids', () => {
   };
 
   const remote = mapLocalPaymentToRemote(payment, snapshot());
+  assert.equal(remote.client_generated_id, 'payment_local');
   assert.equal(remote.group_id, 'group_remote');
   assert.equal(remote.payer_group_member_id, 'remote_member_b');
   assert.equal(remote.payee_group_member_id, 'remote_member_a');
+});
+
+test('payment pull reconciles a realtime echo by its client-generated id', () => {
+  const payment = {
+    id: 'payment_local',
+    remoteId: null,
+    localId: null,
+    createdByUserId: 'user_a',
+    payerUserId: 'user_a',
+    payeeUserId: 'user_b',
+    payerMemberId: null,
+    payeeMemberId: null,
+    payerGroupMemberId: null,
+    payeeGroupMemberId: null,
+    groupId: null,
+    relatedMemberId: 'member_simple',
+    amount: 50,
+    currency: 'SEK',
+    paymentDate: '2026-01-02',
+    notes: null,
+    status: 'pending_confirmation',
+    confirmationStatus: 'pending_confirmation',
+    visibility: 'shared_with_involved_member',
+    createdAt: '2026-01-02T00:00:00.000Z',
+    updatedAt: '2026-01-02T00:00:00.000Z',
+    archivedAt: null,
+    syncStatus: 'pending_upload',
+  };
+  const remote = {
+    id: 'payment_remote',
+    ...mapLocalPaymentToRemote(
+      payment,
+      snapshot({ members: [simpleMember()], payments: [payment] }),
+    ),
+    created_at: payment.createdAt,
+    updated_at: payment.updatedAt,
+  };
+
+  const local = mapRemotePaymentToLocal(
+    remote,
+    snapshot({ members: [simpleMember()], payments: [payment] }),
+  );
+
+  assert.equal(local.id, 'payment_local');
+  assert.equal(local.localId, 'payment_local');
+  assert.equal(local.remoteId, 'payment_remote');
 });
 
 test('shared simple debt push DTO uses the linked involved user and a safe member reference', () => {

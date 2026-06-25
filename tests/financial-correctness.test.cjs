@@ -38,6 +38,10 @@ const {
   DEFAULT_GROUP_SETTLEMENT_SETTINGS,
 } = require('../src/services/ledger.ts');
 const { debtsToCsv, parseCsv, toCsv } = require('../src/services/csv.ts');
+const {
+  activityConfirmationStatus,
+  buildUserActivity,
+} = require('../src/services/activity.ts');
 
 test('equal split rounding preserves the total and assigns the cent remainder once', () => {
   const shares = calculateParticipantShares({
@@ -147,6 +151,243 @@ test('settlement lines reduce ledger entries and rejected payments are ignored',
   assert.equal(entries[0].amount, 60);
   assert.equal(entries[0].overpaidAmount, 0);
   assert.equal(entries[0].paymentStatus, 'partially_paid');
+});
+
+test('the same remotely synced settlement line is only applied once', () => {
+  const entries = buildLedgerEntries(
+    [debt({ id: 'debt_1', amount: 100 })],
+    [],
+    [],
+    [
+      settlementLine({
+        id: 'line_local',
+        remoteId: 'line_remote',
+        paymentId: 'payment_local',
+        sourceRecordId: 'debt_1',
+        appliedAmount: 40,
+      }),
+      settlementLine({
+        id: 'line_realtime_copy',
+        remoteId: 'line_remote',
+        paymentId: 'payment_realtime_copy',
+        sourceRecordId: 'debt_1',
+        appliedAmount: 40,
+      }),
+    ],
+    [
+      payment({ id: 'payment_local', status: 'pending_confirmation' }),
+      payment({ id: 'payment_realtime_copy', status: 'pending_confirmation' }),
+    ],
+  );
+
+  assert.equal(entries[0].amountPaid, 40);
+  assert.equal(entries[0].remainingAmount, 60);
+});
+
+test('pending debt creation affects only the requester ledger', () => {
+  const pendingCreation = debtVerification({
+    requesterUserId: 'user_a',
+    responderUserId: 'user_b',
+    requestType: 'creation',
+  });
+  const requester = buildLedgerEntries(
+    [debt({ verificationStatus: 'pending' })],
+    [],
+    [],
+    [],
+    [],
+    [],
+    { currentUserId: 'user_a', debtVerifications: [pendingCreation] },
+  );
+  const responder = buildLedgerEntries(
+    [debt({ verificationStatus: 'pending' })],
+    [],
+    [],
+    [],
+    [],
+    [],
+    { currentUserId: 'user_b', debtVerifications: [pendingCreation] },
+  );
+
+  assert.equal(requester.length, 1);
+  assert.equal(requester[0].verificationStatus, 'local_only');
+  assert.equal(responder.length, 0);
+});
+
+test('pending debt amendment keeps the agreed value for the responder', () => {
+  const pendingAmendment = debtVerification({
+    requesterUserId: 'user_a',
+    responderUserId: 'user_b',
+    requestType: 'amendment',
+    changeSummary: {
+      changedFields: ['amount'],
+      previous: { amount: 100 },
+      proposed: { amount: 150 },
+    },
+  });
+  const requester = buildLedgerEntries(
+    [debt({ amount: 150, verificationStatus: 'pending' })],
+    [],
+    [],
+    [],
+    [],
+    [],
+    { currentUserId: 'user_a', debtVerifications: [pendingAmendment] },
+  )[0];
+  const responder = buildLedgerEntries(
+    [debt({ amount: 100, verificationStatus: 'pending' })],
+    [],
+    [],
+    [],
+    [],
+    [],
+    { currentUserId: 'user_b', debtVerifications: [pendingAmendment] },
+  )[0];
+
+  assert.equal(requester.amount, 150);
+  assert.equal(requester.verificationStatus, 'local_only');
+  assert.equal(responder.amount, 100);
+  assert.equal(responder.verificationStatus, 'verified');
+});
+
+test('pending payment affects only the payment creator ledger', () => {
+  const pendingPayment = payment({
+    id: 'payment_pending',
+    createdByUserId: 'user_a',
+    status: 'pending_confirmation',
+    confirmationStatus: 'pending_confirmation',
+  });
+  const line = settlementLine({
+    paymentId: pendingPayment.id,
+    appliedAmount: 40,
+  });
+  const requester = buildLedgerEntries(
+    [debt()],
+    [],
+    [],
+    [line],
+    [pendingPayment],
+    [],
+    { currentUserId: 'user_a' },
+  )[0];
+  const responder = buildLedgerEntries(
+    [debt()],
+    [],
+    [],
+    [line],
+    [pendingPayment],
+    [],
+    { currentUserId: 'user_b' },
+  )[0];
+
+  assert.equal(requester.amountPaid, 40);
+  assert.equal(responder.amountPaid, 0);
+});
+
+test('debt activity markers follow the matching proposal status', () => {
+  const baseInput = {
+    activityLogs: [
+      {
+        id: 'activity_title',
+        entityKind: 'debt',
+        entityId: 'debt_1',
+        actorUserId: 'user_a',
+        action: 'debt_title_changed',
+        metadata: { previousValue: 'Dinner', nextValue: 'Dinner out' },
+        createdAt: '2026-01-02T00:00:00.000Z',
+      },
+    ],
+    auditLogs: [],
+    groupActivityLogs: [],
+    linkRequests: [],
+    debts: [],
+    debtVerifications: [
+      debtVerification({
+        requestType: 'amendment',
+        status: 'pending',
+        changeSummary: {
+          changedFields: ['title'],
+          previous: { title: 'Dinner' },
+          proposed: { title: 'Dinner out' },
+        },
+        requestedAt: '2026-01-02T00:00:01.000Z',
+      }),
+    ],
+    groupDebts: [],
+    payments: [],
+    sharedExpenses: [],
+    currentUserId: 'user_a',
+  };
+  const [pendingEvent] = buildUserActivity(baseInput);
+  assert.equal(activityConfirmationStatus(pendingEvent), 'pending');
+
+  const [counteredEvent] = buildUserActivity({
+    ...baseInput,
+    debtVerifications: [
+      { ...baseInput.debtVerifications[0], status: 'countered' },
+    ],
+  });
+  assert.equal(activityConfirmationStatus(counteredEvent), 'rejected');
+});
+
+test('pending group debt affects the creator or a member who verified it', () => {
+  const groupDebt = {
+    id: 'group_debt_1',
+    remoteId: 'group_debt_remote_1',
+    groupId: 'group_1',
+    remoteGroupId: 'group_remote_1',
+    creatorUserId: 'user_a',
+    debtorGroupMemberId: 'member_a',
+    creditorGroupMemberId: 'member_b',
+    amount: 80,
+    currency: 'SEK',
+    title: 'Group loan',
+    notes: null,
+    debtDate: '2026-01-01',
+    dueDate: null,
+    tags: [],
+    verificationStatus: 'pending',
+    settlementStatus: 'active',
+    status: 'active',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    archivedAt: null,
+    syncStatus: 'synced',
+  };
+  const verifiedResponse = {
+    id: 'response_1',
+    remoteId: 'response_remote_1',
+    groupId: 'group_1',
+    remoteGroupId: 'group_remote_1',
+    targetType: 'debt',
+    targetId: groupDebt.id,
+    remoteTargetId: groupDebt.remoteId,
+    groupMemberId: 'member_b',
+    linkedUserId: 'user_b',
+    responseStatus: 'verified',
+    rejectionReason: null,
+    respondedAt: '2026-01-02T00:00:00.000Z',
+    createdAt: '2026-01-02T00:00:00.000Z',
+    updatedAt: '2026-01-02T00:00:00.000Z',
+    syncStatus: 'synced',
+  };
+
+  const creator = buildLedgerEntries([], [], [groupDebt], [], [], [], {
+    currentUserId: 'user_a',
+  });
+  const unconfirmedMember = buildLedgerEntries([], [], [groupDebt], [], [], [], {
+    currentUserId: 'user_b',
+  });
+  const confirmedMember = buildLedgerEntries([], [], [groupDebt], [], [], [], {
+    currentUserId: 'user_b',
+    groupVerificationResponses: [verifiedResponse],
+  });
+
+  assert.equal(creator.length, 1);
+  assert.equal(creator[0].verificationStatus, 'local_only');
+  assert.equal(unconfirmedMember.length, 0);
+  assert.equal(confirmedMember.length, 1);
+  assert.equal(confirmedMember[0].verificationStatus, 'verified');
 });
 
 test('simple debt settlement state is derived from payments rather than a persisted settled flag', () => {
@@ -402,6 +643,29 @@ function settlementLine(overrides = {}) {
     createdAt: '2026-01-02T00:00:00.000Z',
     updatedAt: '2026-01-02T00:00:00.000Z',
     syncStatus: 'local_only',
+    ...overrides,
+  };
+}
+
+function debtVerification(overrides = {}) {
+  return {
+    id: 'verification_1',
+    remoteId: 'verification_remote_1',
+    debtId: 'debt_1',
+    remoteDebtId: 'debt_remote_1',
+    requesterUserId: 'user_a',
+    responderUserId: 'user_b',
+    requestType: 'creation',
+    changeSummary: null,
+    status: 'pending',
+    rejectionReason: null,
+    suggestedChange: null,
+    supersedesVerificationId: null,
+    requestedAt: '2026-01-02T00:00:00.000Z',
+    respondedAt: null,
+    createdAt: '2026-01-02T00:00:00.000Z',
+    updatedAt: '2026-01-02T00:00:00.000Z',
+    syncStatus: 'synced',
     ...overrides,
   };
 }

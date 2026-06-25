@@ -994,6 +994,11 @@ export class DebtulatorRepository {
     const reviewFieldsChanged =
       (input.amount !== undefined && toAmount(input.amount) !== debt.amount) ||
       (input.direction !== undefined && input.direction !== debt.direction) ||
+      (input.title !== undefined && input.title.trim() !== debt.title) ||
+      (input.memberId !== undefined && input.memberId !== debt.memberId) ||
+      (input.status !== undefined &&
+        input.status !== 'settled' &&
+        input.status !== debt.status) ||
       (input.dueDate !== undefined &&
         cleanOptional(input.dueDate) !== debt.dueDate);
     const requiresSharedApproval =
@@ -2329,6 +2334,7 @@ export class DebtulatorRepository {
       status: 'pending',
       rejectionReason: null,
       suggestedChange: null,
+      supersedesVerificationId: null,
       requestedAt: timestamp,
       respondedAt: null,
       createdAt: timestamp,
@@ -2362,6 +2368,7 @@ export class DebtulatorRepository {
       verificationId: verification.id,
       requestType: verification.requestType,
       changedFields: verification.changeSummary?.changedFields ?? [],
+      verificationStatus: 'pending',
     });
     return { debt: refreshedDebt ?? updatedDebt, verification };
   }
@@ -2861,6 +2868,10 @@ export class DebtulatorRepository {
           ? cleanOptional(proposed.dueDate as string | null)
           : debt.dueDate,
       direction: proposedDirection,
+      status:
+        proposed?.status === 'active' || proposed?.status === 'archived'
+          ? proposed.status
+          : debt.status,
       verificationStatus: status,
       syncStatus: debt.remoteId ? 'pending_update' : debt.syncStatus,
       verifiedByUserId: status === 'verified' ? actorUserId : null,
@@ -2883,6 +2894,72 @@ export class DebtulatorRepository {
       suggestedChange: updatedVerification.suggestedChange,
     });
     return { debt: refreshedDebt ?? updatedDebt, verification: updatedVerification };
+  }
+
+  async counterDebtVerification(
+    incoming: DebtVerification,
+    debt: Debt,
+    actorUserId: string,
+    changeSummary: DebtChangeSummary,
+    remoteCounterproposal: {
+      id: string;
+      debt_id: string;
+      requester_user_id: string;
+      responder_user_id: string;
+      requested_at: string;
+      created_at: string;
+      updated_at: string;
+    } | null,
+  ) {
+    if (incoming.status !== 'pending' || incoming.responderUserId !== actorUserId) {
+      throw new Error('Only the recipient can counter a pending proposal.');
+    }
+    const timestamp = remoteCounterproposal?.updated_at ?? nowIso();
+    const updatedIncoming: DebtVerification = {
+      ...incoming,
+      status: 'countered',
+      rejectionReason: null,
+      respondedAt: timestamp,
+      updatedAt: timestamp,
+      syncStatus: 'synced',
+    };
+    const counterproposal: DebtVerification = {
+      id: createId('verify'),
+      remoteId: remoteCounterproposal?.id ?? null,
+      debtId: debt.id,
+      remoteDebtId: remoteCounterproposal?.debt_id ?? debt.remoteId,
+      requesterUserId: actorUserId,
+      responderUserId: incoming.requesterUserId,
+      requestType: 'amendment',
+      changeSummary,
+      status: 'pending',
+      rejectionReason: null,
+      suggestedChange: null,
+      supersedesVerificationId: incoming.id,
+      requestedAt: remoteCounterproposal?.requested_at ?? timestamp,
+      respondedAt: null,
+      createdAt: remoteCounterproposal?.created_at ?? timestamp,
+      updatedAt: timestamp,
+      syncStatus: remoteCounterproposal ? 'synced' : 'pending_upload',
+    };
+    const updatedDebt: Debt = {
+      ...debt,
+      verificationRequestId: counterproposal.id,
+      verificationStatus: 'pending',
+      syncStatus: debt.remoteId ? 'synced' : debt.syncStatus,
+      updatedAt: timestamp,
+    };
+
+    await insertDebtVerification(this.db, updatedIncoming);
+    await insertDebtVerification(this.db, counterproposal);
+    await insertDebt(this.db, updatedDebt);
+    await this.logActivity('debt', debt.id, 'debt_counterproposal_sent', actorUserId, {
+      verificationId: counterproposal.id,
+      supersedesVerificationId: incoming.id,
+      changedFields: changeSummary.changedFields,
+      verificationStatus: 'pending',
+    });
+    return { debt: updatedDebt, verification: counterproposal };
   }
 
   async markDebtDisputed(debt: Debt, actorUserId: string | null, disputeReason?: string | null) {

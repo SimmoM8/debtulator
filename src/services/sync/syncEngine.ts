@@ -534,9 +534,21 @@ async function upsertGroupVerification(snapshot: DatabaseSnapshot, store: SyncEn
 
 async function createPayment(snapshot: DatabaseSnapshot, store: SyncEngineStore, entry: SyncQueueEntry) {
   const payment = requiredLocal(snapshot.payments, entry.entityId, 'payment');
-  const { data, error } = await supabase!.from('payments').insert(mapLocalPaymentToRemote(payment, snapshot)).select('*').single();
+  const { data, error } = await supabase!
+    .from('payments')
+    .upsert(mapLocalPaymentToRemote(payment, snapshot), {
+      onConflict: 'created_by_user_id,client_generated_id',
+    })
+    .select('*')
+    .single();
   throwIf(error);
-  const updated = { ...payment, remoteId: data.id, syncStatus: 'synced' as const, updatedAt: data.updated_at };
+  const updated = {
+    ...payment,
+    localId: payment.localId ?? payment.id,
+    remoteId: data.id,
+    syncStatus: 'synced' as const,
+    updatedAt: data.updated_at,
+  };
   await store.upsertPayment(updated);
   return replace(snapshot, 'payments', updated);
 }
@@ -556,16 +568,30 @@ async function updatePayment(snapshot: DatabaseSnapshot, store: SyncEngineStore,
 
 async function createSettlement(snapshot: DatabaseSnapshot, store: SyncEngineStore, entry: SyncQueueEntry) {
   const settlement = requiredLocal(snapshot.settlements, entry.entityId, 'settlement');
-  const { data, error } = await supabase!.from('settlements').insert(mapLocalSettlementToRemote(settlement, snapshot)).select('*').single();
+  const { data, error } = await supabase!
+    .from('settlements')
+    .upsert(mapLocalSettlementToRemote(settlement, snapshot), {
+      onConflict: 'created_by_user_id,client_generated_id',
+    })
+    .select('*')
+    .single();
   throwIf(error);
-  const updated = { ...settlement, remoteId: data.id, syncStatus: 'synced' as const, updatedAt: data.updated_at };
+  const updated = {
+    ...settlement,
+    localId: settlement.localId ?? settlement.id,
+    remoteId: data.id,
+    syncStatus: 'synced' as const,
+    updatedAt: data.updated_at,
+  };
   await store.upsertSettlement(updated);
   snapshot = replace(snapshot, 'settlements', updated);
 
   for (const line of snapshot.settlementLines.filter((item) => item.settlementId === settlement.id)) {
     const { data: remoteLine, error: lineError } = await supabase!
       .from('settlement_lines')
-      .insert(mapLocalSettlementLineToRemote(line, snapshot))
+      .upsert(mapLocalSettlementLineToRemote(line, snapshot), {
+        onConflict: 'settlement_id,client_generated_id',
+      })
       .select('*')
       .single();
     throwIf(lineError);

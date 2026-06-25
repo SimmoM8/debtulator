@@ -134,18 +134,6 @@ export async function createRemoteDebtVerification(input: {
     };
   const shouldUpdateExistingDebt =
     Boolean(input.debt.remoteId) && requestType === 'creation' && !replacesParticipant;
-  if (replacesParticipant && input.debt.remoteId) {
-    const { error: archiveError } = await supabase
-      .from('shared_debt_records')
-      .update({
-        settlement_status: 'archived',
-        verification_status: 'cancelled',
-      })
-      .eq('id', input.debt.remoteId);
-    if (archiveError) {
-      throw archiveError;
-    }
-  }
   const debtQuery = shouldUpdateExistingDebt
     ? supabase
         .from('shared_debt_records')
@@ -172,7 +160,16 @@ export async function createRemoteDebtVerification(input: {
       p_debt_id: remoteDebtData.id,
       p_responder_user_id: input.responderUserId,
       p_request_type: requestType,
-      p_change_summary: input.changeSummary ?? null,
+      p_change_summary: replacesParticipant
+        ? {
+            ...(input.changeSummary ?? {
+              changedFields: ['member'],
+              previous: {},
+              proposed: {},
+            }),
+            replacesRemoteDebtId: input.debt.remoteId,
+          }
+        : input.changeSummary ?? null,
     },
   );
 
@@ -221,6 +218,34 @@ export async function respondRemoteDebtVerification(input: {
     throw verificationError;
   }
 
+}
+
+export async function counterRemoteDebtVerification(input: {
+  verification: DebtVerification;
+  changeSummary: DebtChangeSummary;
+  reason?: string | null;
+}) {
+  if (!supabase || !input.verification.remoteId) {
+    return null;
+  }
+
+  const { data, error } = await supabase.rpc('counter_debt_verification', {
+    p_verification_id: input.verification.remoteId,
+    p_change_summary: input.changeSummary,
+    p_reason: input.reason ?? null,
+  });
+  if (error) {
+    throw error;
+  }
+  return data as {
+    id: string;
+    debt_id: string;
+    requester_user_id: string;
+    responder_user_id: string;
+    requested_at: string;
+    created_at: string;
+    updated_at: string;
+  };
 }
 
 export async function sendRemoteDebtConfirmationReminder(input: {

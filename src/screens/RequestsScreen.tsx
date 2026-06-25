@@ -405,19 +405,19 @@ export function RequestsScreen() {
                       },
                     },
                     {
-                      label: "Contest",
+                      label: "Reject",
                       variant: "secondary" as const,
                       onPress: () => {
                         if (!userId) {
                           return;
                         }
                         Alert.alert(
-                          "Contest this debt?",
-                          "This marks the debt as contested and sends it back for review. No payment or balance is changed.",
+                          "Reject this proposal?",
+                          "The proposed values will not be applied to your ledger.",
                           [
                             { text: "Cancel", style: "cancel" },
                             {
-                              text: "Contest",
+                              text: "Reject",
                               style: "destructive",
                               onPress: async () => {
                                 await respondRemoteDebtVerification({
@@ -437,6 +437,22 @@ export function RequestsScreen() {
                         );
                       },
                     },
+                    ...(debt
+                      ? [
+                          {
+                            label: "Propose alternative",
+                            variant: "secondary" as const,
+                            onPress: () =>
+                              router.push({
+                                pathname: "/debt/form",
+                                params: {
+                                  id: debt.id,
+                                  counterVerificationId: verification.id,
+                                },
+                              }),
+                          },
+                        ]
+                      : []),
                   ]}
                 />
               );

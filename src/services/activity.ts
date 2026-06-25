@@ -54,6 +54,14 @@ export function buildUserActivity(input: {
               )?.status,
             }
           : {}),
+        ...(activity.entityKind === "debt"
+          ? {
+              verificationStatus: debtActivityVerificationStatus(
+                activity,
+                input.debtVerifications,
+              ),
+            }
+          : {}),
       },
     })),
     ...input.groupActivityLogs.map((activity) => ({
@@ -74,7 +82,18 @@ export function buildUserActivity(input: {
       createdAt: activity.createdAt,
       metadata: activity.metadata,
     })),
-    ...input.debts.map((debt) => ({
+    ...input.debts
+      .filter(
+        (debt) =>
+          !input.debtVerifications.some(
+            (verification) =>
+              verification.debtId === debt.id &&
+              verification.requestType === "creation" &&
+              verification.status === "pending" &&
+              verification.responderUserId === input.currentUserId,
+          ),
+      )
+      .map((debt) => ({
       id: `debt-created-${debt.id}`,
       action: "debt_created",
       actorUserId:
@@ -92,9 +111,17 @@ export function buildUserActivity(input: {
         currency: debt.currency,
         memberId: debt.memberId,
         direction: debt.direction,
-        verificationStatus: debt.verificationStatus,
+        verificationStatus:
+          input.debtVerifications
+            .filter(
+              (verification) =>
+                verification.debtId === debt.id &&
+                verification.requestType === "creation",
+            )
+            .sort((a, b) => b.requestedAt.localeCompare(a.requestedAt))[0]
+            ?.status ?? debt.verificationStatus,
       },
-    })),
+      })),
     ...input.sharedExpenses.map((expense) => ({
       id: `expense-created-${expense.id}`,
       action: "shared_expense_created",
@@ -562,7 +589,11 @@ export function activityConfirmationStatus(event: UserActivityEvent) {
       event.metadata.status ??
       "",
   ).toLowerCase();
-  if (event.action.includes("rejected") || status === "rejected")
+  if (
+    event.action.includes("rejected") ||
+    status === "rejected" ||
+    status === "countered"
+  )
     return "rejected" as const;
   if (
     event.action.includes("requested") ||
@@ -573,4 +604,58 @@ export function activityConfirmationStatus(event: UserActivityEvent) {
     return "pending" as const;
   }
   return undefined;
+}
+
+function debtActivityVerificationStatus(
+  activity: ActivityLog,
+  verifications: DebtVerification[],
+) {
+  const field = debtActivityReviewField(activity.action);
+  if (!field) {
+    return activity.metadata.verificationStatus;
+  }
+  const activityTime = Date.parse(activity.createdAt);
+  const match = verifications
+    .filter((verification) => {
+      if (
+        verification.debtId !== activity.entityId ||
+        verification.requesterUserId !== activity.actorUserId
+      ) {
+        return false;
+      }
+      const coversField =
+        field === "creation"
+          ? verification.requestType === "creation"
+          : verification.requestType === "creation" ||
+            verification.changeSummary?.changedFields.includes(field);
+      const requestedTime = Date.parse(verification.requestedAt);
+      return (
+        coversField &&
+        Number.isFinite(activityTime) &&
+        Number.isFinite(requestedTime) &&
+        requestedTime >= activityTime - 1_000 &&
+        requestedTime - activityTime <= 5 * 60_000
+      );
+    })
+    .sort((a, b) => a.requestedAt.localeCompare(b.requestedAt))[0];
+  return match?.status ?? activity.metadata.verificationStatus;
+}
+
+function debtActivityReviewField(action: string) {
+  if (action === "debt_created") return "creation" as const;
+  if (action === "debt_amount_changed") return "amount" as const;
+  if (action === "debt_direction_changed") return "direction" as const;
+  if (action === "debt_title_changed") return "title" as const;
+  if (action === "debt_member_changed") return "member" as const;
+  if (["debt_archived", "debt_reopened", "debt_status_changed"].includes(action))
+    return "status" as const;
+  if (
+    [
+      "debt_due_date_added",
+      "debt_due_date_changed",
+      "debt_due_date_removed",
+    ].includes(action)
+  )
+    return "dueDate" as const;
+  return null;
 }
