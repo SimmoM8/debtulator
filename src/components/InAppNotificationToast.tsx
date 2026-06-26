@@ -6,7 +6,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { palette, spacing, typefaces, typography } from "@/src/constants/design";
 import { notificationEnabled, privacySafeNotificationBody } from "@/src/services/notifications";
 import { useAppData } from "@/src/state/AppDataProvider";
-import type { AppNotification } from "@/src/types/models";
+import type { AppNotification, CurrencyCode, DebtDirection } from "@/src/types/models";
+import { formatMoney } from "@/src/utils/money";
+
+type ToastData = ReturnType<typeof useAppData>;
 
 export function InAppNotificationToast() {
   const data = useAppData();
@@ -62,6 +65,8 @@ export function InAppNotificationToast() {
     return null;
   }
 
+  const copy = notificationToastCopy(visibleNotification, data);
+
   return (
     <View pointerEvents="box-none" style={[styles.host, { paddingTop: insets.top + spacing.sm }]}>
       <Pressable
@@ -76,10 +81,10 @@ export function InAppNotificationToast() {
         <View style={styles.accent} />
         <View style={styles.copy}>
           <Text numberOfLines={1} style={styles.title}>
-            {visibleNotification.title}
+            {copy.title}
           </Text>
           <Text numberOfLines={2} style={styles.body}>
-            {privacySafeNotificationBody(visibleNotification, data.settings)}
+            {copy.body}
           </Text>
         </View>
       </Pressable>
@@ -136,3 +141,171 @@ const styles = StyleSheet.create({
     lineHeight: typography.line.md,
   },
 });
+
+function notificationToastCopy(
+  notification: AppNotification,
+  data: ToastData,
+) {
+  const metadata = notification.metadata;
+  const kind = stringValue(metadata.notificationKind);
+  const debt = notification.targetType === "debt"
+    ? data.debts.find((item) => item.id === notification.targetId)
+    : null;
+  const payment = notification.targetType === "payment"
+    ? data.payments.find((item) => item.id === notification.targetId)
+    : null;
+
+  if (kind?.includes("confirmation") || kind?.includes("counterproposal")) {
+    const requestType = stringValue(metadata.requestType);
+    const status = stringValue(metadata.status);
+    const actorName = displayNameForUser(
+      data,
+      stringValue(metadata.actorUserId),
+      stringValue(metadata.actorDisplayName),
+    );
+    const counterpartyName = displayNameForUser(
+      data,
+      stringValue(metadata.counterpartyUserId),
+      stringValue(metadata.counterpartyDisplayName),
+    );
+
+    if (notification.type === "verification_request") {
+      const amount = amountValue(metadata.amount) ?? debt?.amount ?? 0;
+      const currency = currencyValue(metadata.currency) ?? debt?.currency ?? "SEK";
+      const direction = directionValue(metadata.direction) ?? debt?.direction;
+      const amountLabel = formatMoney(amount, currency);
+      const title =
+        kind === "confirmation_request_sent"
+          ? `${counterpartyName} needs to review your debt`
+          : requestType === "amendment" || kind === "counterproposal"
+            ? `${actorName} wants to update a debt with you`
+            : `${actorName} wants to create a debt with you`;
+      const body =
+        kind === "confirmation_request_sent"
+          ? debtDirectionText(direction, counterpartyName, amountLabel, "sender")
+          : debtDirectionText(direction, actorName, amountLabel, "recipient");
+      return { title, body };
+    }
+
+    if (notification.type === "verification_result") {
+      const amount = amountValue(metadata.amount) ?? debt?.amount ?? 0;
+      const currency = currencyValue(metadata.currency) ?? debt?.currency ?? "SEK";
+      const amountLabel = formatMoney(amount, currency);
+      if (kind === "debt_counterproposal_sent") {
+        return {
+          title: `${counterpartyName} needs to review your counterproposal`,
+          body: `Debt amount: ${amountLabel}`,
+        };
+      }
+      if (kind === "debt_confirmation_response_sent") {
+        return {
+          title: status === "rejected" ? "You rejected the debt" : "You confirmed the debt",
+          body: `${counterpartyName}: ${amountLabel}`,
+        };
+      }
+      return {
+        title: status === "rejected" ? `${actorName} rejected your debt` : `${actorName} confirmed your debt`,
+        body: `Debt amount: ${amountLabel}`,
+      };
+    }
+
+    if (notification.type === "payment") {
+      const amount = amountValue(metadata.amount) ?? payment?.amount ?? 0;
+      const currency = currencyValue(metadata.currency) ?? payment?.currency ?? "SEK";
+      const amountLabel = formatMoney(amount, currency);
+      if (kind === "payment_confirmation_request_sent") {
+        return {
+          title: `${counterpartyName} needs to review your payment`,
+          body: `Payment amount: ${amountLabel}`,
+        };
+      }
+      if (kind === "payment_confirmation_response_sent") {
+        return {
+          title: status === "rejected" ? "You rejected the payment" : "You confirmed the payment",
+          body: `${counterpartyName}: ${amountLabel}`,
+        };
+      }
+      if (kind === "payment_confirmation_response") {
+        return {
+          title: status === "rejected" ? `${actorName} rejected your payment` : `${actorName} confirmed your payment`,
+          body: `Payment amount: ${amountLabel}`,
+        };
+      }
+      return {
+        title: `${actorName} wants to confirm a payment with you`,
+        body: `Payment amount: ${amountLabel}`,
+      };
+    }
+  }
+
+  return {
+    title: notification.title,
+    body: privacySafeNotificationBody(notification, data.settings),
+  };
+}
+
+function debtDirectionText(
+  direction: DebtDirection | undefined,
+  name: string,
+  amount: string,
+  perspective: "recipient" | "sender",
+) {
+  if (perspective === "sender") {
+    return direction === "i_owe_them"
+      ? `You owe ${name} ${amount}`
+      : `${name} owes you ${amount}`;
+  }
+  return direction === "i_owe_them"
+    ? `${name} owes you ${amount}`
+    : `You owe ${name} ${amount}`;
+}
+
+function displayNameForUser(
+  data: ToastData,
+  userId: string | undefined,
+  fallback: string | undefined,
+) {
+  if (fallback) {
+    return fallback;
+  }
+  if (userId) {
+    const profile = data.profiles.find((item) => item.id === userId);
+    if (profile?.displayName) {
+      return profile.displayName;
+    }
+    const member = data.members.find((item) => item.linkedUserId === userId);
+    if (member?.displayName) {
+      return member.displayName;
+    }
+  }
+  return "A linked member";
+}
+
+function stringValue(value: unknown) {
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function amountValue(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
+}
+
+function currencyValue(value: unknown): CurrencyCode | undefined {
+  return value === "SEK" ||
+    value === "AUD" ||
+    value === "EUR" ||
+    value === "USD" ||
+    value === "GBP"
+    ? value
+    : undefined;
+}
+
+function directionValue(value: unknown): DebtDirection | undefined {
+  return value === "they_owe_me" || value === "i_owe_them" ? value : undefined;
+}

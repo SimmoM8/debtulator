@@ -2382,6 +2382,12 @@ export class DebtulatorRepository {
         verificationRemoteId: verification.remoteId,
         notificationKind: 'confirmation_request_sent',
         requestType: verification.requestType,
+        actorUserId: input.requesterUserId,
+        counterpartyUserId: input.responderUserId,
+        counterpartyDisplayName: input.member.displayName,
+        amount: updatedDebt.amount,
+        currency: updatedDebt.currency,
+        direction: updatedDebt.direction,
       },
     });
     return { debt: refreshedDebt ?? updatedDebt, verification };
@@ -2600,6 +2606,12 @@ export class DebtulatorRepository {
           paymentId: payment.id,
           paymentRemoteId: payment.remoteId,
           notificationKind: 'payment_confirmation_request_sent',
+          actorUserId: payment.createdByUserId,
+          counterpartyUserId: payment.createdByUserId === payment.payerUserId
+            ? payment.payeeUserId
+            : payment.payerUserId,
+          amount: payment.amount,
+          currency: payment.currency,
         },
       });
     }
@@ -2664,6 +2676,10 @@ export class DebtulatorRepository {
         paymentRemoteId: payment.remoteId,
         notificationKind: 'payment_confirmation_response_sent',
         status,
+        actorUserId,
+        counterpartyUserId: payment.createdByUserId,
+        amount: payment.amount,
+        currency: payment.currency,
       },
     });
     if (updated.syncStatus === 'pending_update') {
@@ -2948,6 +2964,11 @@ export class DebtulatorRepository {
         verificationRemoteId: verification.remoteId,
         notificationKind: 'debt_confirmation_response_sent',
         status,
+        actorUserId,
+        counterpartyUserId: verification.requesterUserId,
+        amount: updatedDebt.amount,
+        currency: updatedDebt.currency,
+        direction: updatedDebt.direction,
       },
     });
     return { debt: refreshedDebt ?? updatedDebt, verification: updatedVerification };
@@ -3029,6 +3050,13 @@ export class DebtulatorRepository {
         supersedesVerificationId: incoming.id,
         notificationKind: 'debt_counterproposal_sent',
         status: 'countered',
+        actorUserId,
+        counterpartyUserId: incoming.requesterUserId,
+        amount: typeof changeSummary.proposed.amount === 'number'
+          ? changeSummary.proposed.amount
+          : debt.amount,
+        currency: debt.currency,
+        direction: changeSummary.proposed.direction ?? debt.direction,
       },
     });
     return { debt: updatedDebt, verification: counterproposal };
