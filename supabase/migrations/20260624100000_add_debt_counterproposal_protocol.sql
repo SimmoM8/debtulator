@@ -14,6 +14,48 @@ create index if not exists debt_verifications_supersedes_idx
 on public.debt_verifications (supersedes_verification_id)
 where supersedes_verification_id is not null;
 
+grant select on public.link_requests to authenticated;
+grant select on public.shared_debt_records to authenticated;
+grant select on public.debt_verifications to authenticated;
+grant select on public.payments to authenticated;
+grant select on public.settlements to authenticated;
+grant select on public.settlement_lines to authenticated;
+grant select on public.notifications to authenticated;
+
+do $$
+declare
+  table_name text;
+begin
+  if exists (
+    select 1 from pg_publication where pubname = 'supabase_realtime'
+  ) then
+    foreach table_name in array array[
+      'link_requests',
+      'shared_debt_records',
+      'debt_verifications',
+      'payments',
+      'settlements',
+      'settlement_lines',
+      'notifications'
+    ]
+    loop
+      if not exists (
+        select 1
+        from pg_publication_tables
+        where pubname = 'supabase_realtime'
+          and schemaname = 'public'
+          and tablename = table_name
+      ) then
+        execute format(
+          'alter publication supabase_realtime add table public.%I',
+          table_name
+        );
+      end if;
+    end loop;
+  end if;
+end;
+$$;
+
 create or replace function public.debt_review_fields(
   p_request_type text,
   p_change_summary jsonb
@@ -391,5 +433,176 @@ after insert on public.debt_verifications
 for each row
 when (new.status = 'pending')
 execute function public.notify_pending_debt_verification();
+
+create or replace function public.notify_debt_verification_response()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if new.requester_user_id is null or new.status not in ('verified', 'rejected') then
+    return new;
+  end if;
+
+  insert into public.notifications (
+    user_id,
+    type,
+    title,
+    body,
+    target_type,
+    target_id,
+    metadata
+  ) values (
+    new.requester_user_id,
+    'verification_result',
+    case
+      when new.status = 'verified' then 'Debt confirmed'
+      else 'Debt rejected'
+    end,
+    case
+      when new.status = 'verified' then 'A linked member confirmed your debt proposal.'
+      else 'A linked member rejected your debt proposal.'
+    end,
+    'debt',
+    new.debt_id::text,
+    jsonb_build_object(
+      'verificationRemoteId', new.id,
+      'notificationKind', 'confirmation_response',
+      'status', new.status
+    )
+  );
+
+  return new;
+end;
+$$;
+
+revoke all on function public.notify_debt_verification_response()
+from public, anon, authenticated;
+drop trigger if exists debt_verifications_notify_response
+on public.debt_verifications;
+create trigger debt_verifications_notify_response
+after update of status on public.debt_verifications
+for each row
+when (old.status = 'pending' and new.status in ('verified', 'rejected'))
+execute function public.notify_debt_verification_response();
+
+create or replace function public.notify_pending_payment_confirmation()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  recipient uuid;
+begin
+  if new.confirmation_status <> 'pending_confirmation' then
+    return new;
+  end if;
+
+  recipient := case
+    when new.created_by_user_id is not null and new.created_by_user_id = new.payer_user_id
+      then new.payee_user_id
+    when new.created_by_user_id is not null and new.created_by_user_id = new.payee_user_id
+      then new.payer_user_id
+    else coalesce(new.payee_user_id, new.payer_user_id)
+  end;
+
+  if recipient is null or recipient = new.created_by_user_id then
+    return new;
+  end if;
+
+  insert into public.notifications (
+    user_id,
+    type,
+    title,
+    body,
+    target_type,
+    target_id,
+    metadata
+  ) values (
+    recipient,
+    'payment',
+    'Payment needs confirmation',
+    'A linked member sent a payment confirmation request.',
+    'payment',
+    new.id::text,
+    jsonb_build_object(
+      'paymentRemoteId', new.id,
+      'notificationKind', 'payment_confirmation_request'
+    )
+  );
+
+  return new;
+end;
+$$;
+
+revoke all on function public.notify_pending_payment_confirmation()
+from public, anon, authenticated;
+drop trigger if exists payments_notify_pending_confirmation
+on public.payments;
+create trigger payments_notify_pending_confirmation
+after insert on public.payments
+for each row
+when (new.confirmation_status = 'pending_confirmation')
+execute function public.notify_pending_payment_confirmation();
+
+create or replace function public.notify_payment_confirmation_response()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if new.created_by_user_id is null
+    or new.confirmation_status not in ('confirmed', 'rejected')
+  then
+    return new;
+  end if;
+
+  insert into public.notifications (
+    user_id,
+    type,
+    title,
+    body,
+    target_type,
+    target_id,
+    metadata
+  ) values (
+    new.created_by_user_id,
+    'payment',
+    case
+      when new.confirmation_status = 'confirmed' then 'Payment confirmed'
+      else 'Payment rejected'
+    end,
+    case
+      when new.confirmation_status = 'confirmed' then 'A linked member confirmed your payment.'
+      else 'A linked member rejected your payment.'
+    end,
+    'payment',
+    new.id::text,
+    jsonb_build_object(
+      'paymentRemoteId', new.id,
+      'notificationKind', 'payment_confirmation_response',
+      'status', new.confirmation_status
+    )
+  );
+
+  return new;
+end;
+$$;
+
+revoke all on function public.notify_payment_confirmation_response()
+from public, anon, authenticated;
+drop trigger if exists payments_notify_confirmation_response
+on public.payments;
+create trigger payments_notify_confirmation_response
+after update of confirmation_status on public.payments
+for each row
+when (
+  old.confirmation_status = 'pending_confirmation'
+  and new.confirmation_status in ('confirmed', 'rejected')
+)
+execute function public.notify_payment_confirmation_response();
 
 notify pgrst, 'reload schema';

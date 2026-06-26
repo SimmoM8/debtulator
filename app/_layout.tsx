@@ -25,6 +25,7 @@ import "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/src/components/ErrorBoundary";
+import { InAppNotificationToast } from "@/src/components/InAppNotificationToast";
 import {
     palette,
     spacing,
@@ -132,6 +133,7 @@ export default function RootLayout() {
                     <Stack.Screen name="auth" />
                     <Stack.Screen name="first-run" />
                   </Stack>
+                  <InAppNotificationToast />
                 </StartupRouteGate>
               </AuthProvider>
             </AppDataGate>

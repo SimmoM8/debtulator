@@ -2370,6 +2370,20 @@ export class DebtulatorRepository {
       changedFields: verification.changeSummary?.changedFields ?? [],
       verificationStatus: 'pending',
     });
+    await this.createNotification({
+      userId: input.requesterUserId,
+      type: 'verification_request',
+      title: verification.requestType === 'amendment' ? 'Debt change request sent' : 'Debt confirmation sent',
+      body: `${updatedDebt.title} is waiting for confirmation.`,
+      targetType: 'debt',
+      targetId: updatedDebt.id,
+      metadata: {
+        verificationId: verification.id,
+        verificationRemoteId: verification.remoteId,
+        notificationKind: 'confirmation_request_sent',
+        requestType: verification.requestType,
+      },
+    });
     return { debt: refreshedDebt ?? updatedDebt, verification };
   }
 
@@ -2574,6 +2588,21 @@ export class DebtulatorRepository {
         overpaymentAmount,
       });
     }
+    if (payment.confirmationStatus === 'pending_confirmation') {
+      await this.createNotification({
+        userId: payment.createdByUserId,
+        type: 'payment',
+        title: 'Payment confirmation sent',
+        body: `${payment.currency} ${payment.amount.toFixed(2)} is waiting for confirmation.`,
+        targetType: 'payment',
+        targetId: payment.id,
+        metadata: {
+          paymentId: payment.id,
+          paymentRemoteId: payment.remoteId,
+          notificationKind: 'payment_confirmation_request_sent',
+        },
+      });
+    }
     if (payment.syncStatus === 'pending_upload' || payment.syncStatus === 'pending_create') {
       await this.queueSyncOperation({
         entityType: 'payment',
@@ -2622,6 +2651,20 @@ export class DebtulatorRepository {
     );
     await this.logActivity('payment', payment.id, `payment_${status}`, actorUserId, {
       relatedMemberId: payment.relatedMemberId,
+    });
+    await this.createNotification({
+      userId: actorUserId,
+      type: 'payment',
+      title: status === 'confirmed' ? 'Payment confirmed' : 'Payment rejected',
+      body: `Your payment response was saved.`,
+      targetType: 'payment',
+      targetId: payment.id,
+      metadata: {
+        paymentId: payment.id,
+        paymentRemoteId: payment.remoteId,
+        notificationKind: 'payment_confirmation_response_sent',
+        status,
+      },
     });
     if (updated.syncStatus === 'pending_update') {
       await this.queueSyncOperation({
@@ -2893,6 +2936,20 @@ export class DebtulatorRepository {
       rejectionReason: updatedVerification.rejectionReason,
       suggestedChange: updatedVerification.suggestedChange,
     });
+    await this.createNotification({
+      userId: actorUserId,
+      type: 'verification_result',
+      title: status === 'verified' ? 'Debt confirmed' : 'Debt rejected',
+      body: `Your response for ${updatedDebt.title} was saved.`,
+      targetType: 'debt',
+      targetId: debt.id,
+      metadata: {
+        verificationId: verification.id,
+        verificationRemoteId: verification.remoteId,
+        notificationKind: 'debt_confirmation_response_sent',
+        status,
+      },
+    });
     return { debt: refreshedDebt ?? updatedDebt, verification: updatedVerification };
   }
 
@@ -2958,6 +3015,21 @@ export class DebtulatorRepository {
       supersedesVerificationId: incoming.id,
       changedFields: changeSummary.changedFields,
       verificationStatus: 'pending',
+    });
+    await this.createNotification({
+      userId: actorUserId,
+      type: 'verification_result',
+      title: 'Counterproposal sent',
+      body: `${debt.title} is waiting for review.`,
+      targetType: 'debt',
+      targetId: debt.id,
+      metadata: {
+        verificationId: counterproposal.id,
+        verificationRemoteId: counterproposal.remoteId,
+        supersedesVerificationId: incoming.id,
+        notificationKind: 'debt_counterproposal_sent',
+        status: 'countered',
+      },
     });
     return { debt: updatedDebt, verification: counterproposal };
   }
