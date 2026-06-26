@@ -19,6 +19,7 @@ import type {
   Debt,
   DebtVerification,
   LinkRequest,
+  NotificationType,
   Payment,
   Settlement,
   SettlementLine,
@@ -59,6 +60,19 @@ type AuthContextValue = {
   refreshSync: () => Promise<void>;
 };
 
+type RemoteNotificationRow = {
+  id: string;
+  user_id: string | null;
+  type: NotificationType;
+  title: string;
+  body: string;
+  target_type: string | null;
+  target_id: string | null;
+  read_at: string | null;
+  metadata: unknown;
+  created_at: string;
+};
+
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -66,10 +80,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(isSupabaseConfigured);
   const publishingPendingDebtIdsRef = useRef(new Set<string>());
+  const dataRef = useRef(data);
+  const realtimeNotificationIdsRef = useRef(new Set<string>());
 
   const user = session?.user ?? null;
   const localProfile = user ? data.profiles.find((profile) => profile.id === user.id) ?? null : null;
   const setLedgerUserId = data.setLedgerUserId;
+
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
 
   useEffect(() => {
     setLedgerUserId(user?.id ?? null);
@@ -771,7 +791,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const alreadyStored = data.notifications.some(
         (notification) => notification.metadata.remoteNotificationId === row.id,
       );
-      if (alreadyStored) {
+      if (alreadyStored || realtimeNotificationIdsRef.current.has(row.id)) {
         continue;
       }
       const payment =
@@ -798,6 +818,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           remoteNotificationId: row.id,
         },
       });
+      realtimeNotificationIdsRef.current.add(row.id);
     }
   }, [data, user]);
 
@@ -915,15 +936,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (syncTimer) {
         clearTimeout(syncTimer);
       }
-      // Debounce bursts and allow the initiating device to persist its local
-      // request record before processing the matching realtime event.
+      // Coalesce multi-row trigger bursts without making the recipient wait for
+      // a manual refresh.
       syncTimer = setTimeout(() => {
         syncStage2RecordsRef.current().catch(() => undefined);
-      }, 250);
+      }, 50);
+    };
+    const createRealtimeNotification = async (row: RemoteNotificationRow) => {
+      if (row.user_id !== user.id || realtimeNotificationIdsRef.current.has(row.id)) {
+        return;
+      }
+      const latestData = dataRef.current;
+      if (
+        latestData.notifications.some(
+          (notification) => notification.metadata.remoteNotificationId === row.id,
+        )
+      ) {
+        realtimeNotificationIdsRef.current.add(row.id);
+        return;
+      }
+      const payment =
+        row.target_type === 'payment'
+          ? latestData.payments.find((payment) => payment.remoteId === row.target_id)
+          : null;
+      const debt =
+        row.target_type === 'debt'
+          ? latestData.debts.find((debt) => debt.remoteId === row.target_id)
+          : null;
+      await latestData.createNotification({
+        userId: user.id,
+        type: row.type,
+        title: row.title,
+        body: row.body,
+        targetType: payment ? 'payment' : debt ? 'debt' : null,
+        targetId: payment?.id ?? debt?.id ?? null,
+        readAt: row.read_at ?? null,
+        metadata: {
+          ...(isRecord(row.metadata) ? row.metadata : {}),
+          remoteNotificationId: row.id,
+        },
+      });
+      realtimeNotificationIdsRef.current.add(row.id);
     };
 
     const channel = realtimeClient
-      .channel(`link-requests:${user.id}`)
+      .channel(`stage2-realtime:${user.id}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'link_requests' },
@@ -956,8 +1013,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       )
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'notifications' },
-        scheduleLinkRequestSync,
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          void createRealtimeNotification(payload.new as RemoteNotificationRow)
+            .then(scheduleLinkRequestSync)
+            .catch(() => {
+              scheduleLinkRequestSync();
+            });
+        },
       )
       .subscribe();
 
@@ -1239,4 +1307,8 @@ export function useAuth() {
     throw new Error('useAuth must be used inside AuthProvider.');
   }
   return value;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
