@@ -392,7 +392,18 @@ language plpgsql
 security definer
 set search_path = ''
 as $$
+declare
+  target_debt public.shared_debt_records;
+  actor_name text;
 begin
+  select * into target_debt
+  from public.shared_debt_records
+  where id = new.debt_id;
+
+  select display_name into actor_name
+  from public.profiles
+  where id = new.requester_user_id;
+
   insert into public.notifications (
     user_id,
     type,
@@ -414,6 +425,20 @@ begin
     new.debt_id::text,
     jsonb_build_object(
       'verificationRemoteId', new.id,
+      'actorUserId', new.requester_user_id,
+      'actorDisplayName', coalesce(actor_name, 'A linked member'),
+      'counterpartyUserId', new.responder_user_id,
+      'requestType', new.request_type,
+      'amount', case
+        when jsonb_typeof(new.change_summary -> 'proposed' -> 'amount') = 'number'
+          then (new.change_summary -> 'proposed' ->> 'amount')::numeric
+        else target_debt.amount
+      end,
+      'currency', target_debt.currency,
+      'direction', coalesce(
+        nullif(new.change_summary -> 'proposed' ->> 'direction', ''),
+        target_debt.direction
+      ),
       'notificationKind', case
         when new.supersedes_verification_id is not null then 'counterproposal'
         else 'confirmation_request'
@@ -440,10 +465,21 @@ language plpgsql
 security definer
 set search_path = ''
 as $$
+declare
+  target_debt public.shared_debt_records;
+  actor_name text;
 begin
   if new.requester_user_id is null or new.status not in ('verified', 'rejected') then
     return new;
   end if;
+
+  select * into target_debt
+  from public.shared_debt_records
+  where id = new.debt_id;
+
+  select display_name into actor_name
+  from public.profiles
+  where id = new.responder_user_id;
 
   insert into public.notifications (
     user_id,
@@ -469,7 +505,21 @@ begin
     jsonb_build_object(
       'verificationRemoteId', new.id,
       'notificationKind', 'confirmation_response',
-      'status', new.status
+      'status', new.status,
+      'actorUserId', new.responder_user_id,
+      'actorDisplayName', coalesce(actor_name, 'A linked member'),
+      'counterpartyUserId', new.requester_user_id,
+      'requestType', new.request_type,
+      'amount', case
+        when jsonb_typeof(new.change_summary -> 'proposed' -> 'amount') = 'number'
+          then (new.change_summary -> 'proposed' ->> 'amount')::numeric
+        else target_debt.amount
+      end,
+      'currency', target_debt.currency,
+      'direction', coalesce(
+        nullif(new.change_summary -> 'proposed' ->> 'direction', ''),
+        target_debt.direction
+      )
     )
   );
 
@@ -495,6 +545,7 @@ set search_path = ''
 as $$
 declare
   recipient uuid;
+  actor_name text;
 begin
   if new.confirmation_status <> 'pending_confirmation' then
     return new;
@@ -511,6 +562,10 @@ begin
   if recipient is null or recipient = new.created_by_user_id then
     return new;
   end if;
+
+  select display_name into actor_name
+  from public.profiles
+  where id = new.created_by_user_id;
 
   insert into public.notifications (
     user_id,
@@ -529,7 +584,12 @@ begin
     new.id::text,
     jsonb_build_object(
       'paymentRemoteId', new.id,
-      'notificationKind', 'payment_confirmation_request'
+      'notificationKind', 'payment_confirmation_request',
+      'actorUserId', new.created_by_user_id,
+      'actorDisplayName', coalesce(actor_name, 'A linked member'),
+      'counterpartyUserId', recipient,
+      'amount', new.amount,
+      'currency', new.currency
     )
   );
 
@@ -553,12 +613,25 @@ language plpgsql
 security definer
 set search_path = ''
 as $$
+declare
+  actor_user_id uuid;
+  actor_name text;
 begin
   if new.created_by_user_id is null
     or new.confirmation_status not in ('confirmed', 'rejected')
   then
     return new;
   end if;
+
+  actor_user_id := case
+    when new.created_by_user_id = new.payer_user_id then new.payee_user_id
+    when new.created_by_user_id = new.payee_user_id then new.payer_user_id
+    else coalesce(new.payer_user_id, new.payee_user_id)
+  end;
+
+  select display_name into actor_name
+  from public.profiles
+  where id = actor_user_id;
 
   insert into public.notifications (
     user_id,
@@ -584,7 +657,12 @@ begin
     jsonb_build_object(
       'paymentRemoteId', new.id,
       'notificationKind', 'payment_confirmation_response',
-      'status', new.confirmation_status
+      'status', new.confirmation_status,
+      'actorUserId', actor_user_id,
+      'actorDisplayName', coalesce(actor_name, 'A linked member'),
+      'counterpartyUserId', new.created_by_user_id,
+      'amount', new.amount,
+      'currency', new.currency
     )
   );
 
