@@ -313,6 +313,7 @@ export function mapLocalDebtToRemote(debt: Debt, snapshot: DatabaseSnapshot, cre
   return {
     creator_user_id: creatorUserId,
     involved_user_id: member.linkedUserId,
+    client_generated_id: debt.id,
     local_member_reference: member.remoteId ?? member.id,
     amount: debt.amount,
     currency: debt.currency,

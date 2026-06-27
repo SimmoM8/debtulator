@@ -1238,7 +1238,7 @@ const styles = StyleSheet.create({
     backgroundColor: palette.background,
   },
   backdropCanvas: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   backdropSheenTop: {
     position: "absolute",
@@ -1718,7 +1718,6 @@ const styles = StyleSheet.create({
     backgroundColor: palette.surfaceMuted,
     padding: 4,
     overflow: "hidden",
-    ...shadows.soft,
   },
   sectionSwitcherThumb: {
     position: "absolute",
@@ -1772,7 +1771,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(17,24,39,0.16)",
   },
   sheetBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   sheet: {
     borderBottomLeftRadius: 0,

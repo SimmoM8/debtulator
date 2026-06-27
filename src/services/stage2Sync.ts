@@ -120,6 +120,7 @@ export async function createRemoteDebtVerification(input: {
   const debtPayload = {
       creator_user_id: input.requesterUserId,
       involved_user_id: input.responderUserId,
+      client_generated_id: input.debt.id,
       local_member_reference: input.member.remoteId ?? input.member.id,
       amount: input.debt.amount,
       currency: input.debt.currency,
@@ -132,19 +133,48 @@ export async function createRemoteDebtVerification(input: {
       verification_status: 'pending',
       settlement_status: input.debt.status,
     };
+  const existingGeneratedDebt =
+    requestType === 'creation' && !input.debt.remoteId
+      ? await supabase
+          .from('shared_debt_records')
+          .select('id')
+          .eq('creator_user_id', input.requesterUserId)
+          .eq('client_generated_id', input.debt.id)
+          .maybeSingle()
+      : { data: null, error: null };
+
+  if (existingGeneratedDebt.error) {
+    throw existingGeneratedDebt.error;
+  }
+
+  const remoteDebtId =
+    input.debt.remoteId ?? (existingGeneratedDebt.data?.id as string | undefined);
   const shouldUpdateExistingDebt =
-    Boolean(input.debt.remoteId) && requestType === 'creation' && !replacesParticipant;
+    Boolean(remoteDebtId) && requestType === 'creation' && !replacesParticipant;
   const debtQuery = shouldUpdateExistingDebt
     ? supabase
         .from('shared_debt_records')
         .update(debtPayload)
-        .eq('id', input.debt.remoteId)
+        .eq('id', remoteDebtId)
     : requestType === 'creation'
       ? supabase.from('shared_debt_records').insert(debtPayload)
       : null;
-  const remoteDebt = debtQuery
+  let remoteDebt = debtQuery
     ? await debtQuery.select('id').single()
-    : { data: { id: input.debt.remoteId }, error: null };
+    : { data: { id: remoteDebtId }, error: null };
+  if (
+    remoteDebt.error &&
+    remoteDebt.error.code === '23505' &&
+    requestType === 'creation' &&
+    !input.debt.remoteId
+  ) {
+    remoteDebt = await supabase
+      .from('shared_debt_records')
+      .select('id')
+      .eq('creator_user_id', input.requesterUserId)
+      .eq('client_generated_id', input.debt.id)
+      .single();
+  }
   const { data: remoteDebtData, error: debtError } = remoteDebt;
 
   if (debtError) {

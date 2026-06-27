@@ -364,6 +364,22 @@ export function RequestsScreen() {
               return (
                 <RequestCard
                   key={verification.id}
+                  onPress={() => {
+                    if (!debt) {
+                      return;
+                    }
+                    router.push({
+                      pathname: "/debt/[id]",
+                      params: {
+                        id: debt.id,
+                        ...(verification.requestType === "creation"
+                          ? { review: "creation" }
+                          : { section: "confirmation" }),
+                        verificationId: verification.id,
+                        verificationRemoteId: verification.remoteId ?? "",
+                      },
+                    });
+                  }}
                   title={
                     debt
                       ? proposedString(verification, "title") ?? debt.title
@@ -472,6 +488,15 @@ export function RequestsScreen() {
               return (
                 <RequestCard
                   key={payment.id}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/payment/[id]",
+                      params: {
+                        id: payment.id,
+                        paymentRemoteId: payment.remoteId ?? "",
+                      },
+                    })
+                  }
                   title={member ? `Payment with ${member.displayName}` : "Shared payment"}
                   body={`Recorded on ${payment.paymentDate}${payment.notes ? ` · ${payment.notes}` : ""}`}
                   amount={formatMoney(payment.amount, payment.currency)}
@@ -546,6 +571,14 @@ export function RequestsScreen() {
               return (
                 <RequestCard
                   key={invite.id}
+                  onPress={() => {
+                    if (group) {
+                      router.push({
+                        pathname: "/group/[id]",
+                        params: { id: group.id },
+                      });
+                    }
+                  }}
                   title={group?.name ?? invite.invitedDisplayName}
                   body={`Role offered: ${invite.offeredRole}${invite.message ? ` · ${invite.message}` : ""}`}
                   status="Pending"
@@ -609,6 +642,7 @@ export function RequestsScreen() {
             {visibleCompletedItems.map((item) => (
               <RequestCard
                 key={item.id}
+                onPress={() => openCompletedItem(item, data)}
                 title={completedTitle(item)}
                 body={completedBody(item)}
                 status={completedStatus(item)}
@@ -719,6 +753,41 @@ function completedBody(item: { status: string }) {
 
 function completedStatus(item: { status: string }) {
   return item.status.charAt(0).toUpperCase() + item.status.slice(1);
+}
+
+function openCompletedItem(
+  item: {
+    debtId?: string;
+    groupId?: string;
+    requesterMemberId?: string;
+    requestType?: string;
+  },
+  data: ReturnType<typeof useAppData>,
+) {
+  if (item.debtId) {
+    router.push({
+      pathname: "/debt/[id]",
+      params:
+        item.requestType === "creation"
+          ? { id: item.debtId, review: "creation" }
+          : { id: item.debtId, section: "confirmation" },
+    });
+    return;
+  }
+  if (item.groupId) {
+    router.push({ pathname: "/group/[id]", params: { id: item.groupId } });
+    return;
+  }
+  if (item.requesterMemberId) {
+    const member = data.members.find(
+      (candidate) =>
+        candidate.id === item.requesterMemberId ||
+        candidate.remoteId === item.requesterMemberId,
+    );
+    if (member) {
+      router.push({ pathname: "/member/[id]", params: { id: member.id } });
+    }
+  }
 }
 
 function describeVerificationRequest(

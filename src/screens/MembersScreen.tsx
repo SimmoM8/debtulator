@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
     GlassCard,
@@ -335,7 +335,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderGlass,
-    backgroundColor: palette.surfaceGlassElevated,
+    backgroundColor:
+      Platform.OS === "android" ? palette.surface : palette.surfaceGlassElevated,
     paddingHorizontal: 18,
     paddingVertical: 18,
     ...shadows.card,

@@ -360,6 +360,7 @@ create table public.shared_debt_records (
   id uuid primary key default gen_random_uuid(),
   creator_user_id uuid references auth.users(id) on delete set null,
   involved_user_id uuid references auth.users(id) on delete set null,
+  client_generated_id text,
   local_member_reference text,
   amount numeric not null check (amount >= 0),
   currency text not null check (currency in ('SEK', 'AUD', 'EUR', 'USD', 'GBP')),
@@ -387,6 +388,7 @@ create table public.debt_verifications (
   status text not null default 'pending',
   rejection_reason text,
   suggested_change jsonb,
+  supersedes_verification_id uuid references public.debt_verifications(id) on delete set null,
   requested_at timestamptz not null default now(),
   responded_at timestamptz,
   created_at timestamptz not null default now(),
@@ -862,6 +864,18 @@ create table public.account_deletion_requests (
 create unique index account_deletion_requests_active_subject_idx
   on public.account_deletion_requests(subject_user_id)
   where status in ('requested', 'queued', 'processing', 'anonymized');
+
+create index if not exists debt_verifications_pending_debt_users_idx
+  on public.debt_verifications (debt_id, requester_user_id, responder_user_id, requested_at desc)
+  where status = 'pending';
+
+create index if not exists debt_verifications_supersedes_idx
+  on public.debt_verifications (supersedes_verification_id)
+  where supersedes_verification_id is not null;
+
+create unique index if not exists shared_debt_records_creator_client_generated_idx
+  on public.shared_debt_records (creator_user_id, client_generated_id)
+  where client_generated_id is not null;
 
 -- Updated-at triggers.
 do $$

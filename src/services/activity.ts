@@ -38,32 +38,34 @@ export function buildUserActivity(input: {
   currentUserId: string | null;
 }) {
   return [
-    ...input.activityLogs.map((activity) => ({
-      id: `activity-${activity.id}`,
-      action: activity.action,
-      actorUserId: activity.actorUserId,
-      targetType: activity.entityKind,
-      targetId: activity.entityId,
-      createdAt: activity.createdAt,
-      metadata: {
-        ...activity.metadata,
-        ...(activity.entityKind === "link_request"
-          ? {
-              status: input.linkRequests.find(
-                (request) => request.id === activity.entityId,
-              )?.status,
-            }
-          : {}),
-        ...(activity.entityKind === "debt"
-          ? {
-              verificationStatus: debtActivityVerificationStatus(
-                activity,
-                input.debtVerifications,
-              ),
-            }
-          : {}),
-      },
-    })),
+    ...input.activityLogs
+      .filter((activity) => activity.action !== "debt_verification_requested")
+      .map((activity) => ({
+        id: `activity-${activity.id}`,
+        action: activity.action,
+        actorUserId: activity.actorUserId,
+        targetType: activity.entityKind,
+        targetId: activity.entityId,
+        createdAt: activity.createdAt,
+        metadata: {
+          ...activity.metadata,
+          ...(activity.entityKind === "link_request"
+            ? {
+                status: input.linkRequests.find(
+                  (request) => request.id === activity.entityId,
+                )?.status,
+              }
+            : {}),
+          ...(activity.entityKind === "debt"
+            ? {
+                verificationStatus: debtActivityVerificationStatus(
+                  activity,
+                  input.debtVerifications,
+                ),
+              }
+            : {}),
+        },
+      })),
     ...input.groupActivityLogs.map((activity) => ({
       id: `group-activity-${activity.id}`,
       action: activity.action,
@@ -276,6 +278,30 @@ export function activitySentence(actor: string, action: string) {
   return `${actor} ${phrase}`;
 }
 
+export function activityEventSentence(
+  event: UserActivityEvent,
+  context: {
+    currentUserId: string | null;
+    profiles: UserProfile[];
+    sharedGroupMembers: SharedGroupMember[];
+    members: Member[];
+  },
+) {
+  const actor = activityActorLabel(
+    event.actorUserId,
+    context.currentUserId,
+    context.profiles,
+    context.sharedGroupMembers,
+    context.members,
+  );
+
+  if (event.action === "reminder_sent") {
+    return `${actor} reminded ${reminderRecipientLabel(event, context)}`;
+  }
+
+  return activitySentence(actor, event.action);
+}
+
 function fallbackActivityPhrase(action: string) {
   const words = action.split("_").filter(Boolean);
   const pastTenseIndex = words.findIndex((word) =>
@@ -288,6 +314,34 @@ function fallbackActivityPhrase(action: string) {
     ].join(" ");
   }
   return words.join(" ") || "performed an activity";
+}
+
+function reminderRecipientLabel(
+  event: UserActivityEvent,
+  context: {
+    currentUserId: string | null;
+    profiles: UserProfile[];
+    sharedGroupMembers: SharedGroupMember[];
+    members: Member[];
+  },
+) {
+  const recipientUserId = stringValue(event.metadata.recipientUserId);
+  if (recipientUserId) {
+    return activityActorLabel(
+      recipientUserId,
+      context.currentUserId,
+      context.profiles,
+      context.sharedGroupMembers,
+      context.members,
+    );
+  }
+
+  const relatedMemberId = stringValue(event.metadata.relatedMemberId);
+  const memberName = context.members.find(
+    (member) => member.id === relatedMemberId,
+  )?.displayName;
+
+  return firstName(memberName) || "someone";
 }
 
 export function activityActorLabel(
