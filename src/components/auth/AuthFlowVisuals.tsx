@@ -138,15 +138,10 @@ const styles = StyleSheet.create({
     width: 220,
   },
   barGlow: {
-    shadowColor: palette.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.22,
-    shadowRadius: 7,
     width: '100%',
   },
   barTrack: {
     borderRadius: 999,
-    elevation: 2,
     flexDirection: 'row',
     height: 8,
     overflow: 'hidden',

@@ -1,15 +1,21 @@
 import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { palette, spacing, typefaces, typography } from "@/src/constants/design";
+import {
+  palette,
+  shadows,
+  spacing,
+  typefaces,
+  typography,
+} from "@/src/constants/design";
 import { notificationEnabled, privacySafeNotificationBody } from "@/src/services/notifications";
 import { useAppData } from "@/src/state/AppDataProvider";
 import type { AppNotification, CurrencyCode, DebtDirection } from "@/src/types/models";
 import { formatMoney } from "@/src/utils/money";
 
-type ToastData = ReturnType<typeof useAppData>;
+export type NotificationRoutingData = ReturnType<typeof useAppData>;
 
 export function InAppNotificationToast() {
   const data = useAppData();
@@ -74,7 +80,7 @@ export function InAppNotificationToast() {
         accessibilityLabel={`${visibleNotification.title}. Open notifications.`}
         onPress={() => {
           setVisibleNotification(null);
-          router.push("/notifications");
+          openNotificationTarget(visibleNotification, data);
         }}
         style={styles.toast}
       >
@@ -109,12 +115,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderIndigoSoft,
-    backgroundColor: palette.surfaceGlassStrong,
-    shadowColor: palette.shadow,
-    shadowOpacity: 0.18,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 8,
+    backgroundColor:
+      Platform.OS === "android" ? palette.surface : palette.surfaceGlassStrong,
+    ...shadows.card,
     flexDirection: "row",
     overflow: "hidden",
   },
@@ -144,15 +147,24 @@ const styles = StyleSheet.create({
 
 function notificationToastCopy(
   notification: AppNotification,
-  data: ToastData,
+  data: NotificationRoutingData,
 ) {
   const metadata = notification.metadata;
   const kind = stringValue(metadata.notificationKind);
+  const remoteTargetId = stringValue(metadata.remoteTargetId);
   const debt = notification.targetType === "debt"
-    ? data.debts.find((item) => item.id === notification.targetId)
+    ? data.debts.find(
+        (item) =>
+          item.id === notification.targetId ||
+          (remoteTargetId && item.remoteId === remoteTargetId),
+      )
     : null;
   const payment = notification.targetType === "payment"
-    ? data.payments.find((item) => item.id === notification.targetId)
+    ? data.payments.find(
+        (item) =>
+          item.id === notification.targetId ||
+          (remoteTargetId && item.remoteId === remoteTargetId),
+      )
     : null;
 
   if (kind?.includes("confirmation") || kind?.includes("counterproposal")) {
@@ -261,24 +273,24 @@ function debtDirectionText(
 }
 
 function displayNameForUser(
-  data: ToastData,
+  data: NotificationRoutingData,
   userId: string | undefined,
   fallback: string | undefined,
 ) {
-  if (fallback) {
+  if (fallback && fallback !== "A linked member") {
     return fallback;
   }
   if (userId) {
-    const profile = data.profiles.find((item) => item.id === userId);
-    if (profile?.displayName) {
-      return profile.displayName;
-    }
     const member = data.members.find((item) => item.linkedUserId === userId);
     if (member?.displayName) {
       return member.displayName;
     }
+    const profile = data.profiles.find((item) => item.id === userId);
+    if (profile?.displayName) {
+      return profile.displayName;
+    }
   }
-  return "A linked member";
+  return fallback ?? "A linked member";
 }
 
 function stringValue(value: unknown) {
@@ -308,4 +320,113 @@ function currencyValue(value: unknown): CurrencyCode | undefined {
 
 function directionValue(value: unknown): DebtDirection | undefined {
   return value === "they_owe_me" || value === "i_owe_them" ? value : undefined;
+}
+
+export function openNotificationTarget(
+  notification: AppNotification,
+  data: NotificationRoutingData,
+) {
+  const metadata = notification.metadata;
+  const kind = stringValue(metadata.notificationKind);
+  const localDebtId =
+    notification.targetType === "debt" ? notification.targetId : null;
+  const localPaymentId =
+    notification.targetType === "payment" ? notification.targetId : null;
+  const remoteTargetId = stringValue(metadata.remoteTargetId);
+  const debt =
+    (localDebtId ? data.debts.find((item) => item.id === localDebtId) : null) ??
+    (remoteTargetId ? data.debts.find((item) => item.remoteId === remoteTargetId) : null);
+  const payment =
+    (localPaymentId ? data.payments.find((item) => item.id === localPaymentId) : null) ??
+    (remoteTargetId ? data.payments.find((item) => item.remoteId === remoteTargetId) : null);
+
+  if (notification.targetType === "sync_conflict" && notification.targetId) {
+    router.push(`/conflict/${notification.targetId}` as never);
+    return;
+  }
+
+  if (notification.type === "verification_request" || notification.type === "verification_result") {
+    if (debt) {
+      const requestType = stringValue(metadata.requestType);
+      const opensCreationReview =
+        notification.type === "verification_request" &&
+        requestType === "creation";
+      router.push({
+        pathname: "/debt/[id]",
+        params: {
+          id: debt.id,
+          ...(opensCreationReview
+            ? { review: "creation" }
+            : { section: "confirmation" }),
+          verificationId: stringValue(metadata.verificationId) ?? "",
+          verificationRemoteId: stringValue(metadata.verificationRemoteId) ?? "",
+        },
+      });
+      return;
+    }
+    router.push("/requests");
+    return;
+  }
+
+  if (notification.type === "payment") {
+    if (payment) {
+      router.push({
+        pathname: "/payment/[id]",
+        params: {
+          id: payment.id,
+          paymentRemoteId: stringValue(metadata.paymentRemoteId) ?? "",
+        },
+      });
+      return;
+    }
+    router.push(kind?.includes("confirmation") ? "/requests" : "/notifications");
+    return;
+  }
+
+  if (notification.type === "group_invite" || notification.type === "claim_request") {
+    router.push("/requests");
+    return;
+  }
+
+  if (notification.targetType === "debt" && debt) {
+    router.push({ pathname: "/debt/[id]", params: { id: debt.id } });
+    return;
+  }
+
+  if (notification.targetId) {
+    switch (notification.targetType) {
+      case "member":
+        router.push({ pathname: "/member/[id]", params: { id: notification.targetId } });
+        return;
+      case "group":
+        router.push({ pathname: "/group/[id]", params: { id: notification.targetId } });
+        return;
+      case "settlement":
+        router.push({ pathname: "/settlement/[id]", params: { id: notification.targetId } });
+        return;
+      case "attachment":
+        router.push({ pathname: "/attachment/[id]", params: { id: notification.targetId } });
+        return;
+      case "shared_expense":
+        router.push({ pathname: "/expense/[id]", params: { id: notification.targetId } });
+        return;
+      case "sync_conflict":
+        router.push(`/conflict/${notification.targetId}` as never);
+        return;
+      default:
+        break;
+    }
+  }
+
+  if (notification.type === "export_ready") {
+    router.push("/export");
+    return;
+  }
+
+  if (notification.type === "duplicate_warning" || notification.type === "group_update") {
+    router.push("/groups");
+    return;
+  }
+
+  router.push("/notifications");
 }

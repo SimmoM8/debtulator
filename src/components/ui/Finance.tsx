@@ -110,12 +110,14 @@ export function GlassCard({
   wrapperStyle,
   tone = "lavender",
   allowOverflow = false,
+  shadow = "card",
 }: {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   wrapperStyle?: StyleProp<ViewStyle>;
   tone?: Tone;
   allowOverflow?: boolean;
+  shadow?: "card" | "stacked" | "none";
 }) {
   const toneStyle = toneStyles[tone];
 
@@ -123,14 +125,13 @@ export function GlassCard({
     <View
       style={[
         styles.cardLift,
-        Platform.OS !== "android" && shadows.card,
+        shadow !== "none" && shadows[shadow],
         wrapperStyle,
       ]}
     >
       <View
         style={[
           styles.card,
-          Platform.OS === "android" && shadows.card,
           {
             borderColor: toneStyle.border,
             backgroundColor:
@@ -142,7 +143,13 @@ export function GlassCard({
           style,
         ]}
       >
-        <View pointerEvents="none" style={styles.cardMaterialClip}>
+        <View
+          pointerEvents="none"
+          style={[
+            styles.cardMaterial,
+            Platform.OS !== "android" && styles.cardMaterialClip,
+          ]}
+        >
           <GlassBackdrop />
           <View style={styles.cardSheen} />
           <View
@@ -500,6 +507,7 @@ export function StatCard({
         onHoverOut={showsCompactInfo ? dismissInfo : undefined}
         style={({ pressed }) => [
           styles.statCard,
+          !compact && styles.statCardShadow,
           { borderColor: toneStyle.border },
           compact && styles.statCardCompact,
           compact && compactDensity === "tight" && styles.statCardCompactTight,
@@ -546,6 +554,7 @@ export function StatCard({
     <View
       style={[
         styles.statCard,
+        !compact && styles.statCardShadow,
         { borderColor: toneStyle.border },
         compact && styles.statCardCompact,
         compact && compactDensity === "tight" && styles.statCardCompactTight,
@@ -568,36 +577,58 @@ export function RequestCard({
   status,
   tone = "amber",
   actions,
+  onPress,
 }: {
   title: string;
   body: string;
   amount?: string;
   status: string;
   tone?: Extract<Tone, "amber" | "teal" | "coral" | "muted">;
+  onPress?: () => void;
   actions?: {
     label: string;
     onPress: () => void;
     variant?: "primary" | "secondary";
   }[];
 }) {
+  const header = (
+    <>
+      <View style={styles.requestCopy}>
+        <Text style={styles.requestTitle} numberOfLines={2}>
+          {title}
+        </Text>
+        <Text style={styles.requestBody}>{body}</Text>
+      </View>
+      <View style={styles.requestMeta}>
+        <StatusPill label={status} tone={tone} />
+        {amount ? (
+          <Text style={styles.requestAmount} numberOfLines={1}>
+            {amount}
+          </Text>
+        ) : null}
+      </View>
+    </>
+  );
+
   return (
     <View style={styles.requestCard}>
-      <View style={styles.requestHeader}>
-        <View style={styles.requestCopy}>
-          <Text style={styles.requestTitle} numberOfLines={2}>
-            {title}
-          </Text>
-          <Text style={styles.requestBody}>{body}</Text>
-        </View>
-        <View style={styles.requestMeta}>
-          <StatusPill label={status} tone={tone} />
-          {amount ? (
-            <Text style={styles.requestAmount} numberOfLines={1}>
-              {amount}
-            </Text>
-          ) : null}
-        </View>
-      </View>
+      {onPress ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={[title, body, amount, status]
+            .filter(Boolean)
+            .join(", ")}
+          onPress={onPress}
+          style={({ pressed }) => [
+            styles.requestHeader,
+            pressed && styles.pressed,
+          ]}
+        >
+          {header}
+        </Pressable>
+      ) : (
+        <View style={styles.requestHeader}>{header}</View>
+      )}
       {actions?.length ? (
         <View style={styles.requestActions}>
           {actions.map((action) => {
@@ -924,8 +955,10 @@ const styles = StyleSheet.create({
   cardOverflowVisible: {
     overflow: "visible",
   },
+  cardMaterial: {
+    ...StyleSheet.absoluteFill,
+  },
   cardMaterialClip: {
-    ...StyleSheet.absoluteFillObject,
     borderRadius: radii.xl,
     overflow: "hidden",
   },
@@ -965,7 +998,8 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderIndigoSoft,
-    backgroundColor: palette.surfaceGlassElevated,
+    backgroundColor:
+      Platform.OS === "android" ? palette.surface : palette.surfaceGlassElevated,
     justifyContent: "center",
   },
   filterChipActive: {
@@ -1077,10 +1111,13 @@ const styles = StyleSheet.create({
     minWidth: 100,
     borderRadius: 20,
     borderWidth: StyleSheet.hairlineWidth,
-    backgroundColor: palette.surfaceGlassElevated,
+    backgroundColor:
+      Platform.OS === "android" ? palette.surface : palette.surfaceGlassElevated,
     padding: 12,
     gap: 4,
     alignItems: "center",
+  },
+  statCardShadow: {
     ...shadows.card,
   },
   statCardCompact: {
@@ -1094,7 +1131,6 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     gap: 4,
     alignItems: "center",
-    elevation: 0,
   },
   statCardCompactTight: {
     paddingHorizontal: 10,
@@ -1409,7 +1445,8 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderIndigoSoft,
-    backgroundColor: palette.surfaceGlassElevated,
+    backgroundColor:
+      Platform.OS === "android" ? palette.surface : palette.surfaceGlassElevated,
     ...shadows.card,
   },
   settingsLead: {
@@ -1464,7 +1501,7 @@ const styles = StyleSheet.create({
     ...shadows.card,
   },
   addButtonGradient: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: gradients.indigoStart,
   },
   pressed: {

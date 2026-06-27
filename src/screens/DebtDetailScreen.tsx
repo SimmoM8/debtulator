@@ -6,13 +6,15 @@ import {
   Animated,
   Modal,
   Pressable,
+  type StyleProp,
   StyleSheet,
   Text,
   TextInput,
   View,
+  type ViewStyle,
 } from "react-native";
 
-import { AvatarStack } from "@/src/components/ui/Finance";
+import { AvatarStack, GlassCard } from "@/src/components/ui/Finance";
 import { ActivityTimelineRow } from "@/src/components/ActivityTimelineRow";
 import { ConfirmationMarker } from "@/src/components/ConfirmationMarker";
 import { MobileMenuModal } from "@/src/components/ui/MenuList";
@@ -32,6 +34,7 @@ import {
 import {
   palette,
   radii,
+  shadows,
   spacing,
   typefaces,
   typography,
@@ -77,10 +80,21 @@ type ActivityItem = {
 type DebtDetailSectionKey = "details" | "confirmation" | "activity";
 
 export function DebtDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, section, review, verificationId, verificationRemoteId } =
+    useLocalSearchParams<{
+      id: string;
+      section?: string;
+      review?: string;
+      verificationId?: string;
+      verificationRemoteId?: string;
+    }>();
   const data = useAppData();
   const auth = useAuth();
   const debt = data.debts.find((item) => item.id === id);
+  const requestedSection =
+    section === "confirmation" || section === "activity" || section === "details"
+      ? section
+      : null;
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [settlingUp, setSettlingUp] = useState(false);
   const [visibleActivityCount, setVisibleActivityCount] = useState(5);
@@ -99,13 +113,14 @@ export function DebtDetailScreen() {
   const [dueDateDraft, setDueDateDraft] = useState("");
   const [savingDueDate, setSavingDueDate] = useState(false);
   const [activeSection, setActiveSection] =
-    useState<DebtDetailSectionKey>("details");
+    useState<DebtDetailSectionKey>(requestedSection ?? "details");
   const [respondingVerificationId, setRespondingVerificationId] = useState<
     string | null
   >(null);
   const [remindingVerificationId, setRemindingVerificationId] = useState<
     string | null
   >(null);
+
   const member = debt
     ? data.members.find((item) => item.id === debt.memberId)
     : undefined;
@@ -185,6 +200,28 @@ export function DebtDetailScreen() {
   const pendingConfirmations = currentConfirmations.filter(
     (verification) => verification.status === "pending",
   );
+  const focusedVerification = pendingConfirmations.find(
+    (verification) =>
+      (verificationId && verification.id === verificationId) ||
+      (verificationRemoteId && verification.remoteId === verificationRemoteId),
+  );
+  const focusedIncomingVerification =
+    focusedVerification?.responderUserId === currentUserId
+      ? focusedVerification
+      : null;
+  const routeVerification = debtConfirmationRecords.find(
+    (verification) =>
+      (verificationId && verification.id === verificationId) ||
+      (verificationRemoteId && verification.remoteId === verificationRemoteId),
+  );
+  const creationReviewVerification =
+    focusedIncomingVerification?.requestType === "creation"
+      ? focusedIncomingVerification
+      : routeVerification?.requestType === "creation"
+        ? routeVerification
+        : null;
+  const isCreationReviewMode =
+    review === "creation" && Boolean(creationReviewVerification);
   const rejectedConfirmations = currentConfirmations.filter(
     (verification) => verification.status === "rejected",
   );
@@ -298,11 +335,29 @@ export function DebtDetailScreen() {
     ...data.activityLogs
       .filter(
         (activity) =>
-          activity.entityKind === "debt" &&
-          activity.entityId === currentDebt.id,
+          activity.action !== "debt_verification_requested" &&
+          ((activity.entityKind === "debt" &&
+            activity.entityId === currentDebt.id) ||
+          (activity.action === "reminder_sent" &&
+            activity.metadata.relatedRecordId === currentDebt.id)),
       )
       .map((activity) => {
         const actor = activityActorName(activity.actorUserId);
+        if (activity.action === "reminder_sent") {
+          const recipientName =
+            typeof activity.metadata.relatedMemberId === "string"
+              ? data.members.find(
+                  (item) => item.id === activity.metadata.relatedMemberId,
+                )?.displayName
+              : undefined;
+          return {
+            id: activity.id,
+            title: `${actor} reminded ${recipientName ?? member?.displayName ?? "the other member"}`,
+            detail: "",
+            createdAt: activity.createdAt,
+            confirmationStatus: undefined,
+          };
+        }
         const description = describeDebtActivity(
           activity.action,
           activity.metadata,
@@ -1014,6 +1069,197 @@ export function DebtDetailScreen() {
     }
   }
 
+  if (isCreationReviewMode && creationReviewVerification) {
+    const reviewBusy =
+      respondingVerificationId === creationReviewVerification.id;
+    const canRespondToCreationReview =
+      creationReviewVerification.status === "pending" &&
+      creationReviewVerification.responderUserId === currentUserId;
+    const showRejectedCreationReviewTab =
+      creationReviewVerification.status === "rejected" &&
+      creationReviewVerification.responderUserId === currentUserId;
+    const showCreationReviewPullout =
+      canRespondToCreationReview || showRejectedCreationReviewTab;
+
+    return (
+      <Screen>
+        <PageHeader title="Confirm debt" />
+
+        <View
+          style={[
+            styles.creationReviewHeroStack,
+            showCreationReviewPullout && styles.creationReviewHeroStackWithActions,
+          ]}
+        >
+          <GlassCard
+            tone={isOwedToMe ? "teal" : "coral"}
+            shadow={showCreationReviewPullout ? "stacked" : "card"}
+            wrapperStyle={styles.creationReviewHeroLift}
+            style={[styles.hero, styles.creationReviewHero]}
+          >
+            <View style={styles.heroHeading}>
+              <Text style={[styles.heroEyebrow, { color: directionColor }]}>
+                {isOwedToMe
+                  ? `${member?.displayName ?? "They"} owe you`
+                  : `You owe ${member?.displayName ?? "them"}`}
+              </Text>
+              <Text style={styles.heroCaption}>Debt proposal</Text>
+            </View>
+
+            <View style={styles.participantFlow}>
+              <ParticipantChip label="You" highlight />
+              <View style={styles.flowArrowWrap}>
+                {isOwedToMe ? (
+                  <AnimatedFlowArrow
+                    isOwedToMe={isOwedToMe}
+                    color={directionColor}
+                  />
+                ) : null}
+                <View style={styles.flowArrowLine} />
+                {!isOwedToMe ? (
+                  <AnimatedFlowArrow
+                    isOwedToMe={isOwedToMe}
+                    color={directionColor}
+                  />
+                ) : null}
+              </View>
+              <ParticipantChip
+                label={member?.displayName ?? "Them"}
+                highlight={false}
+              />
+            </View>
+
+            <View style={styles.amountBlock}>
+              <Amount
+                amount={currentDebt.amount}
+                currency={currentDebt.currency}
+                size="lg"
+                color={directionColor}
+              />
+            </View>
+          </GlassCard>
+
+          {showCreationReviewPullout ? (
+            <>
+              {canRespondToCreationReview ? (
+                <View
+                  pointerEvents="none"
+                  style={styles.creationReviewPulloutShade}
+                />
+              ) : null}
+              {canRespondToCreationReview ? (
+                <ConfirmationPillActions
+                  busy={reviewBusy}
+                  style={styles.creationReviewActionsFrame}
+                  stripStyle={styles.creationReviewActionsTray}
+                  onConfirm={() => {
+                    void respondToConfirmation(
+                      creationReviewVerification,
+                      "verified",
+                    );
+                  }}
+                  onCounter={() =>
+                    router.push({
+                      pathname: "/debt/form",
+                      params: {
+                        id: currentDebt.id,
+                        counterVerificationId: creationReviewVerification.id,
+                      },
+                    })
+                  }
+                  onReject={() => {
+                    Alert.alert(
+                      "Reject this proposal?",
+                      "The proposed debt will not be added as confirmed.",
+                      [
+                        { text: "Cancel", style: "cancel" },
+                        {
+                          text: "Reject",
+                          style: "destructive",
+                          onPress: () => {
+                            void respondToConfirmation(
+                              creationReviewVerification,
+                              "rejected",
+                            );
+                          },
+                        },
+                      ],
+                    );
+                  }}
+                />
+              ) : (
+                <CreationReviewStatusTab label="You rejected this debt" />
+              )}
+            </>
+          ) : null}
+        </View>
+
+        {!canRespondToCreationReview && !showRejectedCreationReviewTab ? (
+          <Card style={styles.creationReviewStatusCard}>
+            {creationReviewVerification.status === "verified" ? (
+              <Ionicons
+                name="checkmark-circle"
+                size={18}
+                color={palette.positive}
+              />
+            ) : (
+              <ConfirmationMarker
+                status={
+                  creationReviewVerification.status === "rejected"
+                    ? "rejected"
+                    : "pending"
+                }
+              />
+            )}
+            <View style={styles.confirmationItemCopy}>
+              <Text style={styles.confirmationItemTitle}>
+                {creationReviewVerification.status === "verified"
+                  ? "Debt confirmed"
+                  : creationReviewVerification.status === "rejected"
+                    ? "Debt rejected"
+                    : "Awaiting response"}
+              </Text>
+              <Text style={styles.confirmationItemMeta}>
+                {confirmationDescription(creationReviewVerification, currentDebt)}
+              </Text>
+            </View>
+          </Card>
+        ) : null}
+
+        <Card tone="lavender" style={styles.detailsCard}>
+          <DetailRow label="Title" value={currentDebt.title} />
+          <DetailRow label="Member" value={member?.displayName ?? "Unknown"} />
+          <DetailRow
+            label="Date created"
+            value={formatDate(currentDebt.debtDate)}
+          />
+          <DetailRow
+            label="Due date"
+            value={currentDebt.dueDate ? dueLabel : "No due date"}
+          />
+          <DetailRow
+            label="Status"
+            value={
+              creationReviewVerification.status === "pending"
+                ? "Needs your response"
+                : creationReviewVerification.status
+                    .replaceAll("_", " ")
+                    .replace(/^\w/, (letter) => letter.toUpperCase())
+            }
+          />
+          {currentDebt.sharedNotes ?? currentDebt.notes ? (
+            <View style={styles.notesBlock}>
+              <Text style={styles.notesLabel}>Notes</Text>
+              <Text style={styles.creationReviewNotes}>
+                {currentDebt.sharedNotes ?? currentDebt.notes}
+              </Text>
+            </View>
+          ) : null}
+        </Card>
+      </Screen>
+    );
+  }
+
   return (
     <Screen
       footer={
@@ -1530,6 +1776,47 @@ export function DebtDetailScreen() {
                     <Text style={styles.confirmationGroupTitle}>
                       Awaiting confirmation
                     </Text>
+                    {focusedIncomingVerification ? (
+                      <DebtConfirmationReviewPanel
+                        verification={focusedIncomingVerification}
+                        debt={currentDebt}
+                        busy={respondingVerificationId === focusedIncomingVerification.id}
+                        onConfirm={() => {
+                          void respondToConfirmation(
+                            focusedIncomingVerification,
+                            "verified",
+                          );
+                        }}
+                        onReject={() => {
+                          Alert.alert(
+                            "Reject this proposal?",
+                            "The proposed values will not be applied to your ledger.",
+                            [
+                              { text: "Cancel", style: "cancel" },
+                              {
+                                text: "Reject",
+                                style: "destructive",
+                                onPress: () => {
+                                  void respondToConfirmation(
+                                    focusedIncomingVerification,
+                                    "rejected",
+                                  );
+                                },
+                              },
+                            ],
+                          );
+                        }}
+                        onCounter={() =>
+                          router.push({
+                            pathname: "/debt/form",
+                            params: {
+                              id: currentDebt.id,
+                              counterVerificationId: focusedIncomingVerification.id,
+                            },
+                          })
+                        }
+                      />
+                    ) : null}
                     {hasOrphanedPendingConfirmation ? (
                       <View style={styles.confirmationItem}>
                         <ConfirmationMarker status="pending" />
@@ -1918,6 +2205,159 @@ function ConfirmationGroup({
           </View>
         );
       })}
+    </View>
+  );
+}
+
+function DebtConfirmationReviewPanel({
+  verification,
+  debt,
+  busy,
+  onConfirm,
+  onReject,
+  onCounter,
+}: {
+  verification: DebtVerification;
+  debt: Debt;
+  busy: boolean;
+  onConfirm: () => void;
+  onReject: () => void;
+  onCounter: () => void;
+}) {
+  return (
+    <View style={styles.confirmationReviewPanel}>
+      <View style={styles.confirmationReviewHeader}>
+        <Text style={styles.confirmationReviewEyebrow}>Needs your response</Text>
+        <Text style={styles.confirmationReviewTitle}>
+          {verification.requestType === "amendment"
+            ? "Review debt changes"
+            : "Confirm this debt"}
+        </Text>
+        <Text style={styles.confirmationReviewBody}>
+          {confirmationDescription(verification, debt)}
+        </Text>
+      </View>
+      <ConfirmationPillActions
+        busy={busy}
+        onConfirm={onConfirm}
+        onCounter={onCounter}
+        onReject={onReject}
+      />
+    </View>
+  );
+}
+
+function ConfirmationPillActions({
+  busy,
+  onConfirm,
+  onCounter,
+  onReject,
+  style,
+  stripStyle,
+}: {
+  busy: boolean;
+  onConfirm: () => void;
+  onCounter: () => void;
+  onReject: () => void;
+  style?: StyleProp<ViewStyle>;
+  stripStyle?: StyleProp<ViewStyle>;
+}) {
+  const items: {
+    key: string;
+    label: string;
+    icon: keyof typeof Ionicons.glyphMap;
+    tone: "confirm" | "counter" | "reject";
+    onPress: () => void;
+  }[] = [
+    {
+      key: "confirm",
+      label: "Confirm",
+      icon: "checkmark",
+      tone: "confirm",
+      onPress: onConfirm,
+    },
+    {
+      key: "counter",
+      label: "Propose",
+      icon: "swap-horizontal",
+      tone: "counter",
+      onPress: onCounter,
+    },
+    {
+      key: "reject",
+      label: "Reject",
+      icon: "close",
+      tone: "reject",
+      onPress: onReject,
+    },
+  ];
+
+  return (
+    <View style={style}>
+      <View style={[styles.confirmationPillStrip, stripStyle]}>
+        {items.map((item, index) => (
+          <Pressable
+            key={item.key}
+            accessibilityRole="button"
+            accessibilityLabel={
+              item.key === "counter"
+                ? "Propose alternative"
+                : item.label
+            }
+            disabled={busy}
+            onPress={item.onPress}
+            style={({ pressed }) => [
+              styles.confirmationPill,
+              index > 0 && styles.confirmationPillDivider,
+              item.tone === "confirm" && styles.confirmationPillConfirm,
+              item.tone === "counter" && styles.confirmationPillCounter,
+              item.tone === "reject" && styles.confirmationPillReject,
+              busy && styles.confirmationPillDisabled,
+              pressed && !busy && styles.confirmationPillPressed,
+            ]}
+          >
+            <Ionicons
+              name={item.icon}
+              size={13}
+              color={
+                item.tone === "confirm"
+                  ? palette.positive
+                  : item.tone === "reject"
+                    ? palette.negative
+                    : palette.brand
+              }
+            />
+            <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.82}
+              style={[
+                styles.confirmationPillText,
+                item.tone === "confirm" && styles.confirmationPillTextConfirm,
+                item.tone === "reject" && styles.confirmationPillTextReject,
+              ]}
+            >
+              {item.label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function CreationReviewStatusTab({ label }: { label: string }) {
+  return (
+    <View style={styles.creationReviewActionsFrame}>
+      <View
+        style={[
+          styles.confirmationPillStrip,
+          styles.creationReviewActionsTray,
+          styles.creationReviewRejectedTray,
+        ]}
+      >
+        <Text style={styles.creationReviewRejectedText}>{label}</Text>
+      </View>
     </View>
   );
 }
@@ -2435,6 +2875,72 @@ const styles = StyleSheet.create({
     gap: spacing.xl,
     borderColor: palette.borderIndigoSoft,
   },
+  creationReviewHeroStack: {
+    position: "relative",
+    marginBottom: spacing.xl,
+  },
+  creationReviewHeroStackWithActions: {
+    marginBottom: 70,
+  },
+  creationReviewHeroLift: {
+    zIndex: 3,
+  },
+  creationReviewHero: {
+    position: "relative",
+    marginBottom: 0,
+  },
+  creationReviewActionsFrame: {
+    position: "absolute",
+    left: spacing.sm,
+    right: spacing.sm,
+    bottom: -50,
+    zIndex: 1,
+    borderBottomLeftRadius: radii.lg,
+    borderBottomRightRadius: radii.lg,
+    backgroundColor: palette.surface,
+    ...shadows.card,
+  },
+  creationReviewActionsTray: {
+    minHeight: 58,
+    borderTopWidth: 0,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    borderBottomLeftRadius: radii.lg,
+    borderBottomRightRadius: radii.lg,
+    borderColor: palette.borderGlass,
+  },
+  creationReviewRejectedTray: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: palette.negative,
+    borderColor: palette.negative,
+  },
+  creationReviewRejectedText: {
+    color: palette.surface,
+    fontSize: typography.size.sm,
+    fontFamily: typefaces.bodyHeavy,
+  },
+  creationReviewPulloutShade: {
+    position: "absolute",
+    left: spacing.lg,
+    right: spacing.lg,
+    bottom: -2,
+    height: 5,
+    zIndex: 2,
+    backgroundColor: "rgba(252,253,255,0.82)",
+  },
+  creationReviewStatusCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  creationReviewNotes: {
+    color: palette.ink,
+    fontSize: typography.size.md,
+    lineHeight: typography.line.lg,
+    fontFamily: typefaces.body,
+  },
   heroHeading: {
     alignItems: "center",
     gap: 2,
@@ -2711,7 +3217,6 @@ const styles = StyleSheet.create({
   tagsModalButton: {
     minHeight: 40,
     paddingHorizontal: spacing.xl,
-    shadowOpacity: 0,
   },
   setDueDateLink: {
     paddingVertical: 4,
@@ -2746,6 +3251,84 @@ const styles = StyleSheet.create({
     fontFamily: typefaces.bodyHeavy,
     letterSpacing: 0.5,
     textTransform: "uppercase",
+  },
+  confirmationReviewPanel: {
+    gap: spacing.lg,
+    paddingVertical: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.line,
+  },
+  confirmationReviewHeader: {
+    gap: spacing.xs,
+  },
+  confirmationReviewEyebrow: {
+    color: palette.brand,
+    fontSize: typography.size.xs,
+    fontFamily: typefaces.bodyHeavy,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  confirmationReviewTitle: {
+    color: palette.ink,
+    fontSize: typography.size.h3,
+    fontFamily: typefaces.bodyHeavy,
+  },
+  confirmationReviewBody: {
+    color: palette.muted,
+    fontSize: typography.size.md,
+    lineHeight: typography.line.lg,
+    fontFamily: typefaces.body,
+  },
+  confirmationPillStrip: {
+    minHeight: 56,
+    flexDirection: "row",
+    alignItems: "stretch",
+    overflow: "hidden",
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: palette.borderStrong,
+    backgroundColor: palette.surface,
+  },
+  confirmationPill: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 56,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.xs,
+    paddingHorizontal: spacing.xs,
+  },
+  confirmationPillDivider: {
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderLeftColor: palette.line,
+  },
+  confirmationPillConfirm: {
+    backgroundColor: "transparent",
+  },
+  confirmationPillCounter: {
+    backgroundColor: "transparent",
+  },
+  confirmationPillReject: {
+    backgroundColor: "transparent",
+  },
+  confirmationPillPressed: {
+    backgroundColor: palette.surfaceRowPressed,
+  },
+  confirmationPillDisabled: {
+    opacity: 0.55,
+  },
+  confirmationPillText: {
+    color: palette.brand,
+    fontSize: typography.size.xs,
+    fontFamily: typefaces.bodyHeavy,
+  },
+  confirmationPillTextConfirm: {
+    color: palette.positive,
+  },
+  confirmationPillTextReject: {
+    color: palette.negative,
   },
   confirmationItem: {
     flexDirection: "row",

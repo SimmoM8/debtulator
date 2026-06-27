@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Animated,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -31,10 +32,9 @@ import {
 } from "@/src/constants/design";
 import { CURRENCIES } from "@/src/constants/currencies";
 import {
-  activityActorLabel,
   activityConfirmationStatus,
   activityDetailRows,
-  activitySentence,
+  activityEventSentence,
   activitySummary,
   buildUserActivity,
 } from "@/src/services/activity";
@@ -502,16 +502,12 @@ export function DashboardScreen() {
             {recentActivity.map((activity, index) => (
               <ActivityTimelineRow
                 key={activity.id}
-                title={activitySentence(
-                  activityActorLabel(
-                    activity.actorUserId,
-                    auth.identity.authenticatedUserId,
-                    data.profiles,
-                    data.sharedGroupMembers,
-                    data.members,
-                  ),
-                  activity.action,
-                )}
+                title={activityEventSentence(activity, {
+                  currentUserId: auth.identity.authenticatedUserId,
+                  profiles: data.profiles,
+                  sharedGroupMembers: data.sharedGroupMembers,
+                  members: data.members,
+                })}
                 createdAt={activity.createdAt}
                 detail={activitySummary(activity, data)}
                 confirmationStatus={activityConfirmationStatus(activity)}
@@ -784,7 +780,8 @@ const styles = StyleSheet.create({
     gap: spacing.xl,
     paddingTop: 18,
     paddingBottom: 16,
-    backgroundColor: palette.surfaceGlassElevated,
+    backgroundColor:
+      Platform.OS === "android" ? palette.surface : palette.surfaceGlassElevated,
   },
   currencyPill: {
     flexDirection: "row",
@@ -922,7 +919,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderGlass,
-    backgroundColor: palette.surfaceGlassElevated,
+    backgroundColor:
+      Platform.OS === "android" ? palette.surface : palette.surfaceGlassElevated,
     alignItems: "center",
     justifyContent: "center",
     gap: 4,

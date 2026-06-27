@@ -245,13 +245,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         ? (remote.sharedDebts ?? []).find((row) => row.id === debt.remoteId)
         : (remote.sharedDebts ?? []).find(
             (row) =>
-              row.creator_user_id === user.id &&
-              row.involved_user_id === pendingProposal.responderUserId &&
-              row.local_member_reference === (member.remoteId ?? member.id) &&
-              Number(row.amount) === debt.amount &&
-              row.currency === debt.currency &&
-              row.debt_date === debt.debtDate &&
-              row.title === debt.title,
+              (row.client_generated_id && row.client_generated_id === debt.id) ||
+              (row.creator_user_id === user.id &&
+                row.involved_user_id === pendingProposal.responderUserId &&
+                row.local_member_reference === (member.remoteId ?? member.id) &&
+                Number(row.amount) === debt.amount &&
+                row.currency === debt.currency &&
+                row.debt_date === debt.debtDate &&
+                row.title === debt.title),
           );
       const matchingRemoteVerification = (remote.verifications ?? []).find(
         (row) =>
@@ -499,7 +500,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .map((debt) => [debt.remoteId as string, debt]),
     );
     for (const row of remote.sharedDebts ?? []) {
-      const existingDebt = data.debts.find((debt) => debt.remoteId === row.id);
+      const existingDebt = data.debts.find(
+        (debt) =>
+          debt.remoteId === row.id ||
+          (row.client_generated_id && debt.id === row.client_generated_id),
+      );
       const preserveRequesterProposal = Boolean(
         existingDebt &&
           (remote.verifications ?? []).some(
@@ -637,7 +642,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           metadata: {
             verificationId: verification.id,
             verificationRemoteId: row.id,
+            notificationKind:
+              row.supersedes_verification_id ? 'counterproposal' : 'confirmation_request',
             requestType: verification.requestType,
+            actorUserId: row.requester_user_id,
+            counterpartyUserId: row.responder_user_id,
+            amount:
+              typeof row.change_summary?.proposed?.amount === 'number'
+                ? row.change_summary.proposed.amount
+                : debt?.amount,
+            currency: debt?.currency,
+            direction:
+              typeof row.change_summary?.proposed?.direction === 'string'
+                ? row.change_summary.proposed.direction
+                : debt?.direction,
           },
         });
       }
@@ -815,6 +833,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           ...(row.metadata && typeof row.metadata === 'object'
             ? row.metadata
             : {}),
+          remoteTargetType: row.target_type,
+          remoteTargetId: row.target_id,
           remoteNotificationId: row.id,
         },
       });
@@ -973,6 +993,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         readAt: row.read_at ?? null,
         metadata: {
           ...(isRecord(row.metadata) ? row.metadata : {}),
+          remoteTargetType: row.target_type,
+          remoteTargetId: row.target_id,
           remoteNotificationId: row.id,
         },
       });

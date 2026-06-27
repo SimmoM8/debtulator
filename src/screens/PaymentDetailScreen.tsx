@@ -1,6 +1,6 @@
 import { useLocalSearchParams } from "expo-router";
-import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import React, { useState } from "react";
+import { Alert, StyleSheet, Text, View } from "react-native";
 
 import { AttachmentsSection } from "@/src/components/AttachmentsSection";
 import { CommentsSection } from "@/src/components/CommentsSection";
@@ -32,6 +32,7 @@ import {
   shareExport,
   writePdfExport,
 } from "@/src/services/export";
+import { respondRemotePaymentConfirmation } from "@/src/services/stage2Sync";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
 import { formatMoney } from "@/src/utils/money";
@@ -40,6 +41,7 @@ export function PaymentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const data = useAppData();
   const auth = useAuth();
+  const [responding, setResponding] = useState(false);
   const payment = data.payments.find((item) => item.id === id);
   const lines = data.settlementLines.filter((line) => line.paymentId === id);
   const settlement = data.settlements.find((item) =>
@@ -65,6 +67,37 @@ export function PaymentDetailScreen() {
     );
   }
   const currentPayment = payment;
+  const currentUserId = auth.identity.authenticatedUserId;
+  const awaitsCurrentUser =
+    currentPayment.confirmationStatus === "pending_confirmation" &&
+    currentPayment.createdByUserId !== currentUserId &&
+    (currentPayment.payerUserId === currentUserId ||
+      currentPayment.payeeUserId === currentUserId);
+
+  async function respondToPayment(status: "confirmed" | "rejected") {
+    if (!currentUserId || !currentPayment.remoteId || responding) {
+      return;
+    }
+    setResponding(true);
+    try {
+      await respondRemotePaymentConfirmation({
+        paymentRemoteId: currentPayment.remoteId,
+        status,
+      });
+      await data.respondToPaymentConfirmation(
+        currentPayment.id,
+        status,
+        currentUserId,
+      );
+    } catch {
+      Alert.alert(
+        "Could not update payment",
+        "Your response could not be saved. Please try again.",
+      );
+    } finally {
+      setResponding(false);
+    }
+  }
 
   async function exportPdf() {
     const entries = lines
@@ -175,6 +208,52 @@ export function PaymentDetailScreen() {
           onPress={exportPdf}
         />
       </Card>
+
+      {awaitsCurrentUser ? (
+        <Card tone="amber" style={styles.reviewCard}>
+          <View style={styles.reviewHeader}>
+            <Text style={styles.reviewEyebrow}>Needs your response</Text>
+            <Text style={styles.reviewTitle}>Review payment confirmation</Text>
+            <Text style={styles.body}>
+              Confirm whether this payment should be applied to the shared debt.
+            </Text>
+          </View>
+          <View style={styles.reviewActions}>
+            <Button
+              title={responding ? "Confirming..." : "Confirm payment"}
+              icon="checkmark"
+              disabled={responding}
+              onPress={() => {
+                void respondToPayment("confirmed");
+              }}
+              style={styles.reviewButton}
+            />
+            <Button
+              title={responding ? "Rejecting..." : "Reject payment"}
+              icon="close"
+              variant="danger"
+              disabled={responding}
+              onPress={() => {
+                Alert.alert(
+                  "Reject this payment?",
+                  "The payment will not be applied to the shared debt.",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: "Reject",
+                      style: "destructive",
+                      onPress: () => {
+                        void respondToPayment("rejected");
+                      },
+                    },
+                  ],
+                );
+              }}
+              style={styles.reviewButton}
+            />
+          </View>
+        </Card>
+      ) : null}
 
       <AttachmentsSection
         targetType="payment"
@@ -329,6 +408,32 @@ const styles = StyleSheet.create({
   badgeStack: {
     alignItems: "flex-end",
     gap: spacing.xs,
+  },
+  reviewCard: {
+    gap: spacing.lg,
+  },
+  reviewHeader: {
+    gap: spacing.xs,
+  },
+  reviewEyebrow: {
+    color: palette.brand,
+    fontSize: typography.size.xs,
+    fontFamily: typefaces.bodyHeavy,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  reviewTitle: {
+    color: palette.ink,
+    fontSize: typography.size.h3,
+    fontFamily: typefaces.bodyHeavy,
+  },
+  reviewActions: {
+    gap: spacing.sm,
+  },
+  reviewButton: {
+    width: "100%",
+    justifyContent: "center",
+    minHeight: 52,
   },
   label: {
     color: palette.brandDark,

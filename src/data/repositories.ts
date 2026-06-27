@@ -2321,6 +2321,25 @@ export class DebtulatorRepository {
   }
 
   async requestDebtVerification(input: DebtVerificationInput) {
+    const snapshot = await loadSnapshot(this.db);
+    const requestType = input.requestType ?? 'creation';
+    const existingPending = snapshot.debtVerifications.find(
+      (verification) =>
+        verification.debtId === input.debt.id &&
+        verification.requesterUserId === input.requesterUserId &&
+        verification.responderUserId === input.responderUserId &&
+        verification.requestType === requestType &&
+        verification.status === 'pending' &&
+        sameChangeSummary(
+          verification.changeSummary,
+          input.changeSummary ?? null,
+        ),
+    );
+
+    if (existingPending) {
+      return { debt: input.debt, verification: existingPending };
+    }
+
     const timestamp = nowIso();
     const verification: DebtVerification = {
       id: createId('verify'),
@@ -2329,7 +2348,7 @@ export class DebtulatorRepository {
       remoteDebtId: input.remoteDebtId ?? input.debt.remoteId,
       requesterUserId: input.requesterUserId,
       responderUserId: input.responderUserId,
-      requestType: input.requestType ?? 'creation',
+      requestType,
       changeSummary: input.changeSummary ?? null,
       status: 'pending',
       rejectionReason: null,
@@ -2363,13 +2382,6 @@ export class DebtulatorRepository {
     const [refreshedDebt] = await this.refreshSimpleDebtConfirmationStatuses([
       input.debt.id,
     ]);
-    await this.logActivity('debt', input.debt.id, 'debt_verification_requested', input.requesterUserId, {
-      responderUserId: input.responderUserId,
-      verificationId: verification.id,
-      requestType: verification.requestType,
-      changedFields: verification.changeSummary?.changedFields ?? [],
-      verificationStatus: 'pending',
-    });
     await this.createNotification({
       userId: input.requesterUserId,
       type: 'verification_request',
@@ -2883,6 +2895,7 @@ export class DebtulatorRepository {
     };
     await insertSoftReminder(this.db, reminder);
     await this.logActivity('soft_reminder', reminder.id, 'reminder_sent', reminder.senderUserId, {
+      recipientUserId: reminder.recipientUserId,
       relatedMemberId: reminder.relatedMemberId,
       relatedGroupId: reminder.relatedGroupId,
       relatedRecordId: reminder.relatedRecordId,
@@ -3345,6 +3358,13 @@ function inferFileType(mimeType: string | null | undefined, fileName: string) {
 function withoutConflictBlockers(payload: Record<string, unknown>) {
   const { blocked: _blocked, conflictId: _conflictId, ...rest } = payload;
   return rest;
+}
+
+function sameChangeSummary(
+  first: DebtChangeSummary | null,
+  second: DebtChangeSummary | null,
+) {
+  return JSON.stringify(first ?? null) === JSON.stringify(second ?? null);
 }
 
 function buildExpensePayers(

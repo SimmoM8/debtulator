@@ -1,8 +1,8 @@
-import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { DebtulatorShieldIllustration } from "@/src/components/illustrations/DebtulatorShieldIllustration";
+import { openNotificationTarget } from "@/src/components/InAppNotificationToast";
 import { Badge } from "@/src/components/ui/Badges";
 import {
     Button,
@@ -60,6 +60,12 @@ export function NotificationCenterScreen() {
   const unread = data.notifications.filter(
     (notification) => !notification.readAt,
   ).length;
+  const openNotification = (notification: (typeof data.notifications)[number]) => {
+    if (!notification.readAt) {
+      void data.markNotificationRead(notification.id);
+    }
+    openNotificationTarget(notification, data);
+  };
 
   return (
     <Screen>
@@ -120,17 +126,24 @@ export function NotificationCenterScreen() {
         {notifications.length ? (
           notifications.map((notification) => (
             <View key={notification.id} style={styles.row}>
-              <View style={styles.badgeLine}>
-                <Badge
-                  label={notification.type.replaceAll("_", " ")}
-                  tone={notification.readAt ? "neutral" : "blue"}
-                />
-              </View>
-              <Text style={styles.title}>{notification.title}</Text>
-              <Text style={styles.body}>{notification.body}</Text>
-              <Text style={styles.meta}>
-                {new Date(notification.createdAt).toLocaleString()}
-              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`${notification.title}. Open related item.`}
+                onPress={() => openNotification(notification)}
+                style={({ pressed }) => pressed && styles.rowPressed}
+              >
+                <View style={styles.badgeLine}>
+                  <Badge
+                    label={notification.type.replaceAll("_", " ")}
+                    tone={notification.readAt ? "neutral" : "blue"}
+                  />
+                </View>
+                <Text style={styles.title}>{notification.title}</Text>
+                <Text style={styles.body}>{notification.body}</Text>
+                <Text style={styles.meta}>
+                  {new Date(notification.createdAt).toLocaleString()}
+                </Text>
+              </Pressable>
               <View style={styles.actions}>
                 {!notification.readAt ? (
                   <Button
@@ -145,16 +158,22 @@ export function NotificationCenterScreen() {
                   <Button
                     title="Open"
                     icon="chevron-forward"
-                    onPress={() =>
-                      router.push(`/conflict/${notification.targetId}` as never)
-                    }
+                    onPress={() => openNotification(notification)}
                   />
                 ) : null}
                 {notification.type === "verification_request" ? (
                   <Button
                     title="Review"
                     icon="chevron-forward"
-                    onPress={() => router.push("/requests")}
+                    onPress={() => openNotification(notification)}
+                  />
+                ) : null}
+                {notification.type !== "verification_request" &&
+                notification.targetType !== "sync_conflict" ? (
+                  <Button
+                    title="Open"
+                    icon="chevron-forward"
+                    onPress={() => openNotification(notification)}
                   />
                 ) : null}
               </View>
@@ -223,6 +242,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     gap: spacing.sm,
     paddingVertical: spacing.md,
+  },
+  rowPressed: {
+    opacity: 0.72,
   },
   badgeLine: {
     flexDirection: "row",

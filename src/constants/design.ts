@@ -139,8 +139,7 @@ export const typefaces = {
 export const shadows = {
   card: Platform.select({
     android: {
-      shadowColor: palette.shadow,
-      elevation: 2,
+      filter: "drop-shadow(0px 4px 4px rgba(32,27,99,0.16))",
     },
     default: {
       shadowColor: palette.shadow,
@@ -149,15 +148,28 @@ export const shadows = {
       shadowRadius: 4,
     },
   }),
-  soft: Platform.select({
-    // Elevation on small, nested, or animated Android surfaces produces
-    // rectangular hardware layers instead of the intended soft outline.
-    android: {},
+  stacked: Platform.select({
+    // A smaller shadow only for surfaces layered directly on top of another
+    // surface, such as the debt confirmation card over its action tray.
+    android: {
+      filter: "drop-shadow(0px 2px 2px rgba(32,27,99,0.08))",
+    },
     default: {
       shadowColor: palette.shadow,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.07,
-      shadowRadius: 2.5,
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.055,
+      shadowRadius: 2,
+    },
+  }),
+  soft: Platform.select({
+    android: {
+      filter: "drop-shadow(0px 4px 4px rgba(32,27,99,0.16))",
+    },
+    default: {
+      shadowColor: palette.shadow,
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.11,
+      shadowRadius: 4,
     },
   }),
 };

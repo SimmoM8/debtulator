@@ -19,7 +19,7 @@ import {
   activityCategory,
   activityConfirmationStatus,
   activityDetailRows,
-  activitySentence,
+  activityEventSentence,
   activitySummary,
   buildUserActivity,
 } from "@/src/services/activity";
@@ -55,7 +55,12 @@ export function ActivityScreen() {
           filter === "all" || activityCategory(event.targetType) === filter;
         const matchesQuery =
           !normalizedQuery ||
-          activitySentence(actor, event.action)
+          activityEventSentence(event, {
+            currentUserId: auth.identity.authenticatedUserId,
+            profiles: data.profiles,
+            sharedGroupMembers: data.sharedGroupMembers,
+            members: data.members,
+          })
             .toLowerCase()
             .includes(normalizedQuery) ||
           actor.toLowerCase().includes(normalizedQuery) ||
@@ -92,16 +97,12 @@ export function ActivityScreen() {
             {events.map((event, index) => (
               <ActivityTimelineRow
                 key={event.id}
-                title={activitySentence(
-                  activityActorLabel(
-                    event.actorUserId,
-                    auth.identity.authenticatedUserId,
-                    data.profiles,
-                    data.sharedGroupMembers,
-                    data.members,
-                  ),
-                  event.action,
-                )}
+                title={activityEventSentence(event, {
+                  currentUserId: auth.identity.authenticatedUserId,
+                  profiles: data.profiles,
+                  sharedGroupMembers: data.sharedGroupMembers,
+                  members: data.members,
+                })}
                 createdAt={event.createdAt}
                 detail={activitySummary(event, data)}
                 confirmationStatus={activityConfirmationStatus(event)}

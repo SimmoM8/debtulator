@@ -14,6 +14,13 @@ create index if not exists debt_verifications_supersedes_idx
 on public.debt_verifications (supersedes_verification_id)
 where supersedes_verification_id is not null;
 
+alter table public.shared_debt_records
+add column if not exists client_generated_id text;
+
+create unique index if not exists shared_debt_records_creator_client_generated_idx
+on public.shared_debt_records (creator_user_id, client_generated_id)
+where client_generated_id is not null;
+
 grant select on public.link_requests to authenticated;
 grant select on public.shared_debt_records to authenticated;
 grant select on public.debt_verifications to authenticated;
@@ -160,6 +167,13 @@ begin
         hint = 'accept_or_counterproposal';
     end if;
     if pending_verification.requester_user_id = (select auth.uid()) then
+      if pending_verification.responder_user_id = p_responder_user_id
+        and pending_verification.request_type = p_request_type
+        and coalesce(pending_verification.change_summary, 'null'::jsonb)
+            = coalesce(p_change_summary, 'null'::jsonb)
+      then
+        return pending_verification;
+      end if;
       update public.debt_verifications
       set status = 'cancelled',
           responded_at = now(),
