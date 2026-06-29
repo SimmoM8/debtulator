@@ -2671,7 +2671,8 @@ function getCurrentConfirmations(verifications: DebtVerification[]) {
   const ordered = [...verifications]
     .filter(
       (verification) =>
-        verification.status !== "cancelled" &&
+        (verification.status === "pending" ||
+          verification.status === "rejected") &&
         (verification.requestType === "creation" ||
           verification.changeSummary?.changedFields.some((field) =>
             ["amount", "direction", "dueDate", "title", "member", "status"].includes(field),
