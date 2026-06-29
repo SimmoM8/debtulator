@@ -245,7 +245,14 @@ export function GroupRow({
 }
 
 function Avatar({ label }: { label: string }) {
-  return <MemberAvatar name={label} size={52} style={styles.avatar} />;
+  return (
+    <MemberAvatar
+      name={label}
+      size={52}
+      style={styles.avatar}
+      initialsTextStyle={styles.avatarText}
+    />
+  );
 }
 
 const styles = StyleSheet.create({
@@ -292,6 +299,11 @@ const styles = StyleSheet.create({
     borderColor: "rgba(253,186,155,0.18)",
     alignItems: "center",
     justifyContent: "center",
+  },
+  avatarText: {
+    color: palette.brandDark,
+    fontSize: typography.size.lg,
+    fontFamily: typefaces.bodyHeavy,
   },
   groupMark: {
     width: 52,

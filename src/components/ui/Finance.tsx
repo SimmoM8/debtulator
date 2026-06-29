@@ -682,6 +682,7 @@ export function AvatarStack({
           name={label}
           size={28}
           style={[styles.avatar, { marginLeft: index === 0 ? 0 : -10 }]}
+          initialsTextStyle={styles.avatarText}
         />
       ))}
       {overflow > 0 ? (
@@ -1308,6 +1309,11 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.94)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.92)",
+  },
+  avatarText: {
+    color: palette.primaryDeep,
+    fontSize: typography.size.xs,
+    fontFamily: typefaces.bodyStrong,
   },
   avatarOverflow: {
     marginLeft: -10,

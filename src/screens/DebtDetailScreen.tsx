@@ -2088,6 +2088,10 @@ function ParticipantChip({
           name={label}
           size={40}
           style={styles.participantAvatarImage}
+          initialsTextStyle={[
+            styles.participantAvatarText,
+            highlight && styles.participantAvatarTextHighlight,
+          ]}
         />
       </View>
       <Text style={styles.participantName}>{label}</Text>
@@ -2981,6 +2985,14 @@ const styles = StyleSheet.create({
   },
   participantAvatarImage: {
     borderWidth: 0,
+  },
+  participantAvatarText: {
+    fontSize: typography.size.md,
+    fontFamily: typefaces.bodyHeavy,
+    color: palette.muted,
+  },
+  participantAvatarTextHighlight: {
+    color: palette.brand,
   },
   participantName: {
     fontSize: typography.size.sm,

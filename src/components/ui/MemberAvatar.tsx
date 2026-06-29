@@ -1,9 +1,19 @@
 import BoringAvatar from "boring-avatars";
 import React from "react";
-import { Platform, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
+import {
+  Platform,
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type TextStyle,
+  type ViewStyle,
+} from "react-native";
 import Svg, { G, Mask, Path, Rect } from "react-native-svg";
 
+import { developerConfig } from "@/src/config/developerConfig";
 import { palette } from "@/src/constants/design";
+import { initials } from "@/src/utils/text";
 
 const avatarColors = [
   palette.brand,
@@ -15,6 +25,7 @@ type MemberAvatarProps = {
   name: string;
   size?: number;
   style?: StyleProp<ViewStyle>;
+  initialsTextStyle?: StyleProp<TextStyle>;
   accessibilityLabel?: string;
 };
 
@@ -22,8 +33,22 @@ export function MemberAvatar({
   name,
   size = 32,
   style,
+  initialsTextStyle,
   accessibilityLabel,
 }: MemberAvatarProps) {
+  if (!developerConfig.memberProfilePictures.useBoringAvatars) {
+    return (
+      <View
+        accessible
+        accessibilityRole="image"
+        accessibilityLabel={accessibilityLabel ?? `${name} avatar`}
+        style={[styles.shell, { width: size, height: size, borderRadius: size / 2 }, style]}
+      >
+        <Text style={initialsTextStyle}>{initials(name)}</Text>
+      </View>
+    );
+  }
+
   return (
     <View
       accessible
