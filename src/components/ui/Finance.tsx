@@ -24,7 +24,7 @@ import {
     typefaces,
     typography,
 } from "@/src/constants/design";
-import { initials } from "@/src/utils/text";
+import { MemberAvatar } from "@/src/components/ui/MemberAvatar";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 type Tone =
@@ -677,12 +677,12 @@ export function AvatarStack({
   return (
     <View style={styles.avatarStack}>
       {visible.map((label, index) => (
-        <View
+        <MemberAvatar
           key={`${label}-${index}`}
+          name={label}
+          size={28}
           style={[styles.avatar, { marginLeft: index === 0 ? 0 : -10 }]}
-        >
-          <Text style={styles.avatarText}>{initials(label)}</Text>
-        </View>
+        />
       ))}
       {overflow > 0 ? (
         <View style={[styles.avatar, styles.avatarOverflow]}>
@@ -1308,11 +1308,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.94)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.92)",
-  },
-  avatarText: {
-    color: palette.primaryDeep,
-    fontSize: typography.size.xs,
-    fontFamily: typefaces.bodyStrong,
   },
   avatarOverflow: {
     marginLeft: -10,

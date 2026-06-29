@@ -17,6 +17,7 @@ import {
 import { AvatarStack, GlassCard } from "@/src/components/ui/Finance";
 import { ActivityTimelineRow } from "@/src/components/ActivityTimelineRow";
 import { ConfirmationMarker } from "@/src/components/ConfirmationMarker";
+import { MemberAvatar } from "@/src/components/ui/MemberAvatar";
 import { MobileMenuModal } from "@/src/components/ui/MenuList";
 import { Amount } from "@/src/components/ui/Money";
 import { TagInput } from "@/src/components/ui/TagInput";
@@ -2063,11 +2064,6 @@ function ParticipantChip({
   highlight: boolean;
   onPress?: () => void;
 }) {
-  const initials = label
-    .split(" ")
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? "")
-    .join("");
   return (
     <Pressable
       accessibilityRole={onPress ? "button" : undefined}
@@ -2088,14 +2084,11 @@ function ParticipantChip({
             : styles.participantAvatarMuted,
         ]}
       >
-        <Text
-          style={[
-            styles.participantAvatarText,
-            highlight && styles.participantAvatarTextHighlight,
-          ]}
-        >
-          {initials}
-        </Text>
+        <MemberAvatar
+          name={label}
+          size={40}
+          style={styles.participantAvatarImage}
+        />
       </View>
       <Text style={styles.participantName}>{label}</Text>
     </Pressable>
@@ -2986,13 +2979,8 @@ const styles = StyleSheet.create({
     backgroundColor: palette.surfaceMuted,
     borderColor: palette.border,
   },
-  participantAvatarText: {
-    fontSize: typography.size.md,
-    fontFamily: typefaces.bodyHeavy,
-    color: palette.muted,
-  },
-  participantAvatarTextHighlight: {
-    color: palette.brand,
+  participantAvatarImage: {
+    borderWidth: 0,
   },
   participantName: {
     fontSize: typography.size.sm,
