@@ -11,6 +11,7 @@ import {
     VerificationBadge,
     VisibilityBadge,
 } from "@/src/components/ui/Badges";
+import { MemberAvatar } from "@/src/components/ui/MemberAvatar";
 import { BalanceStack } from "@/src/components/ui/Money";
 import {
     palette,
@@ -31,7 +32,6 @@ import type {
     SharedGroupMember,
 } from "@/src/types/models";
 import { formatMoney } from "@/src/utils/money";
-import { initials } from "@/src/utils/text";
 
 export function MemberRow({
   member,
@@ -245,11 +245,7 @@ export function GroupRow({
 }
 
 function Avatar({ label }: { label: string }) {
-  return (
-    <View style={styles.avatar}>
-      <Text style={styles.avatarText}>{initials(label)}</Text>
-    </View>
-  );
+  return <MemberAvatar name={label} size={52} style={styles.avatar} />;
 }
 
 const styles = StyleSheet.create({
@@ -296,11 +292,6 @@ const styles = StyleSheet.create({
     borderColor: "rgba(253,186,155,0.18)",
     alignItems: "center",
     justifyContent: "center",
-  },
-  avatarText: {
-    color: palette.brandDark,
-    fontSize: typography.size.lg,
-    fontFamily: typefaces.bodyHeavy,
   },
   groupMark: {
     width: 52,

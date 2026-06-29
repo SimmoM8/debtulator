@@ -29,6 +29,7 @@
     "@react-navigation/elements": "^2.6.3",
     "@react-navigation/native": "^7.1.8",
     "@supabase/supabase-js": "^2.108.1",
+    "boring-avatars": "^2.0.4",
     "expo": "^56.0.12",
     "expo-blur": "~56.0.3",
     "expo-constants": "^56.0.18",

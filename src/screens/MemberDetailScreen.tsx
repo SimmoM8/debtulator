@@ -5,6 +5,7 @@ import { Alert, Animated, Modal, Pressable, StyleSheet, Text, TextInput, View } 
 
 import { DebtLedgerSection, debtSectionTotalLabel } from "@/src/components/DebtLedgerSection";
 import { GroupRow } from "@/src/components/EntityRows";
+import { MemberAvatar } from "@/src/components/ui/MemberAvatar";
 import { MobileMenuModal } from "@/src/components/ui/MenuList";
 import { TagInput } from "@/src/components/ui/TagInput";
 import {
@@ -32,7 +33,6 @@ import {
 } from "@/src/services/ledger";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { formatMoney } from "@/src/utils/money";
-import { initials } from "@/src/utils/text";
 
 type MemberDetailSectionKey = "overview" | "debts" | "payments" | "groups";
 
@@ -585,13 +585,8 @@ const styles = StyleSheet.create({
   participantAvatarLinked: {
     borderColor: palette.positive,
   },
-  participantAvatarText: {
-    color: palette.muted,
-    fontSize: typography.size.lg,
-    fontFamily: typefaces.bodyHeavy,
-  },
-  participantAvatarTextHighlight: {
-    color: palette.brand,
+  participantAvatarImage: {
+    borderWidth: 0,
   },
   participantName: {
     color: palette.muted,
@@ -856,14 +851,11 @@ function MemberParticipant({
           linked && styles.participantAvatarLinked,
         ]}
       >
-        <Text
-          style={[
-            styles.participantAvatarText,
-            highlight && styles.participantAvatarTextHighlight,
-          ]}
-        >
-          {highlight ? "Y" : initials(label)}
-        </Text>
+        <MemberAvatar
+          name={label}
+          size={52}
+          style={styles.participantAvatarImage}
+        />
         {!highlight ? (
           <View
             accessible
