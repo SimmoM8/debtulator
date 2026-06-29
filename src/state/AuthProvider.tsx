@@ -505,16 +505,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           debt.remoteId === row.id ||
           (row.client_generated_id && debt.id === row.client_generated_id),
       );
-      const preserveRequesterProposal = Boolean(
-        existingDebt &&
-          (remote.verifications ?? []).some(
-            (verification) =>
-              verification.debt_id === row.id &&
-              verification.request_type === 'amendment' &&
-              verification.status === 'pending' &&
-              verification.requester_user_id === user.id,
-          ),
+      const pendingRequesterAmendment = (remote.verifications ?? []).find(
+        (verification) =>
+          verification.debt_id === row.id &&
+          verification.request_type === 'amendment' &&
+          verification.status === 'pending' &&
+          verification.requester_user_id === user.id,
       );
+      const preserveRequesterProposal = Boolean(existingDebt && pendingRequesterAmendment);
+      const pendingRequesterFields = pendingRequesterAmendment?.change_summary
+        ?.changedFields ?? [];
       const otherUserId = row.creator_user_id === user.id ? row.involved_user_id : row.creator_user_id;
       const existingMember = data.members.find((member) => member.linkedUserId === otherUserId);
       const member =
@@ -540,26 +540,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         visibility: row.visibility,
         syncStatus: 'synced',
         direction:
-          preserveRequesterProposal && existingDebt
+          preserveRequesterProposal && existingDebt && pendingRequesterFields.includes('direction')
             ? existingDebt.direction
             : remoteDirection,
         amount:
-          preserveRequesterProposal && existingDebt
+          preserveRequesterProposal && existingDebt && pendingRequesterFields.includes('amount')
             ? existingDebt.amount
             : Number(row.amount),
         currency: row.currency,
-        title: row.title,
+        title:
+          preserveRequesterProposal && existingDebt && pendingRequesterFields.includes('title')
+            ? existingDebt.title
+            : row.title,
         notes: existingDebt?.notes ?? null,
         sharedNotes: row.notes_visible_to_other_user,
         debtDate: row.debt_date,
         dueDate:
-          preserveRequesterProposal && existingDebt
+          preserveRequesterProposal && existingDebt && pendingRequesterFields.includes('dueDate')
             ? existingDebt.dueDate
             : row.due_date,
         recurringTemplateId: null,
         tags: existingDebt?.tags ?? [],
         groupId: null,
-        status: row.settlement_status,
+        status:
+          preserveRequesterProposal && existingDebt && pendingRequesterFields.includes('status')
+            ? existingDebt.status
+            : row.settlement_status,
         verificationStatus: row.verification_status,
         verifiedByUserId: existingDebt?.verifiedByUserId ?? null,
         verifiedAt: existingDebt?.verifiedAt ?? null,
