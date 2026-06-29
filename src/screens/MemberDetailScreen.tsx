@@ -588,6 +588,14 @@ const styles = StyleSheet.create({
   participantAvatarImage: {
     borderWidth: 0,
   },
+  participantAvatarText: {
+    color: palette.muted,
+    fontSize: typography.size.lg,
+    fontFamily: typefaces.bodyHeavy,
+  },
+  participantAvatarTextHighlight: {
+    color: palette.brand,
+  },
   participantName: {
     color: palette.muted,
     fontSize: typography.size.sm,
@@ -855,6 +863,10 @@ function MemberParticipant({
           name={label}
           size={52}
           style={styles.participantAvatarImage}
+          initialsTextStyle={[
+            styles.participantAvatarText,
+            highlight && styles.participantAvatarTextHighlight,
+          ]}
         />
         {!highlight ? (
           <View
