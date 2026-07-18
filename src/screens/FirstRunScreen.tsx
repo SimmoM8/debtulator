@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
     color: palette.textPrimary,
     fontFamily: typefaces.displayMedium,
     fontSize: typography.size.xxl,
-    lineHeight: typography.line.xxl,
+    lineHeight: typography.line.h1,
   },
   error: {
     color: palette.negative,

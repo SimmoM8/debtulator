@@ -26,19 +26,23 @@ import { useAuth } from "@/src/state/AuthProvider";
 import { formatMoney } from "@/src/utils/money";
 
 type GroupFilter = "all" | "planning" | "active" | "settled";
+type GroupSort = "updated" | "name" | "balance";
+type SortDirection = "asc" | "desc";
 
 export function GroupsScreen() {
   const data = useAppData();
   const auth = useAuth();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<GroupFilter>("all");
+  const [sort, setSort] = useState<GroupSort>("updated");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [filterOpen, setFilterOpen] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
 
   const groups = useMemo(() => {
     const normalized = query.trim().toLowerCase();
 
-    return data.groups.filter((group) => {
+    const filtered = data.groups.filter((group) => {
       if (group.archived) {
         return false;
       }
@@ -57,7 +61,43 @@ export function GroupsScreen() {
       }
       return group.status === filter;
     });
-  }, [data.groups, filter, query]);
+
+    return [...filtered].sort((first, second) => {
+      const direction = sortDirection === "asc" ? 1 : -1;
+      if (sort === "name") {
+        return direction * first.name.localeCompare(second.name);
+      }
+      if (sort === "balance") {
+        const firstBalance = Math.abs(
+          estimateMoneyMap(
+            explainGroupSettlement(first.id, data.ledgerEntries)
+              .participantNets.me ?? {},
+            data.settings,
+            data.currencyRates,
+          ),
+        );
+        const secondBalance = Math.abs(
+          estimateMoneyMap(
+            explainGroupSettlement(second.id, data.ledgerEntries)
+              .participantNets.me ?? {},
+            data.settings,
+            data.currencyRates,
+          ),
+        );
+        return direction * (firstBalance - secondBalance);
+      }
+      return direction * first.updatedAt.localeCompare(second.updatedAt);
+    });
+  }, [
+    data.currencyRates,
+    data.groups,
+    data.ledgerEntries,
+    data.settings,
+    filter,
+    query,
+    sort,
+    sortDirection,
+  ]);
 
   const sharedCount = data.groups.filter(
     (group) => !group.archived && group.visibility === "shared",
@@ -83,10 +123,17 @@ export function GroupsScreen() {
         onOpenOptions={() => setOptionsOpen(true)}
         query={query}
         onChangeQuery={setQuery}
-        searchPlaceholder="Search groups"
-        onOpenFilters={() => setFilterOpen(true)}
-        filterActive={filter !== "all"}
-        filterLabel="Open group filters"
+        searchPlaceholder="Filter groups"
+        filterValue={filter}
+        filterOptions={FILTERS}
+        onChangeFilter={(value) => setFilter(value as GroupFilter)}
+        sortValue={sort}
+        sortOptions={SORT_OPTIONS}
+        onChangeSort={(value) => setSort(value as GroupSort)}
+        sortDirection={sortDirection}
+        onToggleSortDirection={() =>
+          setSortDirection((current) => (current === "asc" ? "desc" : "asc"))
+        }
         summaryTone="peach"
         summary={
           <View style={styles.statsRow}>
@@ -279,6 +326,12 @@ const FILTERS: { label: string; value: GroupFilter; description: string }[] = [
     value: "settled",
     description: "Closed-out groups with nothing left to sort.",
   },
+];
+
+const SORT_OPTIONS: { label: string; value: GroupSort }[] = [
+  { label: "Updated", value: "updated" },
+  { label: "Name", value: "name" },
+  { label: "Balance", value: "balance" },
 ];
 
 const styles = StyleSheet.create({

@@ -53,7 +53,7 @@ const PORTABLE_ATTACHMENT_MIME_TYPES = new Set([
 export function sanitizeAttachmentsForPortableExport(attachments: Attachment[]) {
   const unsafeAttachment = attachments.find((attachment) => !isPortableAttachmentSafe(attachment));
   if (unsafeAttachment) {
-    throw new Error(unsafeAttachmentReason(unsafeAttachment));
+    throw new Error(unsafeAttachmentReason(unsafeAttachment) ?? undefined);
   }
   return attachments.map((attachment) => ({
     ...attachment,
@@ -396,7 +396,7 @@ function isPortableAttachmentSafe(attachment: Attachment) {
   return !unsafeAttachmentReason(attachment);
 }
 
-function unsafeAttachmentReason(attachment: Attachment) {
+function unsafeAttachmentReason(attachment: Attachment): string | null {
   const label = attachment.fileName?.trim() || attachment.id;
   if (!attachment.fileName?.trim()) {
     return `Attachment ${label} has no file name and cannot be exported.`;
@@ -417,6 +417,6 @@ function unsafeAttachmentReason(attachment: Attachment) {
   return null;
 }
 
-function isAllowedPortableMimeType(mime: string | undefined) {
-  return Boolean(mime) && (mime.startsWith('image/') || PORTABLE_ATTACHMENT_MIME_TYPES.has(mime));
+function isAllowedPortableMimeType(mime: string | undefined): mime is string {
+  return mime !== undefined && (mime.startsWith('image/') || PORTABLE_ATTACHMENT_MIME_TYPES.has(mime));
 }
