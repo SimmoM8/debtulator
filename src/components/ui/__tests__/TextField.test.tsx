@@ -1,20 +1,28 @@
+import { describe, expect, it } from "@jest/globals";
 import TestRenderer from "react-test-renderer";
+import { Text } from "react-native";
 
 import { TextField } from "../TextField";
 
 describe("TextField", () => {
-  it("does not render a label when none is provided", () => {
-    const tree = TestRenderer.create(
-      <TextField label="" value="Hello" onChangeText={() => undefined} />,
-    );
+  it("does not render a label when none is provided", async () => {
+    let tree!: TestRenderer.ReactTestRenderer;
+    await TestRenderer.act(async () => {
+      tree = TestRenderer.create(
+        <TextField label="" value="Hello" onChangeText={() => undefined} />,
+      );
+    });
 
-    expect(tree.root.findAllByType("Text")).toHaveLength(0);
+    expect(tree.root.findAllByType(Text)).toHaveLength(0);
   });
 
-  it("renders the input with the provided value", () => {
-    const tree = TestRenderer.create(
-      <TextField label="Name" value="Ada" onChangeText={() => undefined} />,
-    );
+  it("renders the input with the provided value", async () => {
+    let tree!: TestRenderer.ReactTestRenderer;
+    await TestRenderer.act(async () => {
+      tree = TestRenderer.create(
+        <TextField label="Name" value="Ada" onChangeText={() => undefined} />,
+      );
+    });
 
     const input = tree.root.findByProps({ value: "Ada" });
     expect(input).toBeDefined();

@@ -215,6 +215,6 @@ const styles = StyleSheet.create({
 });
 
 const SORT_DIRECTION_OPTIONS = [
-  { label: "Asc", value: "asc" },
-  { label: "Desc", value: "desc" },
-] as const;
+  { label: "Asc", key: "asc" },
+  { label: "Desc", key: "desc" },
+];
