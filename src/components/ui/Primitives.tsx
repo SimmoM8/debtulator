@@ -60,6 +60,17 @@ export function Screen({
   const auth = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const bottomReserve = footer ? 144 : isTabRoute ? 24 : 112;
+  const childArray = React.Children.toArray(children);
+  const firstChild = childArray[0];
+  const firstChildType =
+    React.isValidElement(firstChild) &&
+    typeof firstChild.type !== "string" &&
+    "displayName" in firstChild.type
+      ? (firstChild.type as { displayName?: string }).displayName
+      : null;
+  const hasLeadingPageHeader = firstChildType === "PageHeader";
+  const headerChild = hasLeadingPageHeader ? firstChild : null;
+  const bodyChildren = hasLeadingPageHeader ? childArray.slice(1) : childArray;
   const refresh = async () => {
     if (refreshing) return;
     setRefreshing(true);
@@ -71,7 +82,7 @@ export function Screen({
   };
   const content = (
     <View style={[styles.content, { maxWidth: width >= 960 ? 1100 : 760 }]}>
-      {children}
+      {bodyChildren}
     </View>
   );
 
@@ -102,6 +113,9 @@ export function Screen({
         end={{ x: 1, y: 1 }}
         style={styles.backdropSheenBottom}
       />
+      {headerChild ? (
+        <View style={styles.pageHeaderBand}>{headerChild}</View>
+      ) : null}
       {scroll ? (
         <ScrollView
           contentContainerStyle={[
@@ -308,6 +322,8 @@ export function PageHeader({
     </View>
   );
 }
+
+PageHeader.displayName = "PageHeader";
 
 export function Card({
   children,
@@ -1395,6 +1411,9 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     gap: spacing.xxl,
   },
+  pageHeaderBand: {
+    width: "100%",
+  },
   footerWrap: {
     position: "absolute",
     left: 12,
@@ -1429,13 +1448,15 @@ const styles = StyleSheet.create({
   },
   pageHeader: {
     backgroundColor: palette.primary,
-    borderColor: "rgba(255,255,255,0.18)",
-    borderRadius: 22,
+    borderColor: "rgba(255,255,255,0.14)",
+    borderRadius: 0,
     borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
+    borderTopWidth: 0,
+    borderLeftWidth: 0,
+    borderRightWidth: 0,
+    paddingHorizontal: spacing.screen,
+    paddingVertical: spacing.lg,
     gap: spacing.md,
-    ...shadows.stacked,
   },
   pageHeaderRoot: {
     flexDirection: "row",
