@@ -35,7 +35,7 @@ export function SettingsScreen() {
             try {
               await resetHostedDevelopmentData();
               await data.resetSyncedData();
-              router.replace("/(tabs)");
+              router.replace("/(tabs)/home");
               Alert.alert("App data reset", "Hosted and local data were cleared. You are still signed in and a clean sync is now running.");
             } catch (error) {
               Alert.alert(

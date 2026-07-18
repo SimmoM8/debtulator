@@ -1781,6 +1781,9 @@ const styles = StyleSheet.create({
     fontSize: typography.size.md,
     fontFamily: typefaces.bodyHeavy,
   },
+  pressed: {
+    opacity: 0.72,
+  },
   memberRow: {
     flexDirection: "row",
     alignItems: "center",
