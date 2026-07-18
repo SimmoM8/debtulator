@@ -6,7 +6,7 @@ import {
     Pressable,
     StyleSheet,
     Text,
-    TextInput,
+  TextInput,
     View,
     type StyleProp,
     type TextInputProps,
@@ -14,6 +14,8 @@ import {
 } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 
+import { GlassSurface } from "@/src/components/ui/GlassSurface";
+import { MemberAvatar } from "@/src/components/ui/MemberAvatar";
 import {
     gradients,
     palette,
@@ -23,8 +25,6 @@ import {
     typefaces,
     typography,
 } from "@/src/constants/design";
-import { GlassSurface } from "@/src/components/ui/GlassSurface";
-import { MemberAvatar } from "@/src/components/ui/MemberAvatar";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 type Tone =
@@ -181,7 +181,10 @@ export function FilterChip({
           ]}
         >
           <Text
-            style={[styles.filterChipText, active && styles.filterChipTextActive]}
+            style={[
+              styles.filterChipText,
+              active && styles.filterChipTextActive,
+            ]}
           >
             {label}
           </Text>
@@ -507,7 +510,10 @@ export function StatCard({
         onHoverOut={showsCompactInfo ? dismissInfo : undefined}
       >
         {({ pressed }) => (
-          <GlassSurface role="surface" style={[...cardStyle, pressed && styles.pressed]}>
+          <GlassSurface
+            role="surface"
+            style={[...cardStyle, pressed && styles.pressed]}
+          >
             {content}
           </GlassSurface>
         )}
@@ -524,7 +530,10 @@ export function StatCard({
         onPress={revealInfo}
       >
         {({ pressed }) => (
-          <GlassSurface role="surface" style={[...cardStyle, pressed && styles.pressed]}>
+          <GlassSurface
+            role="surface"
+            style={[...cardStyle, pressed && styles.pressed]}
+          >
             {content}
           </GlassSurface>
         )}
@@ -863,7 +872,10 @@ export function SettingsRow({
       onPress={onPress}
     >
       {({ pressed }) => (
-        <GlassSurface role="control" style={[styles.settingsRow, pressed && styles.pressed]}>
+        <GlassSurface
+          role="control"
+          style={[styles.settingsRow, pressed && styles.pressed]}
+        >
           <View style={styles.settingsLead}>
             <View style={styles.settingsIcon}>
               <Ionicons name={icon} size={18} color={palette.primary} />
@@ -896,7 +908,9 @@ export function FloatingAddButton({
 }: {
   onPress: () => void;
   accessibilityLabel?: string;
-  accessibilityState?: React.ComponentProps<typeof Pressable>["accessibilityState"];
+  accessibilityState?: React.ComponentProps<
+    typeof Pressable
+  >["accessibilityState"];
 }) {
   return (
     <Pressable
@@ -906,7 +920,10 @@ export function FloatingAddButton({
       onPress={onPress}
     >
       {({ pressed }) => (
-        <GlassSurface role="prominentControl" style={[styles.addButton, pressed && styles.pressed]}>
+        <GlassSurface
+          role="prominentControl"
+          style={[styles.addButton, pressed && styles.pressed]}
+        >
           <View style={styles.addButtonGradient} />
           <Ionicons name="add" size={28} color={palette.surface} />
         </GlassSurface>
@@ -975,7 +992,9 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderIndigoSoft,
     backgroundColor:
-      Platform.OS === "android" ? palette.surface : palette.surfaceGlassElevated,
+      Platform.OS === "android"
+        ? palette.surface
+        : palette.surfaceGlassElevated,
     justifyContent: "center",
   },
   filterChipActive: {
@@ -1088,7 +1107,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: StyleSheet.hairlineWidth,
     backgroundColor:
-      Platform.OS === "android" ? palette.surface : palette.surfaceGlassElevated,
+      Platform.OS === "android"
+        ? palette.surface
+        : palette.surfaceGlassElevated,
     padding: 12,
     gap: 4,
     alignItems: "center",
@@ -1422,7 +1443,9 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderIndigoSoft,
     backgroundColor:
-      Platform.OS === "android" ? palette.surface : palette.surfaceGlassElevated,
+      Platform.OS === "android"
+        ? palette.surface
+        : palette.surfaceGlassElevated,
     ...shadows.card,
   },
   settingsLead: {
