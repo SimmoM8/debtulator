@@ -38,7 +38,8 @@ not palette literals.
 - `brandedBackground`, `brandedSecondaryBackground`
 - `brandedIllustrationPrimary`, `brandedIllustrationSecondary`
 - `chartPrimary`, `chartSecondary`, `chartPositive`, `chartNegative`
-- supporting on-color and semantic background roles
+- `onBrandedBackground`, `positiveOnBranded`, `negativeOnBranded`
+- supporting positive, negative, warning and selection background roles
 
 `src/theme/iosBrand.ios.ts` uses `DynamicColorIOS` to provide deliberate light,
 dark, high-contrast-light and high-contrast-dark values. Ordinary labels continue
