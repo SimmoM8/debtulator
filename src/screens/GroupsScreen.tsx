@@ -1,14 +1,17 @@
 import { router } from "expo-router";
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import {
+    CollectionPageControls,
+    CollectionPageHeader,
+} from "@/src/components/ui/CollectionPageControls";
 import {
     AvatarStack,
     GlassCard,
     SingleSelectFilterList,
     StatCard,
 } from "@/src/components/ui/Finance";
-import { CollectionPageControls } from "@/src/components/ui/CollectionPageControls";
 import { MobileMenuModal } from "@/src/components/ui/MenuList";
 import {
     EmptyState,
@@ -16,8 +19,11 @@ import {
     LoadingState,
     Screen,
 } from "@/src/components/ui/Primitives";
-import { palette, spacing, typefaces,
-typography,
+import {
+    palette,
+    spacing,
+    typefaces,
+    typography,
 } from "@/src/constants/design";
 import { estimateMoneyMap } from "@/src/services/currency";
 import { explainGroupSettlement } from "@/src/services/ledger";
@@ -44,20 +50,25 @@ export function GroupsScreen() {
 
     const filtered = data.groups.filter((group) => {
       if (group.archived) {
-        return false;
+        return true;
       }
+
       const matchesQuery =
         !normalized ||
         group.name.toLowerCase().includes(normalized) ||
-        (group.notes ?? "").toLowerCase().includes(normalized);
+        (group.notes ?? "").toLowerCase().includes(normalized) ||
+        group.visibility.toLowerCase().includes(normalized) ||
+        group.status.toLowerCase().includes(normalized);
+
       if (!matchesQuery) {
         return false;
       }
-      if (filter === "all") {
-        return true;
-      }
+
       if (filter === "settled") {
         return group.status === "settled";
+      }
+      if (filter === "all") {
+        return true;
       }
       return group.status === filter;
     });
@@ -70,8 +81,8 @@ export function GroupsScreen() {
       if (sort === "balance") {
         const firstBalance = Math.abs(
           estimateMoneyMap(
-            explainGroupSettlement(first.id, data.ledgerEntries)
-              .participantNets.me ?? {},
+            explainGroupSettlement(first.id, data.ledgerEntries).participantNets
+              .me ?? {},
             data.settings,
             data.currencyRates,
           ),
@@ -114,16 +125,22 @@ export function GroupsScreen() {
   }
 
   return (
-    <Screen>
+    <Screen
+      headerBackground="primary"
+      header={
+        <CollectionPageHeader
+          title="Groups"
+          addLabel="Add group"
+          onAdd={() => router.push("/group/form")}
+          optionsLabel="Group options"
+          onOpenOptions={() => setOptionsOpen(true)}
+          query={query}
+          onChangeQuery={setQuery}
+          searchPlaceholder="Filter groups"
+        />
+      }
+    >
       <CollectionPageControls
-        title="Groups"
-        addLabel="Add group"
-        onAdd={() => router.push("/group/form")}
-        optionsLabel="Group options"
-        onOpenOptions={() => setOptionsOpen(true)}
-        query={query}
-        onChangeQuery={setQuery}
-        searchPlaceholder="Filter groups"
         filterValue={filter}
         filterOptions={FILTERS}
         onChangeFilter={(value) => setFilter(value as GroupFilter)}

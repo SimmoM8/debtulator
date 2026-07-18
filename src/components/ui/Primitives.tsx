@@ -47,11 +47,15 @@ export function Screen({
   scroll = true,
   footer,
   floatingAction,
+  header,
+  headerBackground,
 }: {
   children: React.ReactNode;
   scroll?: boolean;
   footer?: React.ReactNode;
   floatingAction?: React.ReactNode;
+  header?: React.ReactNode;
+  headerBackground?: "primary" | "transparent";
 }) {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -63,14 +67,29 @@ export function Screen({
   const childArray = React.Children.toArray(children);
   const firstChild = childArray[0];
   const firstChildType =
-    React.isValidElement(firstChild) &&
-    typeof firstChild.type !== "string" &&
-    "displayName" in firstChild.type
-      ? (firstChild.type as { displayName?: string }).displayName
+    React.isValidElement(firstChild) && typeof firstChild.type !== "string"
+      ? ((firstChild.type as { displayName?: string; name?: string })
+          .displayName ??
+        (firstChild.type as { displayName?: string; name?: string }).name ??
+        null)
       : null;
   const hasLeadingPageHeader = firstChildType === "PageHeader";
-  const headerChild = hasLeadingPageHeader ? firstChild : null;
-  const bodyChildren = hasLeadingPageHeader ? childArray.slice(1) : childArray;
+  const extractedHeaderChild = hasLeadingPageHeader ? firstChild : null;
+  const resolvedHeader = header ?? extractedHeaderChild;
+  const bodyChildren = header
+    ? childArray
+    : hasLeadingPageHeader
+      ? childArray.slice(1)
+      : childArray;
+  const resolvedHeaderBackground: "primary" | "transparent" =
+    headerBackground ?? (resolvedHeader ? "primary" : "transparent");
+  const safeAreaEdges: ("top" | "bottom" | "left" | "right")[] = resolvedHeader
+    ? isTabRoute
+      ? []
+      : ["bottom"]
+    : isTabRoute
+      ? ["top"]
+      : ["top", "bottom"];
   const refresh = async () => {
     if (refreshing) return;
     setRefreshing(true);
@@ -88,8 +107,11 @@ export function Screen({
 
   return (
     <SafeAreaView
-      style={styles.safeArea}
-      edges={isTabRoute ? ["top"] : ["top", "bottom"]}
+      style={[
+        styles.safeArea,
+        resolvedHeaderBackground === "primary" && styles.safeAreaHeaderPrimary,
+      ]}
+      edges={safeAreaEdges}
     >
       <LinearGradient
         colors={["#FCFDFF", "#FEFEFF", "#FFFFFF"]}
@@ -113,11 +135,26 @@ export function Screen({
         end={{ x: 1, y: 1 }}
         style={styles.backdropSheenBottom}
       />
-      {headerChild ? (
-        <View style={styles.pageHeaderBand}>{headerChild}</View>
+      {resolvedHeader ? (
+        <View
+          style={[
+            styles.pageHeaderBand,
+            {
+              paddingTop: insets.top,
+              backgroundColor:
+                resolvedHeaderBackground === "primary"
+                  ? palette.primary
+                  : "transparent",
+            },
+          ]}
+        >
+          {resolvedHeader}
+        </View>
       ) : null}
       {scroll ? (
         <ScrollView
+          automaticallyAdjustContentInsets={false}
+          contentInsetAdjustmentBehavior="never"
           contentContainerStyle={[
             styles.scrollContent,
             { paddingBottom: bottomReserve + (isTabRoute ? 0 : insets.bottom) },
@@ -217,6 +254,7 @@ export function PageHeader({
   const canGoBack = router.canGoBack();
   const detailHeader = showBackButton && canGoBack;
   const hasTopRow = Boolean(topLeft || topCenter || topRight || search);
+  const showRootTitleRow = Boolean(eyebrow || title || subtitle) && !topCenter;
 
   return (
     <View
@@ -262,6 +300,7 @@ export function PageHeader({
               value={search.value}
               onChangeText={search.onChangeText}
               placeholder={search.placeholder}
+              variant="header"
               style={styles.pageHeaderSearch}
             />
           ) : null}
@@ -279,24 +318,27 @@ export function PageHeader({
               )}
             </View>
           </View>
-          <View style={styles.pageHeaderTitleRow}>
-            {eyebrow ? (
-              <Text style={styles.pageEyebrowRoot}>{eyebrow}</Text>
-            ) : null}
-            <Text numberOfLines={2} style={styles.pageTitleRootCentered}>
-              {title}
-            </Text>
-            {subtitle ? (
-              <Text numberOfLines={2} style={styles.pageSubtitleRootCentered}>
-                {subtitle}
+          {showRootTitleRow ? (
+            <View style={styles.pageHeaderTitleRow}>
+              {eyebrow ? (
+                <Text style={styles.pageEyebrowRoot}>{eyebrow}</Text>
+              ) : null}
+              <Text numberOfLines={2} style={styles.pageTitleRootCentered}>
+                {title}
               </Text>
-            ) : null}
-          </View>
+              {subtitle ? (
+                <Text numberOfLines={2} style={styles.pageSubtitleRootCentered}>
+                  {subtitle}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
           {search ? (
             <SearchBar
               value={search.value}
               onChangeText={search.onChangeText}
               placeholder={search.placeholder}
+              variant="header"
               style={styles.pageHeaderSearch}
             />
           ) : null}
@@ -444,7 +486,11 @@ export function Button({
     >
       {({ pressed }) => (
         <GlassSurface
-          role={variant === "primary" || variant === "danger" ? "prominentControl" : "control"}
+          role={
+            variant === "primary" || variant === "danger"
+              ? "prominentControl"
+              : "control"
+          }
           style={[
             styles.button,
             buttonVariants[variant],
@@ -453,7 +499,9 @@ export function Button({
             style,
           ]}
         >
-          {variant === "primary" ? <View style={styles.buttonPrimaryGlow} /> : null}
+          {variant === "primary" ? (
+            <View style={styles.buttonPrimaryGlow} />
+          ) : null}
           {icon ? (
             <Ionicons
               name={icon}
@@ -1319,22 +1367,22 @@ function formatIsoDate(date: CalendarDate) {
 }
 
 const buttonVariants = StyleSheet.create({
-    primary: {
-      backgroundColor: palette.primary,
-      borderColor: palette.primary,
-    },
-    secondary: {
-      backgroundColor: palette.surfaceGlassStrong,
-      borderColor: palette.borderIndigoSoft,
-    },
-    ghost: {
-      backgroundColor: "rgba(255,255,255,0.48)",
-      borderColor: "transparent",
-    },
-    danger: {
-      backgroundColor: palette.danger,
-      borderColor: palette.danger,
-    },
+  primary: {
+    backgroundColor: palette.primary,
+    borderColor: palette.primary,
+  },
+  secondary: {
+    backgroundColor: palette.surfaceGlassStrong,
+    borderColor: palette.borderIndigoSoft,
+  },
+  ghost: {
+    backgroundColor: "rgba(255,255,255,0.48)",
+    borderColor: "transparent",
+  },
+  danger: {
+    backgroundColor: palette.danger,
+    borderColor: palette.danger,
+  },
 });
 
 const textVariants = StyleSheet.create({
@@ -1380,6 +1428,9 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: palette.background,
+  },
+  safeAreaHeaderPrimary: {
+    backgroundColor: palette.primary,
   },
   backdropCanvas: {
     ...StyleSheet.absoluteFill,
@@ -1536,8 +1587,8 @@ const styles = StyleSheet.create({
   },
   pageHeaderSearch: {
     minHeight: 44,
-    backgroundColor: "rgba(255,255,255,0.64)",
-    borderColor: "rgba(255,255,255,0.48)",
+    backgroundColor: "rgba(255,255,255,0.24)",
+    borderColor: "rgba(255,255,255,0.36)",
   },
   pageEyebrowDetail: {
     color: "rgba(255,255,255,0.78)",

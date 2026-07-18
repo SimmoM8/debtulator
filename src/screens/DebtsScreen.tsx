@@ -1,23 +1,26 @@
 import { router } from "expo-router";
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 
 import {
-  DebtLedgerSection,
-  debtSectionTotalLabel,
+    DebtLedgerSection,
+    debtSectionTotalLabel,
 } from "@/src/components/DebtLedgerSection";
 import {
-  GlassCard,
-  SingleSelectFilterList,
-  StatCard,
+    CollectionPageControls,
+    CollectionPageHeader,
+} from "@/src/components/ui/CollectionPageControls";
+import {
+    GlassCard,
+    SingleSelectFilterList,
+    StatCard,
 } from "@/src/components/ui/Finance";
-import { CollectionPageControls } from "@/src/components/ui/CollectionPageControls";
 import { MobileMenuModal } from "@/src/components/ui/MenuList";
 import {
-  EmptyState,
-  FilterSheet,
-  LoadingState,
-  Screen,
+    EmptyState,
+    FilterSheet,
+    LoadingState,
+    Screen,
 } from "@/src/components/ui/Primitives";
 import { entryDirectionText } from "@/src/services/ledger";
 import { useAppData } from "@/src/state/AppDataProvider";
@@ -142,16 +145,22 @@ export function DebtsScreen() {
   }
 
   return (
-    <Screen>
+    <Screen
+      headerBackground="primary"
+      header={
+        <CollectionPageHeader
+          title="Debts"
+          addLabel="Add debt"
+          onAdd={() => router.push("/debt/form")}
+          optionsLabel="Debt options"
+          onOpenOptions={() => setOptionsOpen(true)}
+          query={query}
+          onChangeQuery={setQuery}
+          searchPlaceholder="Filter debts"
+        />
+      }
+    >
       <CollectionPageControls
-        title="Debts"
-        addLabel="Add debt"
-        onAdd={() => router.push("/debt/form")}
-        optionsLabel="Debt options"
-        onOpenOptions={() => setOptionsOpen(true)}
-        query={query}
-        onChangeQuery={setQuery}
-        searchPlaceholder="Filter debts"
         filterValue={filter}
         filterOptions={FILTERS}
         onChangeFilter={(value) => setFilter(value as DebtFilter)}
@@ -175,7 +184,7 @@ export function DebtsScreen() {
               selected={filter === "you-owe"}
               onPress={() =>
                 setFilter((current) =>
-                  current === "you-owe" ? "all" : "you-owe"
+                  current === "you-owe" ? "all" : "you-owe",
                 )
               }
               accessibilityHint="Shows debts you still owe"
@@ -190,7 +199,7 @@ export function DebtsScreen() {
               selected={filter === "owed-to-you"}
               onPress={() =>
                 setFilter((current) =>
-                  current === "owed-to-you" ? "all" : "owed-to-you"
+                  current === "owed-to-you" ? "all" : "owed-to-you",
                 )
               }
               accessibilityHint="Shows debts owed to you"
