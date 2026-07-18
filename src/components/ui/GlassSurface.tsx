@@ -14,7 +14,7 @@ import {
   type ViewStyle,
 } from "react-native";
 
-import { glass, type GlassRole } from "@/src/constants/design";
+import { glass, type GlassRole } from "@/src/constants/glass";
 
 type GlassSurfaceProps = ViewProps & {
   children?: React.ReactNode;
