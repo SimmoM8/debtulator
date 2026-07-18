@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   scrollContent: {
-    paddingVertical: spacing.xs,
+    paddingVertical: spacing.xxs,
   },
   sectionList: {
     gap: spacing.md,

@@ -149,7 +149,6 @@ export function ExpenseDetailScreen() {
           <IconButton
             icon="create-outline"
             label="Edit expense"
-            tone="inverse"
             onPress={() =>
               router.push({
                 pathname: "/expense/form",

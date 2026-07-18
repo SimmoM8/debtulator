@@ -117,7 +117,7 @@ export function SettingsScreen() {
       <PageHeader
         title="Settings"
         showBackButton={false}
-        action={<AppMenuButton tone="inverse" />}
+        action={<AppMenuButton />}
       />
 
       <GlassCard tone="lavender">

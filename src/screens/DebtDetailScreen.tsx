@@ -1299,7 +1299,6 @@ export function DebtDetailScreen() {
           <IconButton
             icon="ellipsis-horizontal"
             label="Debt options"
-            tone="inverse"
             onPress={() => setOptionsOpen(true)}
           />
         }

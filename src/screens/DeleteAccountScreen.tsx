@@ -52,11 +52,7 @@ export function DeleteAccountScreen() {
   }, [authenticatedUserId]);
 
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      void refreshRemoteStatus();
-    }, 0);
-
-    return () => clearTimeout(timeout);
+    void refreshRemoteStatus();
   }, [refreshRemoteStatus]);
 
   function requestDeletion() {

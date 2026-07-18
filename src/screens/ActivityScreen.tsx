@@ -1,26 +1,19 @@
-import { Ionicons } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { View } from "react-native";
 
 import { ActivityTimelineRow } from "@/src/components/ActivityTimelineRow";
 import {
   GlassCard,
+  SearchFilterBar,
   SingleSelectFilterList,
 } from "@/src/components/ui/Finance";
 import {
   EmptyState,
   FilterSheet,
-  IconButton,
   LoadingState,
   PageHeader,
   Screen,
-  SlidingSectionSwitcher,
 } from "@/src/components/ui/Primitives";
-import {
-  palette,
-  radii,
-  spacing,
-} from "@/src/constants/design";
 import {
   activityActorLabel,
   activityCategory,
@@ -34,16 +27,14 @@ import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
 
 type ActivityFilter = "all" | "debts" | "payments" | "groups" | "account";
-type ActivitySort = "date" | "type";
-type SortDirection = "asc" | "desc";
+type ActivitySort = "newest" | "oldest";
 
 export function ActivityScreen() {
   const data = useAppData();
   const auth = useAuth();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<ActivityFilter>("all");
-  const [sort, setSort] = useState<ActivitySort>("date");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [sort, setSort] = useState<ActivitySort>("newest");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const events = useMemo(() => {
@@ -76,14 +67,12 @@ export function ActivityScreen() {
           event.targetType.toLowerCase().includes(normalizedQuery);
         return matchesFilter && matchesQuery;
       })
-      .sort((first, second) => {
-        const direction = sortDirection === "asc" ? 1 : -1;
-        if (sort === "type") {
-          return direction * first.targetType.localeCompare(second.targetType);
-        }
-        return direction * first.createdAt.localeCompare(second.createdAt);
-      });
-  }, [auth.identity.authenticatedUserId, data, filter, query, sort, sortDirection]);
+      .sort((first, second) =>
+        sort === "newest"
+          ? second.createdAt.localeCompare(first.createdAt)
+          : first.createdAt.localeCompare(second.createdAt),
+      );
+  }, [auth.identity.authenticatedUserId, data, filter, query, sort]);
 
   if (data.loading || auth.loading) return <LoadingState />;
 
@@ -92,64 +81,15 @@ export function ActivityScreen() {
       <PageHeader
         title="Activity"
         subtitle="Events relevant to you and your shared records."
-        topLeft={
-          <IconButton
-            icon="ellipsis-horizontal"
-            label="Activity options"
-            tone="inverse"
-            onPress={() => setFiltersOpen(true)}
-          />
-        }
-        search={{
-          value: query,
-          onChangeText: setQuery,
-          placeholder: "Filter activity",
-        }}
       />
-
-      <SlidingSectionSwitcher
-        compact
-        sections={FILTER_OPTIONS.map((option) => ({
-          key: option.value,
-          label: option.label,
-        }))}
-        activeSection={filter}
-        onChange={(value) => setFilter(value as ActivityFilter)}
+      <SearchFilterBar
+        value={query}
+        onChangeText={setQuery}
+        placeholder="Search activity"
+        onPressFilter={() => setFiltersOpen(true)}
+        filterActive={filter !== "all" || sort !== "newest"}
+        filterLabel="Open activity filters and sorting"
       />
-      <View style={styles.sortControls}>
-        <View style={styles.sortSwitcher}>
-          <SlidingSectionSwitcher
-            compact
-            sections={SORT_OPTIONS.map((option) => ({
-              key: option.value,
-              label: option.label,
-            }))}
-            activeSection={sort}
-            onChange={(value) => setSort(value as ActivitySort)}
-          />
-        </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Sort ${
-            sortDirection === "asc" ? "ascending" : "descending"
-          }`}
-          onPress={() =>
-            setSortDirection((current) =>
-              current === "asc" ? "desc" : "asc",
-            )
-          }
-          style={({ pressed }) => [
-            styles.sortDirectionButton,
-            pressed && styles.pressed,
-          ]}
-        >
-          <Ionicons
-            name="swap-vertical-outline"
-            size={18}
-            color={palette.primary}
-          />
-        </Pressable>
-      </View>
 
       <GlassCard tone="lavender">
         {events.length ? (
@@ -212,31 +152,6 @@ const FILTER_OPTIONS = [
 ];
 
 const SORT_OPTIONS = [
-  { label: "Date", value: "date" },
-  { label: "Type", value: "type" },
+  { label: "Newest first", value: "newest" },
+  { label: "Oldest first", value: "oldest" },
 ];
-
-const styles = StyleSheet.create({
-  sortControls: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  sortSwitcher: {
-    flex: 1,
-    minWidth: 0,
-  },
-  sortDirectionButton: {
-    width: 38,
-    height: 38,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radii.pill,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.border,
-    backgroundColor: "rgba(255,255,255,0.76)",
-  },
-  pressed: {
-    opacity: 0.78,
-  },
-});

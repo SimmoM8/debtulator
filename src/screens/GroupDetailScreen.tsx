@@ -457,7 +457,6 @@ export function GroupDetailScreen() {
           <IconButton
             icon="ellipsis-horizontal"
             label="Group actions"
-            tone="inverse"
             onPress={() => setOptionsOpen(true)}
           />
         }
