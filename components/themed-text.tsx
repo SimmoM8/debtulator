@@ -56,6 +56,6 @@ const styles = StyleSheet.create({
   link: {
     lineHeight: typography.line.displaySm,
     fontSize: typography.size.xl,
-    color: "#0a7ea4",
+    color: "#3730A3",
   },
 });

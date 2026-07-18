@@ -1,7 +1,9 @@
 import { Group, Host } from "@expo/ui/swift-ui";
 import React from "react";
 
-export const IOS_ACCENT = "#5B4FD8";
+import { IOS_APP_TINT } from "@/src/theme/iosBrand";
+
+export const IOS_ACCENT = IOS_APP_TINT;
 
 /**
  * The single UIKit-to-SwiftUI boundary for a complete iOS screen.
