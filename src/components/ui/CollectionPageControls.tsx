@@ -1,6 +1,5 @@
-import { Ionicons } from "@expo/vector-icons";
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 import { GlassCard } from "@/src/components/ui/Finance";
 import {
@@ -9,11 +8,11 @@ import {
     SlidingSectionSwitcher,
 } from "@/src/components/ui/Primitives";
 import {
-    palette,
-    radii,
-    spacing,
-    typefaces,
-    typography,
+  palette,
+  radii,
+  spacing,
+  typefaces,
+  typography,
 } from "@/src/constants/design";
 
 type SummaryTone =
@@ -133,23 +132,17 @@ export function CollectionPageControls({
               onChange={onChangeSort!}
             />
           </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Sort ${
-              sortDirection === "asc" ? "ascending" : "descending"
-            }`}
-            onPress={onToggleSortDirection}
-            style={({ pressed }) => [
-              styles.sortDirectionButton,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Ionicons
-              name="swap-vertical-outline"
-              size={18}
-              color={palette.primary}
+          <View style={styles.sortDirectionSwitcher}>
+            <SlidingSectionSwitcher
+              compact
+              sections={SORT_DIRECTION_OPTIONS.map((option) => ({
+                key: option.value,
+                label: option.label,
+              }))}
+              activeSection={sortDirection!}
+              onChange={() => onToggleSortDirection!()}
             />
-          </Pressable>
+          </View>
         </View>
       ) : null}
 
@@ -193,15 +186,9 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
-  sortDirectionButton: {
-    width: 38,
-    height: 38,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radii.pill,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.border,
-    backgroundColor: "rgba(255,255,255,0.76)",
+  sortDirectionSwitcher: {
+    width: 126,
+    minWidth: 0,
   },
   summaryCardWrapper: {
     borderRadius: radii.lg,
@@ -211,7 +198,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
   },
-  pressed: {
-    opacity: 0.78,
-  },
 });
+
+const SORT_DIRECTION_OPTIONS: {
+  label: string;
+  value: "asc" | "desc";
+}[] = [
+  { label: "Asc", value: "asc" },
+  { label: "Desc", value: "desc" },
+];

@@ -15,13 +15,14 @@ import {
 import { ActivityTimelineRow } from "@/src/components/ActivityTimelineRow";
 import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
 import { GlassCard, ListRow } from "@/src/components/ui/Finance";
+import { GlassSurface } from "@/src/components/ui/GlassSurface";
 import {
-    EmptyState,
-    IconButton,
-    LoadingState,
-    Screen,
-    SectionActionLink,
-    SectionTitle,
+  EmptyState,
+  IconButton,
+  LoadingState,
+  Screen,
+  SectionActionLink,
+  SectionTitle,
 } from "@/src/components/ui/Primitives";
 import { CURRENCIES } from "@/src/constants/currencies";
 import {
@@ -404,13 +405,17 @@ export function DashboardScreen() {
             accessibilityRole="button"
             accessibilityLabel={action.label}
             onPress={() => router.push(action.href)}
-            style={({ pressed }) => [
-              styles.quickActionTile,
-              pressed && styles.quickActionTilePressed,
-            ]}
           >
-            <Ionicons name={action.icon} size={20} color={palette.primary} />
-            <Text style={styles.quickActionLabel}>{action.label}</Text>
+            {({ pressed }) => (
+              <GlassSurface
+                role="control"
+                interactive
+                style={[styles.quickActionTile, pressed && styles.quickActionTilePressed]}
+              >
+                <Ionicons name={action.icon} size={20} color={palette.primary} />
+                <Text style={styles.quickActionLabel}>{action.label}</Text>
+              </GlassSurface>
+            )}
           </Pressable>
         ))}
       </View>
@@ -689,14 +694,18 @@ function CompactCurrencySelector({
         accessibilityLabel={`Summary currency, ${value}`}
         accessibilityHint="Opens currency selector for estimated summary values"
         onPress={openSelector}
-        style={({ pressed }) => [
-          styles.currencyPill,
-          pressed && styles.quickActionTilePressed,
-        ]}
       >
-        <Ionicons name="cash-outline" size={15} color={palette.primary} />
-        <Text style={styles.currencyPillText}>{value}</Text>
-        <Ionicons name="chevron-down" size={14} color={palette.primary} />
+        {({ pressed }) => (
+          <GlassSurface
+            role="control"
+            interactive
+            style={[styles.currencyPill, pressed && styles.quickActionTilePressed]}
+          >
+            <Ionicons name="cash-outline" size={15} color={palette.primary} />
+            <Text style={styles.currencyPillText}>{value}</Text>
+            <Ionicons name="chevron-down" size={14} color={palette.primary} />
+          </GlassSurface>
+        )}
       </Pressable>
 
       <Modal
@@ -727,27 +736,34 @@ function CompactCurrencySelector({
                       onChange(currency);
                       setOpen(false);
                     }}
-                    style={({ pressed }) => [
-                      styles.currencyDropdownOption,
-                      active && styles.currencyDropdownOptionActive,
-                      pressed && styles.quickActionTilePressed,
-                    ]}
                   >
-                    <Text
-                      style={[
-                        styles.currencyDropdownOptionText,
-                        active && styles.currencyDropdownOptionTextActive,
-                      ]}
-                    >
-                      {currency}
-                    </Text>
-                    {active ? (
-                      <Ionicons
-                        name="checkmark"
-                        size={18}
-                        color={palette.primary}
-                      />
-                    ) : null}
+                    {({ pressed }) => (
+                      <GlassSurface
+                        role="control"
+                        interactive
+                        style={[
+                          styles.currencyDropdownOption,
+                          active && styles.currencyDropdownOptionActive,
+                          pressed && styles.quickActionTilePressed,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.currencyDropdownOptionText,
+                            active && styles.currencyDropdownOptionTextActive,
+                          ]}
+                        >
+                          {currency}
+                        </Text>
+                        {active ? (
+                          <Ionicons
+                            name="checkmark"
+                            size={18}
+                            color={palette.primary}
+                          />
+                        ) : null}
+                      </GlassSurface>
+                    )}
                   </Pressable>
                 );
               })}

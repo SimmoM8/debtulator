@@ -5,6 +5,7 @@ import { Alert, Animated, Modal, Pressable, StyleSheet, Text, TextInput, View } 
 
 import { DebtLedgerSection, debtSectionTotalLabel } from "@/src/components/DebtLedgerSection";
 import { GroupRow } from "@/src/components/EntityRows";
+import { GlassSurface } from "@/src/components/ui/GlassSurface";
 import { MemberAvatar } from "@/src/components/ui/MemberAvatar";
 import { MobileMenuModal } from "@/src/components/ui/MenuList";
 import { TagInput } from "@/src/components/ui/TagInput";
@@ -381,14 +382,21 @@ export function MemberDetailScreen() {
                     setTagsDraft(currentMember.tags);
                     setTagsOpen(true);
                   }}
-                  style={({ pressed }) => [styles.tagsEditButton, pressed && styles.actionPressed]}
                 >
-                  <Text style={styles.tagsEditButtonText}>
-                    {currentMember.tags.length
-                      ? `${currentMember.tags.length} ${currentMember.tags.length === 1 ? "tag" : "tags"}`
-                      : "Add tags"}
-                  </Text>
-                  <Ionicons name="chevron-forward" size={14} color={palette.brand} />
+                  {({ pressed }) => (
+                    <GlassSurface
+                      role="control"
+                      interactive
+                      style={[styles.tagsEditButton, pressed && styles.actionPressed]}
+                    >
+                      <Text style={styles.tagsEditButtonText}>
+                        {currentMember.tags.length
+                          ? `${currentMember.tags.length} ${currentMember.tags.length === 1 ? "tag" : "tags"}`
+                          : "Add tags"}
+                      </Text>
+                      <Ionicons name="chevron-forward" size={14} color={palette.brand} />
+                    </GlassSurface>
+                  )}
                 </Pressable>
               }
             />
@@ -411,9 +419,16 @@ export function MemberDetailScreen() {
                     accessibilityLabel="Save member notes"
                     disabled={savingNotes}
                     onPress={() => void saveNotes()}
-                    style={({ pressed }) => [styles.notesSaveAction, pressed && styles.actionPressed]}
                   >
-                    {savingNotes ? <Text style={styles.notesSavingText}>...</Text> : <Ionicons name="checkmark" size={15} color={palette.brand} />}
+                    {({ pressed }) => (
+                      <GlassSurface
+                        role="control"
+                        interactive
+                        style={[styles.notesSaveAction, pressed && styles.actionPressed]}
+                      >
+                        {savingNotes ? <Text style={styles.notesSavingText}>...</Text> : <Ionicons name="checkmark" size={15} color={palette.brand} />}
+                      </GlassSurface>
+                    )}
                   </Pressable>
                 ) : null}
               </View>

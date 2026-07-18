@@ -1,6 +1,5 @@
-import { Ionicons } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 
 import { ActivityTimelineRow } from "@/src/components/ActivityTimelineRow";
 import {
@@ -16,11 +15,7 @@ import {
   Screen,
   SlidingSectionSwitcher,
 } from "@/src/components/ui/Primitives";
-import {
-  palette,
-  radii,
-  spacing,
-} from "@/src/constants/design";
+import { spacing } from "@/src/constants/design";
 import {
   activityActorLabel,
   activityCategory,
@@ -128,27 +123,14 @@ export function ActivityScreen() {
             onChange={(value) => setSort(value as ActivitySort)}
           />
         </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Sort ${
-            sortDirection === "asc" ? "ascending" : "descending"
-          }`}
-          onPress={() =>
-            setSortDirection((current) =>
-              current === "asc" ? "desc" : "asc",
-            )
-          }
-          style={({ pressed }) => [
-            styles.sortDirectionButton,
-            pressed && styles.pressed,
-          ]}
-        >
-          <Ionicons
-            name="swap-vertical-outline"
-            size={18}
-            color={palette.primary}
+        <View style={styles.sortDirectionSwitcher}>
+          <SlidingSectionSwitcher
+            compact
+            sections={SORT_DIRECTION_OPTIONS}
+            activeSection={sortDirection}
+            onChange={(value) => setSortDirection(value as SortDirection)}
           />
-        </Pressable>
+        </View>
       </View>
 
       <GlassCard tone="lavender">
@@ -226,17 +208,13 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
-  sortDirectionButton: {
-    width: 38,
-    height: 38,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radii.pill,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.border,
-    backgroundColor: "rgba(255,255,255,0.76)",
-  },
-  pressed: {
-    opacity: 0.78,
+  sortDirectionSwitcher: {
+    width: 126,
+    minWidth: 0,
   },
 });
+
+const SORT_DIRECTION_OPTIONS = [
+  { label: "Asc", value: "asc" },
+  { label: "Desc", value: "desc" },
+] as const;

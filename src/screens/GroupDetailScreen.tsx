@@ -9,6 +9,7 @@ import {
 import { AttachmentsSection } from "@/src/components/AttachmentsSection";
 import { CommentsSection } from "@/src/components/CommentsSection";
 import { DebtRow } from "@/src/components/EntityRows";
+import { GlassSurface } from "@/src/components/ui/GlassSurface";
 import { MainActionsBar } from "@/src/components/ui/MainActionsBar";
 import { MobileMenuModal } from "@/src/components/ui/MenuList";
 import {
@@ -1560,19 +1561,27 @@ function PrivateMembersPanel({
                   accessibilityLabel={member.displayName}
                   accessibilityState={{ selected }}
                   onPress={() => toggleMember(member.id)}
-                  style={[
-                    styles.memberChip,
-                    selected && styles.memberChipSelected,
-                  ]}
                 >
-                  <Text
-                    style={[
-                      styles.memberChipText,
-                      selected && styles.memberChipSelectedText,
-                    ]}
-                  >
-                    {member.displayName}
-                  </Text>
+                  {({ pressed }) => (
+                    <GlassSurface
+                      role={selected ? "surface" : "control"}
+                      interactive
+                      style={[
+                        styles.memberChip,
+                        selected && styles.memberChipSelected,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.memberChipText,
+                          selected && styles.memberChipSelectedText,
+                        ]}
+                      >
+                        {member.displayName}
+                      </Text>
+                    </GlassSurface>
+                  )}
                 </Pressable>
               );
             })}
