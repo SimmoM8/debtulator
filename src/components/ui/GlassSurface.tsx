@@ -16,7 +16,7 @@ import {
 
 import { glass, type GlassRole } from "@/src/constants/glass";
 
-type GlassSurfaceProps = ViewProps & {
+type GlassSurfaceProps = Omit<ViewProps, "role"> & {
   children?: React.ReactNode;
   role?: GlassRole;
   interactive?: boolean;
@@ -34,7 +34,7 @@ type GlassSurfaceProps = ViewProps & {
  */
 export function GlassSurface({
   children,
-  role = "surface",
+  role = "surface" as GlassRole,
   interactive = false,
   tintColor,
   style,

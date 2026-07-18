@@ -50,6 +50,10 @@ type Scope =
   | "recurring"
   | "tags";
 
+function buildExportFilename(scope: Scope) {
+  return `debtulator-${scope}-${Date.now()}.csv`;
+}
+
 export function ExportDataScreen() {
   const data = useAppData();
   const auth = useAuth();
@@ -85,10 +89,7 @@ export function ExportDataScreen() {
   async function exportCsv() {
     try {
       const csv = csvForScope(scope);
-      const uri = await writeTextExport(
-        `debtulator-${scope}-${Date.now()}.csv`,
-        csv,
-      );
+      const uri = await writeTextExport(buildExportFilename(scope), csv);
       await data.createExportLog({
         userId: auth.identity.authenticatedUserId,
         exportType: "csv",

@@ -9,7 +9,7 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
       }}
-      tabBar={(props) => <GlassBottomTabBar {...props} />}
+      tabBar={(props: any) => <GlassBottomTabBar {...props} />}
     >
       <Tabs.Screen
         name="index"

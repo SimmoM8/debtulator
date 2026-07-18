@@ -29,6 +29,7 @@ import {
     GlassCard,
     SearchBar,
 } from "@/src/components/ui/Finance";
+import { GlassSurface } from "@/src/components/ui/GlassSurface";
 import {
     palette,
     radii,
@@ -140,7 +141,7 @@ export function Screen({
         <View
           style={[styles.footerWrap, { paddingBottom: insets.bottom + 10 }]}
         >
-          <GlassCard style={styles.footer}>{footer}</GlassCard>
+          <GlassSurface role="elevated" style={styles.footer}>{footer}</GlassSurface>
         </View>
       ) : null}
     </SafeAreaView>
@@ -354,35 +355,41 @@ export function Button({
       }}
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.button,
-        buttonVariants[variant],
-        disabled && styles.disabled,
-        pressed && !disabled && styles.pressed,
-        style,
-      ]}
     >
-      {variant === "primary" ? <View style={styles.buttonPrimaryGlow} /> : null}
-      {icon ? (
-        <Ionicons
-          name={icon}
-          size={18}
-          color={
-            variant === "primary" || variant === "danger"
-              ? palette.surface
-              : palette.primary
-          }
-        />
-      ) : null}
-      <Text
-        style={[
-          styles.buttonText,
-          (variant === "primary" || variant === "danger") &&
-            styles.buttonTextLight,
-        ]}
-      >
-        {title}
-      </Text>
+      {({ pressed }) => (
+        <GlassSurface
+          role={variant === "primary" || variant === "danger" ? "prominentControl" : "control"}
+          style={[
+            styles.button,
+            buttonVariants[variant],
+            disabled && styles.disabled,
+            pressed && !disabled && styles.pressed,
+            style,
+          ]}
+        >
+          {variant === "primary" ? <View style={styles.buttonPrimaryGlow} /> : null}
+          {icon ? (
+            <Ionicons
+              name={icon}
+              size={18}
+              color={
+                variant === "primary" || variant === "danger"
+                  ? palette.surface
+                  : palette.primary
+              }
+            />
+          ) : null}
+          <Text
+            style={[
+              styles.buttonText,
+              (variant === "primary" || variant === "danger") &&
+                styles.buttonTextLight,
+            ]}
+          >
+            {title}
+          </Text>
+        </GlassSurface>
+      )}
     </Pressable>
   );
 }
@@ -425,17 +432,23 @@ export function IconButton({
       accessibilityLabel={label}
       accessibilityRole="button"
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.iconButton,
-        tone === "danger" && styles.iconButtonDanger,
-        pressed && styles.pressed,
-      ]}
     >
-      <Ionicons
-        name={icon}
-        size={22}
-        color={tone === "danger" ? palette.danger : palette.primary}
-      />
+      {({ pressed }) => (
+        <GlassSurface
+          role="control"
+          style={[
+            styles.iconButton,
+            tone === "danger" && styles.iconButtonDanger,
+            pressed && styles.pressed,
+          ]}
+        >
+          <Ionicons
+            name={icon}
+            size={22}
+            color={tone === "danger" ? palette.danger : palette.primary}
+          />
+        </GlassSurface>
+      )}
     </Pressable>
   );
 }
@@ -469,7 +482,8 @@ export function TextField({
   return (
     <View style={[styles.field, style]}>
       <Text style={styles.label}>{label}</Text>
-      <View
+      <GlassSurface
+        role="input"
         style={[styles.inputShell, multiline && styles.inputShellMultiline]}
       >
         <TextInput
@@ -483,7 +497,7 @@ export function TextField({
           editable={editable}
           style={[styles.input, multiline && styles.inputMultiline]}
         />
-      </View>
+      </GlassSurface>
     </View>
   );
 }
@@ -555,22 +569,28 @@ export function DropdownSelect<T extends string>({
         accessibilityLabel={label ?? placeholder}
         accessibilityHint="Opens a dropdown selector"
         onPress={openDropdown}
-        style={({ pressed }) => [
-          styles.inputShell,
-          styles.dropdownShell,
-          pressed && styles.pressed,
-        ]}
       >
-        <Text
-          numberOfLines={1}
-          style={[
-            styles.dropdownValue,
-            !selected && styles.dropdownPlaceholder,
-          ]}
-        >
-          {selected?.label ?? placeholder}
-        </Text>
-        <Ionicons name="chevron-down" size={18} color={palette.primary} />
+        {({ pressed }) => (
+          <GlassSurface
+            role="input"
+            style={[
+              styles.inputShell,
+              styles.dropdownShell,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.dropdownValue,
+                !selected && styles.dropdownPlaceholder,
+              ]}
+            >
+              {selected?.label ?? placeholder}
+            </Text>
+            <Ionicons name="chevron-down" size={18} color={palette.primary} />
+          </GlassSurface>
+        )}
       </Pressable>
 
       <Modal
@@ -693,19 +713,25 @@ export function DatePickerField({
           setVisibleMonth(monthFromIso(value));
           setOpen(true);
         }}
-        style={({ pressed }) => [
-          styles.inputShell,
-          styles.dropdownShell,
-          pressed && styles.pressed,
-        ]}
       >
-        <Text
-          numberOfLines={1}
-          style={[styles.dropdownValue, !value && styles.dropdownPlaceholder]}
-        >
-          {value || placeholder}
-        </Text>
-        <Ionicons name="calendar-outline" size={18} color={palette.primary} />
+        {({ pressed }) => (
+          <GlassSurface
+            role="input"
+            style={[
+              styles.inputShell,
+              styles.dropdownShell,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text
+              numberOfLines={1}
+              style={[styles.dropdownValue, !value && styles.dropdownPlaceholder]}
+            >
+              {value || placeholder}
+            </Text>
+            <Ionicons name="calendar-outline" size={18} color={palette.primary} />
+          </GlassSurface>
+        )}
       </Pressable>
 
       <Modal
@@ -1073,7 +1099,7 @@ export function FilterSheet({
           style={styles.sheetBackdrop}
           onPress={onClose}
         />
-        <GlassCard style={styles.sheet}>
+        <GlassSurface role="elevated" style={styles.sheet}>
           <View style={styles.sheetHandle} />
           <View style={styles.sheetHeader}>
             <View style={styles.flexOne}>
@@ -1090,7 +1116,7 @@ export function FilterSheet({
           >
             {children}
           </ScrollView>
-        </GlassCard>
+        </GlassSurface>
       </View>
     </Modal>
   );
