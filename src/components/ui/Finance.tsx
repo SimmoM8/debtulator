@@ -1,5 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import { BlurView } from "expo-blur";
 import React from "react";
 import {
     Animated,
@@ -24,6 +23,7 @@ import {
     typefaces,
     typography,
 } from "@/src/constants/design";
+import { GlassSurface } from "@/src/components/ui/GlassSurface";
 import { MemberAvatar } from "@/src/components/ui/MemberAvatar";
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -84,24 +84,8 @@ const toneStyles: Record<
   },
 };
 
-/**
- * Android needs a BlurTargetView for real-time blur in Expo SDK 56. The rounded
- * surface already provides the material tint there; adding another native view
- * creates rectangular compositing artifacts on some Android renderers.
- */
-export function GlassBackdrop({ intensity = 18 }: { intensity?: number }) {
-  if (Platform.OS === "android") {
-    return null;
-  }
-
-  return (
-    <BlurView
-      tint="light"
-      intensity={intensity}
-      pointerEvents="none"
-      style={StyleSheet.absoluteFill}
-    />
-  );
+export function GlassBackdrop() {
+  return null;
 }
 
 export function GlassCard({
@@ -129,35 +113,24 @@ export function GlassCard({
         wrapperStyle,
       ]}
     >
-      <View
+      <GlassSurface
+        role="elevated"
         style={[
           styles.card,
           {
             borderColor: toneStyle.border,
-            backgroundColor:
-              Platform.OS === "android"
-                ? palette.surface
-                : palette.surfaceGlassElevated,
           },
           allowOverflow && styles.cardOverflowVisible,
           style,
         ]}
       >
+        <View pointerEvents="none" style={styles.cardSheen} />
         <View
           pointerEvents="none"
-          style={[
-            styles.cardMaterial,
-            Platform.OS !== "android" && styles.cardMaterialClip,
-          ]}
-        >
-          <GlassBackdrop />
-          <View style={styles.cardSheen} />
-          <View
-            style={[styles.cardGlow, { backgroundColor: toneStyle.chip }]}
-          />
-        </View>
+          style={[styles.cardGlow, { backgroundColor: toneStyle.chip }]}
+        />
         {children}
-      </View>
+      </GlassSurface>
     </View>
   );
 }
@@ -197,17 +170,23 @@ export function FilterChip({
       accessibilityLabel={label}
       accessibilityState={{ selected: active }}
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.filterChip,
-        active && styles.filterChipActive,
-        pressed && styles.pressed,
-      ]}
     >
-      <Text
-        style={[styles.filterChipText, active && styles.filterChipTextActive]}
-      >
-        {label}
-      </Text>
+      {({ pressed }) => (
+        <GlassSurface
+          role="control"
+          style={[
+            styles.filterChip,
+            active && styles.filterChipActive,
+            pressed && styles.pressed,
+          ]}
+        >
+          <Text
+            style={[styles.filterChipText, active && styles.filterChipTextActive]}
+          >
+            {label}
+          </Text>
+        </GlassSurface>
+      )}
     </Pressable>
   );
 }
@@ -227,7 +206,7 @@ export function SearchBar({
   style?: StyleProp<ViewStyle>;
 } & Omit<TextInputProps, "value" | "onChangeText" | "style">) {
   return (
-    <View style={[styles.searchBar, style]}>
+    <GlassSurface role="input" style={[styles.searchBar, style]}>
       <Ionicons name="search" size={18} color={palette.muted} />
       <TextInput
         value={value}
@@ -238,7 +217,7 @@ export function SearchBar({
         {...props}
       />
       {accessory}
-    </View>
+    </GlassSurface>
   );
 }
 
@@ -279,18 +258,24 @@ export function SearchFilterBar({
         accessibilityLabel={filterLabel}
         accessibilityState={{ selected: filterActive }}
         onPress={onPressFilter}
-        style={({ pressed }) => [
-          styles.searchToolbarButton,
-          compact && styles.searchToolbarButtonCompact,
-          filterActive && styles.searchToolbarButtonActive,
-          pressed && styles.pressed,
-        ]}
       >
-        <Ionicons
-          name="options-outline"
-          size={20}
-          color={filterActive ? palette.primary : palette.muted}
-        />
+        {({ pressed }) => (
+          <GlassSurface
+            role="control"
+            style={[
+              styles.searchToolbarButton,
+              compact && styles.searchToolbarButtonCompact,
+              filterActive && styles.searchToolbarButtonActive,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Ionicons
+              name="options-outline"
+              size={20}
+              color={filterActive ? palette.primary : palette.muted}
+            />
+          </GlassSurface>
+        )}
       </Pressable>
     </View>
   );
@@ -494,6 +479,21 @@ export function StatCard({
     </>
   );
 
+  const cardStyle = [
+    styles.statCard,
+    !compact && styles.statCardShadow,
+    { borderColor: toneStyle.border },
+    compact && styles.statCardCompact,
+    compact && compactDensity === "tight" && styles.statCardCompactTight,
+    selected && styles.statCardSelected,
+    selected && { backgroundColor: toneStyle.chip },
+    compact &&
+      withDivider &&
+      (dividerSide === "left"
+        ? styles.statCardCompactDividerLeft
+        : styles.statCardCompactDivider),
+  ];
+
   if (onPress) {
     return (
       <Pressable
@@ -505,23 +505,12 @@ export function StatCard({
         onLongPress={showsCompactInfo ? revealInfo : undefined}
         onHoverIn={showsCompactInfo ? revealInfo : undefined}
         onHoverOut={showsCompactInfo ? dismissInfo : undefined}
-        style={({ pressed }) => [
-          styles.statCard,
-          !compact && styles.statCardShadow,
-          { borderColor: toneStyle.border },
-          compact && styles.statCardCompact,
-          compact && compactDensity === "tight" && styles.statCardCompactTight,
-          selected && styles.statCardSelected,
-          selected && { backgroundColor: toneStyle.chip },
-          compact &&
-            withDivider &&
-            (dividerSide === "left"
-              ? styles.statCardCompactDividerLeft
-              : styles.statCardCompactDivider),
-          pressed && styles.pressed,
-        ]}
       >
-        {content}
+        {({ pressed }) => (
+          <GlassSurface role="surface" style={[...cardStyle, pressed && styles.pressed]}>
+            {content}
+          </GlassSurface>
+        )}
       </Pressable>
     );
   }
@@ -533,40 +522,20 @@ export function StatCard({
         accessibilityLabel={`${label} info`}
         accessibilityHint="Shows a short explanation for this summary metric"
         onPress={revealInfo}
-        style={({ pressed }) => [
-          styles.statCard,
-          { borderColor: toneStyle.border },
-          styles.statCardCompact,
-          compactDensity === "tight" && styles.statCardCompactTight,
-          withDivider &&
-            (dividerSide === "left"
-              ? styles.statCardCompactDividerLeft
-              : styles.statCardCompactDivider),
-          pressed && styles.pressed,
-        ]}
       >
-        {content}
+        {({ pressed }) => (
+          <GlassSurface role="surface" style={[...cardStyle, pressed && styles.pressed]}>
+            {content}
+          </GlassSurface>
+        )}
       </Pressable>
     );
   }
 
   return (
-    <View
-      style={[
-        styles.statCard,
-        !compact && styles.statCardShadow,
-        { borderColor: toneStyle.border },
-        compact && styles.statCardCompact,
-        compact && compactDensity === "tight" && styles.statCardCompactTight,
-        compact &&
-          withDivider &&
-          (dividerSide === "left"
-            ? styles.statCardCompactDividerLeft
-            : styles.statCardCompactDivider),
-      ]}
-    >
+    <GlassSurface role="surface" style={cardStyle}>
       {content}
-    </View>
+    </GlassSurface>
   );
 }
 
@@ -892,27 +861,30 @@ export function SettingsRow({
       accessibilityRole="button"
       accessibilityLabel={[title, value, subtitle].filter(Boolean).join(", ")}
       onPress={onPress}
-      style={({ pressed }) => [styles.settingsRow, pressed && styles.pressed]}
     >
-      <View style={styles.settingsLead}>
-        <View style={styles.settingsIcon}>
-          <Ionicons name={icon} size={18} color={palette.primary} />
-        </View>
-        <View style={styles.settingsCopy}>
-          <Text style={styles.settingsTitle}>{title}</Text>
-          {subtitle ? (
-            <Text style={styles.settingsSubtitle}>{subtitle}</Text>
-          ) : null}
-        </View>
-      </View>
-      <View style={styles.settingsTail}>
-        {value ? <Text style={styles.settingsValue}>{value}</Text> : null}
-        <Ionicons
-          name="chevron-forward"
-          size={16}
-          color={palette.textTertiary}
-        />
-      </View>
+      {({ pressed }) => (
+        <GlassSurface role="control" style={[styles.settingsRow, pressed && styles.pressed]}>
+          <View style={styles.settingsLead}>
+            <View style={styles.settingsIcon}>
+              <Ionicons name={icon} size={18} color={palette.primary} />
+            </View>
+            <View style={styles.settingsCopy}>
+              <Text style={styles.settingsTitle}>{title}</Text>
+              {subtitle ? (
+                <Text style={styles.settingsSubtitle}>{subtitle}</Text>
+              ) : null}
+            </View>
+          </View>
+          <View style={styles.settingsTail}>
+            {value ? <Text style={styles.settingsValue}>{value}</Text> : null}
+            <Ionicons
+              name="chevron-forward"
+              size={16}
+              color={palette.textTertiary}
+            />
+          </View>
+        </GlassSurface>
+      )}
     </Pressable>
   );
 }
@@ -932,10 +904,13 @@ export function FloatingAddButton({
       accessibilityLabel={accessibilityLabel}
       accessibilityState={accessibilityState}
       onPress={onPress}
-      style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
     >
-      <View style={styles.addButtonGradient} />
-      <Ionicons name="add" size={28} color={palette.surface} />
+      {({ pressed }) => (
+        <GlassSurface role="prominentControl" style={[styles.addButton, pressed && styles.pressed]}>
+          <View style={styles.addButtonGradient} />
+          <Ionicons name="add" size={28} color={palette.surface} />
+        </GlassSurface>
+      )}
     </Pressable>
   );
 }

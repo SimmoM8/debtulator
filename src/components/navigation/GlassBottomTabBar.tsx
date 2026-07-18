@@ -12,11 +12,8 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import {
-  FloatingAddButton,
-  GlassBackdrop,
-  GlassCard,
-} from "@/src/components/ui/Finance";
+import { FloatingAddButton } from "@/src/components/ui/Finance";
+import { GlassSurface } from "@/src/components/ui/GlassSurface";
 import {
     palette,
     radii,
@@ -128,10 +125,9 @@ export function GlassBottomTabBar({
             style={[styles.menuWrap, { bottom: 112 + insets.bottom }]}
             onPress={(event) => event.stopPropagation()}
           >
-            <GlassCard
-              tone="lavender"
-              style={styles.menuCard}
-              wrapperStyle={styles.menuCardWrap}
+            <GlassSurface
+              role="elevated"
+              style={[styles.menuCard, styles.menuCardWrap]}
             >
               <View style={styles.actionList}>
                 {quickActions.map((action) => (
@@ -143,28 +139,33 @@ export function GlassBottomTabBar({
                       setMenuOpen(false);
                       router.push(action.href);
                     }}
-                    style={({ pressed }) => [
-                      styles.actionRow,
-                      pressed && styles.pressed,
-                    ]}
                   >
-                    <Ionicons
-                      name={action.icon}
-                      size={22}
-                      color={palette.primary}
-                    />
-                    <Text style={styles.actionLabel}>{action.label}</Text>
+                    {({ pressed }) => (
+                      <GlassSurface
+                        role="control"
+                        style={[
+                          styles.actionRow,
+                          pressed && styles.pressed,
+                        ]}
+                      >
+                        <Ionicons
+                          name={action.icon}
+                          size={22}
+                          color={palette.primary}
+                        />
+                        <Text style={styles.actionLabel}>{action.label}</Text>
+                      </GlassSurface>
+                    )}
                   </Pressable>
                 ))}
               </View>
-            </GlassCard>
+            </GlassSurface>
           </Pressable>
         </Pressable>
       </Modal>
       <View style={[styles.barWrap, { paddingBottom: insets.bottom + 10 }]}>
         <View style={styles.barShadow}>
-          <View style={styles.barSurface}>
-            <GlassBackdrop intensity={26} />
+          <GlassSurface role="navigation" style={styles.barSurface}>
             <View style={styles.bar}>
               {visibleTabs.slice(0, 2).map((tab) => (
                 <TabItem
@@ -202,7 +203,7 @@ export function GlassBottomTabBar({
                 />
               ))}
             </View>
-          </View>
+          </GlassSurface>
         </View>
         <View style={[styles.addButtonWrap, { bottom: insets.bottom + 34 }]}>
           <FloatingAddButton

@@ -6,7 +6,7 @@ function response(status: number, body: Record<string, unknown>) {
   return new Response(JSON.stringify(body), { status, headers: jsonHeaders });
 }
 
-Deno.serve(async (request) => {
+Deno.serve(async (request: any) => {
   if (request.method !== 'POST') {
     return response(405, { error: 'Method not allowed.' });
   }
