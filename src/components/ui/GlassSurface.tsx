@@ -2,7 +2,6 @@ import {
   GlassView,
   isGlassEffectAPIAvailable,
   isLiquidGlassAvailable,
-  type GlassStyle,
 } from "expo-glass-effect";
 import React from "react";
 import {
@@ -74,7 +73,7 @@ export function GlassSurface({
       <GlassView
         {...props}
         colorScheme="auto"
-        glassEffectStyle={definition.variant as GlassStyle}
+        glassEffectStyle={definition.variant}
         isInteractive={interactive || definition.interactive}
         tintColor={tintColor ?? definition.tintColor}
         style={[styles.base, style]}
