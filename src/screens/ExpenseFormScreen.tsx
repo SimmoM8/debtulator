@@ -147,7 +147,11 @@ export function ExpenseFormScreen() {
     useState<VerificationStatus>(expense?.verificationStatus ?? "local_only");
 
   useEffect(() => {
-    if (!expense) {
+    if (expense) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
       setParticipantIds(defaultParticipants);
       setPayerId(
         isSharedGroup
@@ -157,7 +161,9 @@ export function ExpenseFormScreen() {
       if (selectedGroup) {
         setCurrency(selectedGroup.defaultCurrency);
       }
-    }
+    }, 0);
+
+    return () => clearTimeout(timeout);
   }, [
     currentGroupMember?.id,
     defaultParticipants,

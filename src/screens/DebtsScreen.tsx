@@ -23,11 +23,15 @@ import { entryDirectionText } from "@/src/services/ledger";
 import { useAppData } from "@/src/state/AppDataProvider";
 
 type DebtFilter = "all" | "you-owe" | "owed-to-you" | "due-soon";
+type DebtSort = "date" | "amount" | "due" | "title";
+type SortDirection = "asc" | "desc";
 
 export function DebtsScreen() {
   const data = useAppData();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<DebtFilter>("all");
+  const [sort, setSort] = useState<DebtSort>("date");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [filterOpen, setFilterOpen] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
 
@@ -79,7 +83,7 @@ export function DebtsScreen() {
   ]);
 
   const filteredEntries = useMemo(() => {
-    return activeMatchedEntries.filter((entry) => {
+    const filtered = activeMatchedEntries.filter((entry) => {
       const isDueSoon = Boolean(entry.dueDate && entry.remainingAmount > 0.005);
       const isYouOwe = entry.fromId === "me";
       const isOwedToYou = entry.toId === "me";
@@ -95,7 +99,30 @@ export function DebtsScreen() {
           return true;
       }
     });
-  }, [activeMatchedEntries, filter]);
+
+    return [...filtered].sort((first, second) => {
+      const direction = sortDirection === "asc" ? 1 : -1;
+      if (sort === "title") {
+        return direction * first.title.localeCompare(second.title);
+      }
+      if (sort === "amount") {
+        return direction * (first.remainingAmount - second.remainingAmount);
+      }
+      if (sort === "due") {
+        if (!first.dueDate && !second.dueDate) {
+          return 0;
+        }
+        if (!first.dueDate) {
+          return 1;
+        }
+        if (!second.dueDate) {
+          return -1;
+        }
+        return direction * first.dueDate.localeCompare(second.dueDate);
+      }
+      return direction * first.date.localeCompare(second.date);
+    });
+  }, [activeMatchedEntries, filter, sort, sortDirection]);
 
   const youOwe = filteredEntries.filter(
     (entry) => entry.fromId === "me" && entry.remainingAmount > 0.005,
@@ -124,10 +151,17 @@ export function DebtsScreen() {
         onOpenOptions={() => setOptionsOpen(true)}
         query={query}
         onChangeQuery={setQuery}
-        searchPlaceholder="Search debts"
-        onOpenFilters={() => setFilterOpen(true)}
-        filterActive={filter !== "all"}
-        filterLabel="Open debt filters"
+        searchPlaceholder="Filter debts"
+        filterValue={filter}
+        filterOptions={FILTERS}
+        onChangeFilter={(value) => setFilter(value as DebtFilter)}
+        sortValue={sort}
+        sortOptions={SORT_OPTIONS}
+        onChangeSort={(value) => setSort(value as DebtSort)}
+        sortDirection={sortDirection}
+        onToggleSortDirection={() =>
+          setSortDirection((current) => (current === "asc" ? "desc" : "asc"))
+        }
         summary={
           <View style={styles.statsRow}>
             <StatCard
@@ -269,6 +303,13 @@ const FILTERS: { label: string; value: DebtFilter; description: string }[] = [
     value: "due-soon",
     description: "Open balances that already have a due date.",
   },
+];
+
+const SORT_OPTIONS: { label: string; value: DebtSort }[] = [
+  { label: "Date", value: "date" },
+  { label: "Amount", value: "amount" },
+  { label: "Due", value: "due" },
+  { label: "Title", value: "title" },
 ];
 
 const styles = StyleSheet.create({

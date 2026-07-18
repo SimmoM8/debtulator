@@ -171,6 +171,10 @@ export function PageHeader({
   title,
   subtitle,
   action,
+  topLeft,
+  topCenter,
+  topRight,
+  search,
   showBackButton = true,
 }: {
   eyebrow?: string;
@@ -178,43 +182,102 @@ export function PageHeader({
   title: string;
   subtitle?: string;
   action?: React.ReactNode;
+  topLeft?: React.ReactNode;
+  topCenter?: React.ReactNode;
+  topRight?: React.ReactNode;
+  search?: {
+    value: string;
+    onChangeText: (value: string) => void;
+    placeholder?: string;
+  };
   showBackButton?: boolean;
 }) {
   const canGoBack = router.canGoBack();
   const detailHeader = showBackButton && canGoBack;
+  const hasTopRow = Boolean(topLeft || topCenter || topRight || search);
 
   return (
     <View
       style={[
         styles.pageHeader,
-        detailHeader ? styles.pageHeaderDetail : styles.pageHeaderRoot,
+        detailHeader
+          ? styles.pageHeaderDetail
+          : hasTopRow
+            ? styles.pageHeaderStack
+            : styles.pageHeaderRoot,
       ]}
     >
       {detailHeader ? (
         <>
-          <View style={styles.pageHeaderEdge}>
-            <IconButton
-              icon="chevron-back"
-              label="Go back"
-              onPress={() => router.back()}
-            />
+          <View style={styles.pageHeaderDetailRow}>
+            <View style={styles.pageHeaderEdge}>
+              <IconButton
+                icon="chevron-back"
+                label="Go back"
+                tone="inverse"
+                onPress={() => router.back()}
+              />
+            </View>
+            <View style={styles.pageHeaderCenter}>
+              {detailLabel ? (
+                <Text style={styles.pageEyebrowDetail}>{detailLabel}</Text>
+              ) : null}
+              <Text numberOfLines={1} style={styles.pageTitleDetail}>
+                {title}
+              </Text>
+              {subtitle ? (
+                <Text numberOfLines={2} style={styles.pageSubtitleDetail}>
+                  {subtitle}
+                </Text>
+              ) : null}
+            </View>
+            <View style={[styles.pageHeaderEdge, styles.pageHeaderEdgeRight]}>
+              {action ? action : <View style={styles.pageHeaderActionSpacer} />}
+            </View>
           </View>
-          <View style={styles.pageHeaderCenter}>
-            {detailLabel ? (
-              <Text style={styles.pageEyebrowDetail}>{detailLabel}</Text>
+          {search ? (
+            <SearchBar
+              value={search.value}
+              onChangeText={search.onChangeText}
+              placeholder={search.placeholder}
+              style={styles.pageHeaderSearch}
+            />
+          ) : null}
+        </>
+      ) : hasTopRow ? (
+        <>
+          <View style={styles.pageHeaderTopRow}>
+            <View style={styles.pageHeaderTopEdge}>
+              {topLeft ?? <View style={styles.pageHeaderActionSpacer} />}
+            </View>
+            <View style={styles.pageHeaderTopCenter}>
+              {topCenter}
+            </View>
+            <View style={[styles.pageHeaderTopEdge, styles.pageHeaderTopRight]}>
+              {topRight ?? action ?? <View style={styles.pageHeaderActionSpacer} />}
+            </View>
+          </View>
+          <View style={styles.pageHeaderTitleRow}>
+            {eyebrow ? (
+              <Text style={styles.pageEyebrowRoot}>{eyebrow}</Text>
             ) : null}
-            <Text numberOfLines={1} style={styles.pageTitleDetail}>
+            <Text numberOfLines={2} style={styles.pageTitleRootCentered}>
               {title}
             </Text>
             {subtitle ? (
-              <Text numberOfLines={2} style={styles.pageSubtitleDetail}>
+              <Text numberOfLines={2} style={styles.pageSubtitleRootCentered}>
                 {subtitle}
               </Text>
             ) : null}
           </View>
-          <View style={[styles.pageHeaderEdge, styles.pageHeaderEdgeRight]}>
-            {action ? action : <View style={styles.pageHeaderActionSpacer} />}
-          </View>
+          {search ? (
+            <SearchBar
+              value={search.value}
+              onChangeText={search.onChangeText}
+              placeholder={search.placeholder}
+              style={styles.pageHeaderSearch}
+            />
+          ) : null}
         </>
       ) : (
         <>
@@ -418,7 +481,7 @@ export function IconButton({
   icon: IconName;
   onPress: () => void;
   label: string;
-  tone?: "default" | "danger";
+  tone?: "default" | "danger" | "inverse";
 }) {
   return (
     <Pressable
@@ -428,13 +491,20 @@ export function IconButton({
       style={({ pressed }) => [
         styles.iconButton,
         tone === "danger" && styles.iconButtonDanger,
+        tone === "inverse" && styles.iconButtonInverse,
         pressed && styles.pressed,
       ]}
     >
       <Ionicons
         name={icon}
         size={22}
-        color={tone === "danger" ? palette.danger : palette.primary}
+        color={
+          tone === "danger"
+            ? palette.danger
+            : tone === "inverse"
+              ? palette.surface
+              : palette.primary
+        }
       />
     </Pressable>
   );
@@ -889,10 +959,12 @@ export function SlidingSectionSwitcher<T extends string>({
   sections,
   activeSection,
   onChange,
+  compact = false,
 }: {
   sections: { key: T; label: string }[];
   activeSection: T;
   onChange: (section: T) => void;
+  compact?: boolean;
 }) {
   const [width, setWidth] = useState(0);
   const [translate] = useState(() => new Animated.Value(0));
@@ -911,9 +983,14 @@ export function SlidingSectionSwitcher<T extends string>({
   }, [activeIndex, segmentWidth, translate]);
 
   return (
-    <View style={styles.sectionSwitcherShell}>
+    <View
+      style={[
+        styles.sectionSwitcherShell,
+        compact && styles.sectionSwitcherShellCompact,
+      ]}
+    >
       <View
-        style={styles.sectionSwitcher}
+        style={[styles.sectionSwitcher, compact && styles.sectionSwitcherCompact]}
         onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
       >
         {width ? (
@@ -921,6 +998,7 @@ export function SlidingSectionSwitcher<T extends string>({
             pointerEvents="none"
             style={[
               styles.sectionSwitcherThumb,
+              compact && styles.sectionSwitcherThumbCompact,
               {
                 width: segmentWidth - 8,
                 transform: [{ translateX: translate }],
@@ -939,6 +1017,7 @@ export function SlidingSectionSwitcher<T extends string>({
               onPress={() => onChange(section.key)}
               style={({ pressed }) => [
                 styles.sectionSwitcherItem,
+                compact && styles.sectionSwitcherItemCompact,
                 pressed && styles.pressed,
               ]}
             >
@@ -946,6 +1025,7 @@ export function SlidingSectionSwitcher<T extends string>({
                 numberOfLines={1}
                 style={[
                   styles.sectionSwitcherText,
+                  compact && styles.sectionSwitcherTextCompact,
                   active && styles.sectionSwitcherTextActive,
                 ]}
               >
@@ -1300,16 +1380,59 @@ const styles = StyleSheet.create({
     fontFamily: typefaces.displayMedium,
   },
   pageHeader: {
+    backgroundColor: palette.primary,
+    borderColor: "rgba(255,255,255,0.18)",
+    borderRadius: 22,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    gap: spacing.md,
+    ...shadows.stacked,
+  },
+  pageHeaderRoot: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    gap: spacing.md,
+    minHeight: 40,
   },
-  pageHeaderRoot: {
+  pageHeaderStack: {
     minHeight: 40,
   },
   pageHeaderDetail: {
     minHeight: 40,
+  },
+  pageHeaderDetailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    minHeight: 40,
+  },
+  pageHeaderTopRow: {
+    minHeight: 40,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+  },
+  pageHeaderTopEdge: {
+    width: 96,
+    flexDirection: "row",
+    alignItems: "center",
+    minWidth: 0,
+  },
+  pageHeaderTopCenter: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 0,
+  },
+  pageHeaderTopRight: {
+    justifyContent: "flex-end",
+  },
+  pageHeaderTitleRow: {
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: spacing.sm,
   },
   pageHeaderMain: {
     flex: 1,
@@ -1342,43 +1465,63 @@ const styles = StyleSheet.create({
   pageHeaderAction: {
     alignSelf: "center",
   },
+  pageHeaderSearch: {
+    minHeight: 44,
+    backgroundColor: "rgba(255,255,255,0.64)",
+    borderColor: "rgba(255,255,255,0.48)",
+  },
   pageEyebrowDetail: {
-    color: palette.primary,
+    color: "rgba(255,255,255,0.78)",
     fontSize: typography.size.xs,
     lineHeight: typography.line.sm,
     fontFamily: typefaces.bodyStrong,
     letterSpacing: 0.2,
   },
   pageTitleRoot: {
-    color: palette.textPrimary,
+    color: palette.surface,
     fontSize: typography.size.h2,
     lineHeight: typography.line.h2,
     fontFamily: typefaces.displayMedium,
   },
+  pageTitleRootCentered: {
+    color: palette.surface,
+    fontSize: typography.size.h2,
+    lineHeight: typography.line.h2,
+    fontFamily: typefaces.displayMedium,
+    textAlign: "center",
+  },
   pageEyebrowRoot: {
-    color: palette.primary,
+    color: "rgba(255,255,255,0.78)",
     fontSize: typography.size.xs,
     lineHeight: typography.line.sm,
     fontFamily: typefaces.bodyStrong,
     textTransform: "uppercase",
   },
   pageSubtitleRoot: {
-    color: palette.muted,
+    color: "rgba(255,255,255,0.78)",
     fontSize: typography.size.base,
     lineHeight: typography.line.lg,
     fontFamily: typefaces.body,
     marginTop: 4,
     maxWidth: 620,
   },
+  pageSubtitleRootCentered: {
+    color: "rgba(255,255,255,0.78)",
+    fontSize: typography.size.sm,
+    lineHeight: typography.line.basePlus,
+    fontFamily: typefaces.body,
+    textAlign: "center",
+    maxWidth: 620,
+  },
   pageTitleDetail: {
-    color: palette.textPrimary,
+    color: palette.surface,
     fontSize: typography.size.base,
     lineHeight: typography.line.lg,
     fontFamily: typefaces.bodyStrong,
     textAlign: "center",
   },
   pageSubtitleDetail: {
-    color: palette.muted,
+    color: "rgba(255,255,255,0.78)",
     fontSize: typography.size.xs,
     lineHeight: typography.line.sm,
     fontFamily: typefaces.body,
@@ -1489,6 +1632,9 @@ const styles = StyleSheet.create({
   },
   iconButtonDanger: {
     backgroundColor: "transparent",
+  },
+  iconButtonInverse: {
+    backgroundColor: "rgba(255,255,255,0.12)",
   },
   field: {
     gap: 10,
@@ -1709,6 +1855,9 @@ const styles = StyleSheet.create({
   sectionSwitcherShell: {
     marginBottom: spacing.md,
   },
+  sectionSwitcherShellCompact: {
+    marginBottom: 0,
+  },
   sectionSwitcher: {
     position: "relative",
     flexDirection: "row",
@@ -1718,6 +1867,10 @@ const styles = StyleSheet.create({
     backgroundColor: palette.surfaceMuted,
     padding: 4,
     overflow: "hidden",
+  },
+  sectionSwitcherCompact: {
+    padding: 3,
+    backgroundColor: "rgba(233,237,247,0.72)",
   },
   sectionSwitcherThumb: {
     position: "absolute",
@@ -1729,6 +1882,10 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderIndigoSoft,
   },
+  sectionSwitcherThumbCompact: {
+    top: 3,
+    bottom: 3,
+  },
   sectionSwitcherItem: {
     flex: 1,
     minHeight: 40,
@@ -1737,10 +1894,16 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     paddingHorizontal: spacing.xs,
   },
+  sectionSwitcherItemCompact: {
+    minHeight: 32,
+  },
   sectionSwitcherText: {
     color: palette.textSecondary,
     fontSize: typography.size.sm,
     fontFamily: typefaces.bodyStrong,
+  },
+  sectionSwitcherTextCompact: {
+    fontSize: typography.size.xs,
   },
   sectionSwitcherTextActive: {
     color: palette.primary,

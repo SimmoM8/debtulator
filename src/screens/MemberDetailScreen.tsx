@@ -234,6 +234,7 @@ export function MemberDetailScreen() {
           <IconButton
             icon="ellipsis-horizontal"
             label="Member options"
+            tone="inverse"
             onPress={() => setOptionsOpen(true)}
           />
         }

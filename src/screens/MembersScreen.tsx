@@ -29,12 +29,16 @@ import type { AppSettings, CurrencyRate, Member } from "@/src/types/models";
 import { formatMoney } from "@/src/utils/money";
 
 type MemberFilter = "all" | "linked" | "shared" | "owed-to-you" | "you-owe";
+type MemberSort = "name" | "balance" | "updated";
+type SortDirection = "asc" | "desc";
 const MINIMUM_BALANCE_THRESHOLD = 0.005;
 
 export function MembersScreen() {
   const data = useAppData();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<MemberFilter>("all");
+  const [sort, setSort] = useState<MemberSort>("name");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [filterOpen, setFilterOpen] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
 
@@ -57,7 +61,7 @@ export function MembersScreen() {
   }, [data.members, query]);
 
   const members = useMemo(() => {
-    return activeMatchedMembers.filter((member) => {
+    const filtered = activeMatchedMembers.filter((member) => {
       const balance = data.memberBalances[member.id] ?? {};
       const values = Object.values(balance);
       const hasPositive = values.some(
@@ -89,7 +93,42 @@ export function MembersScreen() {
           return true;
       }
     });
-  }, [activeMatchedMembers, data.debts, data.groups, data.memberBalances, filter]);
+
+    return [...filtered].sort((first, second) => {
+      const direction = sortDirection === "asc" ? 1 : -1;
+      if (sort === "balance") {
+        const firstBalance = Math.abs(
+          estimateMoneyMap(
+            data.memberBalances[first.id] ?? {},
+            data.settings,
+            data.currencyRates,
+          ),
+        );
+        const secondBalance = Math.abs(
+          estimateMoneyMap(
+            data.memberBalances[second.id] ?? {},
+            data.settings,
+            data.currencyRates,
+          ),
+        );
+        return direction * (firstBalance - secondBalance);
+      }
+      if (sort === "updated") {
+        return direction * first.updatedAt.localeCompare(second.updatedAt);
+      }
+      return direction * first.displayName.localeCompare(second.displayName);
+    });
+  }, [
+    activeMatchedMembers,
+    data.currencyRates,
+    data.debts,
+    data.groups,
+    data.memberBalances,
+    data.settings,
+    filter,
+    sort,
+    sortDirection,
+  ]);
 
   const youOweCount = activeMatchedMembers.filter((member) =>
     Object.values(data.memberBalances[member.id] ?? {}).some(
@@ -116,10 +155,17 @@ export function MembersScreen() {
         onOpenOptions={() => setOptionsOpen(true)}
         query={query}
         onChangeQuery={setQuery}
-        searchPlaceholder="Search members"
-        onOpenFilters={() => setFilterOpen(true)}
-        filterActive={filter !== "all"}
-        filterLabel="Open member filters"
+        searchPlaceholder="Filter members"
+        filterValue={filter}
+        filterOptions={FILTERS}
+        onChangeFilter={(value) => setFilter(value as MemberFilter)}
+        sortValue={sort}
+        sortOptions={SORT_OPTIONS}
+        onChangeSort={(value) => setSort(value as MemberSort)}
+        sortDirection={sortDirection}
+        onToggleSortDirection={() =>
+          setSortDirection((current) => (current === "asc" ? "desc" : "asc"))
+        }
         summary={
           <View style={styles.statsRow}>
             <StatCard
@@ -320,6 +366,12 @@ const FILTERS: { label: string; value: MemberFilter; description: string }[] = [
     value: "you-owe",
     description: "People you currently owe money to.",
   },
+];
+
+const SORT_OPTIONS: { label: string; value: MemberSort }[] = [
+  { label: "Name", value: "name" },
+  { label: "Balance", value: "balance" },
+  { label: "Updated", value: "updated" },
 ];
 
 const styles = StyleSheet.create({

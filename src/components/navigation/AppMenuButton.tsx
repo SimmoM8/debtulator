@@ -140,7 +140,11 @@ const sections: MenuSection[] = [
   },
 ];
 
-export function AppMenuButton() {
+export function AppMenuButton({
+  tone = "default",
+}: {
+  tone?: React.ComponentProps<typeof IconButton>["tone"];
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -172,6 +176,7 @@ export function AppMenuButton() {
       <IconButton
         icon="menu-outline"
         label="Open navigation menu"
+        tone={tone}
         onPress={() => setOpen(true)}
       />
       <MobileMenuModal

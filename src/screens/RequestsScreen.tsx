@@ -6,18 +6,16 @@ import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
 import {
     GlassCard,
     RequestCard,
-    SearchFilterBar,
-    SingleSelectFilterList,
     StatCard,
 } from "@/src/components/ui/Finance";
 import {
     Button,
     EmptyState,
-    FilterSheet,
     LoadingState,
     PageHeader,
     Screen,
     SectionTitle,
+    SlidingSectionSwitcher,
 } from "@/src/components/ui/Primitives";
 import {
     palette,
@@ -43,7 +41,6 @@ export function RequestsScreen() {
   const auth = useAuth();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<InboxFilter>("pending");
-  const [filterOpen, setFilterOpen] = useState(false);
 
   const userId = auth.identity.authenticatedUserId;
   const email = auth.identity.email?.toLowerCase() ?? null;
@@ -227,7 +224,7 @@ export function RequestsScreen() {
         <PageHeader
           title="Requests"
           showBackButton={false}
-          action={<AppMenuButton />}
+          topLeft={<AppMenuButton tone="inverse" />}
         />
         <GlassCard tone="amber">
           <EmptyState
@@ -247,16 +244,22 @@ export function RequestsScreen() {
       <PageHeader
         title="Requests"
         showBackButton={false}
-        action={<AppMenuButton />}
+        topLeft={<AppMenuButton tone="inverse" />}
+        search={{
+          value: query,
+          onChangeText: setQuery,
+          placeholder: "Filter requests",
+        }}
       />
 
-      <SearchFilterBar
-        value={query}
-        onChangeText={setQuery}
-        placeholder="Search requests"
-        onPressFilter={() => setFilterOpen(true)}
-        filterActive={filter !== "pending"}
-        filterLabel="Open request filters"
+      <SlidingSectionSwitcher
+        compact
+        sections={FILTERS.map((option) => ({
+          key: option.value,
+          label: option.label,
+        }))}
+        activeSection={filter}
+        onChange={(value) => setFilter(value as InboxFilter)}
       />
 
       <GlassCard tone="lavender" allowOverflow>
@@ -294,22 +297,6 @@ export function RequestsScreen() {
           />
         </View>
       </GlassCard>
-
-      <FilterSheet
-        visible={filterOpen}
-        title="Request filters"
-        subtitle="Choose which inbox items you want to review."
-        onClose={() => setFilterOpen(false)}
-      >
-        <SingleSelectFilterList
-          value={filter}
-          options={FILTERS}
-          onChange={(value) => {
-            setFilter(value as InboxFilter);
-            setFilterOpen(false);
-          }}
-        />
-      </FilterSheet>
 
       {(filter === "all" || filter === "pending") && (
         <>

@@ -50,6 +50,10 @@ type Scope =
   | "recurring"
   | "tags";
 
+function timestampedCsvFileName(scope: Scope) {
+  return `debtulator-${scope}-${Date.now()}.csv`;
+}
+
 export function ExportDataScreen() {
   const data = useAppData();
   const auth = useAuth();
@@ -86,7 +90,7 @@ export function ExportDataScreen() {
     try {
       const csv = csvForScope(scope);
       const uri = await writeTextExport(
-        `debtulator-${scope}-${Date.now()}.csv`,
+        timestampedCsvFileName(scope),
         csv,
       );
       await data.createExportLog({
