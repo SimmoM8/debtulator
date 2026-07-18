@@ -312,9 +312,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const linkedUserIds = new Set(
-      data.members.flatMap((member) => (member.linkedUserId ? [member.linkedUserId] : [])),
+    const membersByLinkedUserId = new Map(
+      data.members
+        .filter((member) => Boolean(member.linkedUserId))
+        .map((member) => [member.linkedUserId as string, member]),
     );
+    const linkedUserIds = new Set(membersByLinkedUserId.keys());
     const publishPendingDebtConfirmations = async (
       member: (typeof data.members)[number],
       responderUserId: string,
@@ -420,7 +423,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (row.requester_user_id === user.id) {
         const member = data.members.find((item) => item.id === row.requester_member_local_or_remote_id);
         if (member && row.status !== 'pending') {
-          await data.updateMember(member.id, {
+          const updatedMember = await data.updateMember(member.id, {
             linkStatus:
               row.status === 'accepted'
                 ? 'linked'
@@ -440,6 +443,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 : member.linkedProfileEmail,
             linkedProfilePhone: row.status === 'accepted' ? row.target_phone : member.linkedProfilePhone,
           });
+          if (updatedMember.linkedUserId) {
+            membersByLinkedUserId.set(updatedMember.linkedUserId, updatedMember);
+            linkedUserIds.add(updatedMember.linkedUserId);
+          }
           if (row.status === 'accepted' && row.target_user_id) {
             const pendingSince = (remote.linkRequests ?? [])
               .filter(
@@ -464,7 +471,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         row.target_user_id === user.id &&
         !linkedUserIds.has(row.requester_user_id)
       ) {
-        await data.createMember({
+        const createdMember = await data.createMember({
           displayName: acceptedProfile?.displayName ?? row.requester_label,
           email: acceptedProfile?.email,
           linkedUserId: row.requester_user_id,
@@ -472,16 +479,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           linkedProfileDisplayName: acceptedProfile?.displayName ?? row.requester_label,
           linkedProfileEmail: acceptedProfile?.email,
         });
+        membersByLinkedUserId.set(row.requester_user_id, createdMember);
         linkedUserIds.add(row.requester_user_id);
       } else if (row.status === 'accepted' && row.target_user_id === user.id) {
-        const reciprocalMember = data.members.find(
-          (member) => member.linkedUserId === row.requester_user_id,
-        );
+        const reciprocalMember = membersByLinkedUserId.get(row.requester_user_id);
         if (reciprocalMember) {
           const autoNamed =
             !reciprocalMember.linkedProfileDisplayName ||
             reciprocalMember.displayName === reciprocalMember.linkedProfileDisplayName;
-          await data.updateMember(reciprocalMember.id, {
+          const updatedMember = await data.updateMember(reciprocalMember.id, {
             displayName:
               autoNamed
                 ? acceptedProfile?.displayName ?? row.requester_label
@@ -490,6 +496,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             linkedProfileDisplayName: acceptedProfile?.displayName ?? row.requester_label,
             linkedProfileEmail: acceptedProfile?.email ?? reciprocalMember.linkedProfileEmail,
           });
+          if (updatedMember.linkedUserId) {
+            membersByLinkedUserId.set(updatedMember.linkedUserId, updatedMember);
+          }
         }
       }
     }
@@ -516,7 +525,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const pendingRequesterFields = pendingRequesterAmendment?.change_summary
         ?.changedFields ?? [];
       const otherUserId = row.creator_user_id === user.id ? row.involved_user_id : row.creator_user_id;
-      const existingMember = data.members.find((member) => member.linkedUserId === otherUserId);
+      const existingMember = membersByLinkedUserId.get(otherUserId);
       const member =
         existingMember ??
         (await data.createMember({
@@ -525,6 +534,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           linkStatus: 'linked',
           linkedProfileDisplayName: 'Linked Debtulator user',
         }));
+      membersByLinkedUserId.set(otherUserId, member);
       const remoteDirection =
         row.creator_user_id === user.id
           ? row.direction

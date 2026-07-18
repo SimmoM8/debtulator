@@ -255,7 +255,6 @@ export function AuthScreen() {
             />
           </>
         ) : null}
-
         <TextField label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" placeholder="you@example.com" />
         {mode !== 'forgot' ? (
           <TextField label="Password" value={password} onChangeText={setPassword} secureTextEntry />

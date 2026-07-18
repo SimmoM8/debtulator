@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { TagInput } from "@/src/components/ui/TagInput";
@@ -146,6 +146,31 @@ export function ExpenseFormScreen() {
   const [verificationStatus, setVerificationStatus] =
     useState<VerificationStatus>(expense?.verificationStatus ?? "local_only");
 
+  useEffect(() => {
+    if (expense) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      setParticipantIds(defaultParticipants);
+      setPayerId(
+        isSharedGroup
+          ? (currentGroupMember?.id ?? defaultParticipants[0] ?? "me")
+          : "me",
+      );
+      if (selectedGroup) {
+        setCurrency(selectedGroup.defaultCurrency);
+      }
+    }, 0);
+
+    return () => clearTimeout(timeout);
+  }, [
+    currentGroupMember?.id,
+    defaultParticipants,
+    expense,
+    isSharedGroup,
+    selectedGroup,
+  ]);
   const groupOptions = useMemo(
     () =>
       data.groups

@@ -53,7 +53,10 @@ const PORTABLE_ATTACHMENT_MIME_TYPES = new Set([
 export function sanitizeAttachmentsForPortableExport(attachments: Attachment[]) {
   const unsafeAttachment = attachments.find((attachment) => !isPortableAttachmentSafe(attachment));
   if (unsafeAttachment) {
-    throw new Error(unsafeAttachmentReason(unsafeAttachment) ?? 'Attachment export is not portable.');
+    const reason = unsafeAttachmentReason(unsafeAttachment);
+    if (reason) {
+      throw new Error(reason);
+    }
   }
   return attachments.map((attachment) => ({
     ...attachment,
@@ -396,7 +399,7 @@ function isPortableAttachmentSafe(attachment: Attachment) {
   return !unsafeAttachmentReason(attachment);
 }
 
-function unsafeAttachmentReason(attachment: Attachment) {
+function unsafeAttachmentReason(attachment: Attachment): string | null {
   const label = attachment.fileName?.trim() || attachment.id;
   if (!attachment.fileName?.trim()) {
     return `Attachment ${label} has no file name and cannot be exported.`;
