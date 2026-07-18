@@ -42,6 +42,12 @@ export function GlassSurface({
   ...props
 }: GlassSurfaceProps) {
   const [reduceTransparency, setReduceTransparency] = React.useState(false);
+  const definition = glass.roles[role];
+  const nativeGlassAvailable =
+    Platform.OS === "ios" &&
+    !reduceTransparency &&
+    isGlassEffectAPIAvailable() &&
+    isLiquidGlassAvailable();
 
   React.useEffect(() => {
     let mounted = true;
@@ -60,13 +66,6 @@ export function GlassSurface({
       subscription.remove();
     };
   }, []);
-
-  const definition = glass.roles[role];
-  const nativeGlassAvailable =
-    Platform.OS === "ios" &&
-    !reduceTransparency &&
-    isGlassEffectAPIAvailable() &&
-    isLiquidGlassAvailable();
 
   if (nativeGlassAvailable) {
     return (

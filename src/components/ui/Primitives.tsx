@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, useSegments } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
     ActivityIndicator,
@@ -55,9 +55,11 @@ export function Screen({
 }) {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const segments = useSegments();
+  const isTabRoute = segments[0] === "(tabs)";
   const auth = useAuth();
   const [refreshing, setRefreshing] = useState(false);
-  const bottomReserve = footer ? 144 : 112;
+  const bottomReserve = footer ? 144 : isTabRoute ? 24 : 112;
   const refresh = async () => {
     if (refreshing) return;
     setRefreshing(true);
@@ -74,7 +76,10 @@ export function Screen({
   );
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
+    <SafeAreaView
+      style={styles.safeArea}
+      edges={isTabRoute ? ["top"] : ["top", "bottom"]}
+    >
       <LinearGradient
         colors={["#FCFDFF", "#FEFEFF", "#FFFFFF"]}
         start={{ x: 0, y: 0 }}
@@ -101,7 +106,7 @@ export function Screen({
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingBottom: bottomReserve + insets.bottom },
+            { paddingBottom: bottomReserve + (isTabRoute ? 0 : insets.bottom) },
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -120,7 +125,7 @@ export function Screen({
         <View
           style={[
             styles.scrollContent,
-            { paddingBottom: bottomReserve + insets.bottom },
+            { paddingBottom: bottomReserve + (isTabRoute ? 0 : insets.bottom) },
           ]}
         >
           {content}
@@ -141,7 +146,9 @@ export function Screen({
         <View
           style={[styles.footerWrap, { paddingBottom: insets.bottom + 10 }]}
         >
-          <GlassSurface role="elevated" style={styles.footer}>{footer}</GlassSurface>
+          <GlassSurface role="elevated" style={styles.footer}>
+            {footer}
+          </GlassSurface>
         </View>
       ) : null}
     </SafeAreaView>
@@ -251,11 +258,11 @@ export function PageHeader({
             <View style={styles.pageHeaderTopEdge}>
               {topLeft ?? <View style={styles.pageHeaderActionSpacer} />}
             </View>
-            <View style={styles.pageHeaderTopCenter}>
-              {topCenter}
-            </View>
+            <View style={styles.pageHeaderTopCenter}>{topCenter}</View>
             <View style={[styles.pageHeaderTopEdge, styles.pageHeaderTopRight]}>
-              {topRight ?? action ?? <View style={styles.pageHeaderActionSpacer} />}
+              {topRight ?? action ?? (
+                <View style={styles.pageHeaderActionSpacer} />
+              )}
             </View>
           </View>
           <View style={styles.pageHeaderTitleRow}>
@@ -589,7 +596,12 @@ export function DropdownSelect<T extends string>({
 }) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
-  const [anchor, setAnchor] = React.useState({ x: 0, y: 0, width: 0, height: 0 });
+  const [anchor, setAnchor] = React.useState({
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0,
+  });
   const anchorRef = React.useRef<View>(null);
   const window = useWindowDimensions();
   const selected = options.find((option) => option.value === value);
@@ -795,11 +807,18 @@ export function DatePickerField({
           >
             <Text
               numberOfLines={1}
-              style={[styles.dropdownValue, !value && styles.dropdownPlaceholder]}
+              style={[
+                styles.dropdownValue,
+                !value && styles.dropdownPlaceholder,
+              ]}
             >
               {value || placeholder}
             </Text>
-            <Ionicons name="calendar-outline" size={18} color={palette.primary} />
+            <Ionicons
+              name="calendar-outline"
+              size={18}
+              color={palette.primary}
+            />
           </GlassSurface>
         )}
       </Pressable>
@@ -824,96 +843,96 @@ export function DatePickerField({
               wrapperStyle={styles.datePickerMenuWrapper}
               style={styles.datePickerMenu}
             >
-            <View style={styles.datePickerHeader}>
-              <IconButton
-                icon="chevron-back"
-                label="Previous month"
-                onPress={() =>
-                  setVisibleMonth((current) => shiftMonth(current, -1))
-                }
-              />
-              <Text style={styles.dropdownTitle}>{monthLabel}</Text>
-              <IconButton
-                icon="chevron-forward"
-                label="Next month"
-                onPress={() =>
-                  setVisibleMonth((current) => shiftMonth(current, 1))
-                }
-              />
-            </View>
-            <View style={styles.weekdayRow}>
-              {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
-                <Text key={`${day}-${index}`} style={styles.weekdayLabel}>
-                  {day}
-                </Text>
-              ))}
-            </View>
-            <View style={styles.calendarGrid}>
-              {days.map((day, index) => {
-                const iso = day ? formatIsoDate(day) : "";
-                const disabled = Boolean(day && minDate && iso < minDate);
-                const active = Boolean(
-                  day &&
-                  selected &&
-                  day.year === selected.year &&
-                  day.month === selected.month &&
-                  day.day === selected.day,
-                );
-                return day ? (
-                  <Pressable
-                    key={iso}
-                    accessibilityRole="button"
-                    accessibilityLabel={iso}
-                    accessibilityState={{ selected: active, disabled }}
-                    disabled={disabled}
-                    onPress={() => {
-                      onChange(iso);
-                      setOpen(false);
-                    }}
-                    style={({ pressed }) => [
-                      styles.calendarDay,
-                      active && styles.calendarDayActive,
-                      disabled && styles.calendarDayDisabled,
-                      pressed && !disabled && styles.pressed,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.calendarDayText,
-                        active && styles.calendarDayTextActive,
-                        disabled && styles.calendarDayTextDisabled,
+              <View style={styles.datePickerHeader}>
+                <IconButton
+                  icon="chevron-back"
+                  label="Previous month"
+                  onPress={() =>
+                    setVisibleMonth((current) => shiftMonth(current, -1))
+                  }
+                />
+                <Text style={styles.dropdownTitle}>{monthLabel}</Text>
+                <IconButton
+                  icon="chevron-forward"
+                  label="Next month"
+                  onPress={() =>
+                    setVisibleMonth((current) => shiftMonth(current, 1))
+                  }
+                />
+              </View>
+              <View style={styles.weekdayRow}>
+                {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
+                  <Text key={`${day}-${index}`} style={styles.weekdayLabel}>
+                    {day}
+                  </Text>
+                ))}
+              </View>
+              <View style={styles.calendarGrid}>
+                {days.map((day, index) => {
+                  const iso = day ? formatIsoDate(day) : "";
+                  const disabled = Boolean(day && minDate && iso < minDate);
+                  const active = Boolean(
+                    day &&
+                    selected &&
+                    day.year === selected.year &&
+                    day.month === selected.month &&
+                    day.day === selected.day,
+                  );
+                  return day ? (
+                    <Pressable
+                      key={iso}
+                      accessibilityRole="button"
+                      accessibilityLabel={iso}
+                      accessibilityState={{ selected: active, disabled }}
+                      disabled={disabled}
+                      onPress={() => {
+                        onChange(iso);
+                        setOpen(false);
+                      }}
+                      style={({ pressed }) => [
+                        styles.calendarDay,
+                        active && styles.calendarDayActive,
+                        disabled && styles.calendarDayDisabled,
+                        pressed && !disabled && styles.pressed,
                       ]}
                     >
-                      {day.day}
-                    </Text>
-                  </Pressable>
-                ) : (
-                  <View
-                    key={`empty-${index}`}
-                    style={styles.calendarDayPlaceholder}
-                  />
-                );
-              })}
-            </View>
-            <View style={styles.datePickerActions}>
-              <Button
-                title="Clear"
-                variant="ghost"
-                onPress={() => {
-                  onChange("");
-                  setOpen(false);
-                }}
-              />
-              <Button
-                title="Today"
-                variant="secondary"
-                onPress={() => {
-                  const today = todayIso();
-                  onChange(minDate && today < minDate ? minDate : today);
-                  setOpen(false);
-                }}
-              />
-            </View>
+                      <Text
+                        style={[
+                          styles.calendarDayText,
+                          active && styles.calendarDayTextActive,
+                          disabled && styles.calendarDayTextDisabled,
+                        ]}
+                      >
+                        {day.day}
+                      </Text>
+                    </Pressable>
+                  ) : (
+                    <View
+                      key={`empty-${index}`}
+                      style={styles.calendarDayPlaceholder}
+                    />
+                  );
+                })}
+              </View>
+              <View style={styles.datePickerActions}>
+                <Button
+                  title="Clear"
+                  variant="ghost"
+                  onPress={() => {
+                    onChange("");
+                    setOpen(false);
+                  }}
+                />
+                <Button
+                  title="Today"
+                  variant="secondary"
+                  onPress={() => {
+                    const today = todayIso();
+                    onChange(minDate && today < minDate ? minDate : today);
+                    setOpen(false);
+                  }}
+                />
+              </View>
             </GlassCard>
           </Pressable>
         </Pressable>
@@ -1016,7 +1035,10 @@ export function SlidingSectionSwitcher<T extends string>({
       ]}
     >
       <View
-        style={[styles.sectionSwitcher, compact && styles.sectionSwitcherCompact]}
+        style={[
+          styles.sectionSwitcher,
+          compact && styles.sectionSwitcherCompact,
+        ]}
         onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
       >
         {width ? (
@@ -1280,6 +1302,25 @@ function formatIsoDate(date: CalendarDate) {
   ).padStart(2, "0")}`;
 }
 
+const buttonVariants = StyleSheet.create({
+    primary: {
+      backgroundColor: palette.primary,
+      borderColor: palette.primary,
+    },
+    secondary: {
+      backgroundColor: palette.surfaceGlassStrong,
+      borderColor: palette.borderIndigoSoft,
+    },
+    ghost: {
+      backgroundColor: "rgba(255,255,255,0.48)",
+      borderColor: "transparent",
+    },
+    danger: {
+      backgroundColor: palette.danger,
+      borderColor: palette.danger,
+    },
+});
+
 const textVariants = StyleSheet.create({
   body: {
     color: palette.textPrimary,
@@ -1316,25 +1357,6 @@ const textVariants = StyleSheet.create({
     fontSize: typography.size.xlPlus,
     fontFamily: typefaces.displayMedium,
     lineHeight: typography.line.h2,
-  },
-});
-
-const buttonVariants = StyleSheet.create({
-  primary: {
-    backgroundColor: palette.primary,
-    borderColor: palette.primary,
-  },
-  secondary: {
-    backgroundColor: palette.surfaceGlassStrong,
-    borderColor: palette.borderIndigoSoft,
-  },
-  ghost: {
-    backgroundColor: "rgba(255,255,255,0.48)",
-    borderColor: "transparent",
-  },
-  danger: {
-    backgroundColor: palette.danger,
-    borderColor: palette.danger,
   },
 });
 

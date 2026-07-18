@@ -9,23 +9,23 @@ import {
     Sora_700Bold,
     useFonts as useSoraFonts,
 } from "@expo-google-fonts/sora";
-import { DefaultTheme, Stack, ThemeProvider, router, useSegments } from "expo-router";
+import {
+    DefaultTheme,
+    Stack,
+    ThemeProvider,
+    router,
+    useSegments,
+} from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect } from "react";
-import {
-    ActivityIndicator,
-    Image,
-    Pressable,
-    StyleSheet,
-    Text,
-    View,
-} from "react-native";
+import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
 import "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/src/components/ErrorBoundary";
 import { InAppNotificationToast } from "@/src/components/InAppNotificationToast";
+import { Button as NativeButton } from "@/src/components/ui/Button";
 import {
     palette,
     spacing,
@@ -100,7 +100,7 @@ export default function RootLayout() {
               <AuthProvider>
                 <StartupRouteGate>
                   <Stack screenOptions={{ headerShown: false }}>
-                    <Stack.Screen name="(tabs)" />
+                    <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                     <Stack.Screen name="member/[id]" />
                     <Stack.Screen name="member/form" />
                     <Stack.Screen name="debt/[id]" />
@@ -172,15 +172,12 @@ function AppDataGate({ children }: { children: React.ReactNode }) {
           Debtulator could not open its local database.
         </Text>
         <Text style={styles.gateBody}>{data.error}</Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Retry startup"
-          accessibilityHint="Attempts to load local Debtulator data again"
+        <NativeButton
+          title="Try again"
           onPress={data.retryBoot}
           style={styles.gateButton}
-        >
-          <Text style={styles.gateButtonText}>Try again</Text>
-        </Pressable>
+          accessibilityHint="Attempts to load local Debtulator data again"
+        />
       </View>
     );
   }
@@ -217,7 +214,12 @@ function StartupRouteGate({ children }: { children: React.ReactNode }) {
       return;
     }
     router.replace("/first-run");
-  }, [auth.loading, auth.user, data.settings.hasCompletedFirstRun, rootSegment]);
+  }, [
+    auth.loading,
+    auth.user,
+    data.settings.hasCompletedFirstRun,
+    rootSegment,
+  ]);
 
   return children;
 }
