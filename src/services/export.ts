@@ -53,7 +53,10 @@ const PORTABLE_ATTACHMENT_MIME_TYPES = new Set([
 export function sanitizeAttachmentsForPortableExport(attachments: Attachment[]) {
   const unsafeAttachment = attachments.find((attachment) => !isPortableAttachmentSafe(attachment));
   if (unsafeAttachment) {
-    throw new Error(unsafeAttachmentReason(unsafeAttachment) ?? undefined);
+    const reason = unsafeAttachmentReason(unsafeAttachment);
+    if (reason) {
+      throw new Error(reason);
+    }
   }
   return attachments.map((attachment) => ({
     ...attachment,
@@ -417,6 +420,9 @@ function unsafeAttachmentReason(attachment: Attachment): string | null {
   return null;
 }
 
-function isAllowedPortableMimeType(mime: string | undefined): mime is string {
-  return mime !== undefined && (mime.startsWith('image/') || PORTABLE_ATTACHMENT_MIME_TYPES.has(mime));
+function isAllowedPortableMimeType(mime: string | undefined) {
+  if (!mime) {
+    return false;
+  }
+  return mime.startsWith('image/') || PORTABLE_ATTACHMENT_MIME_TYPES.has(mime);
 }

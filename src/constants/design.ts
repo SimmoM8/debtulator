@@ -65,6 +65,7 @@ export const palette = {
 };
 
 export const spacing = {
+  xxs: 2,
   xs: 4,
   sm: 8,
   md: 12,
@@ -112,6 +113,7 @@ export const typography = {
     lgPlus: 19,
     xl: 20,
     xlPlus: 21,
+    xxl: 24,
     h3: 22,
     h2: 24,
     h1: 26,

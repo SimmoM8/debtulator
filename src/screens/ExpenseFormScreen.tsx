@@ -171,7 +171,6 @@ export function ExpenseFormScreen() {
     isSharedGroup,
     selectedGroup,
   ]);
-
   const groupOptions = useMemo(
     () =>
       data.groups

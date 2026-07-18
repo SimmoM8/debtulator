@@ -96,14 +96,15 @@ export function AuthScreen() {
     }
   }
 
+  const isSignup = mode === 'signup';
   const disabled =
     submitting ||
     !auth.configured ||
     !email.trim() ||
     (mode !== 'forgot' && password.length < 6) ||
-    (mode === 'signup' && (!firstName.trim() || !lastName.trim() || !phone.trim()));
+    (isSignup && (!firstName.trim() || !lastName.trim() || !phone.trim()));
 
-  if (mode === 'signup') {
+  if (isSignup) {
     return (
       <Screen>
         <View style={[styles.signupStage, { minHeight: Math.max(680, height - 120) }]}>
@@ -188,16 +189,18 @@ export function AuthScreen() {
         />
       }
     >
-      <PageHeader eyebrow="Account" title="Debtulator account" />
+      <PageHeader eyebrow="Account" title={isSignup ? 'Create account' : 'Debtulator account'} />
 
       <Card tone="lavender" style={styles.heroCard}>
         <View style={styles.heroCopy}>
           <Text style={styles.heroLabel}>Local first</Text>
           <Text style={styles.heroTitle}>
-            Choose when Debtulator becomes shared.
+            {isSignup ? 'Set up your shared profile.' : 'Choose when Debtulator becomes shared.'}
           </Text>
           <Text style={styles.heroBody}>
-            Stay local-only for private tracking, or sign in when you want member links and verification.
+            {isSignup
+              ? 'Your profile powers member links, verification, shared groups, and account sync.'
+              : 'Stay local-only for private tracking, or sign in when you want member links and verification.'}
           </Text>
         </View>
         <View style={styles.heroArtWrap}>
@@ -228,6 +231,30 @@ export function AuthScreen() {
           }}
         />
 
+        {isSignup ? (
+          <>
+            <View style={styles.twoColumn}>
+              <TextField label="First name" value={firstName} onChangeText={setFirstName} placeholder="First name" style={styles.columnField} />
+              <TextField label="Last name" value={lastName} onChangeText={setLastName} placeholder="Last name" style={styles.columnField} />
+            </View>
+            <TextField label="Mobile" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="+46..." />
+            <DropdownSelect
+              label="Country"
+              value={country}
+              options={SUPPORTED_COUNTRIES}
+              onChange={(nextCountry) => {
+                setCountry(nextCountry);
+                setBaseCurrency(currencyForCountry(nextCountry));
+              }}
+            />
+            <DropdownSelect
+              label="Default currency"
+              value={baseCurrency}
+              options={currencyOptions}
+              onChange={setBaseCurrency}
+            />
+          </>
+        ) : null}
         <TextField label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" placeholder="you@example.com" />
         {mode !== 'forgot' ? (
           <TextField label="Password" value={password} onChangeText={setPassword} secureTextEntry />
@@ -238,8 +265,8 @@ export function AuthScreen() {
 
         <View style={styles.buttonRow}>
           <Button
-            title={mode === 'forgot' ? 'Send reset email' : 'Sign in'}
-            icon={mode === 'forgot' ? 'mail' : 'log-in'}
+            title={isSignup ? 'Create account' : mode === 'forgot' ? 'Send reset email' : 'Sign in'}
+            icon={isSignup ? 'person-add' : mode === 'forgot' ? 'mail' : 'log-in'}
             onPress={submit}
             disabled={disabled}
           />
