@@ -17,6 +17,7 @@ import {
 import { AvatarStack, GlassCard } from "@/src/components/ui/Finance";
 import { ActivityTimelineRow } from "@/src/components/ActivityTimelineRow";
 import { ConfirmationMarker } from "@/src/components/ConfirmationMarker";
+import { GlassSurface } from "@/src/components/ui/GlassSurface";
 import { MemberAvatar } from "@/src/components/ui/MemberAvatar";
 import { MobileMenuModal } from "@/src/components/ui/MenuList";
 import { Amount } from "@/src/components/ui/Money";
@@ -1637,12 +1638,19 @@ export function DebtDetailScreen() {
                         setDueDateDraft("");
                         setDueDateOpen(true);
                       }}
-                      style={({ pressed }) => [
-                        styles.setDueDateLink,
-                        pressed && styles.notesActionPressed,
-                      ]}
                     >
-                      <Text style={styles.setDueDateLinkText}>Set due date</Text>
+                      {({ pressed }) => (
+                        <GlassSurface
+                          role="control"
+                          interactive
+                          style={[
+                            styles.setDueDateLink,
+                            pressed && styles.notesActionPressed,
+                          ]}
+                        >
+                          <Text style={styles.setDueDateLinkText}>Set due date</Text>
+                        </GlassSurface>
+                      )}
                     </Pressable>
                   )}
                 </View>
@@ -1695,21 +1703,28 @@ export function DebtDetailScreen() {
                   });
                   setTagsOpen(true);
                 }}
-                style={({ pressed }) => [
-                  styles.tagsEditButton,
-                  pressed && styles.notesActionPressed,
-                ]}
               >
-                <Text style={styles.tagsEditButtonText}>
-                  {currentDebt.tags.length
-                    ? `${currentDebt.tags.length} ${currentDebt.tags.length === 1 ? "tag" : "tags"}`
-                    : "Add tags"}
-                </Text>
-                <Ionicons
-                  name="chevron-forward"
-                  size={14}
-                  color={palette.brand}
-                />
+                {({ pressed }) => (
+                  <GlassSurface
+                    role="control"
+                    interactive
+                    style={[
+                      styles.tagsEditButton,
+                      pressed && styles.notesActionPressed,
+                    ]}
+                  >
+                    <Text style={styles.tagsEditButtonText}>
+                      {currentDebt.tags.length
+                        ? `${currentDebt.tags.length} ${currentDebt.tags.length === 1 ? "tag" : "tags"}`
+                        : "Add tags"}
+                    </Text>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={14}
+                      color={palette.brand}
+                    />
+                  </GlassSurface>
+                )}
               </Pressable>
             }
           />
@@ -2526,17 +2541,16 @@ function describeDebtActivity(
       return { phrase: "removed the due date", detail: "" };
     case "debt_tag_added":
       return {
-        phrase: addedTags.length === 1 ? "added a tag" : "added tags",
-        detail: addedTags.join(", "),
-      };
-    case "debt_tag_removed":
-      return {
-        phrase: removedTags.length === 1 ? "removed a tag" : "removed tags",
-        detail: removedTags.join(", "),
-      };
-    case "debt_tags_updated":
-      return {
-        phrase: "updated the tags",
+        phrase:
+          addedTags.length && removedTags.length
+            ? "updated tags"
+            : addedTags.length === 1
+              ? "added a tag"
+              : addedTags.length > 1
+                ? "added tags"
+                : removedTags.length === 1
+                  ? "removed a tag"
+                  : "removed tags",
         detail: [
           addedTags.length ? `Added ${addedTags.join(", ")}` : "",
           removedTags.length ? `Removed ${removedTags.join(", ")}` : "",
@@ -2570,10 +2584,10 @@ function describeDebtActivity(
         phrase: "changed the amount",
         detail:
           typeof previousValue === "number" && typeof nextValue === "number"
-            ? `${formatMoney(previousValue, currency)} → ${formatMoney(nextValue, currency)}`
+            ? `${formatMoney(previousValue, currency)} -> ${formatMoney(nextValue, currency)}`
             : typeof nextValue === "number"
               ? formatMoney(nextValue, currency)
-            : "",
+              : "",
       };
     }
     case "debt_currency_changed":

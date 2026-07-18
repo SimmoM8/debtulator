@@ -456,6 +456,7 @@ export function Button({
   onPress,
   icon,
   variant = "primary",
+  size = "default",
   disabled,
   style,
   accessibilityHint,
@@ -465,6 +466,7 @@ export function Button({
   onPress: () => void;
   icon?: IconName;
   variant?: "primary" | "secondary" | "ghost" | "danger";
+  size?: "default" | "compact";
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
   accessibilityHint?: string;
@@ -493,6 +495,7 @@ export function Button({
           }
           style={[
             styles.button,
+            size === "compact" && styles.buttonCompact,
             buttonVariants[variant],
             disabled && styles.disabled,
             pressed && !disabled && styles.pressed,
@@ -516,6 +519,7 @@ export function Button({
           <Text
             style={[
               styles.buttonText,
+              size === "compact" && styles.buttonTextCompact,
               (variant === "primary" || variant === "danger") &&
                 styles.buttonTextLight,
             ]}
@@ -555,12 +559,16 @@ export function IconButton({
   onPress,
   label,
   tone = "default",
+  size = "default",
 }: {
   icon: IconName;
   onPress: () => void;
   label: string;
   tone?: "default" | "danger" | "inverse";
+  size?: "default" | "compact";
 }) {
+  const iconSize = size === "compact" ? 18 : 22;
+
   return (
     <Pressable
       accessibilityLabel={label}
@@ -572,6 +580,7 @@ export function IconButton({
           role="control"
           style={[
             styles.iconButton,
+            size === "compact" && styles.iconButtonCompact,
             tone === "danger" && styles.iconButtonDanger,
             tone === "inverse" && styles.iconButtonInverse,
             pressed && styles.pressed,
@@ -579,7 +588,7 @@ export function IconButton({
         >
           <Ionicons
             name={icon}
-            size={22}
+            size={iconSize}
             color={
               tone === "danger"
                 ? palette.danger
@@ -1034,7 +1043,7 @@ export function SegmentedControl<T extends string>({
 }) {
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-      <View style={styles.segmented}>
+      <GlassSurface role="control" style={styles.segmented}>
         {options.map((option) => {
           const active = option.value === value;
           return (
@@ -1059,7 +1068,7 @@ export function SegmentedControl<T extends string>({
             </Pressable>
           );
         })}
-      </View>
+      </GlassSurface>
     </ScrollView>
   );
 }
@@ -1098,7 +1107,8 @@ export function SlidingSectionSwitcher<T extends string>({
         compact && styles.sectionSwitcherShellCompact,
       ]}
     >
-      <View
+      <GlassSurface
+        role="control"
         style={[
           styles.sectionSwitcher,
           compact && styles.sectionSwitcherCompact,
@@ -1146,7 +1156,7 @@ export function SlidingSectionSwitcher<T extends string>({
             </Pressable>
           );
         })}
-      </View>
+      </GlassSurface>
     </View>
   );
 }
@@ -1707,6 +1717,12 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     ...shadows.soft,
   },
+  buttonCompact: {
+    minHeight: 38,
+    borderRadius: 12,
+    paddingHorizontal: spacing.md,
+    gap: 6,
+  },
   buttonPrimaryGlow: {
     position: "absolute",
     top: -20,
@@ -1720,6 +1736,9 @@ const styles = StyleSheet.create({
     color: palette.primary,
     fontSize: typography.size.base,
     fontFamily: typefaces.bodyStrong,
+  },
+  buttonTextCompact: {
+    fontSize: typography.size.sm,
   },
   buttonTextLight: {
     color: palette.surface,
@@ -1749,6 +1768,11 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
     alignItems: "center",
     justifyContent: "center",
+  },
+  iconButtonCompact: {
+    width: 38,
+    height: 38,
+    borderRadius: radii.pill,
   },
   iconButtonDanger: {
     backgroundColor: "transparent",
@@ -1948,7 +1972,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderIndigoSoft,
-    backgroundColor: "rgba(255,255,255,0.54)",
+    backgroundColor: palette.surfaceGlassStrong,
     padding: 4,
     gap: 4,
   },
@@ -1983,14 +2007,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     borderRadius: radii.pill,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.border,
-    backgroundColor: palette.surfaceMuted,
+    borderColor: palette.borderIndigoSoft,
+    backgroundColor: palette.surfaceGlassStrong,
     padding: 4,
     overflow: "hidden",
   },
   sectionSwitcherCompact: {
     padding: 3,
-    backgroundColor: "rgba(233,237,247,0.72)",
+    backgroundColor: palette.surfaceGlassElevated,
   },
   sectionSwitcherThumb: {
     position: "absolute",

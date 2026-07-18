@@ -9,6 +9,7 @@ import {
 } from "react-native";
 
 import { TagInput } from "@/src/components/ui/TagInput";
+import { GlassSurface } from "@/src/components/ui/GlassSurface";
 import {
   Button,
   Card,
@@ -291,9 +292,13 @@ export function MemberFormScreen() {
           {selectedProfile ? (
             <View style={styles.selectedProfileRow}>
               <Text style={styles.selectedProfileText}>Linked account selected</Text>
-              <Pressable accessibilityRole="button" accessibilityLabel="Clear selected linked member" onPress={clearSelectedProfile}>
-                <Text style={styles.clearSelection}>Clear</Text>
-              </Pressable>
+              <Button
+                title="Clear"
+                variant="ghost"
+                size="compact"
+                onPress={clearSelectedProfile}
+                accessibilityHint="Clears the selected linked member"
+              />
             </View>
           ) : null}
           {profileResults.length ? (
@@ -309,17 +314,24 @@ export function MemberFormScreen() {
                     pressed && styles.pressed,
                   ]}
                 >
-                  <View style={styles.profileAvatar}>
-                    <Text style={styles.profileAvatarText}>
-                      {profile.displayName.slice(0, 1).toUpperCase()}
-                    </Text>
-                  </View>
-                  <View style={styles.profileResultCopy}>
-                    <Text style={styles.profileName}>{profile.displayName}</Text>
-                    <Text style={styles.profileMeta} numberOfLines={1}>
-                      {profile.email ?? "Signed-up member"}
-                    </Text>
-                  </View>
+                  {({ pressed }) => (
+                    <GlassSurface
+                      role="control"
+                      style={[styles.profileResult, pressed && styles.pressed]}
+                    >
+                      <View style={styles.profileAvatar}>
+                        <Text style={styles.profileAvatarText}>
+                          {profile.displayName.slice(0, 1).toUpperCase()}
+                        </Text>
+                      </View>
+                      <View style={styles.profileResultCopy}>
+                        <Text style={styles.profileName}>{profile.displayName}</Text>
+                        <Text style={styles.profileMeta} numberOfLines={1}>
+                          {profile.email ?? "Signed-up member"}
+                        </Text>
+                      </View>
+                    </GlassSurface>
+                  )}
                 </Pressable>
               ))}
             </View>
@@ -395,11 +407,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-  },
-  clearSelection: {
-    color: palette.danger,
-    fontSize: typography.size.sm,
-    fontFamily: typefaces.bodyStrong,
   },
   linkedDetails: {
     gap: 14,

@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Platform, StyleSheet, Text, View } from "react-native";
 
 import {
     CollectionPageControls,
@@ -15,10 +15,11 @@ import {
 } from "@/src/components/ui/Finance";
 import { MobileMenuModal } from "@/src/components/ui/MenuList";
 import {
-    EmptyState,
-    FilterSheet,
-    LoadingState,
-    Screen,
+  Button,
+  EmptyState,
+  FilterSheet,
+  LoadingState,
+  Screen,
 } from "@/src/components/ui/Primitives";
 import {
     palette,
@@ -279,19 +280,14 @@ export function MembersScreen() {
               Share your invite link or send an invite.
             </Text>
           </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Invite"
-            accessibilityHint="Opens the member invite form"
+          <Button
+            title="Invite"
+            icon="link"
+            variant="secondary"
+            size="compact"
             onPress={() => router.push("/member/form")}
-            style={({ pressed }) => [
-              styles.inviteButton,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Text style={styles.inviteButtonText}>Invite</Text>
-            <Ionicons name="link" size={14} color={palette.primary} />
-          </Pressable>
+            accessibilityHint="Opens the member invite form"
+          />
         </View>
       </View>
     </Screen>
@@ -423,25 +419,5 @@ const styles = StyleSheet.create({
     fontSize: typography.size.xs,
     lineHeight: typography.line.sm,
     fontFamily: typefaces.body,
-  },
-  inviteButton: {
-    minHeight: 36,
-    borderRadius: 11,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.border,
-    backgroundColor: "rgba(255,255,255,0.98)",
-    paddingHorizontal: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  inviteButtonText: {
-    color: palette.primary,
-    fontSize: typography.size.xs,
-    lineHeight: typography.line.sm,
-    fontFamily: typefaces.bodyStrong,
-  },
-  pressed: {
-    opacity: 0.78,
   },
 });

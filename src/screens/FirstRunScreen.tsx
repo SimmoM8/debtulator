@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 import { AnimatedBrandBar, AuthBackgroundPattern } from '@/src/components/auth/AuthFlowVisuals';
 import { CurrencySelect } from '@/src/components/ui/CurrencySelect';
@@ -108,9 +108,7 @@ export function FirstRunScreen() {
                 Create account
               </Text>
             </Text>
-            <Pressable accessibilityRole="button" accessibilityLabel="Skip for now" onPress={() => setStep('local')} style={styles.skipButton}>
-              <Text style={styles.skipText}>Skip for now</Text>
-            </Pressable>
+            <Button title="Skip for now" variant="ghost" size="compact" onPress={() => setStep('local')} />
           </View>
         </View>
       ) : (
@@ -190,15 +188,5 @@ const styles = StyleSheet.create({
   secondaryLink: {
     color: palette.textPrimary,
     fontFamily: typefaces.bodyStrong,
-  },
-  skipButton: {
-    borderRadius: 999,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  skipText: {
-    color: palette.muted,
-    fontFamily: typefaces.bodyStrong,
-    fontSize: typography.size.sm,
   },
 });

@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 import { DebtulatorOrbitIllustration } from '@/src/components/illustrations/DebtulatorOrbitIllustration';
 import { AnimatedBrandBar, AuthBackgroundPattern } from '@/src/components/auth/AuthFlowVisuals';
@@ -164,14 +164,12 @@ export function AuthScreen() {
                 Sign in
               </Text>
             </Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Skip for now"
+            <Button
+              title="Skip for now"
+              variant="ghost"
+              size="compact"
               onPress={() => (firstRun ? router.replace('/first-run?local=1') : router.back())}
-              style={styles.signupSkip}
-            >
-              <Text style={styles.signupSkipText}>Skip for now</Text>
-            </Pressable>
+            />
           </View>
         </View>
       </Screen>
