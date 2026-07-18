@@ -4,11 +4,13 @@ import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 
 import { NativeConfirmationDialog } from "@/src/components/ios/NativeConfirmationDialog";
+import { DebtulatorIdentitySummary } from "@/src/components/ios/DebtulatorIdentitySummary";
 import { NativeEmptyState } from "@/src/components/ios/NativeEmptyState";
 import { NativeListScreen } from "@/src/components/ios/NativeListScreen";
 import { NativeInfoRow, NativeNavigationRow } from "@/src/components/ios/NativeRows";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
+import { formatMoney } from "@/src/utils/money";
 
 function MissingRecord({ title }: { title: string }) {
   return (
@@ -59,6 +61,18 @@ export function NativeExpenseDetailScreen() {
         <Stack.Toolbar.Button icon="square.and.pencil" accessibilityLabel="Edit expense" onPress={() => router.push(`/(tabs)/groups/expense/form?id=${expense.id}&groupId=${expense.groupId}` as never)} />
       </Stack.Toolbar>
       <NativeListScreen onRefresh={data.refresh}>
+        <Section>
+          <DebtulatorIdentitySummary
+            title={expense.title}
+            subtitle={group?.name || "Shared expense"}
+            amount={formatMoney(expense.amount, expense.currency)}
+            amountLabel="Shared expense"
+            amountTone="brand"
+            badge={expense.status}
+            badgeTone={expense.status === "active" ? "brand" : "neutral"}
+            systemImage="cart.fill"
+          />
+        </Section>
         <Section title="Expense">
           <NativeInfoRow label="Amount" value={new Intl.NumberFormat(undefined, { style: "currency", currency: expense.currency }).format(expense.amount)} systemImage="creditcard" />
           <NativeInfoRow label="Group" value={group?.name || "Unknown group"} systemImage="person.3" />
@@ -91,6 +105,18 @@ export function NativePaymentDetailScreen() {
     <>
       <Stack.Title>Payment Details</Stack.Title>
       <NativeListScreen onRefresh={data.refresh}>
+        <Section>
+          <DebtulatorIdentitySummary
+            title="Payment"
+            subtitle={member?.displayName || payment.paymentDate}
+            amount={formatMoney(payment.amount, payment.currency)}
+            amountLabel="Money recorded"
+            amountTone="positive"
+            badge={payment.status.replaceAll("_", " ")}
+            badgeTone={payment.status === "confirmed" ? "positive" : "brand"}
+            systemImage="banknote.fill"
+          />
+        </Section>
         <Section title="Payment">
           <NativeInfoRow label="Amount" value={new Intl.NumberFormat(undefined, { style: "currency", currency: payment.currency }).format(payment.amount)} systemImage="banknote" />
           <NativeInfoRow label="Date" value={payment.paymentDate} systemImage="calendar" />
@@ -116,6 +142,18 @@ export function NativeSettlementDetailScreen() {
     <>
       <Stack.Title>Settlement</Stack.Title>
       <NativeListScreen onRefresh={data.refresh}>
+        <Section>
+          <DebtulatorIdentitySummary
+            title="Settlement"
+            subtitle={settlement.type === "manual" ? "Manual settlement" : "Suggested settlement"}
+            amount={formatMoney(settlement.totalAmount, settlement.currency)}
+            amountLabel="Settled value"
+            amountTone="positive"
+            badge={settlement.status.replaceAll("_", " ")}
+            badgeTone={settlement.status === "confirmed" ? "positive" : "brand"}
+            systemImage="checkmark.circle.fill"
+          />
+        </Section>
         <Section title="Settlement">
           <NativeInfoRow label="Amount" value={new Intl.NumberFormat(undefined, { style: "currency", currency: settlement.currency }).format(settlement.totalAmount)} systemImage="checkmark.circle" />
           <NativeInfoRow label="Type" value={settlement.type.replaceAll("_", " ")} />

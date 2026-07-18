@@ -3,10 +3,14 @@ import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 
 import { NativeConfirmationDialog } from "@/src/components/ios/NativeConfirmationDialog";
+import { DebtulatorIdentitySummary } from "@/src/components/ios/DebtulatorIdentitySummary";
 import { NativeEmptyState } from "@/src/components/ios/NativeEmptyState";
 import { NativeListScreen } from "@/src/components/ios/NativeListScreen";
 import { NativeInfoRow, NativeNavigationRow } from "@/src/components/ios/NativeRows";
+import { estimateMoneyMap } from "@/src/services/currency";
+import { explainGroupSettlement } from "@/src/services/ledger";
 import { useAppData } from "@/src/state/AppDataProvider";
+import { formatMoney } from "@/src/utils/money";
 
 export function NativeGroupDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -26,6 +30,13 @@ export function NativeGroupDetailScreen() {
   const expenses = data.sharedExpenses.filter((item) => item.groupId === group.id && item.status !== "archived");
   const groupDebts = data.groupDebts.filter((item) => item.groupId === group.id && item.status !== "archived");
   const settlements = data.settlements.filter((item) => item.groupId === group.id && item.status !== "archived");
+  const groupBalance = estimateMoneyMap(
+    explainGroupSettlement(group.id, data.ledgerEntries).participantNets.me ?? {},
+    data.settings,
+    data.currencyRates,
+  );
+  const participantCount = members.length + sharedMembers.length;
+  const settled = Math.abs(groupBalance) <= 0.005;
 
   return (
     <>
@@ -38,6 +49,18 @@ export function NativeGroupDetailScreen() {
         </Stack.Toolbar.Menu>
       </Stack.Toolbar>
       <NativeListScreen onRefresh={data.refresh}>
+        <Section>
+          <DebtulatorIdentitySummary
+            title={group.name}
+            subtitle={`${group.visibility === "shared" ? "Shared" : "Private"} group · ${participantCount} ${participantCount === 1 ? "member" : "members"}`}
+            avatarName={group.name}
+            amount={formatMoney(Math.abs(groupBalance), data.settings.baseCurrency)}
+            amountLabel={settled ? "Group balance" : groupBalance > 0 ? "Owed to you" : "You owe"}
+            amountTone={settled ? "neutral" : groupBalance > 0 ? "positive" : "negative"}
+            badge={settled ? "Balanced" : group.status}
+            badgeTone={settled ? "positive" : "brand"}
+          />
+        </Section>
         <Section title="Overview">
           <NativeInfoRow label="Status" value={group.status} systemImage="circlebadge" />
           <NativeInfoRow label="Visibility" value={group.visibility} systemImage="eye" />

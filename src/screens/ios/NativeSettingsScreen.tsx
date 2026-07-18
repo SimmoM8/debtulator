@@ -4,11 +4,9 @@ import { Stack, router } from "expo-router";
 import { useState } from "react";
 
 import { NativeConfirmationDialog } from "@/src/components/ios/NativeConfirmationDialog";
+import { DebtulatorIdentitySummary } from "@/src/components/ios/DebtulatorIdentitySummary";
 import { NativeListScreen } from "@/src/components/ios/NativeListScreen";
-import {
-  NativeInfoRow,
-  NativeNavigationRow,
-} from "@/src/components/ios/NativeRows";
+import { NativeNavigationRow } from "@/src/components/ios/NativeRows";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
 
@@ -22,10 +20,12 @@ export function NativeSettingsScreen() {
       <Stack.Title large>Settings</Stack.Title>
       <NativeListScreen onRefresh={auth.refreshSync}>
         <Section title="Account">
-          <NativeInfoRow
-            label={auth.user ? "Signed in" : "Mode"}
-            value={auth.identity.email || "Local only"}
-            systemImage="person.crop.circle"
+          <DebtulatorIdentitySummary
+            title={auth.identity.displayName || "Debtulator"}
+            subtitle={auth.identity.email || "Private local ledger"}
+            avatarName={auth.identity.displayName || "Debtulator"}
+            badge={auth.user ? "Signed in" : "Local only"}
+            badgeTone={auth.user ? "positive" : "brand"}
           />
           {auth.user ? (
             <Button

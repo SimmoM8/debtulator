@@ -4,6 +4,7 @@ import { Stack, router } from "expo-router";
 import { useMemo, useState } from "react";
 
 import { NativeConfirmationDialog } from "@/src/components/ios/NativeConfirmationDialog";
+import { DebtulatorIllustratedHeader } from "@/src/components/ios/DebtulatorIllustration";
 import { NativeEmptyState } from "@/src/components/ios/NativeEmptyState";
 import { NativeListScreen } from "@/src/components/ios/NativeListScreen";
 import {
@@ -167,6 +168,13 @@ export function NativePrivacyScreen() {
     <>
       <Stack.Title>Privacy</Stack.Title>
       <NativeListScreen>
+        <Section>
+          <DebtulatorIllustratedHeader
+            variant="shield"
+            title="Private by default"
+            description="You decide what is shared, synced and visible in Debtulator."
+          />
+        </Section>
         <Section title="Defaults" footer={<Text>New records remain private unless you explicitly share them.</Text>}>
           <NativePrivacyChoice<DebtVisibility> label="Debt visibility" value={settings.defaultDebtVisibility} options={[{ label: "Private", value: "private" }, { label: "Shared with member", value: "shared_with_involved_member" }]} onChange={(defaultDebtVisibility) => void data.updateSettings({ defaultDebtVisibility })} />
           <NativePrivacyChoice<GroupVisibility> label="Group visibility" value={settings.defaultGroupVisibility} options={[{ label: "Private", value: "private" }, { label: "Shared", value: "shared" }]} onChange={(defaultGroupVisibility) => void data.updateSettings({ defaultGroupVisibility })} />

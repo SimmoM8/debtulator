@@ -3,10 +3,12 @@ import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 
 import { NativeConfirmationDialog } from "@/src/components/ios/NativeConfirmationDialog";
+import { DebtulatorIdentitySummary } from "@/src/components/ios/DebtulatorIdentitySummary";
 import { NativeEmptyState } from "@/src/components/ios/NativeEmptyState";
 import { NativeListScreen } from "@/src/components/ios/NativeListScreen";
 import { NativeInfoRow, NativeNavigationRow } from "@/src/components/ios/NativeRows";
 import { useAppData } from "@/src/state/AppDataProvider";
+import { formatMoney } from "@/src/utils/money";
 
 export function NativeDebtDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -49,12 +51,19 @@ export function NativeDebtDetailScreen() {
         </Stack.Toolbar.Menu>
       </Stack.Toolbar>
       <NativeListScreen onRefresh={data.refresh}>
-        <Section title="Balance">
-          <NativeInfoRow
-            label={debt.direction === "i_owe_them" ? "You owe" : "Owed to you"}
-            value={new Intl.NumberFormat(undefined, { style: "currency", currency: debt.currency }).format(remaining || debt.amount)}
-            systemImage={debt.direction === "i_owe_them" ? "arrow.up.right" : "arrow.down.left"}
+        <Section>
+          <DebtulatorIdentitySummary
+            title={debt.title}
+            subtitle={member?.displayName || "Unknown member"}
+            systemImage={debt.direction === "i_owe_them" ? "arrow.up.right.circle.fill" : "arrow.down.left.circle.fill"}
+            amount={formatMoney(remaining || debt.amount, debt.currency)}
+            amountLabel={debt.direction === "i_owe_them" ? "You owe" : "Owed to you"}
+            amountTone={debt.direction === "i_owe_them" ? "negative" : "positive"}
+            badge={debt.status}
+            badgeTone={debt.status === "active" ? "brand" : debt.status === "settled" ? "positive" : "neutral"}
           />
+        </Section>
+        <Section title="Balance">
           <NativeInfoRow label="Original amount" value={new Intl.NumberFormat(undefined, { style: "currency", currency: debt.currency }).format(debt.amount)} />
           <NativeInfoRow label="Member" value={member?.displayName || "Unknown member"} systemImage="person" />
           <NativeInfoRow label="Status" value={debt.status} />

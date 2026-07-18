@@ -3,11 +3,14 @@ import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 
 import { NativeConfirmationDialog } from "@/src/components/ios/NativeConfirmationDialog";
+import { DebtulatorIdentitySummary } from "@/src/components/ios/DebtulatorIdentitySummary";
 import { NativeDebtRow } from "@/src/components/ios/NativeDebtRow";
 import { NativeEmptyState } from "@/src/components/ios/NativeEmptyState";
 import { NativeListScreen } from "@/src/components/ios/NativeListScreen";
 import { NativeInfoRow } from "@/src/components/ios/NativeRows";
+import { estimateMoneyMap } from "@/src/services/currency";
 import { useAppData } from "@/src/state/AppDataProvider";
+import { formatMoney } from "@/src/utils/money";
 
 export function NativeMemberDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -29,6 +32,9 @@ export function NativeMemberDetailScreen() {
     );
   }
 
+  const balance = estimateMoneyMap(data.memberBalances[member.id] ?? {}, data.settings, data.currencyRates);
+  const settled = Math.abs(balance) <= 0.005;
+
   return (
     <>
       <Stack.Title>{member.displayName}</Stack.Title>
@@ -49,6 +55,18 @@ export function NativeMemberDetailScreen() {
         </Stack.Toolbar.Menu>
       </Stack.Toolbar>
       <NativeListScreen onRefresh={data.refresh}>
+        <Section>
+          <DebtulatorIdentitySummary
+            title={member.displayName}
+            subtitle={member.linkStatus === "linked" ? "Linked Debtulator member" : "Ledger member"}
+            avatarName={member.displayName}
+            amount={formatMoney(Math.abs(balance), data.settings.baseCurrency)}
+            amountLabel={settled ? "Balance settled" : balance > 0 ? "Owes you" : "You owe"}
+            amountTone={settled ? "neutral" : balance > 0 ? "positive" : "negative"}
+            badge={member.linkStatus === "linked" ? "Linked" : member.linkStatus.replaceAll("_", " ")}
+            badgeTone={member.linkStatus === "linked" ? "positive" : "brand"}
+          />
+        </Section>
         <Section title="Contact">
           {member.email ? <NativeInfoRow label="Email" value={member.email} systemImage="envelope" /> : null}
           {member.phone ? <NativeInfoRow label="Phone" value={member.phone} systemImage="phone" /> : null}
