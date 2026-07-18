@@ -3,9 +3,12 @@ import { Stack, router } from "expo-router";
 import { useMemo, useState } from "react";
 
 import { NativeDebtRow } from "@/src/components/ios/NativeDebtRow";
-import { NativeEmptyState } from "@/src/components/ios/NativeEmptyState";
+import { DebtulatorEmptyState } from "@/src/components/ios/DebtulatorEmptyState";
+import { DebtulatorIdentitySummary } from "@/src/components/ios/DebtulatorIdentitySummary";
 import { NativeListScreen } from "@/src/components/ios/NativeListScreen";
+import { estimateMoneyMap } from "@/src/services/currency";
 import { useAppData } from "@/src/state/AppDataProvider";
+import { formatMoney } from "@/src/utils/money";
 
 type DebtFilter = "active" | "you-owe" | "owed-to-you" | "all";
 
@@ -33,6 +36,11 @@ export function NativeDebtsScreen() {
       })
       .sort((a, b) => b.debtDate.localeCompare(a.debtDate));
   }, [data.debts, data.members, filter, query]);
+  const active = data.debts.filter((debt) => debt.status === "active");
+  const activeOwed = active.filter((debt) => debt.direction === "they_owe_me").length;
+  const activeOwing = active.filter((debt) => debt.direction === "i_owe_them").length;
+  const net = estimateMoneyMap(data.personalTotals.net, data.settings, data.currencyRates);
+  const netTone = Math.abs(net) <= 0.005 ? "neutral" : net > 0 ? "positive" : "negative";
 
   return (
     <>
@@ -65,6 +73,18 @@ export function NativeDebtsScreen() {
       </Stack.Toolbar>
       <NativeListScreen onRefresh={data.refresh} grouped={false}>
         <Section>
+          <DebtulatorIdentitySummary
+            title="Active balances"
+            subtitle={`${active.length} open ${active.length === 1 ? "debt" : "debts"}`}
+            amount={formatMoney(Math.abs(net), data.settings.baseCurrency)}
+            amountLabel={Math.abs(net) <= 0.005 ? "Net settled" : net > 0 ? "Net owed to you" : "Net you owe"}
+            amountTone={netTone}
+            badge={`${activeOwed} incoming · ${activeOwing} outgoing`}
+            badgeTone="brand"
+            systemImage="creditcard.fill"
+          />
+        </Section>
+        <Section>
           {debts.length ? (
             debts.map((debt) => (
               <NativeDebtRow
@@ -77,10 +97,12 @@ export function NativeDebtsScreen() {
               />
             ))
           ) : (
-            <NativeEmptyState
+            <DebtulatorEmptyState
               title={query ? "No matching debts" : "No debts here"}
               description="Change the filter or add a debt."
               systemImage="creditcard"
+              actionLabel={query ? undefined : "Add Debt"}
+              onAction={query ? undefined : () => router.push("/(tabs)/debts/debt/form" as never)}
             />
           )}
         </Section>

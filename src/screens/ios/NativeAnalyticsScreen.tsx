@@ -4,6 +4,8 @@ import { Stack, router } from "expo-router";
 import { useMemo, useState } from "react";
 
 import { NativeEmptyState } from "@/src/components/ios/NativeEmptyState";
+import { DebtulatorIdentitySummary } from "@/src/components/ios/DebtulatorIdentitySummary";
+import { DebtulatorStatusBadge } from "@/src/components/ios/DebtulatorStatusBadge";
 import { NativeListScreen } from "@/src/components/ios/NativeListScreen";
 import { NativeInfoRow } from "@/src/components/ios/NativeRows";
 import {
@@ -14,6 +16,7 @@ import {
 } from "@/src/services/analytics";
 import { estimateMoneyMap } from "@/src/services/currency";
 import { useAppData } from "@/src/state/AppDataProvider";
+import { iosBrand } from "@/src/theme/iosBrand";
 
 export function NativeAnalyticsScreen() {
   const data = useAppData();
@@ -30,6 +33,7 @@ export function NativeAnalyticsScreen() {
   const chartData = trend.map((row) => ({
     x: row.label,
     y: estimateMoneyMap(row.owedToMe, data.settings, data.currencyRates),
+    color: iosBrand.chartPositive,
   }));
   const tags = debtByTag(data.ledgerEntries, filters).slice(0, 8);
   const members = debtByMember(
@@ -51,6 +55,15 @@ export function NativeAnalyticsScreen() {
         />
       </Stack.Toolbar>
       <NativeListScreen onRefresh={data.refresh}>
+        <Section>
+          <DebtulatorIdentitySummary
+            title="Debtulator insights"
+            subtitle="Patterns across balances, payments and people"
+            badge="Native charts"
+            badgeTone="brand"
+            systemImage="chart.bar.xaxis"
+          />
+        </Section>
         <Section title="Filters">
           <Toggle label="Include archived records" isOn={includeArchived} onIsOnChange={setIncludeArchived} />
           <Toggle label="Include rejected and disputed records" isOn={includeRejected} onIsOnChange={setIncludeRejected} />
@@ -62,6 +75,7 @@ export function NativeAnalyticsScreen() {
               data={chartData}
               showGrid
               animate
+              barStyle={{ cornerRadius: 5 }}
               modifiers={[frame({ minHeight: 220 })]}
             />
           ) : (
@@ -71,6 +85,7 @@ export function NativeAnalyticsScreen() {
               systemImage="chart.bar"
             />
           )}
+          <DebtulatorStatusBadge label="Owed to you" tone="positive" systemImage="arrow.down.left" />
         </Section>
         <Section title="Payment Progress">
           <NativeInfoRow label="Unpaid records" value={String(payment.counts.unpaid)} />

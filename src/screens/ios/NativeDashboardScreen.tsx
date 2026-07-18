@@ -1,28 +1,15 @@
-import { Section, Text } from "@expo/ui/swift-ui";
-import { font, foregroundStyle } from "@expo/ui/swift-ui/modifiers";
+import { Section } from "@expo/ui/swift-ui";
 import { Stack, router } from "expo-router";
 
-import { NativeEmptyState } from "@/src/components/ios/NativeEmptyState";
+import { DebtulatorBalanceHero } from "@/src/components/ios/DebtulatorBalanceHero";
+import { DebtulatorEmptyState } from "@/src/components/ios/DebtulatorEmptyState";
+import { DebtulatorFinancialRow } from "@/src/components/ios/DebtulatorRows";
 import { NativeListScreen } from "@/src/components/ios/NativeListScreen";
-import {
-  NativeInfoRow,
-  NativeNavigationRow,
-} from "@/src/components/ios/NativeRows";
+import { NativeNavigationRow } from "@/src/components/ios/NativeRows";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
-
-function moneyMapLabel(values: Record<string, number | undefined>) {
-  const parts = Object.entries(values)
-    .filter(([, amount]) => Math.abs(amount ?? 0) > 0.005)
-    .map(([currency, amount]) =>
-      new Intl.NumberFormat(undefined, {
-        style: "currency",
-        currency,
-        maximumFractionDigits: 2,
-      }).format(amount ?? 0),
-    );
-  return parts.join(" · ") || "—";
-}
+import { estimateMoneyMap } from "@/src/services/currency";
+import { formatMoney } from "@/src/utils/money";
 
 export function NativeDashboardScreen() {
   const data = useAppData();
@@ -37,6 +24,13 @@ export function NativeDashboardScreen() {
     data.linkRequests.filter((item) => item.status === "pending").length +
     data.debtVerifications.filter((item) => item.status === "pending").length +
     data.groupInvites.filter((item) => item.status === "pending").length;
+  const baseCurrency = data.settings.baseCurrency;
+  const net = estimateMoneyMap(data.personalTotals.net, data.settings, data.currencyRates);
+  const owedToUser = estimateMoneyMap(data.personalTotals.owedToMe, data.settings, data.currencyRates);
+  const owedByUser = estimateMoneyMap(data.personalTotals.iOwe, data.settings, data.currencyRates);
+  const hour = new Date().getHours();
+  const salutation = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  const firstName = auth.identity.displayName?.split(" ")[0];
 
   return (
     <>
@@ -64,29 +58,12 @@ export function NativeDashboardScreen() {
         </Stack.Toolbar.Menu>
       </Stack.Toolbar>
       <NativeListScreen onRefresh={auth.refreshSync}>
-        <Section
-          header={
-            <Text modifiers={[font({ textStyle: "headline" })]}>
-              {auth.identity.displayName
-                ? `Hello, ${auth.identity.displayName.split(" ")[0]}`
-                : "Your snapshot"}
-            </Text>
-          }
-        >
-          <NativeInfoRow
-            label="Net position"
-            value={moneyMapLabel(data.personalTotals.net)}
-            systemImage="equal.circle"
-          />
-          <NativeInfoRow
-            label="Owed to you"
-            value={moneyMapLabel(data.personalTotals.owedToMe)}
-            systemImage="arrow.down.left.circle"
-          />
-          <NativeInfoRow
-            label="You owe"
-            value={moneyMapLabel(data.personalTotals.iOwe)}
-            systemImage="arrow.up.right.circle"
+        <Section>
+          <DebtulatorBalanceHero
+            greeting={`${salutation}${firstName ? `, ${firstName}` : ""}`}
+            netAmount={formatMoney(net, baseCurrency, { signed: true })}
+            owedToUser={formatMoney(owedToUser, baseCurrency)}
+            owedByUser={formatMoney(owedByUser, baseCurrency)}
           />
         </Section>
 
@@ -108,34 +85,37 @@ export function NativeDashboardScreen() {
 
         <Section title="Recent debts">
           {recentEntries.length ? (
-            recentEntries.map((entry) => (
-              <NativeNavigationRow
-                key={entry.id}
-                title={entry.title}
-                subtitle={entry.dueDate ? `Due ${entry.dueDate}` : entry.date}
-                value={new Intl.NumberFormat(undefined, {
-                  style: "currency",
-                  currency: entry.currency,
-                }).format(entry.remainingAmount)}
-                systemImage="creditcard"
-                onPress={() => {
-                  if (entry.kind === "simple_debt") {
-                    router.push(
-                      `/(tabs)/debts/debt/${entry.sourceId}` as never,
-                    );
-                  } else if (entry.groupId) {
-                    router.push(
-                      `/(tabs)/groups/group/${entry.groupId}` as never,
-                    );
-                  }
-                }}
-              />
-            ))
+            recentEntries.map((entry) => {
+              const owedToMe = entry.toId === "me";
+              return (
+                <DebtulatorFinancialRow
+                  key={entry.id}
+                  title={entry.title}
+                  subtitle={entry.dueDate ? `Due ${entry.dueDate}` : entry.date}
+                  amount={formatMoney(entry.remainingAmount, entry.currency)}
+                  tone={owedToMe ? "positive" : "negative"}
+                  systemImage={owedToMe ? "arrow.down.left.circle.fill" : "arrow.up.right.circle.fill"}
+                  onPress={() => {
+                    if (entry.kind === "simple_debt") {
+                      router.push(
+                        `/(tabs)/debts/debt/${entry.sourceId}` as never,
+                      );
+                    } else if (entry.groupId) {
+                      router.push(
+                        `/(tabs)/groups/group/${entry.groupId}` as never,
+                      );
+                    }
+                  }}
+                />
+              );
+            })
           ) : (
-            <NativeEmptyState
+            <DebtulatorEmptyState
               title="No active debts"
               description="Add a debt or group expense to begin tracking balances."
               systemImage="checkmark.circle"
+              actionLabel="Add Debt"
+              onAction={() => router.push("/(tabs)/debts/debt/form" as never)}
             />
           )}
         </Section>
@@ -155,17 +135,6 @@ export function NativeDashboardScreen() {
           />
         </Section>
 
-        <Section>
-          <Text
-            modifiers={[
-              font({ textStyle: "footnote" }),
-              foregroundStyle({ type: "hierarchical", style: "secondary" }),
-            ]}
-          >
-            Values use each record’s currency. Debtulator does not apply Liquid
-            Glass to ledger content.
-          </Text>
-        </Section>
       </NativeListScreen>
     </>
   );

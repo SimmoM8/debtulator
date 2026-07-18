@@ -4,6 +4,7 @@ import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { NativeConfirmationDialog } from "@/src/components/ios/NativeConfirmationDialog";
+import { DebtulatorIllustratedHeader } from "@/src/components/ios/DebtulatorIllustration";
 import {
   NativePicker,
   NativeSecureTextField,
@@ -91,6 +92,13 @@ export function NativeAuthScreen() {
         <Stack.Toolbar.Button onPress={() => router.back()}>Cancel</Stack.Toolbar.Button>
       </Stack.Toolbar>
       <NativeFormScreen>
+        <Section>
+          <DebtulatorIllustratedHeader
+            variant="shield"
+            title="Your Debtulator account"
+            description="Keep shared balances confirmed and available across your devices."
+          />
+        </Section>
         <Section title="Account">
           <NativePicker label="Mode" value={mode} options={[{ label: "Sign In", value: "signin" }, { label: "Create Account", value: "signup" }, { label: "Reset Password", value: "forgot" }]} onChange={setMode} style="segmented" />
           {mode === "signup" ? (
@@ -153,6 +161,13 @@ export function NativeFirstRunScreen() {
     <>
       <Stack.Title>Welcome to Debtulator</Stack.Title>
       <NativeFormScreen>
+        <Section>
+          <DebtulatorIllustratedHeader
+            variant="orbit"
+            title="Money between people, made clear"
+            description="Track what is owed, settle together and keep every balance understandable."
+          />
+        </Section>
         <Section title="Get started" footer={<Text>You can begin locally and sign in later without changing the ledger model.</Text>}>
           <NativePicker label="Setup" value={mode} options={[{ label: "Sign In", value: "signin" }, { label: "Use Locally", value: "local" }]} onChange={setMode} style="segmented" />
         </Section>
@@ -224,6 +239,13 @@ export function NativeDeleteAccountScreen() {
     <>
       <Stack.Title>Delete Account</Stack.Title>
       <NativeListScreen onRefresh={refresh}>
+        <Section>
+          <DebtulatorIllustratedHeader
+            variant="shield"
+            title="Your data stays understandable"
+            description="Debtulator protects other participants’ ledgers while removing or anonymizing your private account data."
+          />
+        </Section>
         <Section title="Before deletion">
           <NativeBodyCopy>Export your data first if you need a copy. Private account data is removed or anonymized; shared financial history may remain in a privacy-conscious form so other participants’ ledgers do not break.</NativeBodyCopy>
           <Button label="Open Full Data Export" onPress={() => router.push("/(tabs)/settings/full-export" as never)} />
