@@ -64,94 +64,6 @@ export const palette = {
   backdropIndigo: "rgba(55,48,163,0.04)",
 };
 
-export type GlassRole =
-  | "surface"
-  | "elevated"
-  | "control"
-  | "prominentControl"
-  | "navigation"
-  | "input";
-
-type GlassRoleDefinition = {
-  variant: "clear" | "regular";
-  interactive: boolean;
-  tintColor?: string;
-  fallback: {
-    backgroundColor: string;
-    borderColor: string;
-    borderWidth: number;
-  };
-};
-
-/**
- * Semantic glass tokens shared by every platform.
- * Apple platforms map these roles to native Liquid Glass. Android and older
- * Apple releases retain the same hierarchy using stable material fallbacks.
- */
-export const glass: { roles: Record<GlassRole, GlassRoleDefinition> } = {
-  roles: {
-    surface: {
-      variant: "regular",
-      interactive: false,
-      fallback: {
-        backgroundColor: palette.surfaceGlassElevated,
-        borderColor: palette.borderGlass,
-        borderWidth: StyleSheetHairlineWidth,
-      },
-    },
-    elevated: {
-      variant: "regular",
-      interactive: false,
-      tintColor: "rgba(221,214,254,0.12)",
-      fallback: {
-        backgroundColor: palette.surfaceGlassStrong,
-        borderColor: palette.borderIndigoSoft,
-        borderWidth: StyleSheetHairlineWidth,
-      },
-    },
-    control: {
-      variant: "clear",
-      interactive: true,
-      fallback: {
-        backgroundColor: palette.surfaceRow,
-        borderColor: palette.borderRow,
-        borderWidth: StyleSheetHairlineWidth,
-      },
-    },
-    prominentControl: {
-      variant: "regular",
-      interactive: true,
-      tintColor: palette.primary,
-      fallback: {
-        backgroundColor: palette.primary,
-        borderColor: palette.primary,
-        borderWidth: StyleSheetHairlineWidth,
-      },
-    },
-    navigation: {
-      variant: "regular",
-      interactive: false,
-      fallback: {
-        backgroundColor: palette.surfaceGlassStrong,
-        borderColor: palette.borderIndigoSoft,
-        borderWidth: StyleSheetHairlineWidth,
-      },
-    },
-    input: {
-      variant: "clear",
-      interactive: false,
-      fallback: {
-        backgroundColor: palette.surfaceAlt,
-        borderColor: palette.border,
-        borderWidth: StyleSheetHairlineWidth,
-      },
-    },
-  },
-};
-
-// Kept as a scalar to avoid importing StyleSheet into the token module.
-const StyleSheetHairlineWidth = Platform.select({ web: 1, default: 0.5 }) ?? 0.5;
-
 export const spacing = {
   xs: 4,
   sm: 8,
@@ -237,6 +149,8 @@ export const shadows = {
     },
   }),
   stacked: Platform.select({
+    // A smaller shadow only for surfaces layered directly on top of another
+    // surface, such as the debt confirmation card over its action tray.
     android: {
       filter: "drop-shadow(0px 2px 2px rgba(32,27,99,0.08))",
     },
