@@ -1,4 +1,4 @@
-import { NativeNavigationRow } from "@/src/components/ios/NativeRows";
+import { DebtulatorDebtRow } from "@/src/components/ios/DebtulatorRows";
 import type { Debt, Member } from "@/src/types/models";
 
 export function NativeDebtRow({
@@ -16,13 +16,13 @@ export function NativeDebtRow({
   }).format(debt.amount);
 
   return (
-    <NativeNavigationRow
+    <DebtulatorDebtRow
       title={debt.title}
-      subtitle={`${member?.displayName ?? "Unknown member"} · ${debt.status}`}
-      value={amount}
-      systemImage={debt.direction === "i_owe_them" ? "arrow.up.right" : "arrow.down.left"}
+      subtitle={member?.displayName ?? "Unknown member"}
+      amount={amount}
+      direction={debt.direction}
+      status={debt.status}
       onPress={onPress}
-      hint={`Opens details for ${debt.title}`}
     />
   );
 }
