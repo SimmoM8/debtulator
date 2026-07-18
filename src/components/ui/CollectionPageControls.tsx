@@ -1,17 +1,19 @@
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { GlassCard } from "@/src/components/ui/Finance";
 import {
-  IconButton,
-  PageHeader,
-  SlidingSectionSwitcher,
+    IconButton,
+    PageHeader,
+    SlidingSectionSwitcher,
 } from "@/src/components/ui/Primitives";
 import {
-  palette,
-  radii,
-  spacing,
+    palette,
+    radii,
+    spacing,
+    typefaces,
+    typography,
 } from "@/src/constants/design";
 
 type SummaryTone =
@@ -23,7 +25,7 @@ type SummaryTone =
   | "lavender"
   | "muted";
 
-export function CollectionPageControls({
+export function CollectionPageHeader({
   title,
   addLabel,
   onAdd,
@@ -32,6 +34,49 @@ export function CollectionPageControls({
   query,
   onChangeQuery,
   searchPlaceholder,
+}: {
+  title: string;
+  addLabel: string;
+  onAdd: () => void;
+  optionsLabel: string;
+  onOpenOptions: () => void;
+  query: string;
+  onChangeQuery: (value: string) => void;
+  searchPlaceholder: string;
+}) {
+  return (
+    <PageHeader
+      title={title}
+      showBackButton={false}
+      topCenter={<Text style={styles.headerTitle}>{title}</Text>}
+      topLeft={
+        <IconButton
+          icon="ellipsis-horizontal"
+          label={optionsLabel}
+          tone="inverse"
+          onPress={onOpenOptions}
+        />
+      }
+      topRight={
+        <View style={styles.headerActions}>
+          <IconButton
+            icon="add"
+            label={addLabel}
+            tone="inverse"
+            onPress={onAdd}
+          />
+        </View>
+      }
+      search={{
+        value: query,
+        onChangeText: onChangeQuery,
+        placeholder: searchPlaceholder,
+      }}
+    />
+  );
+}
+
+export function CollectionPageControls({
   filterValue,
   filterOptions,
   onChangeFilter,
@@ -43,14 +88,6 @@ export function CollectionPageControls({
   summary,
   summaryTone = "lavender",
 }: {
-  title: string;
-  addLabel: string;
-  onAdd: () => void;
-  optionsLabel: string;
-  onOpenOptions: () => void;
-  query: string;
-  onChangeQuery: (value: string) => void;
-  searchPlaceholder: string;
   filterValue?: string;
   filterOptions?: { label: string; value: string }[];
   onChangeFilter?: (value: string) => void;
@@ -71,34 +108,6 @@ export function CollectionPageControls({
 
   return (
     <View style={styles.controls}>
-      <PageHeader
-        title={title}
-        showBackButton={false}
-        topLeft={
-          <IconButton
-            icon="ellipsis-horizontal"
-            label={optionsLabel}
-            tone="inverse"
-            onPress={onOpenOptions}
-          />
-        }
-        topRight={
-          <View style={styles.headerActions}>
-            <IconButton
-              icon="add"
-              label={addLabel}
-              tone="inverse"
-              onPress={onAdd}
-            />
-          </View>
-        }
-        search={{
-          value: query,
-          onChangeText: onChangeQuery,
-          placeholder: searchPlaceholder,
-        }}
-      />
-
       {showQuickFilters ? (
         <SlidingSectionSwitcher
           compact
@@ -156,6 +165,9 @@ export function CollectionPageControls({
   );
 }
 
+CollectionPageControls.displayName = "CollectionPageControls";
+CollectionPageHeader.displayName = "CollectionPageHeader";
+
 const styles = StyleSheet.create({
   controls: {
     gap: spacing.sm,
@@ -164,6 +176,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-end",
+  },
+  headerTitle: {
+    color: palette.surface,
+    fontSize: typography.size.h2,
+    lineHeight: typography.line.h2,
+    fontFamily: typefaces.displayMedium,
+    textAlign: "center",
   },
   sortControls: {
     flexDirection: "row",

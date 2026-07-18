@@ -6,7 +6,7 @@ import {
     Pressable,
     StyleSheet,
     Text,
-  TextInput,
+    TextInput,
     View,
     type StyleProp,
     type TextInputProps,
@@ -199,6 +199,7 @@ export function SearchBar({
   onChangeText,
   placeholder,
   accessory,
+  variant = "default",
   style,
   ...props
 }: {
@@ -206,17 +207,25 @@ export function SearchBar({
   onChangeText: (value: string) => void;
   placeholder?: string;
   accessory?: React.ReactNode;
+  variant?: "default" | "header";
   style?: StyleProp<ViewStyle>;
 } & Omit<TextInputProps, "value" | "onChangeText" | "style">) {
+  const headerVariant = variant === "header";
   return (
     <GlassSurface role="input" style={[styles.searchBar, style]}>
-      <Ionicons name="search" size={18} color={palette.muted} />
+      <Ionicons
+        name="search"
+        size={18}
+        color={headerVariant ? "rgba(255,255,255,0.74)" : palette.muted}
+      />
       <TextInput
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={palette.textTertiary}
-        style={styles.searchInput}
+        placeholderTextColor={
+          headerVariant ? "rgba(255,255,255,0.66)" : palette.textTertiary
+        }
+        style={[styles.searchInput, headerVariant && styles.searchInputHeader]}
         {...props}
       />
       {accessory}
@@ -1025,6 +1034,9 @@ const styles = StyleSheet.create({
     color: palette.textPrimary,
     fontSize: typography.size.lg,
     fontFamily: typefaces.body,
+  },
+  searchInputHeader: {
+    color: palette.surface,
   },
   searchToolbar: {
     flexDirection: "row",

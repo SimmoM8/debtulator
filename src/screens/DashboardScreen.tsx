@@ -2,56 +2,56 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Animated,
-  Modal,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  useWindowDimensions,
+    Animated,
+    Modal,
+    Platform,
+    Pressable,
+    StyleSheet,
+    Text,
+    View,
+    useWindowDimensions,
 } from "react-native";
 
-import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
 import { ActivityTimelineRow } from "@/src/components/ActivityTimelineRow";
+import { AppMenuButton } from "@/src/components/navigation/AppMenuButton";
 import { GlassCard, ListRow } from "@/src/components/ui/Finance";
 import {
-  EmptyState,
-  IconButton,
-  LoadingState,
-  Screen,
-  SectionActionLink,
-  SectionTitle,
+    EmptyState,
+    IconButton,
+    LoadingState,
+    Screen,
+    SectionActionLink,
+    SectionTitle,
 } from "@/src/components/ui/Primitives";
-import {
-  palette,
-  shadows,
-  spacing,
-  typefaces,
-  typography,
-} from "@/src/constants/design";
 import { CURRENCIES } from "@/src/constants/currencies";
 import {
-  activityConfirmationStatus,
-  activityDetailRows,
-  activityEventSentence,
-  activitySummary,
-  buildUserActivity,
+    palette,
+    shadows,
+    spacing,
+    typefaces,
+    typography,
+} from "@/src/constants/design";
+import {
+    activityConfirmationStatus,
+    activityDetailRows,
+    activityEventSentence,
+    activitySummary,
+    buildUserActivity,
 } from "@/src/services/activity";
 import { estimateMoneyMap } from "@/src/services/currency";
 import {
-  calculatePersonalTotals,
-  entryDirectionText,
+    calculatePersonalTotals,
+    entryDirectionText,
 } from "@/src/services/ledger";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
 import type {
-  AppSettings,
-  CurrencyCode,
-  CurrencyRate,
-  LedgerEntry,
-  Member,
-  SharedGroupMember,
+    AppSettings,
+    CurrencyCode,
+    CurrencyRate,
+    LedgerEntry,
+    Member,
+    SharedGroupMember,
 } from "@/src/types/models";
 import { formatMoney } from "@/src/utils/money";
 
@@ -334,24 +334,30 @@ export function DashboardScreen() {
   }
 
   return (
-    <Screen>
-      <View style={styles.headerRow}>
-        <IconButton
-          icon="notifications-outline"
-          label={pendingRequests ? "Open notifications" : "View notifications"}
-          onPress={() => router.push("/requests")}
-        />
-        <View style={styles.identityCopy}>
-          <Text style={styles.greeting}>
-            Good {greetingPeriod}, {firstName}
-          </Text>
-          <Text
-            style={styles.subGreeting}
-          >{`Here's your ${greetingPeriod} snapshot`}</Text>
+    <Screen
+      headerBackground="primary"
+      header={
+        <View style={styles.headerRow}>
+          <IconButton
+            icon="notifications-outline"
+            label={
+              pendingRequests ? "Open notifications" : "View notifications"
+            }
+            tone="inverse"
+            onPress={() => router.push("/requests")}
+          />
+          <View style={styles.identityCopy}>
+            <Text style={styles.greeting}>
+              Good {greetingPeriod}, {firstName}
+            </Text>
+            <Text
+              style={styles.subGreeting}
+            >{`Here's your ${greetingPeriod} snapshot`}</Text>
+          </View>
+          <AppMenuButton tone="inverse" />
         </View>
-        <AppMenuButton />
-      </View>
-
+      }
+    >
       <Animated.View style={heroAnimatedStyle}>
         <GlassCard style={styles.heroCard}>
           <View style={styles.heroMainRow}>
@@ -759,19 +765,21 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     justifyContent: "space-between",
     gap: spacing.md,
+    paddingHorizontal: spacing.screen,
+    paddingBottom: spacing.md,
   },
   identityCopy: {
     flex: 1,
     gap: 6,
   },
   greeting: {
-    color: palette.textPrimary,
+    color: palette.surface,
     fontSize: typography.size.xl,
     lineHeight: typography.line.xl,
     fontFamily: typefaces.displayMedium,
   },
   subGreeting: {
-    color: palette.muted,
+    color: "rgba(255,255,255,0.78)",
     fontSize: typography.size.sm,
     lineHeight: typography.line.sm,
     fontFamily: typefaces.body,
@@ -781,7 +789,9 @@ const styles = StyleSheet.create({
     paddingTop: 18,
     paddingBottom: 16,
     backgroundColor:
-      Platform.OS === "android" ? palette.surface : palette.surfaceGlassElevated,
+      Platform.OS === "android"
+        ? palette.surface
+        : palette.surfaceGlassElevated,
   },
   currencyPill: {
     flexDirection: "row",
@@ -920,7 +930,9 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderGlass,
     backgroundColor:
-      Platform.OS === "android" ? palette.surface : palette.surfaceGlassElevated,
+      Platform.OS === "android"
+        ? palette.surface
+        : palette.surfaceGlassElevated,
     alignItems: "center",
     justifyContent: "center",
     gap: 4,

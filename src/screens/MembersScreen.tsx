@@ -1,15 +1,18 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
+import {
+    CollectionPageControls,
+    CollectionPageHeader,
+} from "@/src/components/ui/CollectionPageControls";
 import {
     GlassCard,
     ListRow,
     SingleSelectFilterList,
     StatCard,
 } from "@/src/components/ui/Finance";
-import { CollectionPageControls } from "@/src/components/ui/CollectionPageControls";
 import { MobileMenuModal } from "@/src/components/ui/MenuList";
 import {
     EmptyState,
@@ -146,16 +149,22 @@ export function MembersScreen() {
   }
 
   return (
-    <Screen>
+    <Screen
+      headerBackground="primary"
+      header={
+        <CollectionPageHeader
+          title="Members"
+          addLabel="Add member"
+          onAdd={() => router.push("/member/form")}
+          optionsLabel="Member options"
+          onOpenOptions={() => setOptionsOpen(true)}
+          query={query}
+          onChangeQuery={setQuery}
+          searchPlaceholder="Filter members"
+        />
+      }
+    >
       <CollectionPageControls
-        title="Members"
-        addLabel="Add member"
-        onAdd={() => router.push("/member/form")}
-        optionsLabel="Member options"
-        onOpenOptions={() => setOptionsOpen(true)}
-        query={query}
-        onChangeQuery={setQuery}
-        searchPlaceholder="Filter members"
         filterValue={filter}
         filterOptions={FILTERS}
         onChangeFilter={(value) => setFilter(value as MemberFilter)}
@@ -179,7 +188,7 @@ export function MembersScreen() {
               selected={filter === "you-owe"}
               onPress={() =>
                 setFilter((current) =>
-                  current === "you-owe" ? "all" : "you-owe"
+                  current === "you-owe" ? "all" : "you-owe",
                 )
               }
               accessibilityHint="Shows members you currently owe"
@@ -194,7 +203,7 @@ export function MembersScreen() {
               selected={filter === "owed-to-you"}
               onPress={() =>
                 setFilter((current) =>
-                  current === "owed-to-you" ? "all" : "owed-to-you"
+                  current === "owed-to-you" ? "all" : "owed-to-you",
                 )
               }
               accessibilityHint="Shows members who currently owe you"
@@ -388,7 +397,9 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderGlass,
     backgroundColor:
-      Platform.OS === "android" ? palette.surface : palette.surfaceGlassElevated,
+      Platform.OS === "android"
+        ? palette.surface
+        : palette.surfaceGlassElevated,
     paddingHorizontal: 18,
     paddingVertical: 18,
     ...shadows.card,
