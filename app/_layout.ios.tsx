@@ -15,7 +15,6 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { NativeErrorBoundary } from "@/src/components/ios/NativeErrorBoundary";
 import { NativeErrorState } from "@/src/components/ios/NativeErrorState";
 import { NativeLoadingState } from "@/src/components/ios/NativeLoadingState";
-import { IOS_ACCENT } from "@/src/components/ios/NativeScreen";
 import {
   addTelemetryBreadcrumb,
   configureTelemetry,
@@ -23,6 +22,7 @@ import {
 } from "@/src/services/telemetry";
 import { AppDataProvider, useAppData } from "@/src/state/AppDataProvider";
 import { AuthProvider, useAuth } from "@/src/state/AuthProvider";
+import { debtulatorRolesForScheme } from "@/src/theme/brand";
 
 export const unstable_settings = { anchor: "(tabs)" };
 
@@ -31,9 +31,10 @@ void SplashScreen.preventAutoHideAsync();
 export default function NativeRootLayout() {
   const colorScheme = useColorScheme();
   const baseTheme = colorScheme === "dark" ? DarkTheme : DefaultTheme;
+  const brand = debtulatorRolesForScheme(colorScheme);
   const theme = {
     ...baseTheme,
-    colors: { ...baseTheme.colors, primary: IOS_ACCENT },
+    colors: { ...baseTheme.colors, primary: brand.appTint },
   };
 
   useEffect(() => {
