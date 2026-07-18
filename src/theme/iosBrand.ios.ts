@@ -37,6 +37,8 @@ export const iosBrand: BrandColorRoles<ColorValue> = {
   chartPositive: dynamicRole("chartPositive"),
   chartNegative: dynamicRole("chartNegative"),
   onBrandedBackground: dynamicRole("onBrandedBackground"),
+  positiveOnBranded: dynamicRole("positiveOnBranded"),
+  negativeOnBranded: dynamicRole("negativeOnBranded"),
   positiveBackground: dynamicRole("positiveBackground"),
   negativeBackground: dynamicRole("negativeBackground"),
   warningBackground: dynamicRole("warningBackground"),

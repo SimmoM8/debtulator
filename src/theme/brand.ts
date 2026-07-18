@@ -29,6 +29,8 @@ export type BrandColorRoles<T = string> = {
   chartPositive: T;
   chartNegative: T;
   onBrandedBackground: T;
+  positiveOnBranded: T;
+  negativeOnBranded: T;
   positiveBackground: T;
   negativeBackground: T;
   warningBackground: T;
@@ -55,6 +57,8 @@ export const debtulatorLightRoles: BrandColorRoles = {
   chartPositive: "#1C8B67",
   chartNegative: "#D14B55",
   onBrandedBackground: "#FFFFFF",
+  positiveOnBranded: "#7BE3BE",
+  negativeOnBranded: "#FFB2B7",
   positiveBackground: "#E8F8F1",
   negativeBackground: "#FFF0F0",
   warningBackground: "#FFF7E7",
@@ -81,6 +85,8 @@ export const debtulatorDarkRoles: BrandColorRoles = {
   chartPositive: "#55D8A8",
   chartNegative: "#FF8A91",
   onBrandedBackground: "#FFFFFF",
+  positiveOnBranded: "#83E9C5",
+  negativeOnBranded: "#FFB9BD",
   positiveBackground: "#142D24",
   negativeBackground: "#341C22",
   warningBackground: "#352711",
