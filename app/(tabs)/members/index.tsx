@@ -1,3 +1,1 @@
-import { MembersScreen } from "@/src/screens/MembersScreen";
-
-export default MembersScreen;
+export { default } from "@/src/features/members/routes/MembersRouteScreen";

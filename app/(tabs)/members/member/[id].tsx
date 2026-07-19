@@ -1,1 +1,1 @@
-export { MemberDetailScreen as default } from "@/src/screens/MemberDetailScreen";
+export { default } from "@/src/features/members/routes/MemberDetailRouteScreen";

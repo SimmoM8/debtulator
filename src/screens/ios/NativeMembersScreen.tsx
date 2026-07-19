@@ -1,47 +1,32 @@
 import { Section } from "@expo/ui/swift-ui";
-import { Stack, router } from "expo-router";
-import { useMemo, useState } from "react";
+import { router } from "expo-router";
 
 import { DebtulatorEmptyState } from "@/src/components/ios/DebtulatorEmptyState";
+import { NativeCollectionNavigation } from "@/src/components/ios/NativeCollectionNavigation";
 import { NativeListScreen } from "@/src/components/ios/NativeListScreen";
 import { NativeMemberRow } from "@/src/components/ios/NativeMemberRow";
-import { NativeLargePageTitle } from "@/src/components/ios/NativeNavigationStyle";
+import { useNativeMembersScreenModel } from "@/src/features/members/useNativeMembersScreenModel";
 import { estimateMoneyMap } from "@/src/services/currency";
-import { useAppData } from "@/src/state/AppDataProvider";
 import { formatMoney } from "@/src/utils/money";
 
 export function NativeMembersScreen() {
-  const data = useAppData();
-  const [query, setQuery] = useState("");
-  const members = useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase();
-    return data.members
-      .filter((member) => !member.archived)
-      .filter(
-        (member) =>
-          !normalized ||
-          [member.displayName, member.email, member.phone, member.notes]
-            .filter(Boolean)
-            .some((value) => value!.toLocaleLowerCase().includes(normalized)),
-      )
-      .sort((a, b) => a.displayName.localeCompare(b.displayName));
-  }, [data.members, query]);
+  const { data, members, query, setQuery, sort, setSort } = useNativeMembersScreenModel();
 
   return (
     <>
-      <NativeLargePageTitle>Members</NativeLargePageTitle>
-      <Stack.SearchBar
-        placeholder="Search members"
-        hideWhenScrolling
-        onChangeText={(event) => setQuery(event.nativeEvent.text)}
+      <NativeCollectionNavigation
+        title="Members"
+        searchPlaceholder="Search members"
+        onSearchChange={setQuery}
+        leadingAccessibilityLabel="Sort members"
+        leadingActions={[
+          { label: "Name", selected: sort === "name", onPress: () => setSort("name") },
+          { label: "Recently Updated", selected: sort === "recent", onPress: () => setSort("recent") },
+          { label: "Largest Balance", selected: sort === "balance", onPress: () => setSort("balance") },
+        ]}
+        addAccessibilityLabel="Add member"
+        onAdd={() => router.push("/(tabs)/members/member/form" as never)}
       />
-      <Stack.Toolbar placement="right">
-        <Stack.Toolbar.Button
-          icon="plus"
-          accessibilityLabel="Add member"
-          onPress={() => router.push("/(tabs)/members/member/form" as never)}
-        />
-      </Stack.Toolbar>
       <NativeListScreen onRefresh={data.refresh} grouped={false}>
         <Section>
           {members.length ? (
