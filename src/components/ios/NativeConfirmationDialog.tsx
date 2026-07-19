@@ -1,5 +1,7 @@
 import { Button, ConfirmationDialog, Text } from "@expo/ui/swift-ui";
 
+import { NativeInlineHost } from "./NativeInlineHost";
+
 export function NativeConfirmationDialog({
   title,
   message,
@@ -18,23 +20,25 @@ export function NativeConfirmationDialog({
   onConfirm: () => void;
 }) {
   return (
-    <ConfirmationDialog
-      title={title}
-      isPresented={isPresented}
-      onIsPresentedChange={onPresentedChange}
-      titleVisibility="visible"
-    >
-      <ConfirmationDialog.Actions>
-        <Button
-          label={actionLabel}
-          role={destructive ? "destructive" : "default"}
-          onPress={onConfirm}
-        />
-        <Button label="Cancel" role="cancel" />
-      </ConfirmationDialog.Actions>
-      <ConfirmationDialog.Message>
-        <Text>{message}</Text>
-      </ConfirmationDialog.Message>
-    </ConfirmationDialog>
+    <NativeInlineHost>
+      <ConfirmationDialog
+        title={title}
+        isPresented={isPresented}
+        onIsPresentedChange={onPresentedChange}
+        titleVisibility="visible"
+      >
+        <ConfirmationDialog.Actions>
+          <Button
+            label={actionLabel}
+            role={destructive ? "destructive" : "default"}
+            onPress={onConfirm}
+          />
+          <Button label="Cancel" role="cancel" />
+        </ConfirmationDialog.Actions>
+        <ConfirmationDialog.Message>
+          <Text>{message}</Text>
+        </ConfirmationDialog.Message>
+      </ConfirmationDialog>
+    </NativeInlineHost>
   );
 }
