@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { DebtulatorEmptyState } from "@/src/components/ios/DebtulatorEmptyState";
 import { DebtulatorGroupRow } from "@/src/components/ios/DebtulatorRows";
 import { NativeListScreen } from "@/src/components/ios/NativeListScreen";
+import { NativeLargePageTitle } from "@/src/components/ios/NativeNavigationStyle";
 import { estimateMoneyMap } from "@/src/services/currency";
 import { explainGroupSettlement } from "@/src/services/ledger";
 import { useAppData } from "@/src/state/AppDataProvider";
@@ -29,7 +30,7 @@ export function NativeGroupsScreen() {
 
   return (
     <>
-      <Stack.Title large>Groups</Stack.Title>
+      <NativeLargePageTitle>Groups</NativeLargePageTitle>
       <Stack.SearchBar
         placeholder="Search groups"
         hideWhenScrolling

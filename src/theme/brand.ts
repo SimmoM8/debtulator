@@ -20,6 +20,7 @@ export type BrandColorRoles<T = string> = {
   owedToUser: T;
   owedByUser: T;
   neutralBalance: T;
+  navigationBackground: T;
   brandedBackground: T;
   brandedSecondaryBackground: T;
   brandedIllustrationPrimary: T;
@@ -48,6 +49,7 @@ export const debtulatorLightRoles: BrandColorRoles = {
   owedToUser: "#167858",
   owedByUser: "#C83D48",
   neutralBalance: "#667085",
+  navigationBackground: "#EEE9FF",
   brandedBackground: debtulatorPalette.primary,
   brandedSecondaryBackground: debtulatorPalette.lavenderMist,
   brandedIllustrationPrimary: debtulatorPalette.primary,
@@ -76,6 +78,7 @@ export const debtulatorDarkRoles: BrandColorRoles = {
   owedToUser: "#55D8A8",
   owedByUser: "#FF8A91",
   neutralBalance: "#AEB4C1",
+  navigationBackground: "#211B36",
   brandedBackground: "#2D2673",
   brandedSecondaryBackground: "#1D1A2D",
   brandedIllustrationPrimary: "#AFA7FF",
@@ -103,6 +106,7 @@ export const debtulatorHighContrastLightRoles: BrandColorRoles = {
   owedToUser: "#005C3E",
   owedByUser: "#A51128",
   neutralBalance: "#394150",
+  navigationBackground: "#E2DAFF",
 };
 
 export const debtulatorHighContrastDarkRoles: BrandColorRoles = {
@@ -115,6 +119,7 @@ export const debtulatorHighContrastDarkRoles: BrandColorRoles = {
   owedToUser: "#73F0BF",
   owedByUser: "#FFADB2",
   neutralBalance: "#D3D7E0",
+  navigationBackground: "#2B2148",
 };
 
 export function debtulatorRolesForScheme(

@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { DebtulatorEmptyState } from "@/src/components/ios/DebtulatorEmptyState";
 import { NativeListScreen } from "@/src/components/ios/NativeListScreen";
 import { NativeMemberRow } from "@/src/components/ios/NativeMemberRow";
+import { NativeLargePageTitle } from "@/src/components/ios/NativeNavigationStyle";
 import { estimateMoneyMap } from "@/src/services/currency";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { formatMoney } from "@/src/utils/money";
@@ -28,7 +29,7 @@ export function NativeMembersScreen() {
 
   return (
     <>
-      <Stack.Title large>Members</Stack.Title>
+      <NativeLargePageTitle>Members</NativeLargePageTitle>
       <Stack.SearchBar
         placeholder="Search members"
         hideWhenScrolling

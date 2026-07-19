@@ -5,6 +5,7 @@ import { DebtulatorBalanceHero } from "@/src/components/ios/DebtulatorBalanceHer
 import { DebtulatorEmptyState } from "@/src/components/ios/DebtulatorEmptyState";
 import { DebtulatorFinancialRow } from "@/src/components/ios/DebtulatorRows";
 import { NativeListScreen } from "@/src/components/ios/NativeListScreen";
+import { NativeLargePageTitle } from "@/src/components/ios/NativeNavigationStyle";
 import { NativeNavigationRow } from "@/src/components/ios/NativeRows";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
@@ -34,7 +35,7 @@ export function NativeDashboardScreen() {
 
   return (
     <>
-      <Stack.Title large>Home</Stack.Title>
+      <NativeLargePageTitle>Home</NativeLargePageTitle>
       <Stack.Toolbar placement="right">
         <Stack.Toolbar.Menu icon="plus" accessibilityLabel="Add">
           <Stack.Toolbar.MenuAction
