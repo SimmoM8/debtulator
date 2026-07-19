@@ -1,3 +1,5 @@
-import { MemberFormScreen } from '@/src/screens/MemberFormScreen';
+import { Redirect } from "expo-router";
 
-export default MemberFormScreen;
+export default function LegacyMemberFormRoute() {
+	return <Redirect href="/(tabs)/members/member/form" />;
+}

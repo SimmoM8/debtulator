@@ -1,1 +1,1 @@
-export { NativeMemberDetailScreen as default } from "@/src/screens/ios/NativeMemberDetailScreen";
+export { default } from "@/src/features/members/routes/MemberDetailRouteScreen";

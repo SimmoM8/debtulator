@@ -1,1 +1,1 @@
-export { NativeMemberFormScreen as default } from "@/src/screens/ios/NativePrimaryFormScreens";
+export { default } from "@/src/features/members/routes/MemberFormRouteScreen";
