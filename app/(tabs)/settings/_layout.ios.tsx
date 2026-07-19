@@ -1,9 +1,14 @@
 import { Stack } from "expo-router";
 
+import {
+  IOS_COMPACT_HEADER_OPTIONS,
+  IOS_LARGE_HEADER_OPTIONS,
+} from "@/src/components/ios/NativeNavigationStyle";
+
 export default function SettingsStackLayout() {
   return (
-    <Stack screenOptions={{ headerBackTitle: "Settings" }}>
-      <Stack.Screen name="index" options={{ title: "Settings" }} />
+    <Stack screenOptions={{ ...IOS_COMPACT_HEADER_OPTIONS, headerBackTitle: "Settings" }}>
+      <Stack.Screen name="index" options={{ ...IOS_LARGE_HEADER_OPTIONS, title: "Settings" }} />
       <Stack.Screen name="notifications" options={{ title: "Notifications" }} />
       <Stack.Screen name="recurring/index" options={{ title: "Recurring Records" }} />
       <Stack.Screen name="recurring/form" options={{ title: "Recurring Record", presentation: "formSheet", sheetGrabberVisible: true }} />

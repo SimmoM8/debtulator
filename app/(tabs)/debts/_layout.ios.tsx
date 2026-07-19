@@ -1,9 +1,14 @@
 import { Stack } from "expo-router";
 
+import {
+  IOS_COMPACT_HEADER_OPTIONS,
+  IOS_LARGE_HEADER_OPTIONS,
+} from "@/src/components/ios/NativeNavigationStyle";
+
 export default function DebtsStackLayout() {
   return (
-    <Stack screenOptions={{ headerBackTitle: "Debts" }}>
-      <Stack.Screen name="index" options={{ title: "Debts" }} />
+    <Stack screenOptions={{ ...IOS_COMPACT_HEADER_OPTIONS, headerBackTitle: "Debts" }}>
+      <Stack.Screen name="index" options={{ ...IOS_LARGE_HEADER_OPTIONS, title: "Debts" }} />
       <Stack.Screen name="debt/[id]" options={{ title: "Debt" }} />
       <Stack.Screen name="debt/history" options={{ title: "Settled Debts" }} />
       <Stack.Screen name="debt/form" options={{ title: "Debt", presentation: "formSheet", sheetGrabberVisible: true }} />

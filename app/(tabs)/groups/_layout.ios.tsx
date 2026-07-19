@@ -1,9 +1,14 @@
 import { Stack } from "expo-router";
 
+import {
+  IOS_COMPACT_HEADER_OPTIONS,
+  IOS_LARGE_HEADER_OPTIONS,
+} from "@/src/components/ios/NativeNavigationStyle";
+
 export default function GroupsStackLayout() {
   return (
-    <Stack screenOptions={{ headerBackTitle: "Groups" }}>
-      <Stack.Screen name="index" options={{ title: "Groups" }} />
+    <Stack screenOptions={{ ...IOS_COMPACT_HEADER_OPTIONS, headerBackTitle: "Groups" }}>
+      <Stack.Screen name="index" options={{ ...IOS_LARGE_HEADER_OPTIONS, title: "Groups" }} />
       <Stack.Screen name="group/[id]" options={{ title: "Group" }} />
       <Stack.Screen name="group/form" options={{ title: "Group", presentation: "formSheet", sheetGrabberVisible: true }} />
       <Stack.Screen name="expense/[id]" options={{ title: "Expense" }} />

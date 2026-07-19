@@ -15,6 +15,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { NativeErrorBoundary } from "@/src/components/ios/NativeErrorBoundary";
 import { NativeErrorState } from "@/src/components/ios/NativeErrorState";
 import { NativeLoadingState } from "@/src/components/ios/NativeLoadingState";
+import { IOS_COMPACT_HEADER_OPTIONS } from "@/src/components/ios/NativeNavigationStyle";
 import {
   addTelemetryBreadcrumb,
   configureTelemetry,
@@ -52,7 +53,7 @@ export default function NativeRootLayout() {
             <NativeAppDataGate>
               <AuthProvider>
                 <NativeStartupRouteGate>
-                  <Stack>
+                  <Stack screenOptions={IOS_COMPACT_HEADER_OPTIONS}>
                     <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                     <Stack.Screen name="auth" options={{ title: "Account", presentation: "formSheet", sheetGrabberVisible: true }} />
                     <Stack.Screen name="first-run" options={{ title: "Welcome to Debtulator", gestureEnabled: false, headerBackVisible: false }} />

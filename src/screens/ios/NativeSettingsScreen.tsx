@@ -1,11 +1,12 @@
 import { Button, Section } from "@expo/ui/swift-ui";
 import { buttonStyle } from "@expo/ui/swift-ui/modifiers";
-import { Stack, router } from "expo-router";
+import { router } from "expo-router";
 import { useState } from "react";
 
 import { NativeConfirmationDialog } from "@/src/components/ios/NativeConfirmationDialog";
 import { DebtulatorIdentitySummary } from "@/src/components/ios/DebtulatorIdentitySummary";
 import { NativeListScreen } from "@/src/components/ios/NativeListScreen";
+import { NativeLargePageTitle } from "@/src/components/ios/NativeNavigationStyle";
 import { NativeNavigationRow } from "@/src/components/ios/NativeRows";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { useAuth } from "@/src/state/AuthProvider";
@@ -17,7 +18,7 @@ export function NativeSettingsScreen() {
 
   return (
     <>
-      <Stack.Title large>Settings</Stack.Title>
+      <NativeLargePageTitle>Settings</NativeLargePageTitle>
       <NativeListScreen onRefresh={auth.refreshSync}>
         <Section title="Account">
           <DebtulatorIdentitySummary

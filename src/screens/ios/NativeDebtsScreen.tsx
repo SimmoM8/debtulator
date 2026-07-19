@@ -6,6 +6,7 @@ import { NativeDebtRow } from "@/src/components/ios/NativeDebtRow";
 import { DebtulatorEmptyState } from "@/src/components/ios/DebtulatorEmptyState";
 import { DebtulatorIdentitySummary } from "@/src/components/ios/DebtulatorIdentitySummary";
 import { NativeListScreen } from "@/src/components/ios/NativeListScreen";
+import { NativeLargePageTitle } from "@/src/components/ios/NativeNavigationStyle";
 import { estimateMoneyMap } from "@/src/services/currency";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { formatMoney } from "@/src/utils/money";
@@ -44,7 +45,7 @@ export function NativeDebtsScreen() {
 
   return (
     <>
-      <Stack.Title large>Debts</Stack.Title>
+      <NativeLargePageTitle>Debts</NativeLargePageTitle>
       <Stack.SearchBar
         placeholder="Search debts"
         hideWhenScrolling

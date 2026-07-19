@@ -33,6 +33,7 @@ not palette literals.
 ## Semantic roles
 
 - `appTint`, `primaryAction`, `prominentAction`, `selection`
+- `navigationBackground` for a restrained native header wash
 - `positive`, `negative`, `warning`
 - `owedToUser`, `owedByUser`, `neutralBalance`
 - `brandedBackground`, `brandedSecondaryBackground`
@@ -95,6 +96,12 @@ Button/NavigationLink-style action inside List.
 Settings remains primarily system-native. Forms receive tint and contextual helper
 content, not custom field containers. Dashboard and financial details may carry the
 highest brand density.
+
+Native compact page headers use the appearance-aware `navigationBackground` role,
+while large-title roots keep the iOS 26 bar transparent and use the brand tint for
+the title and toolbar controls. This preserves Expo Router's native large-title
+rendering, collapse behavior and back gesture while adding a clear Debtulator
+signature.
 
 ## Dark mode and accessibility
 

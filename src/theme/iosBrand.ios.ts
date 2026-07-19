@@ -28,6 +28,7 @@ export const iosBrand: BrandColorRoles<ColorValue> = {
   owedToUser: dynamicRole("owedToUser"),
   owedByUser: dynamicRole("owedByUser"),
   neutralBalance: dynamicRole("neutralBalance"),
+  navigationBackground: dynamicRole("navigationBackground"),
   brandedBackground: dynamicRole("brandedBackground"),
   brandedSecondaryBackground: dynamicRole("brandedSecondaryBackground"),
   brandedIllustrationPrimary: dynamicRole("brandedIllustrationPrimary"),
