@@ -1,28 +1,25 @@
-import { Stack } from "expo-router";
-import type { ReactNode } from "react";
+import { PlatformColor } from "react-native";
 
-import { iosBrand } from "@/src/theme/iosBrand";
+const IOS_COMPACT_HEADER_FOREGROUND = PlatformColor("label");
 
-// Keep native navigation behavior while giving both compact and expanded page
-// headers the same subtle, appearance-aware Debtulator wash.
 export const IOS_COMPACT_HEADER_OPTIONS = {
-  headerStyle: { backgroundColor: iosBrand.navigationBackground },
-  headerTintColor: iosBrand.appTint,
+  headerTintColor: IOS_COMPACT_HEADER_FOREGROUND,
+  headerTitleStyle: { color: IOS_COMPACT_HEADER_FOREGROUND },
+  statusBarStyle: "auto" as const,
+  headerShadowVisible: false,
+  headerLargeTitleShadowVisible: false,
+};
+
+const IOS_NATIVE_LARGE_HEADER_OPTIONS = {
+  headerLargeTitleEnabled: true,
+  headerTitleStyle: { color: IOS_COMPACT_HEADER_FOREGROUND },
+  headerTintColor: IOS_COMPACT_HEADER_FOREGROUND,
+  statusBarStyle: "auto" as const,
   headerShadowVisible: false,
   headerLargeTitleShadowVisible: false,
 };
 
 export const IOS_LARGE_HEADER_OPTIONS = {
-  headerStyle: { backgroundColor: iosBrand.navigationBackground },
-  headerTintColor: iosBrand.appTint,
-  headerShadowVisible: false,
-  headerLargeTitleShadowVisible: false,
+  ...IOS_NATIVE_LARGE_HEADER_OPTIONS,
+  headerLargeTitleStyle: { color: IOS_COMPACT_HEADER_FOREGROUND },
 };
-
-export function NativeLargePageTitle({ children }: { children: ReactNode }) {
-  return (
-    <Stack.Title large largeStyle={{ color: iosBrand.appTint }}>
-      {children}
-    </Stack.Title>
-  );
-}

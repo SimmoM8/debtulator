@@ -143,7 +143,7 @@ export function Screen({
               paddingTop: insets.top,
               backgroundColor:
                 resolvedHeaderBackground === "primary"
-                  ? palette.primary
+                  ? palette.primaryDeep
                   : "transparent",
             },
           ]}
@@ -1440,7 +1440,7 @@ const styles = StyleSheet.create({
     backgroundColor: palette.background,
   },
   safeAreaHeaderPrimary: {
-    backgroundColor: palette.primary,
+    backgroundColor: palette.primaryDeep,
   },
   backdropCanvas: {
     ...StyleSheet.absoluteFill,
@@ -1508,7 +1508,7 @@ const styles = StyleSheet.create({
     fontFamily: typefaces.displayMedium,
   },
   pageHeader: {
-    backgroundColor: palette.primary,
+    backgroundColor: palette.primaryDeep,
     borderColor: "rgba(255,255,255,0.14)",
     borderRadius: 0,
     borderWidth: StyleSheet.hairlineWidth,

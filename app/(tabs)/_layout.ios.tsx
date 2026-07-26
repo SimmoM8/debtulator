@@ -8,7 +8,7 @@ export default function NativeTabLayout() {
   const hideVisualLabels = fontScale >= 2;
 
   return (
-    <NativeTabs tintColor={IOS_ACCENT} minimizeBehavior="onScrollDown">
+    <NativeTabs tintColor={IOS_ACCENT} minimizeBehavior="never">
       <NativeTabs.Trigger name="home" accessibilityLabel="Home tab">
         <NativeTabs.Trigger.Icon sf={{ default: "house", selected: "house.fill" }} />
         <NativeTabs.Trigger.Label hidden={hideVisualLabels}>Home</NativeTabs.Trigger.Label>

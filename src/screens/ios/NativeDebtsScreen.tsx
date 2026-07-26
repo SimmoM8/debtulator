@@ -1,12 +1,12 @@
 import { Section } from "@expo/ui/swift-ui";
-import { Stack, router } from "expo-router";
+import { router } from "expo-router";
 import { useMemo, useState } from "react";
 
 import { NativeDebtRow } from "@/src/components/ios/NativeDebtRow";
 import { DebtulatorEmptyState } from "@/src/components/ios/DebtulatorEmptyState";
 import { DebtulatorIdentitySummary } from "@/src/components/ios/DebtulatorIdentitySummary";
+import { NativeCollectionNavigation } from "@/src/components/ios/NativeCollectionNavigation";
 import { NativeListScreen } from "@/src/components/ios/NativeListScreen";
-import { NativeLargePageTitle } from "@/src/components/ios/NativeNavigationStyle";
 import { estimateMoneyMap } from "@/src/services/currency";
 import { useAppData } from "@/src/state/AppDataProvider";
 import { formatMoney } from "@/src/utils/money";
@@ -45,33 +45,21 @@ export function NativeDebtsScreen() {
 
   return (
     <>
-      <NativeLargePageTitle>Debts</NativeLargePageTitle>
-      <Stack.SearchBar
-        placeholder="Search debts"
-        hideWhenScrolling
-        onChangeText={(event) => setQuery(event.nativeEvent.text)}
+      <NativeCollectionNavigation
+        title="Debts"
+        searchPlaceholder="Search debts"
+        onSearchChange={setQuery}
+        leadingAccessibilityLabel="Filter debts"
+        leadingIcon="line.3.horizontal.decrease.circle"
+        leadingActions={[
+          { label: "Active", selected: filter === "active", onPress: () => setFilter("active") },
+          { label: "You Owe", selected: filter === "you-owe", onPress: () => setFilter("you-owe") },
+          { label: "Owed to You", selected: filter === "owed-to-you", onPress: () => setFilter("owed-to-you") },
+          { label: "All", selected: filter === "all", onPress: () => setFilter("all") },
+        ]}
+        addAccessibilityLabel="Add debt"
+        onAdd={() => router.push("/(tabs)/debts/debt/form" as never)}
       />
-      <Stack.Toolbar placement="right">
-        <Stack.Toolbar.Menu icon="line.3.horizontal.decrease.circle" accessibilityLabel="Filter debts">
-          <Stack.Toolbar.MenuAction onPress={() => setFilter("active")}>
-            Active
-          </Stack.Toolbar.MenuAction>
-          <Stack.Toolbar.MenuAction onPress={() => setFilter("you-owe")}>
-            You Owe
-          </Stack.Toolbar.MenuAction>
-          <Stack.Toolbar.MenuAction onPress={() => setFilter("owed-to-you")}>
-            Owed to You
-          </Stack.Toolbar.MenuAction>
-          <Stack.Toolbar.MenuAction onPress={() => setFilter("all")}>
-            All
-          </Stack.Toolbar.MenuAction>
-        </Stack.Toolbar.Menu>
-        <Stack.Toolbar.Button
-          icon="plus"
-          accessibilityLabel="Add debt"
-          onPress={() => router.push("/(tabs)/debts/debt/form" as never)}
-        />
-      </Stack.Toolbar>
       <NativeListScreen onRefresh={data.refresh} grouped={false}>
         <Section>
           <DebtulatorIdentitySummary
