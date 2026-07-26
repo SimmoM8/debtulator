@@ -15,7 +15,7 @@
         "NSUserNotificationsUsageDescription": "Debtulator can send optional reminders and shared ledger updates.",
         "NSPhotoLibraryUsageDescription": "Debtulator can attach receipt or proof images when you choose a file.",
         "NSFaceIDUsageDescription": "Debtulator may use device authentication before sensitive export or deletion actions.",
-        "UIViewControllerBasedStatusBarAppearance": true
+        "UIViewControllerBasedStatusBarAppearance": false
       }
     },
     "android": {
