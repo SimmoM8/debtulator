@@ -33,7 +33,7 @@ not palette literals.
 ## Semantic roles
 
 - `appTint`, `primaryAction`, `prominentAction`, `selection`
-- `navigationBackground` for a restrained native header wash
+- `navigationScrollEdgeBackground` for the expanded large-title state only
 - `positive`, `negative`, `warning`
 - `owedToUser`, `owedByUser`, `neutralBalance`
 - `brandedBackground`, `brandedSecondaryBackground`
@@ -97,11 +97,19 @@ Settings remains primarily system-native. Forms receive tint and contextual help
 content, not custom field containers. Dashboard and financial details may carry the
 highest brand density.
 
-Native compact page headers use the appearance-aware `navigationBackground` role,
-while large-title roots keep the iOS 26 bar transparent and use the brand tint for
-the title and toolbar controls. This preserves Expo Router's native large-title
-rendering, collapse behavior and back gesture while adding a clear Debtulator
-signature.
+Native large-title page headers use the app's primary branded background through
+Expo Router's native Stack scroll-edge appearance. The large title and expanded
+search content use the semantic `onBrandedBackground` foreground. Compact titles use
+the native label color, and the standard navigation appearance remains unconfigured
+so iOS supplies its native system material and Liquid Glass. The top scroll-edge
+effect is hidden, leaving a hard edge without a shadow, gradient, fade or feather.
+
+The native tab bar remains expanded while collection content scrolls; collection
+screens must not opt into `NativeTabs` minimization.
+
+Collection roots configure this chrome with `NativeCollectionNavigation`. It emits
+only Expo Router title/search/toolbar configuration; the scrolling content remains a
+native SwiftUI `List`, and no React Native header view or duplicated title is added.
 
 ## Dark mode and accessibility
 

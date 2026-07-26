@@ -14,13 +14,13 @@ export type BrandColorRoles<T = string> = {
   primaryAction: T;
   prominentAction: T;
   selection: T;
+  navigationScrollEdgeBackground: T;
   positive: T;
   negative: T;
   warning: T;
   owedToUser: T;
   owedByUser: T;
   neutralBalance: T;
-  navigationBackground: T;
   brandedBackground: T;
   brandedSecondaryBackground: T;
   brandedIllustrationPrimary: T;
@@ -43,13 +43,13 @@ export const debtulatorLightRoles: BrandColorRoles = {
   primaryAction: debtulatorPalette.primary,
   prominentAction: debtulatorPalette.primaryDeep,
   selection: debtulatorPalette.primary,
+  navigationScrollEdgeBackground: debtulatorPalette.primary,
   positive: "#167858",
   negative: "#C83D48",
   warning: "#9A5900",
   owedToUser: "#167858",
   owedByUser: "#C83D48",
   neutralBalance: "#667085",
-  navigationBackground: "#EEE9FF",
   brandedBackground: debtulatorPalette.primary,
   brandedSecondaryBackground: debtulatorPalette.lavenderMist,
   brandedIllustrationPrimary: debtulatorPalette.primary,
@@ -72,13 +72,13 @@ export const debtulatorDarkRoles: BrandColorRoles = {
   primaryAction: "#AFA7FF",
   prominentAction: "#7468EF",
   selection: "#AFA7FF",
+  navigationScrollEdgeBackground: "#2D2673",
   positive: "#55D8A8",
   negative: "#FF8A91",
   warning: "#FFC05A",
   owedToUser: "#55D8A8",
   owedByUser: "#FF8A91",
   neutralBalance: "#AEB4C1",
-  navigationBackground: "#211B36",
   brandedBackground: "#2D2673",
   brandedSecondaryBackground: "#1D1A2D",
   brandedIllustrationPrimary: "#AFA7FF",
@@ -100,26 +100,26 @@ export const debtulatorHighContrastLightRoles: BrandColorRoles = {
   ...debtulatorLightRoles,
   appTint: debtulatorPalette.primaryDeep,
   primaryAction: debtulatorPalette.primaryDeep,
+  navigationScrollEdgeBackground: debtulatorPalette.primaryDeep,
   positive: "#005C3E",
   negative: "#A51128",
   warning: "#714000",
   owedToUser: "#005C3E",
   owedByUser: "#A51128",
   neutralBalance: "#394150",
-  navigationBackground: "#E2DAFF",
 };
 
 export const debtulatorHighContrastDarkRoles: BrandColorRoles = {
   ...debtulatorDarkRoles,
   appTint: "#D0CBFF",
   primaryAction: "#D0CBFF",
+  navigationScrollEdgeBackground: "#2D2673",
   positive: "#73F0BF",
   negative: "#FFADB2",
   warning: "#FFD37D",
   owedToUser: "#73F0BF",
   owedByUser: "#FFADB2",
   neutralBalance: "#D3D7E0",
-  navigationBackground: "#2B2148",
 };
 
 export function debtulatorRolesForScheme(

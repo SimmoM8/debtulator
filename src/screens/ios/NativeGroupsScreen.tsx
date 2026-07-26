@@ -1,11 +1,11 @@
 import { Section } from "@expo/ui/swift-ui";
-import { Stack, router } from "expo-router";
+import { router } from "expo-router";
 import { useMemo, useState } from "react";
 
 import { DebtulatorEmptyState } from "@/src/components/ios/DebtulatorEmptyState";
 import { DebtulatorGroupRow } from "@/src/components/ios/DebtulatorRows";
+import { NativeCollectionNavigation } from "@/src/components/ios/NativeCollectionNavigation";
 import { NativeListScreen } from "@/src/components/ios/NativeListScreen";
-import { NativeLargePageTitle } from "@/src/components/ios/NativeNavigationStyle";
 import { estimateMoneyMap } from "@/src/services/currency";
 import { explainGroupSettlement } from "@/src/services/ledger";
 import { useAppData } from "@/src/state/AppDataProvider";
@@ -14,9 +14,10 @@ import { formatMoney } from "@/src/utils/money";
 export function NativeGroupsScreen() {
   const data = useAppData();
   const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<"name" | "recent">("name");
   const groups = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
-    return data.groups
+    const filtered = data.groups
       .filter((group) => !group.archived)
       .filter(
         (group) =>
@@ -24,25 +25,27 @@ export function NativeGroupsScreen() {
           [group.name, group.notes, ...group.tags]
             .filter(Boolean)
             .some((value) => value!.toLocaleLowerCase().includes(normalized)),
-      )
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [data.groups, query]);
+      );
+    if (sort === "recent") {
+      return filtered.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    }
+    return filtered.sort((a, b) => a.name.localeCompare(b.name));
+  }, [data.groups, query, sort]);
 
   return (
     <>
-      <NativeLargePageTitle>Groups</NativeLargePageTitle>
-      <Stack.SearchBar
-        placeholder="Search groups"
-        hideWhenScrolling
-        onChangeText={(event) => setQuery(event.nativeEvent.text)}
+      <NativeCollectionNavigation
+        title="Groups"
+        searchPlaceholder="Search groups"
+        onSearchChange={setQuery}
+        leadingAccessibilityLabel="Sort groups"
+        leadingActions={[
+          { label: "Name", selected: sort === "name", onPress: () => setSort("name") },
+          { label: "Recently Updated", selected: sort === "recent", onPress: () => setSort("recent") },
+        ]}
+        addAccessibilityLabel="Add group"
+        onAdd={() => router.push("/(tabs)/groups/group/form" as never)}
       />
-      <Stack.Toolbar placement="right">
-        <Stack.Toolbar.Button
-          icon="plus"
-          accessibilityLabel="Add group"
-          onPress={() => router.push("/(tabs)/groups/group/form" as never)}
-        />
-      </Stack.Toolbar>
       <NativeListScreen onRefresh={data.refresh} grouped={false}>
         <Section>
           {groups.length ? (
