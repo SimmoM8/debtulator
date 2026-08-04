@@ -16,7 +16,6 @@ import {
     useSegments,
 } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import { StatusBar } from "expo-status-bar";
 import React, { useEffect } from "react";
 import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
 import "react-native-reanimated";
@@ -105,7 +104,6 @@ export default function RootLayout() {
               </AuthProvider>
             </AppDataGate>
           </ErrorBoundary>
-          <StatusBar style="dark" />
         </ThemeProvider>
       </AppDataProvider>
     </SafeAreaProvider>
