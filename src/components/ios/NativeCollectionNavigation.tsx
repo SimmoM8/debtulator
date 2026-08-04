@@ -1,8 +1,6 @@
 import { Stack } from "expo-router";
 import { type ComponentProps } from "react";
 
-import { iosBrand } from "@/src/theme/iosBrand";
-
 export type NativeCollectionMenuAction = {
   label: string;
   selected?: boolean;
@@ -10,8 +8,9 @@ export type NativeCollectionMenuAction = {
 };
 
 /**
- * Configures the native UINavigationBar for collection roots. This component
- * emits only Expo Router Stack configuration and never renders a header view.
+ * Configures the native UINavigationBar for collection roots. Styling is left
+ * to UIKit so the bar, large title, search field, toolbar buttons and Liquid
+ * Glass treatment follow the current iOS appearance automatically.
  */
 export function NativeCollectionNavigation({
   title,
@@ -34,15 +33,7 @@ export function NativeCollectionNavigation({
 }) {
   return (
     <>
-      <Stack.Header
-        largeStyle={{
-          backgroundColor: iosBrand.navigationScrollEdgeBackground,
-          shadowColor: "transparent",
-        }}
-      />
-      <Stack.Title large largeStyle={{ color: iosBrand.onBrandedBackground }}>
-        {title}
-      </Stack.Title>
+      <Stack.Title large>{title}</Stack.Title>
       <Stack.SearchBar
         placeholder={searchPlaceholder}
         hideWhenScrolling
