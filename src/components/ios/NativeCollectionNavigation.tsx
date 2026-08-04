@@ -9,6 +9,8 @@ export type NativeCollectionMenuAction = {
   onPress: () => void;
 };
 
+const IOS_BRANDED_HEADER_TITLE = "#FFFFFF";
+
 /**
  * Configures the native UINavigationBar for collection roots. This component
  * emits only Expo Router Stack configuration and never renders a header view.
@@ -40,7 +42,10 @@ export function NativeCollectionNavigation({
           shadowColor: "transparent",
         }}
       />
-      <Stack.Title large largeStyle={{ color: iosBrand.onBrandedBackground }}>
+      <Stack.Title
+        large
+        largeStyle={{ color: IOS_BRANDED_HEADER_TITLE }}
+      >
         {title}
       </Stack.Title>
       <Stack.SearchBar
