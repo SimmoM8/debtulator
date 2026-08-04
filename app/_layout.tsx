@@ -9,12 +9,7 @@ import {
     Sora_700Bold,
     useFonts as useSoraFonts,
 } from "@expo-google-fonts/sora";
-import {
-    DefaultTheme,
-    ThemeProvider,
-    router,
-    useSegments,
-} from "expo-router";
+import { DefaultTheme, ThemeProvider, router, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
@@ -30,12 +25,12 @@ import {
     typefaces,
     typography,
 } from "@/src/constants/design";
+import { RootNavigator } from "@/src/navigation/RootNavigator";
 import {
     addTelemetryBreadcrumb,
     configureTelemetry,
     installGlobalCrashHandler,
 } from "@/src/services/telemetry";
-import { RootNavigator } from "@/src/navigation/RootNavigator";
 import { AppDataProvider, useAppData } from "@/src/state/AppDataProvider";
 import { AuthProvider, useAuth } from "@/src/state/AuthProvider";
 
