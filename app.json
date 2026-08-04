@@ -7,7 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "debtulator",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.debtulator.app",
@@ -15,22 +14,20 @@
       "infoPlist": {
         "NSUserNotificationsUsageDescription": "Debtulator can send optional reminders and shared ledger updates.",
         "NSPhotoLibraryUsageDescription": "Debtulator can attach receipt or proof images when you choose a file.",
-        "NSFaceIDUsageDescription": "Debtulator may use device authentication before sensitive export or deletion actions."
+        "NSFaceIDUsageDescription": "Debtulator may use device authentication before sensitive export or deletion actions.",
+        "UIViewControllerBasedStatusBarAppearance": true
       }
     },
     "android": {
       "package": "com.debtulator.app",
       "versionCode": 1,
-      "permissions": [
-        "POST_NOTIFICATIONS"
-      ],
+      "permissions": ["POST_NOTIFICATIONS"],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -56,7 +53,8 @@
       "expo-image",
       "expo-sqlite",
       "expo-status-bar",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,
