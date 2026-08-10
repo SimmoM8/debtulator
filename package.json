@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
+    "postinstall": "patch-package",
     "reset-project": "node ./scripts/reset-project.js",
     "reset:test-data": "node ./scripts/reset-test-data.js",
     "preflight:beta": "node ./scripts/release-preflight.js --profile staging",
@@ -70,6 +71,7 @@
     "eslint": "^9.25.0",
     "eslint-config-expo": "~56.0.4",
     "jest": "^29.7.0",
+    "patch-package": "^8.0.1",
     "react-test-renderer": "19.2.3",
     "supabase": "^2.107.0",
     "typescript": "~6.0.3"
