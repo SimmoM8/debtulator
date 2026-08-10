@@ -1,0 +1,272 @@
+diff --git a/node_modules/react-native-screens/ios/RNSScreen.mm b/node_modules/react-native-screens/ios/RNSScreen.mm
+index 69d4d9a..ca55e6f 100644
+--- a/node_modules/react-native-screens/ios/RNSScreen.mm
++++ b/node_modules/react-native-screens/ios/RNSScreen.mm
+@@ -1445,6 +1445,23 @@ Class<RCTComponentViewProtocol> RNSScreenCls(void)
+ 
+ #pragma mark - RNSScreen
+ 
++static BOOL RNSHasExpandedVisibleNavigationBar(UIView *view)
++{
++  if (view.hidden || view.alpha == 0.) {
++    return NO;
++  }
++  if ([view isKindOfClass:UINavigationBar.class]) {
++    UINavigationBar *navigationBar = (UINavigationBar *)view;
++    return navigationBar.prefersLargeTitles && navigationBar.bounds.size.height > 80.;
++  }
++  for (UIView *subview in view.subviews) {
++    if (RNSHasExpandedVisibleNavigationBar(subview)) {
++      return YES;
++    }
++  }
++  return NO;
++}
++
+ @implementation RNSScreen {
+   __weak id _previousFirstResponder;
+   CGRect _lastViewFrame;
+@@ -1910,6 +1927,14 @@ Class<RCTComponentViewProtocol> RNSScreenCls(void)
+ 
+ - (UIStatusBarStyle)preferredStatusBarStyle
+ {
++#if !TARGET_OS_TV
++  if (@available(iOS 26.0, *)) {
++    if (self.screenView.statusBarStyle == RNSStatusBarStyleAuto &&
++        RNSHasExpandedVisibleNavigationBar(self.view.window)) {
++      return UIStatusBarStyleLightContent;
++    }
++  }
++#endif
+   return [RNSScreenWindowTraits statusBarStyleForRNSStatusBarStyle:self.screenView.statusBarStyle];
+ }
+ 
+diff --git a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
+index 5970e3e..1589deb 100644
+--- a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
++++ b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
+@@ -29,6 +29,189 @@ namespace react = facebook::react;
+ 
+ static const NSNumber *const DEFAULT_TITLE_FONT_SIZE = @17;
+ static const NSNumber *const DEFAULT_TITLE_LARGE_FONT_SIZE = @34;
++static const NSInteger RNS_IOS26_LARGE_TITLE_BACKING_TAG = 0x524E5342;
++
++#if !TARGET_OS_TV
++/**
++ * iOS 26 suppresses the native large-title label when an explicit background
++ * is assigned to UINavigationBarAppearance. This view supplies the same color
++ * below the otherwise-transparent bar and follows UIKit's own bar-height
++ * transition, so it is gone when the compact bar is active.
++ */
++@interface RNSLargeTitleBackingView : UIView
++
++- (instancetype)initWithContainer:(UIView *)container
++                    navigationBar:(UINavigationBar *)navigationBar;
++- (void)setContainer:(UIView *)container;
++- (void)setBackingColor:(UIColor *)color;
++
++@end
++
++@implementation RNSLargeTitleBackingView {
++  __weak UINavigationBar *_navigationBar;
++  __weak UIView *_container;
++  UIColor *_originalBackgroundColor;
++  UIColor *_backingColor;
++  UIView *_originalCollectionBackgroundView;
++  CGFloat _expansionProgress;
++}
++
++- (instancetype)initWithContainer:(UIView *)container
++                    navigationBar:(UINavigationBar *)navigationBar
++{
++  if (self = [super initWithFrame:CGRectZero]) {
++    _navigationBar = navigationBar;
++    self.tag = RNS_IOS26_LARGE_TITLE_BACKING_TAG;
++    self.userInteractionEnabled = NO;
++    self.accessibilityElementsHidden = YES;
++    self.hidden = YES;
++    [navigationBar addObserver:self forKeyPath:@"bounds" options:NSKeyValueObservingOptionInitial context:nil];
++    [navigationBar addObserver:self forKeyPath:@"frame" options:0 context:nil];
++    [self setContainer:container];
++  }
++  return self;
++}
++
++- (void)setContainer:(UIView *)container
++{
++  if (_container == container) {
++    return;
++  }
++  UIView *previousContainer = _container;
++  previousContainer.backgroundColor = _originalBackgroundColor;
++  if ([previousContainer isKindOfClass:UICollectionView.class]) {
++    UICollectionView *previousCollectionView = (UICollectionView *)previousContainer;
++    if (previousCollectionView.backgroundView == self) {
++      previousCollectionView.backgroundView = _originalCollectionBackgroundView;
++    }
++  }
++  [self removeFromSuperview];
++  _container = container;
++  _originalBackgroundColor = container.backgroundColor;
++  _originalCollectionBackgroundView = nil;
++  if ([container isKindOfClass:UICollectionView.class]) {
++    UICollectionView *collectionView = (UICollectionView *)container;
++    _originalCollectionBackgroundView = collectionView.backgroundView;
++    collectionView.backgroundColor = UIColor.clearColor;
++    collectionView.backgroundView = self;
++  } else {
++    [container insertSubview:self atIndex:0];
++  }
++  self.hidden = NO;
++  [self updateForNavigationBar];
++}
++
++- (void)setBackingColor:(UIColor *)color
++{
++  _backingColor = color;
++  [self updateForNavigationBar];
++}
++
++- (void)dealloc
++{
++  UINavigationBar *navigationBar = _navigationBar;
++  if (navigationBar != nil) {
++    [navigationBar removeObserver:self forKeyPath:@"bounds"];
++    [navigationBar removeObserver:self forKeyPath:@"frame"];
++  }
++}
++
++- (void)observeValueForKeyPath:(NSString *)keyPath
++                      ofObject:(id)object
++                        change:(NSDictionary<NSKeyValueChangeKey, id> *)change
++                       context:(void *)context
++{
++  [self updateForNavigationBar];
++}
++
++- (void)updateForNavigationBar
++{
++  UINavigationBar *navigationBar = _navigationBar;
++  UIView *container = _container;
++  if (navigationBar == nil || container == nil || _backingColor == nil) {
++    _expansionProgress = 0.;
++    [self setNeedsDisplay];
++    return;
++  }
++
++  static const CGFloat compactNavigationBarHeight = 54.;
++  static const CGFloat expandedNavigationBarHeight = 106.;
++  const CGFloat expansion = navigationBar.bounds.size.height - compactNavigationBarHeight;
++  const CGFloat progress = MAX(0., MIN(1., expansion / (expandedNavigationBarHeight - compactNavigationBarHeight)));
++  _expansionProgress = progress;
++  self.frame = container.bounds;
++  [self setNeedsDisplay];
++  [container.window.rootViewController setNeedsStatusBarAppearanceUpdate];
++}
++
++- (void)drawRect:(CGRect)rect
++{
++  UIColor *baseColor = _originalBackgroundColor;
++  if (baseColor == nil || CGColorGetAlpha(baseColor.CGColor) == 0.) {
++    baseColor = UIColor.systemGroupedBackgroundColor;
++  }
++  [baseColor setFill];
++  UIRectFill(rect);
++  if (_backingColor == nil || _expansionProgress == 0.) {
++    return;
++  }
++  [[_backingColor colorWithAlphaComponent:_expansionProgress] setFill];
++  UIRectFill(CGRectMake(0., 0., CGRectGetWidth(self.bounds), CGRectGetMaxY(_navigationBar.frame)));
++}
++
++@end
++
++static UIView *RNSFindScrollView(UIView *view)
++{
++  if ([view isKindOfClass:UIScrollView.class]) {
++    return view;
++  }
++  for (UIView *subview in view.subviews) {
++    UIView *scrollView = RNSFindScrollView(subview);
++    if (scrollView != nil) {
++      return scrollView;
++    }
++  }
++  return nil;
++}
++
++static void RNSConfigureIOS26LargeTitleBacking(
++    UIView *container, UINavigationBar *navigationBar, UIColor *color)
++{
++  if (container == nil) {
++    return;
++  }
++
++  RNSLargeTitleBackingView *backingView =
++      static_cast<RNSLargeTitleBackingView *>([container viewWithTag:RNS_IOS26_LARGE_TITLE_BACKING_TAG]);
++
++  if (color == nil) {
++    [backingView setBackingColor:nil];
++    return;
++  }
++
++  if (backingView == nil) {
++    UIView *backgroundContainer = RNSFindScrollView(container) ?: container;
++    backingView = [[RNSLargeTitleBackingView alloc] initWithContainer:backgroundContainer
++                                                       navigationBar:navigationBar];
++  }
++
++  [backingView setBackingColor:color];
++  __weak RNSLargeTitleBackingView *weakBackingView = backingView;
++  __weak UIView *weakContainer = container;
++  dispatch_async(dispatch_get_main_queue(), ^{
++    UIView *mountedContainer = weakContainer;
++    RNSLargeTitleBackingView *mountedBackingView = weakBackingView;
++    if (mountedContainer == nil || mountedBackingView == nil) {
++      return;
++    }
++    UIView *scrollView = RNSFindScrollView(mountedContainer);
++    if (scrollView != nil) {
++      [mountedBackingView setContainer:scrollView];
++    }
++  });
++}
++#endif
+ 
+ @interface RCTImageLoader (Private)
+ - (id<RCTImageCache>)imageCache;
+@@ -526,6 +709,7 @@ RNS_IGNORE_SUPER_CALL_END
+ 
+   UINavigationBarAppearance *scrollEdgeAppearance =
+       [[UINavigationBarAppearance alloc] initWithBarAppearance:appearance];
++  UIColor *ios26LargeTitleBackingColor = nil;
+   if (config.largeTitleBackgroundColor != nil) {
+     // Add support for using a fully transparent bar when the backgroundColor is set to transparent.
+     if (CGColorGetAlpha(config.largeTitleBackgroundColor.CGColor) == 0.) {
+@@ -536,13 +720,26 @@ RNS_IGNORE_SUPER_CALL_END
+       // opaque background.
+       scrollEdgeAppearance.backgroundColor = nil;
+     } else {
++#if !TARGET_OS_TV
++      if (@available(iOS 26.0, *)) {
++        ios26LargeTitleBackingColor = config.largeTitleBackgroundColor;
++      } else {
++        scrollEdgeAppearance.backgroundColor = config.largeTitleBackgroundColor;
++      }
++#else
+       scrollEdgeAppearance.backgroundColor = config.largeTitleBackgroundColor;
++#endif
+     }
+   }
+   if (config.largeTitleHideShadow) {
+     scrollEdgeAppearance.shadowColor = nil;
+   }
+   navitem.scrollEdgeAppearance = scrollEdgeAppearance;
++#if !TARGET_OS_TV
++  if (@available(iOS 26.0, *)) {
++    RNSConfigureIOS26LargeTitleBacking(vc.view, navctr.navigationBar, ios26LargeTitleBackingColor);
++  }
++#endif
+ #if !TARGET_OS_TV
+   navitem.hidesBackButton = config.hideBackButton;
+   navitem.leftItemsSupplementBackButton = config.backButtonInCustomView;

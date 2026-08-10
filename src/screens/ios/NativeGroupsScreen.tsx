@@ -35,13 +35,20 @@ export function NativeGroupsScreen() {
   return (
     <>
       <NativeCollectionNavigation
-        title="Groups"
         searchPlaceholder="Search groups"
         onSearchChange={setQuery}
         leadingAccessibilityLabel="Sort groups"
         leadingActions={[
-          { label: "Name", selected: sort === "name", onPress: () => setSort("name") },
-          { label: "Recently Updated", selected: sort === "recent", onPress: () => setSort("recent") },
+          {
+            label: "Name",
+            selected: sort === "name",
+            onPress: () => setSort("name"),
+          },
+          {
+            label: "Recently Updated",
+            selected: sort === "recent",
+            onPress: () => setSort("recent"),
+          },
         ]}
         addAccessibilityLabel="Add group"
         onAdd={() => router.push("/(tabs)/groups/group/form" as never)}
@@ -54,11 +61,15 @@ export function NativeGroupsScreen() {
                 (member) => member.groupId === group.id,
               ).length;
               const sharedCount = data.sharedGroupMembers.filter(
-                (member) => member.groupId === group.id && !["archived", "merged"].includes(member.status),
+                (member) =>
+                  member.groupId === group.id &&
+                  !["archived", "merged"].includes(member.status),
               ).length;
-              const participantCount = group.visibility === "shared" ? sharedCount : localCount;
+              const participantCount =
+                group.visibility === "shared" ? sharedCount : localCount;
               const net = estimateMoneyMap(
-                explainGroupSettlement(group.id, data.ledgerEntries).participantNets.me ?? {},
+                explainGroupSettlement(group.id, data.ledgerEntries)
+                  .participantNets.me ?? {},
                 data.settings,
                 data.currencyRates,
               );
@@ -69,8 +80,13 @@ export function NativeGroupsScreen() {
                   name={group.name}
                   subtitle={`${group.visibility === "shared" ? "Shared" : "Private"} · ${group.status}`}
                   memberCount={participantCount}
-                  amount={formatMoney(Math.abs(net), data.settings.baseCurrency)}
-                  balanceLabel={settled ? "Balanced" : net > 0 ? "Owed to you" : "You owe"}
+                  amount={formatMoney(
+                    Math.abs(net),
+                    data.settings.baseCurrency,
+                  )}
+                  balanceLabel={
+                    settled ? "Balanced" : net > 0 ? "Owed to you" : "You owe"
+                  }
                   tone={settled ? "neutral" : net > 0 ? "positive" : "negative"}
                   onPress={() =>
                     router.push(`/(tabs)/groups/group/${group.id}` as never)
@@ -84,7 +100,11 @@ export function NativeGroupsScreen() {
               description="Create a group for shared expenses and settlements."
               systemImage="person.3"
               actionLabel={query ? undefined : "Create Group"}
-              onAction={query ? undefined : () => router.push("/(tabs)/groups/group/form" as never)}
+              onAction={
+                query
+                  ? undefined
+                  : () => router.push("/(tabs)/groups/group/form" as never)
+              }
             />
           )}
         </Section>

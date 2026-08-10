@@ -10,19 +10,31 @@ import { estimateMoneyMap } from "@/src/services/currency";
 import { formatMoney } from "@/src/utils/money";
 
 export function NativeMembersScreen() {
-  const { data, members, query, setQuery, sort, setSort } = useNativeMembersScreenModel();
+  const { data, members, query, setQuery, sort, setSort } =
+    useNativeMembersScreenModel();
 
   return (
     <>
       <NativeCollectionNavigation
-        title="Members"
         searchPlaceholder="Search members"
         onSearchChange={setQuery}
         leadingAccessibilityLabel="Sort members"
         leadingActions={[
-          { label: "Name", selected: sort === "name", onPress: () => setSort("name") },
-          { label: "Recently Updated", selected: sort === "recent", onPress: () => setSort("recent") },
-          { label: "Largest Balance", selected: sort === "balance", onPress: () => setSort("balance") },
+          {
+            label: "Name",
+            selected: sort === "name",
+            onPress: () => setSort("name"),
+          },
+          {
+            label: "Recently Updated",
+            selected: sort === "recent",
+            onPress: () => setSort("recent"),
+          },
+          {
+            label: "Largest Balance",
+            selected: sort === "balance",
+            onPress: () => setSort("balance"),
+          },
         ]}
         addAccessibilityLabel="Add member"
         onAdd={() => router.push("/(tabs)/members/member/form" as never)}
@@ -40,12 +52,13 @@ export function NativeMembersScreen() {
                 <NativeMemberRow
                   key={member.id}
                   member={member}
-                  balance={formatMoney(Math.abs(balanceValue), data.settings.baseCurrency)}
+                  balance={formatMoney(
+                    Math.abs(balanceValue),
+                    data.settings.baseCurrency,
+                  )}
                   balanceValue={balanceValue}
                   onPress={() =>
-                    router.push(
-                      `/(tabs)/members/member/${member.id}` as never,
-                    )
+                    router.push(`/(tabs)/members/member/${member.id}` as never)
                   }
                 />
               );
@@ -60,7 +73,11 @@ export function NativeMembersScreen() {
               }
               systemImage="person.2"
               actionLabel={query ? undefined : "Add Member"}
-              onAction={query ? undefined : () => router.push("/(tabs)/members/member/form" as never)}
+              onAction={
+                query
+                  ? undefined
+                  : () => router.push("/(tabs)/members/member/form" as never)
+              }
             />
           )}
         </Section>
