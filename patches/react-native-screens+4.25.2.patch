@@ -1,5 +1,5 @@
 diff --git a/node_modules/react-native-screens/ios/RNSScreen.mm b/node_modules/react-native-screens/ios/RNSScreen.mm
-index 69d4d9a..ca55e6f 100644
+index 69d4d9a..d348f7c 100644
 --- a/node_modules/react-native-screens/ios/RNSScreen.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreen.mm
 @@ -1445,6 +1445,23 @@ Class<RCTComponentViewProtocol> RNSScreenCls(void)
@@ -13,7 +13,7 @@ index 69d4d9a..ca55e6f 100644
 +  }
 +  if ([view isKindOfClass:UINavigationBar.class]) {
 +    UINavigationBar *navigationBar = (UINavigationBar *)view;
-+    return navigationBar.prefersLargeTitles && navigationBar.bounds.size.height > 80.;
++    return navigationBar.prefersLargeTitles && navigationBar.bounds.size.height > 54.5;
 +  }
 +  for (UIView *subview in view.subviews) {
 +    if (RNSHasExpandedVisibleNavigationBar(subview)) {
@@ -42,10 +42,10 @@ index 69d4d9a..ca55e6f 100644
  }
  
 diff --git a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
-index 5970e3e..1589deb 100644
+index 5970e3e..8a315f4 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
-@@ -29,6 +29,189 @@ namespace react = facebook::react;
+@@ -29,6 +29,187 @@ namespace react = facebook::react;
  
  static const NSNumber *const DEFAULT_TITLE_FONT_SIZE = @17;
  static const NSNumber *const DEFAULT_TITLE_LARGE_FONT_SIZE = @34;
@@ -73,7 +73,7 @@ index 5970e3e..1589deb 100644
 +  UIColor *_originalBackgroundColor;
 +  UIColor *_backingColor;
 +  UIView *_originalCollectionBackgroundView;
-+  CGFloat _expansionProgress;
++  BOOL _showsBacking;
 +}
 +
 +- (instancetype)initWithContainer:(UIView *)container
@@ -84,6 +84,7 @@ index 5970e3e..1589deb 100644
 +    self.tag = RNS_IOS26_LARGE_TITLE_BACKING_TAG;
 +    self.userInteractionEnabled = NO;
 +    self.accessibilityElementsHidden = YES;
++    self.opaque = YES;
 +    self.hidden = YES;
 +    [navigationBar addObserver:self forKeyPath:@"bounds" options:NSKeyValueObservingOptionInitial context:nil];
 +    [navigationBar addObserver:self forKeyPath:@"frame" options:0 context:nil];
@@ -149,16 +150,13 @@ index 5970e3e..1589deb 100644
 +  UINavigationBar *navigationBar = _navigationBar;
 +  UIView *container = _container;
 +  if (navigationBar == nil || container == nil || _backingColor == nil) {
-+    _expansionProgress = 0.;
++    _showsBacking = NO;
 +    [self setNeedsDisplay];
 +    return;
 +  }
 +
 +  static const CGFloat compactNavigationBarHeight = 54.;
-+  static const CGFloat expandedNavigationBarHeight = 106.;
-+  const CGFloat expansion = navigationBar.bounds.size.height - compactNavigationBarHeight;
-+  const CGFloat progress = MAX(0., MIN(1., expansion / (expandedNavigationBarHeight - compactNavigationBarHeight)));
-+  _expansionProgress = progress;
++  _showsBacking = navigationBar.bounds.size.height > compactNavigationBarHeight + .5;
 +  self.frame = container.bounds;
 +  [self setNeedsDisplay];
 +  [container.window.rootViewController setNeedsStatusBarAppearanceUpdate];
@@ -172,10 +170,10 @@ index 5970e3e..1589deb 100644
 +  }
 +  [baseColor setFill];
 +  UIRectFill(rect);
-+  if (_backingColor == nil || _expansionProgress == 0.) {
++  if (_backingColor == nil || !_showsBacking) {
 +    return;
 +  }
-+  [[_backingColor colorWithAlphaComponent:_expansionProgress] setFill];
++  [_backingColor setFill];
 +  UIRectFill(CGRectMake(0., 0., CGRectGetWidth(self.bounds), CGRectGetMaxY(_navigationBar.frame)));
 +}
 +
@@ -235,7 +233,7 @@ index 5970e3e..1589deb 100644
  
  @interface RCTImageLoader (Private)
  - (id<RCTImageCache>)imageCache;
-@@ -526,6 +709,7 @@ RNS_IGNORE_SUPER_CALL_END
+@@ -526,6 +707,7 @@ RNS_IGNORE_SUPER_CALL_END
  
    UINavigationBarAppearance *scrollEdgeAppearance =
        [[UINavigationBarAppearance alloc] initWithBarAppearance:appearance];
@@ -243,7 +241,7 @@ index 5970e3e..1589deb 100644
    if (config.largeTitleBackgroundColor != nil) {
      // Add support for using a fully transparent bar when the backgroundColor is set to transparent.
      if (CGColorGetAlpha(config.largeTitleBackgroundColor.CGColor) == 0.) {
-@@ -536,13 +720,26 @@ RNS_IGNORE_SUPER_CALL_END
+@@ -536,13 +718,26 @@ RNS_IGNORE_SUPER_CALL_END
        // opaque background.
        scrollEdgeAppearance.backgroundColor = nil;
      } else {
