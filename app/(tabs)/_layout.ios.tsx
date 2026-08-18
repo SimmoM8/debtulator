@@ -1,14 +1,14 @@
 import { NativeTabs } from "expo-router/unstable-native-tabs";
 import { useWindowDimensions } from "react-native";
 
-import { IOS_ACCENT } from "@/src/components/ios/NativeScreen";
+import { IOS_APP_TINT } from "@/src/theme/iosBrand";
 
 export default function NativeTabLayout() {
   const { fontScale } = useWindowDimensions();
   const hideVisualLabels = fontScale >= 2;
 
   return (
-    <NativeTabs tintColor={IOS_ACCENT} minimizeBehavior="never">
+    <NativeTabs tintColor={IOS_APP_TINT} minimizeBehavior="never">
       <NativeTabs.Trigger name="home" accessibilityLabel="Home tab">
         <NativeTabs.Trigger.Icon sf={{ default: "house", selected: "house.fill" }} />
         <NativeTabs.Trigger.Label hidden={hideVisualLabels}>Home</NativeTabs.Trigger.Label>

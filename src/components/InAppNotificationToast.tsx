@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
@@ -115,8 +115,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderIndigoSoft,
-    backgroundColor:
-      Platform.OS === "android" ? palette.surface : palette.surfaceGlassStrong,
+    backgroundColor: palette.surfaceGlassStrong,
     ...shadows.card,
     flexDirection: "row",
     overflow: "hidden",
