@@ -1,8 +1,26 @@
 diff --git a/node_modules/react-native-screens/ios/RNSScreen.mm b/node_modules/react-native-screens/ios/RNSScreen.mm
-index 69d4d9a..d348f7c 100644
+index 69d4d9a..751945a 100644
 --- a/node_modules/react-native-screens/ios/RNSScreen.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreen.mm
-@@ -1445,6 +1445,23 @@ Class<RCTComponentViewProtocol> RNSScreenCls(void)
+@@ -1262,8 +1262,16 @@ RNS_IGNORE_SUPER_CALL_END
+     _contentWrapperBox.contentWrapper.delegate = nil;
+     _contentWrapperBox.contentWrapper = nil;
+   }
++  // UIKit may temporarily insert an internal screen subview during iOS 26
++  // navigation-bar transitions. Fabric's logical index then differs from the
++  // child's actual mounted index, which trips RCTViewComponentView's invariant.
++  // Resolve the physical index immediately before forwarding the unmount.
++  NSInteger mountedIndex = [self.subviews indexOfObject:childComponentView];
++  if (mountedIndex == NSNotFound) {
++    mountedIndex = index;
++  }
+   [_reactSubviews removeObject:childComponentView];
+-  [super unmountChildComponentView:childComponentView index:index];
++  [super unmountChildComponentView:childComponentView index:mountedIndex];
+ }
+
+ #pragma mark - RCTComponentViewProtocol
+@@ -1445,6 +1453,23 @@ Class<RCTComponentViewProtocol> RNSScreenCls(void)
  
  #pragma mark - RNSScreen
  
@@ -26,7 +44,7 @@ index 69d4d9a..d348f7c 100644
  @implementation RNSScreen {
    __weak id _previousFirstResponder;
    CGRect _lastViewFrame;
-@@ -1910,6 +1927,14 @@ Class<RCTComponentViewProtocol> RNSScreenCls(void)
+@@ -1910,6 +1935,14 @@ Class<RCTComponentViewProtocol> RNSScreenCls(void)
  
  - (UIStatusBarStyle)preferredStatusBarStyle
  {

@@ -1,14 +1,15 @@
 import React from "react";
 import {
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
-    type StyleProp,
-    type ViewStyle,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  type StyleProp,
+  type ViewStyle,
 } from "react-native";
 
-import { palette, radii, spacing } from "@/src/constants/design";
+import { GlassSurface } from "./GlassSurface";
+import { palette, radii, spacing, typefaces, typography } from "@/src/theme";
 
 export type TextFieldProps = {
   label: string;
@@ -22,6 +23,7 @@ export type TextFieldProps = {
   style?: StyleProp<ViewStyle>;
 };
 
+/** Canonical text-field implementation used by every platform. */
 export function TextField({
   label,
   value,
@@ -36,7 +38,10 @@ export function TextField({
   return (
     <View style={[styles.field, style]}>
       {label ? <Text style={styles.label}>{label}</Text> : null}
-      <View style={[styles.shell, multiline && styles.shellMultiline]}>
+      <GlassSurface
+        role="input"
+        style={[styles.inputShell, multiline && styles.inputShellMultiline]}
+      >
         <TextInput
           value={value}
           onChangeText={onChangeText}
@@ -48,37 +53,34 @@ export function TextField({
           editable={editable}
           style={[styles.input, multiline && styles.inputMultiline]}
         />
-      </View>
+      </GlassSurface>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  field: {
-    gap: spacing.xs,
-  },
+  field: { gap: 10 },
   label: {
-    color: palette.ink,
-    fontSize: 13,
-    fontWeight: "600",
+    color: palette.muted,
+    fontSize: typography.size.sm,
+    fontFamily: typefaces.bodyStrong,
+    letterSpacing: 0.2,
   },
-  shell: {
-    borderRadius: radii.md,
+  inputShell: {
+    minHeight: 54,
+    borderRadius: radii.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.borderIndigoSoft,
+    backgroundColor: palette.surfaceGlass,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: "rgba(255,255,255,0.78)",
-    borderWidth: 1,
-    borderColor: "rgba(55,48,163,0.16)",
+    justifyContent: "center",
   },
-  shellMultiline: {
-    minHeight: 104,
-  },
+  inputShellMultiline: { paddingVertical: spacing.md },
   input: {
-    color: palette.ink,
-    minHeight: 24,
+    color: palette.textPrimary,
+    fontSize: typography.size.base,
+    lineHeight: typography.line.base,
+    fontFamily: typefaces.body,
   },
-  inputMultiline: {
-    minHeight: 84,
-    textAlignVertical: "top",
-  },
+  inputMultiline: { minHeight: 90, textAlignVertical: "top" },
 });

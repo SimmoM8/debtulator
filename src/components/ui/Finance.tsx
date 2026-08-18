@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import {
     Animated,
-    Platform,
     Pressable,
     StyleSheet,
     Text,
@@ -1000,10 +999,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderIndigoSoft,
-    backgroundColor:
-      Platform.OS === "android"
-        ? palette.surface
-        : palette.surfaceGlassElevated,
+    backgroundColor: palette.surfaceGlassElevated,
     justifyContent: "center",
   },
   filterChipActive: {
@@ -1118,10 +1114,7 @@ const styles = StyleSheet.create({
     minWidth: 100,
     borderRadius: 20,
     borderWidth: StyleSheet.hairlineWidth,
-    backgroundColor:
-      Platform.OS === "android"
-        ? palette.surface
-        : palette.surfaceGlassElevated,
+    backgroundColor: palette.surfaceGlassElevated,
     padding: 12,
     gap: 4,
     alignItems: "center",
@@ -1454,10 +1447,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderIndigoSoft,
-    backgroundColor:
-      Platform.OS === "android"
-        ? palette.surface
-        : palette.surfaceGlassElevated,
+    backgroundColor: palette.surfaceGlassElevated,
     ...shadows.card,
   },
   settingsLead: {

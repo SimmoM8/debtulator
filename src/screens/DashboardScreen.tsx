@@ -4,7 +4,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
     Animated,
     Modal,
-    Platform,
     Pressable,
     StyleSheet,
     Text,
@@ -335,30 +334,24 @@ export function DashboardScreen() {
   }
 
   return (
-    <Screen
-      headerBackground="primary"
-      header={
-        <View style={styles.headerRow}>
-          <IconButton
-            icon="notifications-outline"
-            label={
-              pendingRequests ? "Open notifications" : "View notifications"
-            }
-            tone="inverse"
-            onPress={() => router.push("/requests")}
-          />
-          <View style={styles.identityCopy}>
-            <Text style={styles.greeting}>
-              Good {greetingPeriod}, {firstName}
-            </Text>
-            <Text
-              style={styles.subGreeting}
-            >{`Here's your ${greetingPeriod} snapshot`}</Text>
-          </View>
-          <AppMenuButton tone="inverse" />
+    <Screen>
+      <View style={styles.headerRow}>
+        <IconButton
+          icon="notifications-outline"
+          label={pendingRequests ? "Open notifications" : "View notifications"}
+          tone="inverse"
+          onPress={() => router.push("/requests")}
+        />
+        <View style={styles.identityCopy}>
+          <Text style={styles.greeting}>
+            Good {greetingPeriod}, {firstName}
+          </Text>
+          <Text
+            style={styles.subGreeting}
+          >{`Here's your ${greetingPeriod} snapshot`}</Text>
         </View>
-      }
-    >
+        <AppMenuButton tone="inverse" />
+      </View>
       <Animated.View style={heroAnimatedStyle}>
         <GlassCard style={styles.heroCard}>
           <View style={styles.heroMainRow}>
@@ -804,10 +797,7 @@ const styles = StyleSheet.create({
     gap: spacing.xl,
     paddingTop: 18,
     paddingBottom: 16,
-    backgroundColor:
-      Platform.OS === "android"
-        ? palette.surface
-        : palette.surfaceGlassElevated,
+    backgroundColor: palette.surfaceGlassElevated,
   },
   currencyPill: {
     flexDirection: "row",
@@ -945,10 +935,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderGlass,
-    backgroundColor:
-      Platform.OS === "android"
-        ? palette.surface
-        : palette.surfaceGlassElevated,
+    backgroundColor: palette.surfaceGlassElevated,
     alignItems: "center",
     justifyContent: "center",
     gap: 4,

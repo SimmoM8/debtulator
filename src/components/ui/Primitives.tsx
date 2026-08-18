@@ -6,6 +6,7 @@ import {
     ActivityIndicator,
     Animated,
     Modal,
+    Platform,
     Pressable,
     RefreshControl,
     ScrollView,
@@ -30,6 +31,7 @@ import {
     SearchBar,
 } from "@/src/components/ui/Finance";
 import { GlassSurface } from "@/src/components/ui/GlassSurface";
+import { TextField } from "@/src/components/ui/TextField";
 import {
     palette,
     radii,
@@ -38,6 +40,9 @@ import {
     typefaces,
     typography,
 } from "@/src/constants/design";
+import { NativePageNavigation } from "@/src/components/navigation/NativePageNavigation";
+import { NativeFormToolbar } from "@/src/components/navigation/NativeFormToolbar";
+import type { NativeNavigationAction } from "@/src/components/navigation/types";
 import { useAuth } from "@/src/state/AuthProvider";
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -58,24 +63,25 @@ export function Screen({
   headerBackground?: "primary" | "transparent";
 }) {
   const { width } = useWindowDimensions();
+  const usesNativeNavigation = Platform.OS === "ios";
   const insets = useSafeAreaInsets();
   const segments = useSegments();
   const isTabRoute = segments[0] === "(tabs)";
   const auth = useAuth();
   const [refreshing, setRefreshing] = useState(false);
-  const bottomReserve = footer ? 144 : isTabRoute ? 24 : 112;
+  const nativeFooterAction = usesNativeNavigation
+    ? nativeActionFromElement(footer, /^(Save|Create)/)
+    : undefined;
+  const renderedFooter = nativeFooterAction ? null : footer;
+  const bottomReserve = renderedFooter ? 144 : isTabRoute ? 24 : 112;
   const childArray = React.Children.toArray(children);
   const firstChild = childArray[0];
-  const firstChildType =
-    React.isValidElement(firstChild) && typeof firstChild.type !== "string"
-      ? ((firstChild.type as { displayName?: string; name?: string })
-          .displayName ??
-        (firstChild.type as { displayName?: string; name?: string }).name ??
-        null)
-      : null;
-  const hasLeadingPageHeader = firstChildType === "PageHeader";
+  const hasLeadingPageHeader =
+    React.isValidElement(firstChild) && firstChild.type === PageHeader;
   const extractedHeaderChild = hasLeadingPageHeader ? firstChild : null;
-  const resolvedHeader = header ?? extractedHeaderChild;
+  const navigationHeader = header ?? extractedHeaderChild;
+  const nativeHeader = usesNativeNavigation ? navigationHeader : null;
+  const resolvedHeader = usesNativeNavigation ? null : navigationHeader;
   const bodyChildren = header
     ? childArray
     : hasLeadingPageHeader
@@ -83,7 +89,11 @@ export function Screen({
       : childArray;
   const resolvedHeaderBackground: "primary" | "transparent" =
     headerBackground ?? (resolvedHeader ? "primary" : "transparent");
-  const safeAreaEdges: ("top" | "bottom" | "left" | "right")[] = resolvedHeader
+  const safeAreaEdges: ("top" | "bottom" | "left" | "right")[] = usesNativeNavigation
+    ? scroll
+      ? []
+      : ["top", "bottom"]
+    : resolvedHeader
     ? isTabRoute
       ? []
       : ["bottom"]
@@ -99,22 +109,150 @@ export function Screen({
       setRefreshing(false);
     }
   };
-  const content = (
-    <View style={[styles.content, { maxWidth: width >= 960 ? 1100 : 760 }]}>
-      {bodyChildren}
+  const scrollPage = (
+    <View style={styles.scrollPage}>
+      <PageBackdrop />
+      <View style={[styles.content, { maxWidth: width >= 960 ? 1100 : 760 }]}>
+        {bodyChildren}
+      </View>
     </View>
   );
 
+  if (usesNativeNavigation && scroll) {
+    return (
+      <>
+        {nativeHeader}
+        {nativeFooterAction ? <NativeFormToolbar {...nativeFooterAction} /> : null}
+        <ScrollView
+          style={styles.scrollView}
+          contentInsetAdjustmentBehavior="automatic"
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: bottomReserve + insets.bottom },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={refresh}
+              tintColor={palette.primary}
+            />
+          }
+        >
+          {scrollPage}
+        </ScrollView>
+        {floatingAction ? (
+          <View
+            pointerEvents="box-none"
+            style={[
+              styles.floatingAction,
+              { bottom: (renderedFooter ? 112 : 28) + insets.bottom },
+            ]}
+          >
+            {floatingAction}
+          </View>
+        ) : null}
+        {renderedFooter ? (
+          <View
+            style={[styles.footerWrap, { paddingBottom: insets.bottom + 10 }]}
+          >
+            <GlassSurface role="elevated" style={styles.footer}>
+              {renderedFooter}
+            </GlassSurface>
+          </View>
+        ) : null}
+      </>
+    );
+  }
+
   return (
-    <SafeAreaView
-      style={[
-        styles.safeArea,
-        resolvedHeaderBackground === "primary" && styles.safeAreaHeaderPrimary,
-      ]}
-      edges={safeAreaEdges}
-    >
+    <>
+      {nativeHeader}
+      {nativeFooterAction ? <NativeFormToolbar {...nativeFooterAction} /> : null}
+      <SafeAreaView
+        style={[
+          styles.safeArea,
+          resolvedHeaderBackground === "primary" && styles.safeAreaHeaderPrimary,
+        ]}
+        edges={safeAreaEdges}
+      >
+      {resolvedHeader ? (
+        <View
+          style={[
+            styles.pageHeaderBand,
+            {
+              paddingTop: insets.top,
+              backgroundColor:
+                resolvedHeaderBackground === "primary"
+                  ? palette.primaryDeep
+                  : "transparent",
+            },
+          ]}
+        >
+          {resolvedHeader}
+        </View>
+      ) : null}
+      {scroll ? (
+        <ScrollView
+          contentInsetAdjustmentBehavior="never"
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: bottomReserve + (isTabRoute ? 0 : insets.bottom) },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={refresh}
+              colors={[palette.primary]}
+              tintColor={palette.primary}
+            />
+          }
+        >
+          {scrollPage}
+        </ScrollView>
+      ) : (
+        <View
+          style={[
+            styles.scrollContent,
+            { paddingBottom: bottomReserve + (isTabRoute ? 0 : insets.bottom) },
+          ]}
+        >
+          {scrollPage}
+        </View>
+      )}
+      {floatingAction ? (
+        <View
+          pointerEvents="box-none"
+          style={[
+            styles.floatingAction,
+            { bottom: (renderedFooter ? 112 : 28) + insets.bottom },
+          ]}
+        >
+          {floatingAction}
+        </View>
+      ) : null}
+      {renderedFooter ? (
+        <View
+          style={[styles.footerWrap, { paddingBottom: insets.bottom + 10 }]}
+        >
+          <GlassSurface role="elevated" style={styles.footer}>
+            {renderedFooter}
+          </GlassSurface>
+        </View>
+      ) : null}
+      </SafeAreaView>
+    </>
+  );
+}
+
+function PageBackdrop() {
+  return (
+    <>
       <LinearGradient
-        colors={["#FCFDFF", "#FEFEFF", "#FFFFFF"]}
+        colors={[palette.background, palette.backgroundDeep, palette.background]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.backdropCanvas}
@@ -135,74 +273,7 @@ export function Screen({
         end={{ x: 1, y: 1 }}
         style={styles.backdropSheenBottom}
       />
-      {resolvedHeader ? (
-        <View
-          style={[
-            styles.pageHeaderBand,
-            {
-              paddingTop: insets.top,
-              backgroundColor:
-                resolvedHeaderBackground === "primary"
-                  ? palette.primaryDeep
-                  : "transparent",
-            },
-          ]}
-        >
-          {resolvedHeader}
-        </View>
-      ) : null}
-      {scroll ? (
-        <ScrollView
-          automaticallyAdjustContentInsets={false}
-          contentInsetAdjustmentBehavior="never"
-          contentContainerStyle={[
-            styles.scrollContent,
-            { paddingBottom: bottomReserve + (isTabRoute ? 0 : insets.bottom) },
-          ]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={refresh}
-              colors={[palette.primary]}
-              tintColor={palette.primary}
-            />
-          }
-        >
-          {content}
-        </ScrollView>
-      ) : (
-        <View
-          style={[
-            styles.scrollContent,
-            { paddingBottom: bottomReserve + (isTabRoute ? 0 : insets.bottom) },
-          ]}
-        >
-          {content}
-        </View>
-      )}
-      {floatingAction ? (
-        <View
-          pointerEvents="box-none"
-          style={[
-            styles.floatingAction,
-            { bottom: (footer ? 112 : 28) + insets.bottom },
-          ]}
-        >
-          {floatingAction}
-        </View>
-      ) : null}
-      {footer ? (
-        <View
-          style={[styles.footerWrap, { paddingBottom: insets.bottom + 10 }]}
-        >
-          <GlassSurface role="elevated" style={styles.footer}>
-            {footer}
-          </GlassSurface>
-        </View>
-      ) : null}
-    </SafeAreaView>
+    </>
   );
 }
 
@@ -255,6 +326,31 @@ export function PageHeader({
   const detailHeader = showBackButton && canGoBack;
   const hasTopRow = Boolean(topLeft || topCenter || topRight || search);
   const showRootTitleRow = Boolean(eyebrow || title || subtitle) && !topCenter;
+
+  if (Platform.OS === "ios") {
+    const leadingAction = nativeActionFromElement(topLeft);
+    const trailingAction = nativeActionFromElement(topRight ?? action);
+    const unresolvedLeading = topLeft && !leadingAction ? topLeft : null;
+    const unresolvedTrailing = (topRight ?? action) && !trailingAction
+      ? (topRight ?? action)
+      : null;
+    const hasUnresolvedActions = Boolean(unresolvedLeading || unresolvedTrailing);
+    return (
+      <>
+        <NativePageNavigation
+          search={search}
+          leadingAction={leadingAction}
+          trailingAction={trailingAction}
+        />
+        {hasUnresolvedActions ? (
+          <View style={styles.nativeHeaderActions}>
+            <View>{unresolvedLeading}</View>
+            <View style={styles.nativeHeaderTrailing}>{unresolvedTrailing}</View>
+          </View>
+        ) : null}
+      </>
+    );
+  }
 
   return (
     <View
@@ -365,7 +461,29 @@ export function PageHeader({
   );
 }
 
-PageHeader.displayName = "PageHeader";
+function nativeActionFromElement(
+  element: React.ReactNode,
+  titlePattern?: RegExp,
+): NativeNavigationAction | undefined {
+  if (!React.isValidElement(element)) return undefined;
+  const props = element.props as {
+    title?: string;
+    label?: string;
+    icon?: string;
+    onPress?: () => void;
+    disabled?: boolean;
+  };
+  const label = props.label ?? props.title;
+  if (!label || !props.onPress || (titlePattern && !titlePattern.test(label))) {
+    return undefined;
+  }
+  return {
+    label,
+    icon: props.icon,
+    onPress: props.onPress,
+    disabled: props.disabled,
+  };
+}
 
 export function Card({
   children,
@@ -603,54 +721,7 @@ export function IconButton({
   );
 }
 
-export function TextField({
-  label,
-  value,
-  onChangeText,
-  placeholder,
-  keyboardType,
-  multiline,
-  secureTextEntry,
-  editable = true,
-  style,
-}: {
-  label: string;
-  value: string;
-  onChangeText: (value: string) => void;
-  placeholder?: string;
-  keyboardType?:
-    | "default"
-    | "numeric"
-    | "decimal-pad"
-    | "email-address"
-    | "phone-pad";
-  multiline?: boolean;
-  secureTextEntry?: boolean;
-  editable?: boolean;
-  style?: StyleProp<ViewStyle>;
-}) {
-  return (
-    <View style={[styles.field, style]}>
-      <Text style={styles.label}>{label}</Text>
-      <GlassSurface
-        role="input"
-        style={[styles.inputShell, multiline && styles.inputShellMultiline]}
-      >
-        <TextInput
-          value={value}
-          onChangeText={onChangeText}
-          placeholder={placeholder}
-          placeholderTextColor={palette.textTertiary}
-          keyboardType={keyboardType}
-          multiline={multiline}
-          secureTextEntry={secureTextEntry}
-          editable={editable}
-          style={[styles.input, multiline && styles.inputMultiline]}
-        />
-      </GlassSurface>
-    </View>
-  );
-}
+export { TextField };
 
 export function DropdownSelect<T extends string>({
   label,
@@ -1435,12 +1506,25 @@ const textVariants = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
+  nativeHeaderActions: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.screen,
+  },
+  nativeHeaderTrailing: {
+    marginLeft: "auto",
+  },
   safeArea: {
     flex: 1,
     backgroundColor: palette.background,
   },
   safeAreaHeaderPrimary: {
     backgroundColor: palette.primaryDeep,
+  },
+  scrollView: {
+    flex: 1,
+    backgroundColor: palette.background,
   },
   backdropCanvas: {
     ...StyleSheet.absoluteFill,
@@ -1465,6 +1549,15 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     alignItems: "center",
+    backgroundColor: palette.background,
+    flexGrow: 1,
+  },
+  scrollPage: {
+    alignItems: "center",
+    backgroundColor: palette.background,
+    flexGrow: 1,
+    overflow: "hidden",
+    width: "100%",
   },
   content: {
     width: "100%",
@@ -1797,19 +1890,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.68)",
     paddingHorizontal: spacing.md,
     justifyContent: "center",
-  },
-  inputShellMultiline: {
-    paddingVertical: 12,
-  },
-  input: {
-    color: palette.textPrimary,
-    fontSize: typography.size.base,
-    lineHeight: typography.line.base,
-    fontFamily: typefaces.body,
-  },
-  inputMultiline: {
-    minHeight: 90,
-    textAlignVertical: "top",
   },
   dropdownShell: {
     flexDirection: "row",

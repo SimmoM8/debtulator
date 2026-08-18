@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { Platform, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 import {
     CollectionPageControls,
@@ -14,23 +14,23 @@ import {
 } from "@/src/components/ui/Finance";
 import { MobileMenuModal } from "@/src/components/ui/MenuList";
 import {
-  Button,
-  EmptyState,
-  FilterSheet,
-  LoadingState,
-  Screen,
+    Button,
+    EmptyState,
+    FilterSheet,
+    LoadingState,
+    Screen,
 } from "@/src/components/ui/Primitives";
-import {
-    type MemberFilter,
-    type MemberSort,
-    useMembersScreenModel,
-} from "@/src/features/members/useMembersScreenModel";
 import {
     palette,
     shadows,
     typefaces,
     typography,
 } from "@/src/constants/design";
+import {
+    type MemberFilter,
+    type MemberSort,
+    useMembersScreenModel,
+} from "@/src/features/members/useMembersScreenModel";
 import { estimateMoneyMap } from "@/src/services/currency";
 import type { AppSettings, CurrencyRate, Member } from "@/src/types/models";
 import { formatMoney } from "@/src/utils/money";
@@ -304,10 +304,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.borderGlass,
-    backgroundColor:
-      Platform.OS === "android"
-        ? palette.surface
-        : palette.surfaceGlassElevated,
+    backgroundColor: palette.surfaceGlassElevated,
     paddingHorizontal: 18,
     paddingVertical: 18,
     ...shadows.card,

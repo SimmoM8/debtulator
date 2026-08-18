@@ -1,4 +1,8 @@
-# Debtulator iOS native redesign audit
+# Debtulator iOS native redesign audit (historical)
+
+> This document records the superseded split-presentation implementation. The
+> current architecture uses shared application content with an iOS-only native
+> navigation shell; see [`ios-native-architecture.md`](./ios-native-architecture.md).
 
 > This file preserves the required pre-edit audit. The implemented route inventory,
 > exceptions, screenshots and verification results are recorded in

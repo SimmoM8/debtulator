@@ -24,43 +24,13 @@ module.exports = defineConfig([
     },
   },
   {
-    files: [
-      'app/**/*.ios.{ts,tsx}',
-      'src/components/ios/**/*.{ts,tsx}',
-      'src/screens/ios/**/*.{ts,tsx}',
-    ],
+    files: ['src/screens/*.{ts,tsx}'],
     rules: {
       'no-restricted-imports': ['error', {
-        paths: [
-          {
-            name: 'react-native',
-            importNames: ['Pressable', 'TextInput', 'Switch', 'Modal', 'TouchableOpacity', 'TouchableHighlight', 'TouchableWithoutFeedback'],
-            message: 'iOS presentation must use SwiftUI controls through @expo/ui.',
-          },
-          { name: 'expo-blur', message: 'Use native iOS navigation and SwiftUI materials instead of BlurView.' },
-          { name: 'expo-glass-effect', message: 'Ordinary iOS controls must receive Liquid Glass from the system.' },
-          { name: '@/src/components/navigation/GlassBottomTabBar', message: 'iOS navigation uses expo-router native tabs.' },
-          { name: '@/src/components/ui/GlassSurface', message: 'Do not wrap iOS content in fake glass surfaces.' },
-          { name: '@/src/components/ui/Primitives', message: 'iOS screens compose semantic SwiftUI components, not the legacy PageHeader/control layer.' },
-        ],
-      }],
-    },
-  },
-  {
-    files: ['src/**/*Row*.tsx', 'src/**/rows/**/*.{ts,tsx}'],
-    rules: {
-      'no-restricted-imports': ['error', {
-        paths: [
-          {
-            name: '@expo/ui/swift-ui',
-            importNames: ['Host'],
-            message: 'Do not use SwiftUI Host inside row-level components. Keep one screen-level Host boundary.',
-          },
-          {
-            name: '@/src/components/ios/NativeScreen',
-            message: 'Do not nest NativeScreen/Host inside row-level components.',
-          },
-        ],
+        patterns: [{
+          group: ['@/src/components/ios/**'],
+          message: 'Application content must use the shared design system; keep iOS-only code in navigation adapters.',
+        }],
       }],
     },
   },

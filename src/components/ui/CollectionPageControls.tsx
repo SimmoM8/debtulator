@@ -1,6 +1,7 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Platform, StyleSheet, Text, View } from "react-native";
 
+import { NativeCollectionHeader } from "@/src/components/navigation/NativeCollectionHeader";
 import { GlassCard } from "@/src/components/ui/Finance";
 import {
     IconButton,
@@ -43,6 +44,21 @@ export function CollectionPageHeader({
   onChangeQuery: (value: string) => void;
   searchPlaceholder: string;
 }) {
+  if (Platform.OS === "ios") {
+    return (
+      <NativeCollectionHeader
+        title={title}
+        addLabel={addLabel}
+        onAdd={onAdd}
+        optionsLabel={optionsLabel}
+        onOpenOptions={onOpenOptions}
+        query={query}
+        onChangeQuery={onChangeQuery}
+        searchPlaceholder={searchPlaceholder}
+      />
+    );
+  }
+
   return (
     <PageHeader
       title={title}
@@ -159,7 +175,6 @@ export function CollectionPageControls({
 }
 
 CollectionPageControls.displayName = "CollectionPageControls";
-CollectionPageHeader.displayName = "CollectionPageHeader";
 
 const styles = StyleSheet.create({
   controls: {
