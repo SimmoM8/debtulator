@@ -2,7 +2,7 @@ import {
   Button,
   Host,
   HStack,
-  Menu,
+  Image,
   Picker,
   Text,
 } from "@expo/ui/swift-ui";
@@ -10,13 +10,11 @@ import {
   accessibilityHint,
   accessibilityLabel,
   accessibilityValue,
-  buttonBorderShape,
   buttonStyle,
-  controlSize,
   frame,
   glassEffect,
-  labelStyle,
   pickerStyle,
+  scaleEffect,
   tag,
 } from "@expo/ui/swift-ui/modifiers";
 import { StyleSheet } from "react-native";
@@ -26,26 +24,17 @@ import { palette } from "@/src/constants/design";
 import type { NativeCollectionToolbarProps } from "./NativeCollectionToolbar";
 
 export function NativeCollectionToolbar({
-  filterValue,
-  filterOptions,
-  onChangeFilter,
   sortValue,
   sortOptions,
   onChangeSort,
   sortDirection,
   onToggleSortDirection,
 }: NativeCollectionToolbarProps) {
-  const selectedFilter = filterOptions?.find(
-    (option) => option.value === filterValue,
-  );
   const selectedSort = sortOptions?.find((option) => option.value === sortValue);
-  const showFilters = Boolean(
-    filterValue && filterOptions?.length && onChangeFilter,
-  );
   const showSort = Boolean(sortValue && sortOptions?.length && onChangeSort);
   const showDirection = Boolean(sortDirection && onToggleSortDirection);
 
-  if (!showFilters && !showSort && !showDirection) {
+  if (!showSort && !showDirection) {
     return null;
   }
 
@@ -57,11 +46,11 @@ export function NativeCollectionToolbar({
       ignoreSafeArea="all"
     >
       <HStack spacing={8} modifiers={[frame({ maxWidth: Infinity })]}>
-        {showFilters ? (
+        {showSort ? (
           <Picker
-            label="Filter"
-            selection={filterValue}
-            onSelectionChange={(value) => onChangeFilter?.(value)}
+            label="Sort"
+            selection={sortValue}
+            onSelectionChange={(value) => onChangeSort?.(value)}
             modifiers={[
               pickerStyle("segmented"),
               frame({ maxWidth: Infinity }),
@@ -69,11 +58,11 @@ export function NativeCollectionToolbar({
                 glass: { variant: "regular", interactive: true },
                 shape: "capsule",
               }),
-              accessibilityLabel("Filter"),
-              accessibilityValue(selectedFilter?.label ?? ""),
+              accessibilityLabel("Sort by"),
+              accessibilityValue(selectedSort?.label ?? ""),
             ]}
           >
-            {filterOptions!.map((option) => (
+            {sortOptions!.map((option) => (
               <Text key={option.value} modifiers={[tag(option.value)]}>
                 {option.label}
               </Text>
@@ -81,41 +70,12 @@ export function NativeCollectionToolbar({
           </Picker>
         ) : null}
 
-        {showSort ? (
-          <Menu
-            label="Sort"
-            systemImage="arrow.up.arrow.down"
-            modifiers={[
-              buttonStyle("glass"),
-              buttonBorderShape("circle"),
-              controlSize("regular"),
-              labelStyle("iconOnly"),
-              accessibilityLabel("Sort"),
-              accessibilityValue(selectedSort?.label ?? ""),
-              accessibilityHint("Opens sorting options"),
-            ]}
-          >
-            {sortOptions!.map((option) => (
-              <Button
-                key={option.value}
-                label={option.label}
-                systemImage={option.value === sortValue ? "checkmark" : undefined}
-                onPress={() => onChangeSort?.(option.value)}
-              />
-            ))}
-          </Menu>
-        ) : null}
-
         {showDirection ? (
           <Button
-            label={sortDirection === "asc" ? "Ascending" : "Descending"}
-            systemImage={sortDirection === "asc" ? "arrow.up" : "arrow.down"}
             onPress={onToggleSortDirection}
             modifiers={[
-              buttonStyle("glass"),
-              buttonBorderShape("circle"),
-              controlSize("regular"),
-              labelStyle("iconOnly"),
+              buttonStyle("plain"),
+              frame({ width: 44, height: 44 }),
               accessibilityLabel(
                 sortDirection === "asc"
                   ? "Sort ascending"
@@ -123,7 +83,23 @@ export function NativeCollectionToolbar({
               ),
               accessibilityHint("Toggles the sort direction"),
             ]}
-          />
+          >
+            <HStack spacing={1}>
+              <Image
+                systemName={sortDirection === "asc" ? "arrow.up" : "arrow.down"}
+                size={13}
+              />
+              <Image
+                systemName="line.3.horizontal.decrease"
+                size={15}
+                modifiers={
+                  sortDirection === "asc"
+                    ? [scaleEffect({ x: 1, y: -1 })]
+                    : undefined
+                }
+              />
+            </HStack>
+          </Button>
         ) : null}
       </HStack>
     </Host>
