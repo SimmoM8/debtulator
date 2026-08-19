@@ -25,6 +25,7 @@
   "dependencies": {
     "@expo-google-fonts/manrope": "^0.4.2",
     "@expo-google-fonts/sora": "^0.4.2",
+    "@expo/ui": "~56.0.22",
     "@expo/vector-icons": "^15.0.3",
     "@supabase/supabase-js": "^2.108.1",
     "boring-avatars": "^2.0.4",

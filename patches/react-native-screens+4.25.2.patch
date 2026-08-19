@@ -21,9 +21,9 @@ index 69d4d9a..751945a 100644
 
  #pragma mark - RCTComponentViewProtocol
 @@ -1445,6 +1453,23 @@ Class<RCTComponentViewProtocol> RNSScreenCls(void)
- 
+
  #pragma mark - RNSScreen
- 
+
 +static BOOL RNSHasExpandedVisibleNavigationBar(UIView *view)
 +{
 +  if (view.hidden || view.alpha == 0.) {
@@ -45,7 +45,7 @@ index 69d4d9a..751945a 100644
    __weak id _previousFirstResponder;
    CGRect _lastViewFrame;
 @@ -1910,6 +1935,14 @@ Class<RCTComponentViewProtocol> RNSScreenCls(void)
- 
+
  - (UIStatusBarStyle)preferredStatusBarStyle
  {
 +#if !TARGET_OS_TV
@@ -58,13 +58,13 @@ index 69d4d9a..751945a 100644
 +#endif
    return [RNSScreenWindowTraits statusBarStyleForRNSStatusBarStyle:self.screenView.statusBarStyle];
  }
- 
+
 diff --git a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
 index 5970e3e..8a315f4 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
 @@ -29,6 +29,187 @@ namespace react = facebook::react;
- 
+
  static const NSNumber *const DEFAULT_TITLE_FONT_SIZE = @17;
  static const NSNumber *const DEFAULT_TITLE_LARGE_FONT_SIZE = @34;
 +static const NSInteger RNS_IOS26_LARGE_TITLE_BACKING_TAG = 0x524E5342;
@@ -248,11 +248,11 @@ index 5970e3e..8a315f4 100644
 +  });
 +}
 +#endif
- 
+
  @interface RCTImageLoader (Private)
  - (id<RCTImageCache>)imageCache;
 @@ -526,6 +707,7 @@ RNS_IGNORE_SUPER_CALL_END
- 
+
    UINavigationBarAppearance *scrollEdgeAppearance =
        [[UINavigationBarAppearance alloc] initWithBarAppearance:appearance];
 +  UIColor *ios26LargeTitleBackingColor = nil;
@@ -286,3 +286,63 @@ index 5970e3e..8a315f4 100644
  #if !TARGET_OS_TV
    navitem.hidesBackButton = config.hideBackButton;
    navitem.leftItemsSupplementBackButton = config.backButtonInCustomView;
+diff --git a/node_modules/react-native-screens/ios/RNSSearchBar.mm b/node_modules/react-native-screens/ios/RNSSearchBar.mm
+index c78c014..dba13ef 100644
+--- a/node_modules/react-native-screens/ios/RNSSearchBar.mm
++++ b/node_modules/react-native-screens/ios/RNSSearchBar.mm
+@@ -205,6 +205,9 @@ namespace react = facebook::react;
+ - (void)setPlaceholder:(NSString *)placeholder
+ {
+   [_controller.searchBar setPlaceholder:placeholder];
++#if !TARGET_OS_TV
++  [self updateSearchFieldColors];
++#endif
+ }
+
+ - (void)setBarTintColor:(UIColor *)barTintColor
+@@ -223,10 +226,36 @@ namespace react = facebook::react;
+ {
+ #if !TARGET_OS_TV
+   _textColor = textColor;
+-  [_controller.searchBar.searchTextField setTextColor:_textColor];
++  [self updateSearchFieldColors];
+ #endif
+ }
+
++#if !TARGET_OS_TV
++- (void)updateSearchFieldColors
++{
++  if (_textColor == nil) {
++    return;
++  }
++
++  UITextField *searchTextField = _controller.searchBar.searchTextField;
++  searchTextField.textColor = _textColor;
++
++  UIView *leftView = searchTextField.leftView;
++  leftView.tintColor = _textColor;
++  if ([leftView isKindOfClass:UIImageView.class]) {
++    UIImageView *searchIcon = (UIImageView *)leftView;
++    searchIcon.image = [searchIcon.image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
++  }
++
++  NSString *placeholder = _controller.searchBar.placeholder;
++  if (placeholder.length > 0) {
++    searchTextField.attributedPlaceholder = [[NSAttributedString alloc]
++        initWithString:placeholder
++            attributes:@{NSForegroundColorAttributeName : [_textColor colorWithAlphaComponent:0.68]}];
++  }
++}
++#endif
++
+ - (void)setCancelButtonText:(NSString *)text
+ {
+   [_controller.searchBar setValue:text forKey:@"cancelButtonText"];
+@@ -307,6 +336,6 @@ namespace react = facebook::react;
+   // for some reason, the color does not change when set at the beginning,
+   // so we apply it again here
+   if (_textColor != nil) {
+-    [_controller.searchBar.searchTextField setTextColor:_textColor];
++    [self updateSearchFieldColors];
+   }
+ #endif

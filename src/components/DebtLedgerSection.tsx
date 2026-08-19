@@ -3,6 +3,7 @@ import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { GlassCard, ListRow } from "@/src/components/ui/Finance";
+import { DebtDirectionIcon } from "@/src/components/ui/DebtDirectionIcon";
 import { SectionTitle } from "@/src/components/ui/Primitives";
 import { palette, typefaces, typography } from "@/src/constants/design";
 import { estimateMoneyMap } from "@/src/services/currency";
@@ -56,36 +57,63 @@ export function DebtLedgerSection({
           </Text>
         }
       />
-      <GlassCard tone={title === "You owe" ? "coral" : "lavender"}>
-        <View style={styles.listColumn}>
-          {entries.map((entry, index) => (
-            <ListRow
-              key={entry.id}
-              title={entry.title}
-              subtitle={
-                entry.groupId
-                  ? "Shared"
-                  : entry.kind === "expense_obligation"
-                    ? "Bills"
-                    : entryDirectionText(entry, members, sharedGroupMembers)
-              }
-              amount={formatMoney(
-                entry.remainingAmount <= 0.005
-                  ? entry.originalAmount
-                  : entry.remainingAmount,
-                entry.currency as CurrencyCode,
-              )}
-              trailingLabel={debtDueLabel(entry)}
-              trailingTone={debtDueTone(entry)}
-              icon={entry.groupId ? "people-outline" : "wallet-outline"}
-              iconTone={entry.groupId ? "teal" : "indigo"}
-              showDivider={index < entries.length - 1}
-              onPress={() => openEntry(entry)}
-            />
-          ))}
-        </View>
-      </GlassCard>
+      <DebtLedgerList
+        entries={entries}
+        members={members}
+        sharedGroupMembers={sharedGroupMembers}
+        tone={title === "You owe" ? "coral" : "lavender"}
+      />
     </>
+  );
+}
+
+export function DebtLedgerList({
+  entries,
+  members,
+  sharedGroupMembers,
+  tone = "lavender",
+}: {
+  entries: LedgerEntry[];
+  members: Member[];
+  sharedGroupMembers: SharedGroupMember[];
+  tone?: "coral" | "lavender";
+}) {
+  if (!entries.length) return null;
+
+  return (
+    <GlassCard tone={tone}>
+      <View style={styles.listColumn}>
+        {entries.map((entry, index) => (
+          <ListRow
+            key={entry.id}
+            title={entry.title}
+            subtitle={
+              entry.groupId
+                ? "Shared"
+                : entry.kind === "expense_obligation"
+                  ? "Bills"
+                  : entryDirectionText(entry, members, sharedGroupMembers)
+            }
+            amount={formatMoney(
+              entry.remainingAmount <= 0.005
+                ? entry.originalAmount
+                : entry.remainingAmount,
+              entry.currency as CurrencyCode,
+            )}
+            trailingLabel={debtDueLabel(entry)}
+            trailingTone={debtDueTone(entry)}
+            leadingIcon={
+              <DebtDirectionIcon
+                direction={entry.fromId === "me" ? "owing" : "owed"}
+              />
+            }
+            iconTone={entry.fromId === "me" ? "coral" : "teal"}
+            showDivider={index < entries.length - 1}
+            onPress={() => openEntry(entry)}
+          />
+        ))}
+      </View>
+    </GlassCard>
   );
 }
 

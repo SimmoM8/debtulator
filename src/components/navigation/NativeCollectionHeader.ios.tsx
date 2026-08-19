@@ -1,5 +1,7 @@
 import { Stack } from "expo-router";
 
+import { IOS_BRANDED_HEADER_SEARCH_OPTIONS } from "@/src/components/ios/NativeNavigationStyle";
+
 import type { NativeCollectionHeaderProps } from "./NativeCollectionHeader";
 
 export function NativeCollectionHeader({
@@ -13,8 +15,8 @@ export function NativeCollectionHeader({
   return (
     <>
       <Stack.SearchBar
+        {...IOS_BRANDED_HEADER_SEARCH_OPTIONS}
         placeholder={searchPlaceholder}
-        hideWhenScrolling
         onChangeText={(event) => onChangeQuery(event.nativeEvent.text)}
       />
       <Stack.Toolbar placement="left">
