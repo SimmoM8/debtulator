@@ -3,6 +3,7 @@ import { Platform, StyleSheet, Text, View } from "react-native";
 
 import { NativeCollectionHeader } from "@/src/components/navigation/NativeCollectionHeader";
 import { GlassCard } from "@/src/components/ui/Finance";
+import { NativeCollectionToolbar } from "@/src/components/ui/NativeCollectionToolbar";
 import {
     IconButton,
     PageHeader,
@@ -111,7 +112,7 @@ export function CollectionPageControls({
   onChangeSort?: (value: string) => void;
   sortDirection?: "asc" | "desc";
   onToggleSortDirection?: () => void;
-  summary: React.ReactNode;
+  summary?: React.ReactNode;
   summaryTone?: SummaryTone;
 }) {
   const showQuickFilters = Boolean(
@@ -123,7 +124,18 @@ export function CollectionPageControls({
 
   return (
     <View style={styles.controls}>
-      {showQuickFilters ? (
+      {Platform.OS === "ios" ? (
+        <NativeCollectionToolbar
+          filterValue={filterValue}
+          filterOptions={filterOptions}
+          onChangeFilter={onChangeFilter}
+          sortValue={sortValue}
+          sortOptions={sortOptions}
+          onChangeSort={onChangeSort}
+          sortDirection={sortDirection}
+          onToggleSortDirection={onToggleSortDirection}
+        />
+      ) : showQuickFilters ? (
         <SlidingSectionSwitcher
           compact
           sections={filterOptions!.map((option) => ({
@@ -135,7 +147,7 @@ export function CollectionPageControls({
         />
       ) : null}
 
-      {showSortControls ? (
+      {Platform.OS !== "ios" && showSortControls ? (
         <View style={styles.sortControls}>
           <View style={styles.sortSwitcher}>
             <SlidingSectionSwitcher
@@ -162,14 +174,16 @@ export function CollectionPageControls({
         </View>
       ) : null}
 
-      <GlassCard
-        tone={summaryTone}
-        allowOverflow
-        style={styles.summaryCard}
-        wrapperStyle={styles.summaryCardWrapper}
-      >
-        {summary}
-      </GlassCard>
+      {summary ? (
+        <GlassCard
+          tone={summaryTone}
+          allowOverflow
+          style={styles.summaryCard}
+          wrapperStyle={styles.summaryCardWrapper}
+        >
+          {summary}
+        </GlassCard>
+      ) : null}
     </View>
   );
 }

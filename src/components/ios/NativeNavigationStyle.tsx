@@ -3,6 +3,14 @@ import { PlatformColor } from "react-native";
 
 const IOS_SYSTEM_HEADER_FOREGROUND = PlatformColor("label");
 
+export const IOS_BRANDED_HEADER_SEARCH_OPTIONS = {
+  hideWhenScrolling: true,
+  barTintColor: "rgba(255,255,255,0.20)",
+  textColor: iosBrand.onBrandedBackground,
+  tintColor: iosBrand.onBrandedBackground,
+  obscureBackground: false,
+};
+
 export const IOS_COMPACT_HEADER_OPTIONS = {
   headerTintColor: IOS_SYSTEM_HEADER_FOREGROUND,
   headerTitleStyle: { color: IOS_SYSTEM_HEADER_FOREGROUND },

@@ -690,6 +690,7 @@ export function ListRow({
   trailingLabel,
   trailingTone,
   icon,
+  leadingIcon,
   iconTone = "lavender",
   avatars,
   onPress,
@@ -704,6 +705,7 @@ export function ListRow({
   trailingLabel?: string;
   trailingTone?: Tone;
   icon?: IconName;
+  leadingIcon?: React.ReactNode;
   iconTone?: Tone;
   avatars?: string[];
   onPress?: () => void;
@@ -723,11 +725,13 @@ export function ListRow({
           },
         ]}
       >
-        <Ionicons
-          name={icon ?? "wallet-outline"}
-          size={18}
-          color={toneStyles[iconTone].text}
-        />
+        {leadingIcon ?? (
+          <Ionicons
+            name={icon ?? "wallet-outline"}
+            size={18}
+            color={toneStyles[iconTone].text}
+          />
+        )}
       </View>
       <View style={styles.listCopy}>
         <Text style={styles.listTitle} numberOfLines={1}>

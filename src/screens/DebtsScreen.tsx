@@ -1,20 +1,17 @@
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 import {
-    DebtLedgerSection,
-    debtSectionTotalLabel,
+  DebtLedgerList,
+  debtSectionTotalLabel,
 } from "@/src/components/DebtLedgerSection";
 import {
     CollectionPageControls,
     CollectionPageHeader,
 } from "@/src/components/ui/CollectionPageControls";
-import {
-    GlassCard,
-    SingleSelectFilterList,
-    StatCard,
-} from "@/src/components/ui/Finance";
+import { DebtDirectionIcon } from "@/src/components/ui/DebtDirectionIcon";
+import { GlassCard, SingleSelectFilterList } from "@/src/components/ui/Finance";
 import { MobileMenuModal } from "@/src/components/ui/MenuList";
 import {
     EmptyState,
@@ -22,11 +19,12 @@ import {
     LoadingState,
     Screen,
 } from "@/src/components/ui/Primitives";
-import { entryDirectionText } from "@/src/services/ledger";
+import { palette, spacing, typefaces, typography } from "@/src/constants/design";
+import { entryDirectionText, participantName } from "@/src/services/ledger";
 import { useAppData } from "@/src/state/AppDataProvider";
 
 type DebtFilter = "all" | "you-owe" | "owed-to-you" | "due-soon";
-type DebtSort = "date" | "amount" | "due" | "title";
+type DebtSort = "date" | "amount" | "due" | "title" | "member";
 type SortDirection = "asc" | "desc";
 
 export function DebtsScreen() {
@@ -111,6 +109,25 @@ export function DebtsScreen() {
       if (sort === "amount") {
         return direction * (first.remainingAmount - second.remainingAmount);
       }
+      if (sort === "member") {
+        const firstName = participantName(
+          first.fromId === "me" ? first.toId : first.fromId,
+          data.members,
+          data.sharedGroupMembers,
+        );
+        const secondName = participantName(
+          second.fromId === "me" ? second.toId : second.fromId,
+          data.members,
+          data.sharedGroupMembers,
+        );
+        const memberComparison = firstName.localeCompare(secondName, undefined, {
+          sensitivity: "base",
+        });
+        return (
+          direction *
+          (memberComparison || first.title.localeCompare(second.title))
+        );
+      }
       if (sort === "due") {
         if (!first.dueDate && !second.dueDate) {
           return 0;
@@ -125,21 +142,26 @@ export function DebtsScreen() {
       }
       return direction * first.date.localeCompare(second.date);
     });
-  }, [activeMatchedEntries, filter, sort, sortDirection]);
+  }, [
+    activeMatchedEntries,
+    data.members,
+    data.sharedGroupMembers,
+    filter,
+    sort,
+    sortDirection,
+  ]);
 
-  const youOwe = filteredEntries.filter(
+  const personalEntries = filteredEntries.filter(
+    (entry) =>
+      (entry.fromId === "me" || entry.toId === "me") &&
+      entry.remainingAmount > 0.005,
+  );
+  const owingEntries = activeMatchedEntries.filter(
     (entry) => entry.fromId === "me" && entry.remainingAmount > 0.005,
   );
-  const owedToYou = filteredEntries.filter(
+  const owedEntries = activeMatchedEntries.filter(
     (entry) => entry.toId === "me" && entry.remainingAmount > 0.005,
   );
-  const owingCount = activeMatchedEntries.filter(
-    (entry) => entry.fromId === "me" && entry.remainingAmount > 0.005,
-  ).length;
-  const owedCount = activeMatchedEntries.filter(
-    (entry) => entry.toId === "me" && entry.remainingAmount > 0.005,
-  ).length;
-
   if (data.loading) {
     return <LoadingState />;
   }
@@ -160,6 +182,32 @@ export function DebtsScreen() {
         />
       }
     >
+      <GlassCard tone="lavender" style={styles.summaryCard}>
+        <View style={styles.summaryRow}>
+          <DebtSummaryMetric
+            direction="owing"
+            label="Owing"
+            count={owingEntries.length}
+            total={debtSectionTotalLabel(
+              owingEntries,
+              data.settings,
+              data.currencyRates,
+            )}
+          />
+          <View style={styles.summaryDivider} />
+          <DebtSummaryMetric
+            direction="owed"
+            label="Owed"
+            count={owedEntries.length}
+            total={debtSectionTotalLabel(
+              owedEntries,
+              data.settings,
+              data.currencyRates,
+            )}
+          />
+        </View>
+      </GlassCard>
+
       <CollectionPageControls
         filterValue={filter}
         filterOptions={FILTERS}
@@ -170,41 +218,6 @@ export function DebtsScreen() {
         sortDirection={sortDirection}
         onToggleSortDirection={() =>
           setSortDirection((current) => (current === "asc" ? "desc" : "asc"))
-        }
-        summary={
-          <View style={styles.statsRow}>
-            <StatCard
-              label="Owing"
-              value={String(owingCount)}
-              subtitle="Debts you still need to pay"
-              tone="coral"
-              compact
-              compactDensity="tight"
-              withDivider
-              selected={filter === "you-owe"}
-              onPress={() =>
-                setFilter((current) =>
-                  current === "you-owe" ? "all" : "you-owe",
-                )
-              }
-              accessibilityHint="Shows debts you still owe"
-            />
-            <StatCard
-              label="Owed"
-              value={String(owedCount)}
-              subtitle="Debts other people owe you"
-              tone="indigo"
-              compact
-              compactDensity="tight"
-              selected={filter === "owed-to-you"}
-              onPress={() =>
-                setFilter((current) =>
-                  current === "owed-to-you" ? "all" : "owed-to-you",
-                )
-              }
-              accessibilityHint="Shows debts owed to you"
-            />
-          </View>
         }
       />
 
@@ -253,33 +266,12 @@ export function DebtsScreen() {
         ]}
       />
 
-      <DebtLedgerSection
-        title="You owe"
-        subtitle="Things you still need to pay."
-        entries={youOwe}
-        summaryAmount={debtSectionTotalLabel(
-          youOwe,
-          data.settings,
-          data.currencyRates,
-        )}
-        summaryTone="negative"
+      <DebtLedgerList
+        entries={personalEntries}
         members={data.members}
         sharedGroupMembers={data.sharedGroupMembers}
       />
-      <DebtLedgerSection
-        title="Owed to you"
-        subtitle="Things other people still owe you."
-        entries={owedToYou}
-        summaryAmount={debtSectionTotalLabel(
-          owedToYou,
-          data.settings,
-          data.currencyRates,
-        )}
-        summaryTone="positive"
-        members={data.members}
-        sharedGroupMembers={data.sharedGroupMembers}
-      />
-      {!filteredEntries.length ? (
+      {!personalEntries.length ? (
         <GlassCard tone="lavender">
           <EmptyState
             title="No debts found"
@@ -319,12 +311,77 @@ const SORT_OPTIONS: { label: string; value: DebtSort }[] = [
   { label: "Amount", value: "amount" },
   { label: "Due", value: "due" },
   { label: "Title", value: "title" },
+  { label: "Member", value: "member" },
 ];
 
+function DebtSummaryMetric({
+  direction,
+  label,
+  count,
+  total,
+}: {
+  direction: "owing" | "owed";
+  label: string;
+  count: number;
+  total: string;
+}) {
+  const tone = direction === "owing" ? palette.negative : palette.positive;
+
+  return (
+    <View style={styles.summaryMetric}>
+      <View style={styles.summaryLabelRow}>
+        <DebtDirectionIcon direction={direction} size={14} />
+        <Text style={styles.summaryLabel}>{label}</Text>
+      </View>
+      <Text style={[styles.summaryTotal, { color: tone }]} numberOfLines={1}>
+        {total}
+      </Text>
+      <Text style={styles.summaryCount}>
+        {count} {count === 1 ? "debt" : "debts"}
+      </Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  statsRow: {
+  summaryCard: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+  },
+  summaryRow: {
     flexDirection: "row",
     alignItems: "stretch",
-    gap: 0,
+  },
+  summaryMetric: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+    paddingHorizontal: spacing.sm,
+  },
+  summaryLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  summaryLabel: {
+    color: palette.textSecondary,
+    fontSize: typography.size.xs,
+    lineHeight: typography.line.xs,
+    fontFamily: typefaces.bodyStrong,
+  },
+  summaryTotal: {
+    fontSize: typography.size.xl,
+    lineHeight: typography.line.xl,
+    fontFamily: typefaces.numeric,
+  },
+  summaryCount: {
+    color: palette.textTertiary,
+    fontSize: typography.size.xs,
+    lineHeight: typography.line.xs,
+    fontFamily: typefaces.body,
+  },
+  summaryDivider: {
+    width: StyleSheet.hairlineWidth,
+    backgroundColor: palette.borderRow,
   },
 });
