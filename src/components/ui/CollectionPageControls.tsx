@@ -126,9 +126,6 @@ export function CollectionPageControls({
     <View style={styles.controls}>
       {Platform.OS === "ios" ? (
         <NativeCollectionToolbar
-          filterValue={filterValue}
-          filterOptions={filterOptions}
-          onChangeFilter={onChangeFilter}
           sortValue={sortValue}
           sortOptions={sortOptions}
           onChangeSort={onChangeSort}
