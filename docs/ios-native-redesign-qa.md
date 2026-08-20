@@ -88,7 +88,7 @@ normal in-app navigation uses the nested tab-stack destinations.
 
 ## Native screen and semantic component layer
 
-The iOS semantic layer lives in `src/components/ios`:
+The iOS semantic layer lives in `src/presentation/components/ios`:
 
 - `NativeScreen`, `NativeListScreen`, `NativeFormScreen`
 - `NativeToolbarActions`, `NativeRows`, `NativeFormControls`

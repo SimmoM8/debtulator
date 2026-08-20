@@ -1,3 +1,3 @@
-import { ExportDataScreen } from '@/src/screens/ExportDataScreen';
+import { ExportDataScreen } from '@/src/presentation/features/settings/screens/ExportDataScreen';
 
 export default ExportDataScreen;

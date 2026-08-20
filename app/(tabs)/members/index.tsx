@@ -1,1 +1,1 @@
-export { default } from "@/src/features/members/routes/MembersRouteScreen";
+export { default } from "@/src/presentation/features/members/routes/MembersRouteScreen";

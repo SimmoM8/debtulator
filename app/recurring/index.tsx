@@ -1,3 +1,3 @@
-import { RecurringTemplatesScreen } from '@/src/screens/RecurringTemplatesScreen';
+import { RecurringTemplatesScreen } from '@/src/presentation/features/settings/screens/RecurringTemplatesScreen';
 
 export default RecurringTemplatesScreen;

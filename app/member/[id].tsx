@@ -7,5 +7,12 @@ export default function LegacyMemberDetailRoute() {
 		return <Redirect href="/(tabs)/members" />;
 	}
 
-	return <Redirect href={`/(tabs)/members/member/${id}` as never} />;
+	return (
+		<Redirect
+			href={{
+				pathname: "/(tabs)/members/member/[id]",
+				params: { id },
+			}}
+		/>
+	);
 }

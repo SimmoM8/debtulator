@@ -8,7 +8,7 @@ Debtulator is local-first. SQLite IDs are the canonical relationship keys inside
 - Supabase relationships reference remote UUIDs.
 - Pulling a remote record creates or updates one local row and stores `remote_id`.
 - Pushing a local record stores the returned remote UUID back in `remote_id`.
-- Mapper functions in `src/services/sync/mappers.ts` are the only sync boundary for relationship conversion.
+- Mapper functions in `src/infrastructure/supabase/sync/mappers.ts` are the only sync boundary for relationship conversion.
 - Missing mappings throw `SyncMappingError`; financial records are not pushed with mixed local/remote relationship IDs.
 
 ## Shared Group Member Mapping

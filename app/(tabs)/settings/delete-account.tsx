@@ -1,1 +1,1 @@
-export { DeleteAccountScreen as default } from "@/src/screens/DeleteAccountScreen";
+export { DeleteAccountScreen as default } from "@/src/presentation/features/settings/screens/DeleteAccountScreen";

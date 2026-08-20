@@ -11,10 +11,11 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "expo lint",
+    "lint": "eslint app src scripts plugins --max-warnings=0",
+    "architecture": "node ./scripts/check-architecture.js",
     "typecheck": "tsc --noEmit",
-    "test": "jest",
-    "quality": "npm run typecheck && npm run lint && npm test",
+    "test": "jest --no-watchman",
+    "quality": "npm run architecture && npm run typecheck && npm run lint && npm test -- --runInBand",
     "release:preflight": "node ./scripts/release-preflight.js",
     "release:preflight:config": "node ./scripts/release-preflight.js --config-only",
     "supabase:start": "supabase start",
@@ -25,33 +26,33 @@
   "dependencies": {
     "@expo-google-fonts/manrope": "^0.4.2",
     "@expo-google-fonts/sora": "^0.4.2",
-    "@expo/ui": "~56.0.22",
+    "@expo/ui": "~56.0.26",
     "@expo/vector-icons": "^15.0.3",
     "@supabase/supabase-js": "^2.108.1",
     "boring-avatars": "^2.0.4",
-    "expo": "~56.0.16",
+    "expo": "~56.0.20",
     "expo-asset": "~56.0.20",
     "expo-blur": "~56.0.4",
     "expo-constants": "^56.0.18",
-    "expo-dev-client": "~56.0.23",
+    "expo-dev-client": "~56.0.25",
     "expo-document-picker": "~56.0.4",
     "expo-file-system": "~56.0.8",
     "expo-font": "~56.0.6",
     "expo-glass-effect": "~56.0.4",
     "expo-go": "^0.0.4",
     "expo-haptics": "~56.0.3",
-    "expo-image": "~56.0.11",
-    "expo-image-picker": "~56.0.21",
+    "expo-image": "~56.0.12",
+    "expo-image-picker": "~56.0.24",
     "expo-linear-gradient": "~56.0.4",
-    "expo-linking": "~56.0.15",
-    "expo-router": "~56.2.15",
+    "expo-linking": "~56.0.17",
+    "expo-router": "56.2.15",
     "expo-secure-store": "~56.0.4",
-    "expo-splash-screen": "~56.0.13",
+    "expo-splash-screen": "~56.0.14",
     "expo-sqlite": "~56.0.5",
     "expo-status-bar": "~56.0.4",
-    "expo-symbols": "~56.0.6",
+    "expo-symbols": "~56.0.7",
     "expo-system-ui": "~56.0.5",
-    "expo-web-browser": "~56.0.5",
+    "expo-web-browser": "~56.0.6",
     "jest-expo": "~56.0.5",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -66,6 +67,7 @@
     "react-native-worklets": "0.8.3"
   },
   "devDependencies": {
+    "@testing-library/react-native": "^13.3.3",
     "@types/jest": "^29.5.14",
     "@types/react": "~19.2.14",
     "eslint": "^9.25.0",
@@ -88,5 +90,16 @@
     "transformIgnorePatterns": [
       "node_modules/(?!((jest-)?react-native|@react-native|expo(nent)?|@expo(nent)?/.*|@expo/ui|react-navigation|@react-navigation/.*))"
     ]
+  },
+  "expo": {
+    "install": {
+      "exclude": [
+        "expo-router",
+        "react-native-screens"
+      ]
+    }
+  },
+  "overrides": {
+    "react-native-screens": "$react-native-screens"
   }
 }

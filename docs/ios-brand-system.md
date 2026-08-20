@@ -27,7 +27,7 @@ semantic meaning, people/group identity and occasional illustration.
 | Amber | `#F59E0B` | Warning source color |
 | Coral | `#FF6B6B` | Negative source color |
 
-Raw source colors live in `src/theme/brand.ts`. Screens consume semantic roles,
+Raw source colors live in `src/presentation/theme/brand.ts`. Screens consume semantic roles,
 not palette literals.
 
 ## Semantic roles
@@ -42,7 +42,7 @@ not palette literals.
 - `onBrandedBackground`, `positiveOnBranded`, `negativeOnBranded`
 - supporting positive, negative, warning and selection background roles
 
-`src/theme/iosBrand.ios.ts` uses `DynamicColorIOS` to provide deliberate light,
+`src/presentation/theme/iosBrand.ios.ts` uses `DynamicColorIOS` to provide deliberate light,
 dark, high-contrast-light and high-contrast-dark values. Ordinary labels continue
 to use SwiftUI hierarchical foreground styles so the operating system owns their
 appearance and accessibility adaptation.

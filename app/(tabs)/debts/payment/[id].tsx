@@ -1,1 +1,1 @@
-export { PaymentDetailScreen as default } from "@/src/screens/PaymentDetailScreen";
+export { PaymentDetailScreen as default } from "@/src/presentation/features/debts/screens/PaymentDetailScreen";

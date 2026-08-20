@@ -1,3 +1,3 @@
-import { FirstRunScreen } from '@/src/screens/FirstRunScreen';
+import { FirstRunScreen } from '@/src/presentation/features/onboarding/screens/FirstRunScreen';
 
 export default FirstRunScreen;

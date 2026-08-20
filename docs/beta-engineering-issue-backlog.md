@@ -49,10 +49,10 @@ The app currently exposes a delete-account flow that records `account_deletion_r
 
 ### Candidate surfaces
 
-- `src/screens/DeleteAccountScreen.tsx`
-- `src/state/AuthProvider.tsx`
-- `src/state/AppDataProvider.tsx`
-- `src/data/repositories.ts`
+- `src/presentation/features/settings/screens/DeleteAccountScreen.tsx`
+- `src/presentation/providers/AuthProvider.tsx`
+- `src/presentation/providers/AppDataProvider.tsx`
+- `src/infrastructure/sqlite/DebtulatorRepository.ts`
 - Supabase schema or edge-function layer
 
 ### Out of scope
@@ -102,9 +102,9 @@ The app already exposes notification preferences and a notification center, but 
 
 ### Candidate surfaces
 
-- `src/screens/NotificationCenterScreen.tsx`
-- `src/screens/PrivacyControlsScreen.tsx`
-- `src/services/notifications.ts`
+- `src/presentation/features/settings/screens/NotificationCenterScreen.tsx`
+- `src/presentation/features/settings/screens/PrivacyControlsScreen.tsx`
+- `src/domain/notifications/notificationPolicy.ts`
 - App bootstrap and platform config
 
 ### Out of scope
@@ -153,9 +153,9 @@ CSV import and attachment creation currently rely on manual file URI entry. That
 
 ### Candidate surfaces
 
-- `src/screens/ImportCsvScreen.tsx`
-- `src/components/AttachmentsSection.tsx`
-- `src/screens/FullDataExportScreen.tsx`
+- `src/presentation/features/settings/screens/ImportCsvScreen.tsx`
+- `src/presentation/components/AttachmentsSection.tsx`
+- `src/presentation/features/settings/screens/FullDataExportScreen.tsx`
 - export/import service utilities
 
 ### Out of scope
@@ -252,8 +252,8 @@ The sync engine covers many record types and relationship mappings, but the curr
 ### Candidate surfaces
 
 - `tests/stage7-sync.test.cjs`
-- `src/services/sync/*`
-- `src/services/stage6Sync.ts`
+- `src/infrastructure/supabase/sync/*`
+- `src/application/sync/syncPolicy.ts`
 
 ### Out of scope
 
@@ -346,10 +346,10 @@ The app already supports export and restore, but beta quality depends on better 
 
 ### Candidate surfaces
 
-- `src/screens/FullDataExportScreen.tsx`
-- `src/screens/BackupRestoreScreen.tsx`
-- `src/services/export.ts`
-- `src/services/backupRestore.ts`
+- `src/presentation/features/settings/screens/FullDataExportScreen.tsx`
+- `src/presentation/features/settings/screens/BackupRestoreScreen.tsx`
+- `src/application/data/export.ts`
+- `src/application/data/backupRestore.ts`
 
 ### Out of scope
 
@@ -393,7 +393,7 @@ Some screens still contain wording that implies placeholder or future-hardening 
 
 ### Candidate surfaces
 
-- `src/screens/SettingsScreen.tsx`
+- `src/presentation/features/settings/screens/SettingsScreen.tsx`
 - privacy, export, notification, and delete-account screens
 
 ### Out of scope

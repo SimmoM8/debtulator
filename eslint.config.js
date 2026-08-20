@@ -2,36 +2,203 @@
 const { defineConfig } = require('eslint/config');
 const expoConfig = require('eslint-config-expo/flat');
 
+const sourceFiles = '**/*.{js,jsx,ts,tsx}';
+const legacyDirectories = [
+  'components',
+  'config',
+  'constants',
+  'data',
+  'features',
+  'navigation',
+  'screens',
+  'services',
+  'state',
+  'theme',
+  'types',
+  'utils',
+];
+const legacyPatterns = [
+  {
+    group: legacyDirectories.flatMap((directory) => [
+      `@/src/${directory}`,
+      `@/src/${directory}/**`,
+    ]),
+    message: 'This alias targets a retired pre-refactor tree. Import its canonical layered module.',
+  },
+  {
+    group: ['@/components', '@/components/**', '@/constants', '@/constants/**', '@/hooks', '@/hooks/**'],
+    message: 'This root alias is legacy. Import the canonical module under src/domain or src/presentation.',
+  },
+];
+const sdkPatterns = [
+  'react',
+  'react/**',
+  'react-native',
+  'react-native/**',
+  'react-native-*',
+  'expo',
+  'expo/**',
+  'expo-*',
+  '@expo/**',
+  '@supabase/**',
+];
+
+function layerPatterns(layer) {
+  return [`@/src/${layer}`, `@/src/${layer}/**`];
+}
+
+function restrictedImports(patterns) {
+  return [
+    'error',
+    {
+      patterns: [...legacyPatterns, ...patterns],
+    },
+  ];
+}
+
 module.exports = defineConfig([
   expoConfig,
   {
-    ignores: ['dist/*'],
+    ignores: ['dist/**'],
   },
   {
-    files: ['app/**/*.{ts,tsx}'],
-    ignores: ['app/_layout.tsx', 'app/_layout.ios.tsx', 'app/(tabs)/**/_layout.tsx', 'app/(tabs)/**/_layout.ios.tsx'],
+    files: [`app/${sourceFiles}`, `src/${sourceFiles}`],
     rules: {
-      'no-restricted-imports': ['error', {
-        paths: [
-          { name: '@/src/state/AppDataProvider', message: 'Do not place data state logic in app/ routes. Re-export route modules from src/features instead.' },
-          { name: '@/src/state/AuthProvider', message: 'Do not place auth state logic in app/ routes. Keep app/ routes minimal.' },
-          { name: '@/src/services/telemetry', message: 'Do not place presentation or app services wiring in app/ routes.' },
-          { name: '@/src/components/ui/Primitives', message: 'Do not build presentation UI in app/ route files; route files should re-export or redirect.' },
-          { name: '@/src/components/ui/Finance', message: 'Do not build presentation UI in app/ route files; route files should re-export or redirect.' },
-          { name: '@/src/components/ui/CollectionPageControls', message: 'Do not build presentation UI in app/ route files; route files should re-export or redirect.' },
-        ],
-      }],
+      'no-restricted-imports': restrictedImports([]),
     },
   },
   {
-    files: ['src/screens/*.{ts,tsx}'],
+    files: [`src/domain/${sourceFiles}`],
     rules: {
-      'no-restricted-imports': ['error', {
-        patterns: [{
-          group: ['@/src/components/ios/**'],
-          message: 'Application content must use the shared design system; keep iOS-only code in navigation adapters.',
-        }],
-      }],
+      'no-restricted-imports': restrictedImports([
+        {
+          group: [
+            ...layerPatterns('application'),
+            ...layerPatterns('infrastructure'),
+            ...layerPatterns('platform'),
+            ...layerPatterns('presentation'),
+            '@/src/composition',
+            '@/src/composition/**',
+          ],
+          message: 'Domain may import only domain code. Move outward behavior behind an application port.',
+        },
+        {
+          group: sdkPatterns,
+          message: 'Domain must be framework-independent; move this SDK/native dependency outward.',
+        },
+      ]),
+    },
+  },
+  {
+    files: [`src/application/${sourceFiles}`],
+    rules: {
+      'no-restricted-imports': restrictedImports([
+        {
+          group: [
+            ...layerPatterns('infrastructure'),
+            ...layerPatterns('platform'),
+            ...layerPatterns('presentation'),
+            '@/src/composition',
+            '@/src/composition/**',
+          ],
+          message: 'Application may import only application/domain code. Depend on a port, not its adapter.',
+        },
+        {
+          group: sdkPatterns,
+          message: 'Application must not depend on React, native APIs, Expo, or vendor SDKs; implement an application port outward.',
+        },
+      ]),
+    },
+  },
+  {
+    files: [`src/infrastructure/${sourceFiles}`],
+    rules: {
+      'no-restricted-imports': restrictedImports([
+        {
+          group: [
+            ...layerPatterns('presentation'),
+            '@/src/composition',
+            '@/src/composition/**',
+          ],
+          message: 'Infrastructure must not depend on presentation/composition. Depend inward on contracts.',
+        },
+      ]),
+    },
+  },
+  {
+    files: [`src/platform/${sourceFiles}`],
+    rules: {
+      'no-restricted-imports': restrictedImports([
+        {
+          group: [
+            ...layerPatterns('infrastructure'),
+            ...layerPatterns('presentation'),
+            '@/src/composition',
+            '@/src/composition/**',
+          ],
+          message: 'Platform adapters may depend only on platform/application/domain code internally.',
+        },
+      ]),
+    },
+  },
+  {
+    files: [`src/presentation/${sourceFiles}`],
+    rules: {
+      'no-restricted-imports': restrictedImports([
+        {
+          group: [
+            ...layerPatterns('infrastructure'),
+            ...layerPatterns('platform'),
+            '@/src/composition',
+            '@/src/composition/**',
+          ],
+          message: 'Presentation must consume an application contract/provider, not a concrete adapter.',
+        },
+      ]),
+    },
+  },
+  {
+    files: [
+      'src/presentation/providers/AppDataProvider.{js,jsx,ts,tsx}',
+      'src/presentation/providers/AuthProvider.{js,jsx,ts,tsx}',
+      'src/presentation/providers/**/*GatewayProvider.{js,jsx,ts,tsx}',
+      `src/composition/${sourceFiles}`,
+    ],
+    rules: {
+      'no-restricted-imports': restrictedImports([]),
+    },
+  },
+  {
+    files: [`app/${sourceFiles}`],
+    ignores: ['app/**/_layout.*'],
+    rules: {
+      'no-restricted-imports': restrictedImports([
+        {
+          group: [
+            ...layerPatterns('domain'),
+            ...layerPatterns('application'),
+            ...layerPatterns('infrastructure'),
+            ...layerPatterns('platform'),
+            '@/src/composition',
+            '@/src/composition/**',
+            '@/src/presentation/components',
+            '@/src/presentation/components/**',
+            '@/src/presentation/config',
+            '@/src/presentation/config/**',
+            '@/src/presentation/design-system',
+            '@/src/presentation/design-system/**',
+            '@/src/presentation/navigation',
+            '@/src/presentation/navigation/**',
+            '@/src/presentation/onboarding',
+            '@/src/presentation/onboarding/**',
+            '@/src/presentation/providers',
+            '@/src/presentation/providers/**',
+            '@/src/presentation/theme',
+            '@/src/presentation/theme/**',
+          ],
+          message: 'Non-layout routes may import only Expo Router and presentation screens/features.',
+        },
+      ]),
     },
   },
 ]);

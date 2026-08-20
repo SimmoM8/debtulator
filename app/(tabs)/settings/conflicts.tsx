@@ -1,1 +1,1 @@
-export { ConflictCenterScreen as default } from "@/src/screens/ConflictCenterScreen";
+export { ConflictCenterScreen as default } from "@/src/presentation/features/settings/screens/ConflictCenterScreen";

@@ -25,15 +25,37 @@ Optional Supabase environment variables:
 
 ```bash
 EXPO_PUBLIC_SUPABASE_URL=...
-EXPO_PUBLIC_SUPABASE_ANON_KEY=...
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
 APP_ENV=development
 ```
 
-Do not commit service-role keys or production secrets. The mobile client must only use the Supabase anon key with RLS enabled.
+The legacy `EXPO_PUBLIC_SUPABASE_ANON_KEY` remains a compatibility fallback.
+Do not commit service-role keys or production secrets. The mobile client may
+only use a publishable/legacy anon key, with RLS enabled for every exposed
+table and storage bucket.
+
+## Architecture
+
+The application is split into inward-facing policy and outward-facing
+implementations:
+
+- `src/domain`: framework-free ledger, money, split, permissions, privacy, and
+  conflict rules.
+- `src/application`: workflows, application models, and ports.
+- `src/infrastructure`: SQLite and Supabase implementations.
+- `src/platform`: session storage, lifecycle, files, pickers, and sharing.
+- `src/presentation`: feature screens, providers, navigation adapters, theme,
+  and the design system.
+- `app`: thin Expo Router entries and the root composition boundary.
+
+SQLite remains the UI's local source of truth. Shared writes are queued
+durably and financial conflicts require explicit resolution. See
+[`docs/architecture/application-architecture.md`](docs/architecture/application-architecture.md)
+for the dependency rules and design rationale.
 
 ## Local Database
 
-The app opens `debtulator-stage1.db` and runs additive SQLite migrations in `src/data/database.ts`. The local database is the main source of truth and works offline. Reset controls exist only in settings for development.
+The app opens `debtulator-stage1.db` and runs additive SQLite migrations in `src/infrastructure/sqlite/database.ts`. The local database is the main source of truth and works offline. Reset controls exist only in settings for development.
 
 Key local sync/support tables include:
 
@@ -129,7 +151,9 @@ For a fresh development backend:
 
 1. Create a Supabase project.
 2. Run `supabase/schema.sql` in the Supabase SQL editor.
-3. Add `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` locally.
+3. Add `EXPO_PUBLIC_SUPABASE_URL` and
+   `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` locally (or the legacy anon-key
+   fallback).
 4. Create/sign up a test user.
 
 `supabase/schema.sql` is intentionally destructive and is meant for prelaunch development only. After launch, cloud schema changes should move to additive, data-preserving migrations.
@@ -142,12 +166,14 @@ RLS must remain enabled. Storage policies must restrict receipt/proof attachment
 npm run ios
 npm run android
 npm run web
+npm run architecture
 npm run lint
 ```
 
 ## Release Builds
 
-The app is configured with bundle/package identifiers, icons, splash screen, deep link scheme, notification permission metadata, and EAS profiles.
+The app is configured with bundle/package identifiers, icons, splash screen,
+deep link scheme, least-privilege media permissions, and EAS profiles.
 
 Run automated quality and release configuration checks before creating a release build:
 
@@ -162,7 +188,7 @@ Production submission must use strict checks with real store and backend environ
 ```bash
 APP_ENV=production \
 EXPO_PUBLIC_SUPABASE_URL=... \
-EXPO_PUBLIC_SUPABASE_ANON_KEY=... \
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=... \
 APP_PRIVACY_POLICY_URL=https://... \
 APP_SUPPORT_URL=https://... \
 npm run release:preflight -- --env=production --strict-env

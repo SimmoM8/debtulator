@@ -151,7 +151,7 @@ No `Touchable*` use exists in the audited `src` tree. Direct/custom uses that mu
 
 ### Hard-coded presentation values
 
-- 34 of 38 screen implementations declare `fontFamily`/`fontSize` styles, primarily Manrope and Sora aliases from `src/constants/design.ts`.
+- 34 of 38 screen implementations declare `fontFamily`/`fontSize` styles, primarily Manrope and Sora aliases from `src/presentation/theme/design.ts`.
 - All ordinary iOS text currently inherits a root font-loading gate for Manrope and Sora; this blocks launch while fonts load and prevents native SF/Dynamic Type behaviour.
 - 34 screen implementations declare manual foreground/background colors. The root theme and `StatusBar style="dark"` force a light-biased appearance rather than semantic light/dark behaviour.
 - 27 screen implementations declare custom radii; many shared components also use arbitrary radii, shadows or fixed surface dimensions.

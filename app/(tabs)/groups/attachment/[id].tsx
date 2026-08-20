@@ -1,1 +1,1 @@
-export { AttachmentDetailScreen as default } from "@/src/screens/AttachmentDetailScreen";
+export { AttachmentDetailScreen as default } from "@/src/presentation/features/groups/screens/AttachmentDetailScreen";

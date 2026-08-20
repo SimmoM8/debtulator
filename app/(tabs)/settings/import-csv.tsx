@@ -1,1 +1,1 @@
-export { ImportCsvScreen as default } from "@/src/screens/ImportCsvScreen";
+export { ImportCsvScreen as default } from "@/src/presentation/features/settings/screens/ImportCsvScreen";

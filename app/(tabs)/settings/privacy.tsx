@@ -1,1 +1,1 @@
-export { PrivacyControlsScreen as default } from "@/src/screens/PrivacyControlsScreen";
+export { PrivacyControlsScreen as default } from "@/src/presentation/features/settings/screens/PrivacyControlsScreen";

@@ -1,1 +1,1 @@
-export { NotificationCenterScreen as default } from "@/src/screens/NotificationCenterScreen";
+export { NotificationCenterScreen as default } from "@/src/presentation/features/settings/screens/NotificationCenterScreen";

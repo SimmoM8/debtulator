@@ -1,1 +1,1 @@
-export { RecurringTemplateFormScreen as default } from "@/src/screens/RecurringTemplateFormScreen";
+export { RecurringTemplateFormScreen as default } from "@/src/presentation/features/settings/screens/RecurringTemplateFormScreen";

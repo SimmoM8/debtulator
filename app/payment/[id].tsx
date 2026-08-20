@@ -1,3 +1,3 @@
-import { PaymentDetailScreen } from '@/src/screens/PaymentDetailScreen';
+import { PaymentDetailScreen } from '@/src/presentation/features/debts/screens/PaymentDetailScreen';
 
 export default PaymentDetailScreen;

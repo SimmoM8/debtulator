@@ -1,1 +1,1 @@
-export { DebtDetailScreen as default } from "@/src/screens/DebtDetailScreen";
+export { DebtDetailScreen as default } from "@/src/presentation/features/debts/screens/DebtDetailScreen";

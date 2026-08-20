@@ -1,3 +1,3 @@
-import { BackupRestoreScreen } from '@/src/screens/BackupRestoreScreen';
+import { BackupRestoreScreen } from '@/src/presentation/features/settings/screens/BackupRestoreScreen';
 
 export default BackupRestoreScreen;

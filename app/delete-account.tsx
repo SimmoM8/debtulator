@@ -1,3 +1,3 @@
-import { DeleteAccountScreen } from '@/src/screens/DeleteAccountScreen';
+import { DeleteAccountScreen } from '@/src/presentation/features/settings/screens/DeleteAccountScreen';
 
 export default DeleteAccountScreen;

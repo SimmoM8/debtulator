@@ -7,8 +7,8 @@ This sitemap describes the app's navigable screen structure, not the user's end-
 - File-based routes in `app/`
 - Root stack registration in `app/_layout.tsx`
 - Tab configuration in `app/(tabs)/_layout.tsx`
-- Secondary entry points in `src/components/navigation/AppMenuButton.tsx`
-- Quick-add entry points in `src/components/navigation/GlassBottomTabBar.tsx`
+- Secondary entry points in `src/presentation/navigation/AppMenuButton.tsx`
+- Quick-add entry points in `src/presentation/navigation/GlassBottomTabBar.tsx`
 
 ## Navigation model
 

@@ -6,11 +6,12 @@ tokens are all cross-platform React Native code.
 
 ## Shared application UI
 
-- Generic Expo Router route modules select the shared screens in `src/screens`.
-- `src/theme/tokens.ts` is the canonical source for colours, spacing, typography,
-  radii, shadows, and gradients. `src/constants/design.ts` is a compatibility
+- Generic Expo Router route modules select feature-owned screens in
+  `src/presentation/features/*/screens`.
+- `src/presentation/theme/tokens.ts` is the canonical source for colours, spacing, typography,
+  radii, shadows, and gradients. `src/presentation/theme/design.ts` is a compatibility
   re-export while feature imports migrate naturally.
-- `src/components/ui` contains the canonical page, card, row, form, button,
+- `src/presentation/design-system` contains the canonical page, card, row, form, button,
   filter, empty-state, and finance primitives.
 - A screen feature must not create an iOS copy of its content. If a platform
   route file is required, it delegates to the same shared screen component.
@@ -20,10 +21,12 @@ tokens are all cross-platform React Native code.
 Only native navigation and system presentation differ on iOS:
 
 - `expo-router/unstable-native-tabs` owns the five primary tabs.
+- `src/presentation/navigation/AppTabs.ios.tsx` is the stable adapter around
+  that unstable API; the tab route layout is only a re-export.
 - Each tab retains its native nested Stack, large title, collapse behaviour,
   transparent compact header, back gesture, form sheets, and grabbers.
-- `src/navigation/RootNavigator.ios.tsx` owns native root presentations.
-- `src/components/ios/NativeNavigationStyle.tsx` owns native header appearance.
+- `src/presentation/navigation/RootNavigator.ios.tsx` owns native root presentations.
+- `src/presentation/navigation/NativeNavigationStyle.tsx` owns native header appearance.
 - `NativePageNavigation.ios.tsx`, `NativeCollectionHeader.ios.tsx`, and
   `NativeFormToolbar.ios.tsx` translate shared header/form metadata into native
   search and toolbar controls.
@@ -38,7 +41,7 @@ screen bodies and design system.
 
 - No platform-specific duplicate screen bodies.
 - No platform-specific cards, rows, sections, forms, or domain summaries.
-- No app-content imports from `src/components/ios`.
+- No app-content imports from `src/presentation/components/ios`.
 - Platform checks are restricted to low-level system adapters such as navigation,
   safe-area/inset handling, native glass availability, and web-only fallbacks.
 - The `react-native-screens` dependency and repository patch remain unchanged.

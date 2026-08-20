@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   quality:
-    name: Typecheck, lint, and test
+    name: Architecture, typecheck, lint, test, and export
     runs-on: ubuntu-latest
 
     steps:
@@ -22,7 +22,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20.19.4"
+          node-version: "20.20.2"
           cache: npm
 
       - name: Install
@@ -31,6 +31,12 @@ jobs:
       - name: Release config preflight
         run: npm run release:preflight:config -- --env=staging
 
+      - name: Check Expo dependency versions
+        run: npx expo install --check
+
+      - name: Check architecture boundaries
+        run: npm run architecture
+
       - name: Typecheck
         run: npm run typecheck
 
@@ -38,4 +44,7 @@ jobs:
         run: npm run lint
 
       - name: Test
-        run: npm test
+        run: npm test -- --runInBand
+
+      - name: Export all platforms
+        run: npx expo export --platform all --output-dir dist --clear
