@@ -42,6 +42,13 @@ const sdkPatterns = [
   '@expo/**',
   '@supabase/**',
 ];
+const infrastructureSdkPatterns = [
+  '@supabase/**',
+  'expo-sqlite',
+  'expo-secure-store',
+  'expo-file-system',
+  'expo-document-picker',
+];
 
 function layerPatterns(layer) {
   return [`@/src/${layer}`, `@/src/${layer}/**`];
@@ -62,13 +69,19 @@ module.exports = defineConfig([
     ignores: ['dist/**'],
   },
   {
-    files: [`app/${sourceFiles}`, `src/${sourceFiles}`],
+    files: [
+      `apps/mobile/app/${sourceFiles}`,
+      `apps/mobile/src/${sourceFiles}`,
+      `packages/domain/src/${sourceFiles}`,
+      `packages/application/src/${sourceFiles}`,
+      `packages/contracts/src/${sourceFiles}`,
+    ],
     rules: {
       'no-restricted-imports': restrictedImports([]),
     },
   },
   {
-    files: [`src/domain/${sourceFiles}`],
+    files: [`packages/domain/src/${sourceFiles}`],
     rules: {
       'no-restricted-imports': restrictedImports([
         {
@@ -79,6 +92,10 @@ module.exports = defineConfig([
             ...layerPatterns('presentation'),
             '@/src/composition',
             '@/src/composition/**',
+            '@debtulator/application',
+            '@debtulator/application/**',
+            '@debtulator/contracts',
+            '@debtulator/contracts/**',
           ],
           message: 'Domain may import only domain code. Move outward behavior behind an application port.',
         },
@@ -90,7 +107,7 @@ module.exports = defineConfig([
     },
   },
   {
-    files: [`src/application/${sourceFiles}`],
+    files: [`packages/application/src/${sourceFiles}`],
     rules: {
       'no-restricted-imports': restrictedImports([
         {
@@ -100,6 +117,8 @@ module.exports = defineConfig([
             ...layerPatterns('presentation'),
             '@/src/composition',
             '@/src/composition/**',
+            '@debtulator/contracts',
+            '@debtulator/contracts/**',
           ],
           message: 'Application may import only application/domain code. Depend on a port, not its adapter.',
         },
@@ -111,7 +130,28 @@ module.exports = defineConfig([
     },
   },
   {
-    files: [`src/infrastructure/${sourceFiles}`],
+    files: [`packages/contracts/src/${sourceFiles}`],
+    rules: {
+      'no-restricted-imports': restrictedImports([
+        {
+          group: [
+            '@debtulator/domain',
+            '@debtulator/domain/**',
+            '@debtulator/application',
+            '@debtulator/application/**',
+            '@/src/**',
+          ],
+          message: 'Generated contracts must remain transport-only and cannot depend on app layers.',
+        },
+        {
+          group: sdkPatterns,
+          message: 'Generated contracts must not acquire runtime framework or vendor SDK dependencies.',
+        },
+      ]),
+    },
+  },
+  {
+    files: [`apps/mobile/src/infrastructure/${sourceFiles}`],
     rules: {
       'no-restricted-imports': restrictedImports([
         {
@@ -126,7 +166,7 @@ module.exports = defineConfig([
     },
   },
   {
-    files: [`src/platform/${sourceFiles}`],
+    files: [`apps/mobile/src/platform/${sourceFiles}`],
     rules: {
       'no-restricted-imports': restrictedImports([
         {
@@ -142,7 +182,7 @@ module.exports = defineConfig([
     },
   },
   {
-    files: [`src/presentation/${sourceFiles}`],
+    files: [`apps/mobile/src/presentation/${sourceFiles}`],
     rules: {
       'no-restricted-imports': restrictedImports([
         {
@@ -151,6 +191,7 @@ module.exports = defineConfig([
             ...layerPatterns('platform'),
             '@/src/composition',
             '@/src/composition/**',
+            ...infrastructureSdkPatterns,
           ],
           message: 'Presentation must consume an application contract/provider, not a concrete adapter.',
         },
@@ -159,18 +200,18 @@ module.exports = defineConfig([
   },
   {
     files: [
-      'src/presentation/providers/AppDataProvider.{js,jsx,ts,tsx}',
-      'src/presentation/providers/AuthProvider.{js,jsx,ts,tsx}',
-      'src/presentation/providers/**/*GatewayProvider.{js,jsx,ts,tsx}',
-      `src/composition/${sourceFiles}`,
+      'apps/mobile/src/presentation/providers/AppDataProvider.{js,jsx,ts,tsx}',
+      'apps/mobile/src/presentation/providers/AuthProvider.{js,jsx,ts,tsx}',
+      'apps/mobile/src/presentation/providers/**/*GatewayProvider.{js,jsx,ts,tsx}',
+      `apps/mobile/src/composition/${sourceFiles}`,
     ],
     rules: {
       'no-restricted-imports': restrictedImports([]),
     },
   },
   {
-    files: [`app/${sourceFiles}`],
-    ignores: ['app/**/_layout.*'],
+    files: [`apps/mobile/app/${sourceFiles}`],
+    ignores: ['apps/mobile/app/**/_layout.*'],
     rules: {
       'no-restricted-imports': restrictedImports([
         {
@@ -179,6 +220,12 @@ module.exports = defineConfig([
             ...layerPatterns('application'),
             ...layerPatterns('infrastructure'),
             ...layerPatterns('platform'),
+            '@debtulator/domain',
+            '@debtulator/domain/**',
+            '@debtulator/application',
+            '@debtulator/application/**',
+            '@debtulator/contracts',
+            '@debtulator/contracts/**',
             '@/src/composition',
             '@/src/composition/**',
             '@/src/presentation/components',

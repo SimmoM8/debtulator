@@ -3,40 +3,105 @@
 /* global __dirname */
 
 const fs = require('node:fs');
+const { builtinModules } = require('node:module');
 const path = require('node:path');
 const ts = require('typescript');
 
 const repositoryRoot = path.resolve(__dirname, '..');
 const sourceExtensions = new Set(['.js', '.jsx', '.ts', '.tsx']);
-const scannedRoots = ['app', 'src'];
+const scannedRoots = ['packages', 'apps/mobile/app', 'apps/mobile/src'];
 
-const layers = ['domain', 'application', 'infrastructure', 'platform', 'presentation'];
+const layerRoots = new Map([
+  ['packages/domain/src', 'domain'],
+  ['packages/application/src', 'application'],
+  ['packages/contracts/src', 'contracts'],
+  ['apps/mobile/src/infrastructure', 'infrastructure'],
+  ['apps/mobile/src/platform', 'platform'],
+  ['apps/mobile/src/presentation', 'presentation'],
+  ['apps/mobile/src/composition', 'composition'],
+  ['apps/mobile/app', 'app'],
+]);
 const allowedInternalDependencies = {
   domain: new Set(['domain']),
   application: new Set(['application', 'domain']),
-  infrastructure: new Set(['infrastructure', 'platform', 'application', 'domain']),
+  contracts: new Set(['contracts']),
+  infrastructure: new Set(['infrastructure', 'platform', 'application', 'domain', 'contracts']),
   platform: new Set(['platform', 'application', 'domain']),
   presentation: new Set(['presentation', 'application', 'domain']),
 };
 
+const packageAliases = new Map([
+  ['@debtulator/domain', 'packages/domain/src'],
+  ['@debtulator/application', 'packages/application/src'],
+  ['@debtulator/contracts', 'packages/contracts/src'],
+]);
+
+// These packages expose runtime capabilities owned by one or more outward
+// layers. Keeping the list explicit makes violations actionable without
+// pretending that an architecture checker can prove an arbitrary npm package
+// is pure. Unlisted dependencies are considered pure only in the domain layer.
+const sdkAllowedLayers = new Map([
+  ['@supabase/supabase-js', new Set(['infrastructure', 'composition'])],
+  ['@supabase/postgrest-js', new Set(['infrastructure', 'composition'])],
+  ['expo-sqlite', new Set(['infrastructure', 'composition'])],
+  ['react-native-url-polyfill', new Set(['infrastructure', 'composition'])],
+  ['@react-native-async-storage/async-storage', new Set(['platform', 'composition'])],
+  ['expo-application', new Set(['platform', 'composition'])],
+  ['expo-background-fetch', new Set(['platform', 'composition'])],
+  ['expo-background-task', new Set(['platform', 'composition'])],
+  ['expo-clipboard', new Set(['platform', 'composition'])],
+  ['expo-device', new Set(['platform', 'composition'])],
+  ['expo-document-picker', new Set(['platform', 'composition'])],
+  ['expo-file-system', new Set(['platform', 'composition'])],
+  ['expo-image-picker', new Set(['platform', 'composition'])],
+  ['expo-local-authentication', new Set(['platform', 'composition'])],
+  ['expo-network', new Set(['platform', 'composition'])],
+  ['expo-notifications', new Set(['platform', 'composition'])],
+  ['expo-secure-store', new Set(['platform', 'composition'])],
+  ['expo-sharing', new Set(['platform', 'composition'])],
+  ['expo-task-manager', new Set(['platform', 'composition'])],
+  ['expo-router', new Set(['presentation', 'composition', 'app'])],
+  ['@expo/ui', new Set(['presentation', 'composition', 'app'])],
+  ['@expo/vector-icons', new Set(['presentation', 'composition', 'app'])],
+  ['expo-glass-effect', new Set(['presentation', 'composition', 'app'])],
+  ['expo-linear-gradient', new Set(['presentation', 'composition', 'app'])],
+  ['expo-symbols', new Set(['presentation', 'composition', 'app'])],
+  ['react', new Set(['presentation', 'composition', 'app'])],
+  ['react-native', new Set(['platform', 'presentation', 'composition', 'app'])],
+]);
+
+const generatedSupabaseTypePackages = new Set([
+  '@supabase/supabase-js',
+  '@supabase/postgrest-js',
+]);
+const nodeBuiltinPackages = new Set(
+  builtinModules.map((moduleName) => moduleName.replace(/^node:/, '').split('/')[0]),
+);
+
 const legacySrcAliases = new Map([
-  ['components', 'src/presentation/components or src/presentation/design-system'],
-  ['config', 'the owning layer (usually src/presentation/config)'],
-  ['constants', 'src/domain or src/presentation/theme'],
-  ['data', 'src/infrastructure or src/application'],
-  ['features', 'src/presentation/features'],
-  ['navigation', 'src/presentation/navigation'],
-  ['screens', 'src/presentation/screens'],
-  ['services', 'src/domain, src/application, src/infrastructure, or src/platform'],
-  ['state', 'src/presentation/providers'],
-  ['theme', 'src/presentation/theme'],
-  ['types', 'src/domain/models'],
-  ['utils', 'src/domain/shared or the owning layer'],
+  ['application', '@debtulator/application'],
+  ['contracts', '@debtulator/contracts'],
+  ['domain', '@debtulator/domain'],
+  ['components', '@/src/presentation/components or @/src/presentation/design-system'],
+  ['config', 'the owning mobile layer (usually @/src/presentation/config)'],
+  ['constants', '@debtulator/domain or @/src/presentation/theme'],
+  ['data', '@/src/infrastructure or @debtulator/application'],
+  ['features', '@/src/presentation/features'],
+  ['navigation', '@/src/presentation/navigation'],
+  ['screens', '@/src/presentation/screens'],
+  ['services', '@debtulator/domain, @debtulator/application, @/src/infrastructure, or @/src/platform'],
+  ['state', '@/src/presentation/providers'],
+  ['theme', '@/src/presentation/theme'],
+  ['types', '@debtulator/domain'],
+  ['utils', '@debtulator/domain or the owning mobile layer'],
 ]);
 const legacyRootAliases = new Map([
-  ['components', 'src/presentation/components or src/presentation/design-system'],
-  ['constants', 'src/domain or src/presentation/theme'],
-  ['hooks', 'the owning src/presentation feature'],
+  ['application', '@debtulator/application'],
+  ['contracts', '@debtulator/contracts'],
+  ['domain', '@debtulator/domain'],
+  ['components', '@/src/presentation/components or @/src/presentation/design-system'],
+  ['constants', '@debtulator/domain or @/src/presentation/theme'],
+  ['hooks', 'the owning @/src/presentation feature'],
 ]);
 
 function toPosix(filePath) {
@@ -54,7 +119,14 @@ function walk(directory) {
 
   const files = [];
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-    if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === 'dist') {
+    if (
+      entry.name === 'node_modules' ||
+      entry.name === '.git' ||
+      entry.name === '.expo' ||
+      entry.name === 'build' ||
+      entry.name === 'coverage' ||
+      entry.name === 'dist'
+    ) {
       continue;
     }
     const entryPath = path.join(directory, entry.name);
@@ -68,16 +140,11 @@ function walk(directory) {
 }
 
 function layerForRepositoryPath(repositoryPath) {
-  for (const layer of layers) {
-    if (repositoryPath === `src/${layer}` || repositoryPath.startsWith(`src/${layer}/`)) {
+  const normalizedPath = path.posix.normalize(toPosix(repositoryPath));
+  for (const [layerRoot, layer] of layerRoots) {
+    if (normalizedPath === layerRoot || normalizedPath.startsWith(`${layerRoot}/`)) {
       return layer;
     }
-  }
-  if (repositoryPath === 'src/composition' || repositoryPath.startsWith('src/composition/')) {
-    return 'composition';
-  }
-  if (repositoryPath === 'app' || repositoryPath.startsWith('app/')) {
-    return 'app';
   }
   return null;
 }
@@ -94,12 +161,15 @@ function isTestFile(repositoryPath) {
 }
 
 function isCompositionController(repositoryPath) {
-  if (repositoryPath.startsWith('src/composition/')) {
+  if (
+    repositoryPath === 'apps/mobile/src/composition' ||
+    repositoryPath.startsWith('apps/mobile/src/composition/')
+  ) {
     return true;
   }
 
   const providerMatch = repositoryPath.match(
-    /^src\/presentation\/providers\/([^/]+)\.(?:js|jsx|ts|tsx)$/,
+    /^apps\/mobile\/src\/presentation\/providers\/([^/]+)\.(?:js|jsx|ts|tsx)$/,
   );
   if (!providerMatch) {
     return false;
@@ -113,6 +183,14 @@ function isCompositionController(repositoryPath) {
 }
 
 function legacyAlias(specifier) {
+  const packagePathMatch = specifier.match(/^\/(domain|application|contracts)(?:\/|$)/);
+  if (packagePathMatch) {
+    return {
+      segment: packagePathMatch[1],
+      replacement: `@debtulator/${packagePathMatch[1]}`,
+    };
+  }
+
   const srcMatch = specifier.match(/^@\/src\/([^/]+)(?:\/|$)/);
   if (srcMatch && legacySrcAliases.has(srcMatch[1])) {
     return {
@@ -148,7 +226,7 @@ function collectImports(filePath, sourceText) {
   );
   const imports = [];
 
-  const addImport = (moduleNode, kind) => {
+  const addImport = (moduleNode, kind, isTypeOnly = false) => {
     if (!moduleNode || !ts.isStringLiteralLike(moduleNode)) {
       return;
     }
@@ -156,6 +234,7 @@ function collectImports(filePath, sourceText) {
     imports.push({
       specifier: moduleNode.text,
       kind,
+      isTypeOnly,
       line: location.line + 1,
       column: location.character + 1,
     });
@@ -163,16 +242,37 @@ function collectImports(filePath, sourceText) {
 
   const visit = (node) => {
     if (ts.isImportDeclaration(node)) {
-      addImport(node.moduleSpecifier, 'import');
+      const bindings = node.importClause?.namedBindings;
+      const hasOnlyTypeSpecifiers =
+        node.importClause &&
+        !node.importClause.name &&
+        bindings &&
+        ts.isNamedImports(bindings) &&
+        bindings.elements.length > 0 &&
+        bindings.elements.every((element) => element.isTypeOnly);
+      addImport(
+        node.moduleSpecifier,
+        'import',
+        Boolean(node.importClause?.isTypeOnly || hasOnlyTypeSpecifiers),
+      );
     } else if (ts.isExportDeclaration(node)) {
-      addImport(node.moduleSpecifier, 'export');
+      const hasOnlyTypeSpecifiers =
+        node.exportClause &&
+        ts.isNamedExports(node.exportClause) &&
+        node.exportClause.elements.length > 0 &&
+        node.exportClause.elements.every((element) => element.isTypeOnly);
+      addImport(
+        node.moduleSpecifier,
+        'export',
+        Boolean(node.isTypeOnly || hasOnlyTypeSpecifiers),
+      );
     } else if (
       ts.isImportEqualsDeclaration(node) &&
       ts.isExternalModuleReference(node.moduleReference)
     ) {
       addImport(node.moduleReference.expression, 'import');
     } else if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument)) {
-      addImport(node.argument.literal, 'type import');
+      addImport(node.argument.literal, 'type import', true);
     } else if (ts.isCallExpression(node) && node.arguments.length > 0) {
       if (node.expression.kind === ts.SyntaxKind.ImportKeyword) {
         addImport(node.arguments[0], 'dynamic import');
@@ -189,8 +289,33 @@ function collectImports(filePath, sourceText) {
 
 function resolveImport(importerRepositoryPath, specifier) {
   let targetRepositoryPath = null;
-  if (specifier.startsWith('@/')) {
-    targetRepositoryPath = toPosix(path.posix.normalize(specifier.slice(2)));
+  for (const [packageAlias, packageRoot] of packageAliases) {
+    if (specifier === packageAlias || specifier.startsWith(`${packageAlias}/`)) {
+      const packageSubpath = specifier === packageAlias ? '' : specifier.slice(packageAlias.length + 1);
+      targetRepositoryPath = path.posix.normalize(path.posix.join(packageRoot, packageSubpath));
+      break;
+    }
+  }
+
+  if (targetRepositoryPath === null && specifier.startsWith('@debtulator/')) {
+    return { kind: 'unknown-workspace', layer: null, repositoryPath: null };
+  }
+  if (targetRepositoryPath === null && specifier === '@/src') {
+    targetRepositoryPath = 'apps/mobile/src';
+  } else if (targetRepositoryPath === null && specifier.startsWith('@/src/')) {
+    targetRepositoryPath = path.posix.normalize(
+      path.posix.join('apps/mobile/src', specifier.slice('@/src/'.length)),
+    );
+  } else if (targetRepositoryPath === null && specifier === '@/app') {
+    targetRepositoryPath = 'apps/mobile/app';
+  } else if (targetRepositoryPath === null && specifier.startsWith('@/app/')) {
+    targetRepositoryPath = path.posix.normalize(
+      path.posix.join('apps/mobile/app', specifier.slice('@/app/'.length)),
+    );
+  } else if (targetRepositoryPath === null && specifier.startsWith('@/')) {
+    targetRepositoryPath = path.posix.normalize(
+      path.posix.join('apps/mobile', specifier.slice(2)),
+    );
   } else if (specifier.startsWith('.')) {
     targetRepositoryPath = path.posix.normalize(
       path.posix.join(path.posix.dirname(importerRepositoryPath), specifier),
@@ -213,6 +338,32 @@ function resolveImport(importerRepositoryPath, specifier) {
     layer: layerForRepositoryPath(targetRepositoryPath),
     repositoryPath: targetRepositoryPath,
   };
+}
+
+function packageNameForSpecifier(specifier) {
+  if (!specifier || specifier.startsWith('.') || specifier.startsWith('/') || specifier.startsWith('@/')) {
+    return null;
+  }
+  if (specifier.startsWith('node:')) {
+    return 'node:';
+  }
+  const segments = specifier.split('/');
+  return specifier.startsWith('@') ? segments.slice(0, 2).join('/') : segments[0];
+}
+
+function sdkLayersForSpecifier(specifier) {
+  const packageName = packageNameForSpecifier(specifier);
+  if (
+    packageName === 'node:' ||
+    (packageName && nodeBuiltinPackages.has(packageName.replace(/^node:/, '')))
+  ) {
+    return new Set();
+  }
+  return packageName ? sdkAllowedLayers.get(packageName) || null : null;
+}
+
+function isGeneratedContractsFile(repositoryPath) {
+  return repositoryPath.startsWith('packages/contracts/src/generated/');
 }
 
 function violation(repositoryPath, imported, rule, message, fix) {
@@ -238,6 +389,24 @@ function checkLayerImport(repositoryPath, sourceLayer, imported, target) {
         'Move reusable behavior out of app/ and import its owning layer instead.',
       );
     }
+    if (target.kind === 'unknown-workspace' || (target.kind === 'internal' && !target.layer)) {
+      return violation(
+        repositoryPath,
+        imported,
+        'composition-boundary',
+        `Composition imports an unowned workspace module via "${imported.specifier}".`,
+        'Import one of the declared workspace packages/mobile layers or move the module into an owned boundary.',
+      );
+    }
+    if (target.kind === 'outside') {
+      return violation(
+        repositoryPath,
+        imported,
+        'composition-boundary',
+        `Composition imports outside the repository via "${imported.specifier}".`,
+        'Use a workspace package, mobile adapter, or an installed dependency.',
+      );
+    }
     return null;
   }
 
@@ -250,16 +419,58 @@ function checkLayerImport(repositoryPath, sourceLayer, imported, target) {
     }
   }
 
+  if (sourceLayer === 'contracts') {
+    if (target.kind === 'internal' && target.layer === 'contracts') {
+      return null;
+    }
+    const packageName = packageNameForSpecifier(imported.specifier);
+    if (
+      target.kind === 'external' &&
+      isGeneratedContractsFile(repositoryPath) &&
+      imported.isTypeOnly &&
+      generatedSupabaseTypePackages.has(packageName)
+    ) {
+      return null;
+    }
+    return violation(
+      repositoryPath,
+      imported,
+      'contracts-boundary',
+      `Generated contracts must be standalone; "${imported.specifier}" crosses the contracts package boundary.`,
+      'Keep generated scalar/database types self-contained; map them to domain objects in mobile infrastructure.',
+    );
+  }
+
+  if (target.kind === 'external') {
+    const sdkLayers = sdkLayersForSpecifier(imported.specifier);
+    if (sdkLayers && !sdkLayers.has(sourceLayer)) {
+      return violation(
+        repositoryPath,
+        imported,
+        'sdk-boundary',
+        `The "${packageNameForSpecifier(imported.specifier)}" SDK is not owned by the ${sourceLayer} layer.`,
+        sourceLayer === 'presentation'
+          ? 'Consume an application/domain contract and inject the infrastructure or platform adapter from composition.'
+          : 'Move this SDK access to its owning mobile adapter and expose only an application-owned port inward.',
+      );
+    }
+  }
+
   const allowedLayers = allowedInternalDependencies[sourceLayer];
   if (target.kind === 'internal' && target.layer && allowedLayers.has(target.layer)) {
     return null;
   }
 
+  if (target.kind === 'external' && sourceLayer === 'domain') {
+    // Known framework/native/data SDKs were rejected above. Remaining packages
+    // are treated as pure utilities; adding a new runtime SDK requires adding
+    // ownership to sdkAllowedLayers.
+    return null;
+  }
+
   if (
     target.kind === 'external' &&
-    (sourceLayer === 'infrastructure' ||
-      sourceLayer === 'platform' ||
-      sourceLayer === 'presentation')
+    (sourceLayer === 'infrastructure' || sourceLayer === 'platform' || sourceLayer === 'presentation')
   ) {
     return null;
   }
@@ -269,7 +480,7 @@ function checkLayerImport(repositoryPath, sourceLayer, imported, target) {
       repositoryPath,
       imported,
       'domain-boundary',
-      `Domain code may import only src/domain/**; "${imported.specifier}" points outside the domain.`,
+      `Domain code may import only @debtulator/domain or pure external utilities; "${imported.specifier}" points outside the domain.`,
       'Move framework, persistence, network, and platform behavior behind an application port; keep domain logic pure.',
     );
   }
@@ -278,7 +489,7 @@ function checkLayerImport(repositoryPath, sourceLayer, imported, target) {
       repositoryPath,
       imported,
       'application-boundary',
-      `Application code may import only src/application/** and src/domain/**; "${imported.specifier}" is an outward dependency.`,
+      `Application code may import only @debtulator/application and @debtulator/domain; "${imported.specifier}" is an outward dependency.`,
       'Define or reuse an application port, then implement the SDK/native behavior in infrastructure or platform.',
     );
   }
@@ -319,7 +530,12 @@ function checkRouteImport(repositoryPath, imported, target) {
   if (
     target.kind === 'internal' &&
     target.repositoryPath &&
-    /^src\/presentation\/(?:screens|features)(?:\/|$)/.test(target.repositoryPath)
+    (/^apps\/mobile\/src\/presentation\/(?:screens|features)(?:\/|$)/.test(
+      target.repositoryPath,
+    ) ||
+      /^apps\/mobile\/src\/presentation\/navigation\/(?:routes|canonicalRoutes)(?:\.|\/|$)/.test(
+        target.repositoryPath,
+      ))
   ) {
     return null;
   }
@@ -327,7 +543,7 @@ function checkRouteImport(repositoryPath, imported, target) {
     repositoryPath,
     imported,
     'route-boundary',
-    `Non-layout routes may import only Expo Router or src/presentation/{screens,features}; found "${imported.specifier}".`,
+    `Non-layout routes may import only Expo Router, presentation screens/features, or canonical route definitions; found "${imported.specifier}".`,
     'Keep the route as a thin re-export/redirect and move rendering, state, and SDK usage into presentation.',
   );
 }
@@ -340,10 +556,40 @@ function checkRepository(root = repositoryRoot) {
   let importCount = 0;
   let filesChecked = 0;
 
+  if (path.resolve(root) === repositoryRoot) {
+    for (const layerRoot of layerRoots.keys()) {
+      if (!fs.existsSync(path.join(root, layerRoot))) {
+        violations.push({
+          file: layerRoot,
+          line: 1,
+          column: 1,
+          specifier: null,
+          rule: 'workspace-layout',
+          message: `Required workspace boundary "${layerRoot}" is missing.`,
+          fix: 'Restore the declared monorepo layer so the checker cannot silently skip its source files.',
+        });
+      }
+    }
+  }
+
   for (const filePath of files) {
     const repositoryPath = toPosix(path.relative(root, filePath));
     const sourceLayer = layerForRepositoryPath(repositoryPath);
     if (!sourceLayer) {
+      if (
+        repositoryPath.startsWith('apps/mobile/src/') ||
+        /^packages\/[^/]+\/src\//.test(repositoryPath)
+      ) {
+        violations.push({
+          file: repositoryPath,
+          line: 1,
+          column: 1,
+          specifier: null,
+          rule: 'unowned-source',
+          message: 'Source file is outside every declared workspace layer.',
+          fix: 'Move it into domain, application, contracts, infrastructure, platform, presentation, or composition.',
+        });
+      }
       continue;
     }
 
@@ -360,7 +606,7 @@ function checkRepository(root = repositoryRoot) {
     filesChecked += 1;
 
     if (
-      (sourceLayer === 'domain' || sourceLayer === 'application') &&
+      (sourceLayer === 'domain' || sourceLayer === 'application' || sourceLayer === 'contracts') &&
       (filePath.endsWith('.tsx') || filePath.endsWith('.jsx'))
     ) {
       violations.push({
@@ -370,7 +616,7 @@ function checkRepository(root = repositoryRoot) {
         specifier: null,
         rule: `${sourceLayer}-jsx`,
         message: `${sourceLayer[0].toUpperCase()}${sourceLayer.slice(1)} code must not contain JSX.`,
-        fix: 'Move the view/component to src/presentation and keep the inward layer framework-independent.',
+        fix: 'Move the view/component to apps/mobile/src/presentation and keep workspace packages framework-independent.',
       });
     }
 
@@ -444,7 +690,7 @@ function printResult(result) {
     console.error(`  Fix: ${item.fix}`);
   }
   console.error(
-    '\nBoundary summary: domain -> domain; application -> application/domain; infrastructure -> infrastructure/platform/application/domain; platform -> platform/application/domain; presentation -> presentation/application/domain. Layouts and explicit composition providers are the wiring roots.',
+    '\nBoundary summary: domain -> domain/pure utilities; application -> application/domain; contracts -> contracts/generated scalar types; infrastructure -> infrastructure/platform/application/domain/contracts; platform -> platform/application/domain; presentation -> presentation/application/domain. Composition and route layouts are the wiring roots; composition never imports route entries.',
   );
 }
 
@@ -464,5 +710,7 @@ module.exports = {
   isTestFile,
   layerForRepositoryPath,
   legacyAlias,
+  packageNameForSpecifier,
   resolveImport,
+  sdkLayersForSpecifier,
 };

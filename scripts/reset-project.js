@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* global __dirname */
 
 /**
  * This script is used to reset the project to a blank state.
@@ -10,8 +11,8 @@ const fs = require("fs");
 const path = require("path");
 const readline = require("readline");
 
-const root = process.cwd();
-const oldDirs = ["app", "components", "hooks", "constants", "scripts"];
+const root = path.resolve(__dirname, "..", "apps", "mobile");
+const oldDirs = ["app"];
 const exampleDir = "app-example";
 const newAppDir = "app";
 const exampleDirPath = path.join(root, exampleDir);
@@ -87,7 +88,7 @@ const moveDirectories = async (userInput) => {
 
     console.log("\n✅ Project reset complete. Next steps:");
     console.log(
-      `1. Run \`npx expo start\` to start a development server.\n2. Edit app/index.tsx to edit the main screen.${
+      `1. Run \`npm start\` from the repository root to start a development server.\n2. Edit apps/mobile/app/index.tsx to edit the main screen.${
         userInput === "y"
           ? `\n3. Delete the /${exampleDir} directory when you're done referencing it.`
           : ""

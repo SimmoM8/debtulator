@@ -4,25 +4,29 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - "app.json"
-      - "eas.json"
-      - "metro.config.js"
+      - "apps/mobile/app.json"
+      - "apps/mobile/eas.json"
+      - "apps/mobile/metro.config.js"
+      - "apps/mobile/babel.config.js"
+      - "apps/mobile/package.json"
       - "package.json"
       - "package-lock.json"
       - "patches/**"
-      - "plugins/**"
+      - "apps/mobile/plugins/**"
       - ".github/workflows/native-quality.yml"
   push:
     branches:
       - main
     paths:
-      - "app.json"
-      - "eas.json"
-      - "metro.config.js"
+      - "apps/mobile/app.json"
+      - "apps/mobile/eas.json"
+      - "apps/mobile/metro.config.js"
+      - "apps/mobile/babel.config.js"
+      - "apps/mobile/package.json"
       - "package.json"
       - "package-lock.json"
       - "patches/**"
-      - "plugins/**"
+      - "apps/mobile/plugins/**"
       - ".github/workflows/native-quality.yml"
 
 permissions:
@@ -44,8 +48,9 @@ jobs:
           java-version: "17"
           cache: gradle
       - run: npm ci
-      - run: npx expo prebuild --clean --no-install --platform android
-      - working-directory: android
+      - working-directory: apps/mobile
+        run: npx expo prebuild --clean --no-install --platform android
+      - working-directory: apps/mobile/android
         run: ./gradlew :app:assembleDebug --no-daemon
 
   ios:
@@ -58,10 +63,11 @@ jobs:
           node-version: "20.20.2"
           cache: npm
       - run: npm ci
-      - run: npx expo prebuild --clean --no-install --platform ios
-      - working-directory: ios
+      - working-directory: apps/mobile
+        run: npx expo prebuild --clean --no-install --platform ios
+      - working-directory: apps/mobile/ios
         run: pod install
-      - working-directory: ios
+      - working-directory: apps/mobile/ios
         run: >-
           xcodebuild
           -workspace Debtulator.xcworkspace

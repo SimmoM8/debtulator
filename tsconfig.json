@@ -1,11 +1,20 @@
 {
-  "extends": "expo/tsconfig.base",
+  "extends": "./apps/mobile/tsconfig.json",
   "compilerOptions": {
-    "strict": true,
+    "types": ["jest"],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./apps/mobile/*"],
+      "@debtulator/domain/*": ["./packages/domain/src/*"],
+      "@debtulator/application/*": ["./packages/application/src/*"],
+      "@debtulator/contracts/*": ["./packages/contracts/src/*"]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
-  "exclude": ["supabase/functions"]
+  "include": [
+    "apps/mobile/**/*.ts",
+    "apps/mobile/**/*.tsx",
+    "apps/mobile/.expo/types/**/*.ts",
+    "apps/mobile/expo-env.d.ts",
+    "packages/**/*.ts"
+  ],
+  "exclude": ["backend/supabase/functions"]
 }

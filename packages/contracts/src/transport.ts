@@ -1,0 +1,26 @@
+import type { Tables } from './generated/database';
+
+export type AccountDeletionRequestRow = Tables<'account_deletion_requests'>;
+export type ActivityLogRow = Tables<'activity_logs'>;
+export type AttachmentRow = Tables<'attachments'>;
+export type AuditLogRow = Tables<'audit_logs'>;
+export type CommentRow = Tables<'comments'>;
+export type DebtVerificationRow = Tables<'debt_verifications'>;
+export type ExpensePayerRow = Tables<'expense_payers'>;
+export type GroupActivityLogRow = Tables<'group_activity_logs'>;
+export type GroupDebtRow = Tables<'group_debts'>;
+export type GroupDuplicateWarningRow = Tables<'group_duplicate_warnings'>;
+export type GroupExpenseRow = Tables<'group_expenses'>;
+export type GroupExpenseSplitRow = Tables<'group_expense_splits'>;
+export type GroupInviteRow = Tables<'group_invites'>;
+export type GroupMemberClaimRow = Tables<'group_member_claims'>;
+export type GroupMemberRow = Tables<'group_members'>;
+export type GroupParticipantRow = Tables<'group_participants'>;
+export type GroupRow = Tables<'groups'>;
+export type GroupVerificationResponseRow = Tables<'group_verification_responses'>;
+export type LinkRequestRow = Tables<'link_requests'>;
+export type NotificationRow = Tables<'notifications'>;
+export type PaymentRow = Tables<'payments'>;
+export type SettlementLineRow = Tables<'settlement_lines'>;
+export type SettlementRow = Tables<'settlements'>;
+export type SharedDebtRecordRow = Tables<'shared_debt_records'>;

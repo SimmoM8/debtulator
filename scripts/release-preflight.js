@@ -6,6 +6,7 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const root = path.resolve(__dirname, "..");
+const mobileRoot = path.join(root, "apps", "mobile");
 const args = new Set(process.argv.slice(2));
 const getArgValue = (name, fallback) => {
   const prefix = `${name}=`;
@@ -37,14 +38,14 @@ function requireValue(value, message) {
   }
 }
 
-function requireFile(relativePath, message) {
+function requireMobileFile(relativePath, message) {
   if (!relativePath) {
     blockers.push(message);
     return;
   }
 
   const normalizedPath = relativePath.replace(/^\.\//, "");
-  if (!fs.existsSync(path.join(root, normalizedPath))) {
+  if (!fs.existsSync(path.join(mobileRoot, normalizedPath))) {
     blockers.push(`${message}: ${relativePath} was not found`);
   }
 }
@@ -120,14 +121,14 @@ function checkAppConfig(appJson) {
     blockers.push(`Android package looks like a placeholder: ${expo.android.package}`);
   }
 
-  requireFile(expo.icon, "App icon is missing");
-  requireFile(expo.web?.favicon, "Web favicon is missing");
-  requireFile(expo.android?.adaptiveIcon?.foregroundImage, "Android adaptive foreground icon is missing");
-  requireFile(expo.android?.adaptiveIcon?.backgroundImage, "Android adaptive background image is missing");
-  requireFile(expo.android?.adaptiveIcon?.monochromeImage, "Android monochrome icon is missing");
+  requireMobileFile(expo.icon, "App icon is missing");
+  requireMobileFile(expo.web?.favicon, "Web favicon is missing");
+  requireMobileFile(expo.android?.adaptiveIcon?.foregroundImage, "Android adaptive foreground icon is missing");
+  requireMobileFile(expo.android?.adaptiveIcon?.backgroundImage, "Android adaptive background image is missing");
+  requireMobileFile(expo.android?.adaptiveIcon?.monochromeImage, "Android monochrome icon is missing");
 
   const splashPlugin = expo.plugins?.find((plugin) => Array.isArray(plugin) && plugin[0] === "expo-splash-screen");
-  requireFile(splashPlugin?.[1]?.image, "Splash screen image is missing");
+  requireMobileFile(splashPlugin?.[1]?.image, "Splash screen image is missing");
 
   const imagePickerPlugin = expo.plugins?.find((plugin) => Array.isArray(plugin) && plugin[0] === "expo-image-picker");
   requireValue(
@@ -169,7 +170,7 @@ function checkAppConfig(appJson) {
 
   const nativeBuildPlugin = expo.plugins?.find((plugin) => plugin === "./plugins/withIosUserScriptSandboxing");
   requireValue(nativeBuildPlugin, "The durable iOS CocoaPods build configuration plugin is not registered");
-  requireFile(
+  requireMobileFile(
     nativeBuildPlugin ? `${nativeBuildPlugin}.js` : null,
     "The durable iOS CocoaPods build configuration plugin is missing",
   );
@@ -251,9 +252,9 @@ function checkStoreAndEnvironment() {
   }
 }
 
-const packageJson = readJson("package.json");
-const appJson = readJson("app.json");
-const easJson = readJson("eas.json");
+const packageJson = readJson("apps/mobile/package.json");
+const appJson = readJson("apps/mobile/app.json");
+const easJson = readJson("apps/mobile/eas.json");
 
 checkVersions(packageJson, appJson);
 checkAppConfig(appJson);

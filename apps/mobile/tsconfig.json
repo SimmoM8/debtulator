@@ -1,0 +1,14 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "@/*": ["./*"],
+      "@debtulator/domain/*": ["../../packages/domain/src/*"],
+      "@debtulator/application/*": ["../../packages/application/src/*"],
+      "@debtulator/contracts/*": ["../../packages/contracts/src/*"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts", "../../packages/**/*.ts"],
+  "exclude": ["../../backend/supabase/functions"]
+}

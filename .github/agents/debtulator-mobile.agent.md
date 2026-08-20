@@ -18,8 +18,8 @@ You are a specialist for the Debtulator mobile application's UI and navigation s
 
 ## Repo Context
 
-- App stack: Expo SDK 54, React 19, React Native 0.81, expo-router, TypeScript.
-- Primary surfaces: app routes, tab layouts, shared UI components, and screen-level interactions.
+- App stack: Expo SDK 56, React 19.2, React Native 0.85, Expo Router, and TypeScript.
+- Primary surfaces: `apps/mobile/app` routes and `apps/mobile/src/presentation` components, navigation, and interactions.
 - Runtime constraint: when validating Expo or Metro behavior, use Node 20.20.2 or another Node version that satisfies the repo's `>=20.19.4` requirement.
 
 ## Approach

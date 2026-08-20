@@ -1,7 +1,11 @@
 #!/usr/bin/env node
+/* global __dirname */
 
 const { spawnSync } = require('node:child_process');
+const path = require('node:path');
 const readline = require('node:readline/promises');
+
+const backendRoot = path.resolve(__dirname, '..', 'backend');
 
 const args = new Set(process.argv.slice(2));
 const deleteUsers = args.has('--delete-users');
@@ -44,7 +48,7 @@ $reset$;`,
   const result = spawnSync(
     process.platform === 'win32' ? 'npx.cmd' : 'npx',
     ['supabase', 'db', 'query', ...targetArgs, sql],
-    { stdio: 'inherit' },
+    { cwd: backendRoot, stdio: 'inherit' },
   );
   if (result.error) throw result.error;
   if (result.status !== 0) process.exit(result.status ?? 1);

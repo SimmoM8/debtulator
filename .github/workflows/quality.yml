@@ -32,6 +32,7 @@ jobs:
         run: npm run release:preflight:config -- --env=staging
 
       - name: Check Expo dependency versions
+        working-directory: apps/mobile
         run: npx expo install --check
 
       - name: Check architecture boundaries
@@ -47,4 +48,5 @@ jobs:
         run: npm test -- --runInBand
 
       - name: Export all platforms
-        run: npx expo export --platform all --output-dir dist --clear
+        working-directory: apps/mobile
+        run: npx expo export --platform all --output-dir ../../dist --clear
