@@ -1,3 +1,3 @@
-import { PrivacyControlsScreen } from '@/src/screens/PrivacyControlsScreen';
+import { PrivacyControlsScreen } from '@/src/presentation/features/settings/screens/PrivacyControlsScreen';
 
 export default PrivacyControlsScreen;

@@ -1,1 +1,1 @@
-export { RecurringTemplatesScreen as default } from "@/src/screens/RecurringTemplatesScreen";
+export { RecurringTemplatesScreen as default } from "@/src/presentation/features/settings/screens/RecurringTemplatesScreen";

@@ -1,1 +1,1 @@
-export { SyncStatusScreen as default } from "@/src/screens/SyncStatusScreen";
+export { SyncStatusScreen as default } from "@/src/presentation/features/settings/screens/SyncStatusScreen";

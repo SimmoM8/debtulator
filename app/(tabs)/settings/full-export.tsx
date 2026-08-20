@@ -1,1 +1,1 @@
-export { FullDataExportScreen as default } from "@/src/screens/FullDataExportScreen";
+export { FullDataExportScreen as default } from "@/src/presentation/features/settings/screens/FullDataExportScreen";

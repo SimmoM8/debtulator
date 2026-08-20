@@ -77,7 +77,7 @@ web/generic presentation changes.
 ## Static architecture scan
 
 - Exactly one SwiftUI `Host` declaration remains:
-  `src/components/ios/NativeScreen.tsx`.
+  `src/presentation/components/ios/NativeScreen.tsx`.
 - No `matchContents` or `RNHostView` is used by the native screens.
 - No iOS presentation imports `Pressable`, `Touchable*`, React Native `TextInput`,
   React Native `Switch`, `BlurView`, `GlassView`, `PageHeader`, the old custom tab

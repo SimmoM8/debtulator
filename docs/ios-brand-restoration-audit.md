@@ -13,11 +13,13 @@ that commit without reverting or copying its React Native presentation architect
 
 ## Sources inspected
 
-- Reference and current `src/constants/design.ts` and `constants/theme.ts`
+- Reference and current `src/presentation/theme/design.ts` and `constants/theme.ts`
 - Reference and current root/tab layouts
 - Reference Dashboard, Members, Debts, Groups, detail and form screens
 - Reference `PageHeader`, cards, status pills, stat cards, list rows and avatars
-- Current native route layouts, `src/components/ios` and all `src/screens/ios`
+- Current native route layouts, navigation adapters in
+  `src/presentation/navigation`, and shared feature screens in
+  `src/presentation/features`
 - Existing orbit and shield SVG illustrations and app icon assets
 - Native baseline screenshots for all five primary tabs in light and dark mode
 - Android regression screenshot, which preserves the legacy visual language without
@@ -91,7 +93,7 @@ Classification:
 
 ## Token audit
 
-`src/constants/design.ts` already contains the correct Debtulator source palette,
+`src/presentation/theme/design.ts` already contains the correct Debtulator source palette,
 but it is a React Native presentation token file and has no deliberate dark/high-
 contrast variants. It remains the Android/shared legacy source and must not be
 imported directly into SwiftUI screens.

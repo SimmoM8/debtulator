@@ -2,7 +2,7 @@
 
 Debtulator remains local-first. SQLite is always available. Supabase is optional and only used when configured and the user is authenticated.
 
-Private records do not sync automatically. Shared records sync through durable `sync_queue` operations and the mapper layer in `src/services/sync/mappers.ts`.
+Private records do not sync automatically. Shared records sync through durable `sync_queue` operations and the mapper layer in `src/infrastructure/supabase/sync/mappers.ts`.
 
 | Record | Local table | Remote table | Source of truth | Private | Shared | Ownership / visibility | Sync behavior | Conflict / delete behavior |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |

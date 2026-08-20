@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* global __dirname */
 
 const fs = require("node:fs");
 const path = require("node:path");
@@ -128,18 +129,50 @@ function checkAppConfig(appJson) {
   const splashPlugin = expo.plugins?.find((plugin) => Array.isArray(plugin) && plugin[0] === "expo-splash-screen");
   requireFile(splashPlugin?.[1]?.image, "Splash screen image is missing");
 
+  const imagePickerPlugin = expo.plugins?.find((plugin) => Array.isArray(plugin) && plugin[0] === "expo-image-picker");
   requireValue(
-    expo.ios?.infoPlist?.NSUserNotificationsUsageDescription,
-    "iOS notification permission usage text is missing",
-  );
-  requireValue(
-    expo.ios?.infoPlist?.NSPhotoLibraryUsageDescription,
-    "iOS photo library permission usage text is missing",
+    imagePickerPlugin?.[1]?.photosPermission,
+    "expo-image-picker must provide product-specific iOS photo library permission text",
   );
 
-  if (!expo.android?.permissions?.includes("POST_NOTIFICATIONS")) {
-    warnings.push("Android POST_NOTIFICATIONS permission is not declared; confirm notifications are intentionally out of scope");
+  if (imagePickerPlugin?.[1]?.cameraPermission !== false) {
+    blockers.push("expo-image-picker cameraPermission must remain false while camera capture is out of scope");
   }
+  if (imagePickerPlugin?.[1]?.microphonePermission !== false) {
+    blockers.push("expo-image-picker microphonePermission must remain false while audio capture is out of scope");
+  }
+
+  const secureStorePlugin = expo.plugins?.find((plugin) => Array.isArray(plugin) && plugin[0] === "expo-secure-store");
+  if (secureStorePlugin?.[1]?.faceIDPermission !== false) {
+    blockers.push("expo-secure-store faceIDPermission must remain false until device authentication is implemented");
+  }
+
+  if (expo.android?.permissions?.includes("POST_NOTIFICATIONS")) {
+    blockers.push("Android POST_NOTIFICATIONS must not be declared until native push delivery is implemented");
+  }
+  if (expo.ios?.infoPlist?.NSUserNotificationsUsageDescription) {
+    blockers.push("NSUserNotificationsUsageDescription must not be declared while native push delivery is out of scope");
+  }
+  if (expo.ios?.infoPlist?.NSFaceIDUsageDescription) {
+    blockers.push("NSFaceIDUsageDescription must not be declared until device authentication is implemented");
+  }
+
+  const routerPlugin = expo.plugins?.find(
+    (plugin) => Array.isArray(plugin) && plugin[0] === "expo-router",
+  );
+  if (routerPlugin?.[1]?.headers?.["Cross-Origin-Embedder-Policy"] !== "credentialless") {
+    blockers.push("Expo Router must configure Cross-Origin-Embedder-Policy=credentialless for web SQLite");
+  }
+  if (routerPlugin?.[1]?.headers?.["Cross-Origin-Opener-Policy"] !== "same-origin") {
+    blockers.push("Expo Router must configure Cross-Origin-Opener-Policy=same-origin for web SQLite");
+  }
+
+  const nativeBuildPlugin = expo.plugins?.find((plugin) => plugin === "./plugins/withIosUserScriptSandboxing");
+  requireValue(nativeBuildPlugin, "The durable iOS CocoaPods build configuration plugin is not registered");
+  requireFile(
+    nativeBuildPlugin ? `${nativeBuildPlugin}.js` : null,
+    "The durable iOS CocoaPods build configuration plugin is missing",
+  );
 }
 
 function checkEasConfig(easJson) {
@@ -174,10 +207,10 @@ function checkEasConfig(easJson) {
 }
 
 function checkStoreAndEnvironment() {
-  const requiredEnv = [
-    "EXPO_PUBLIC_SUPABASE_URL",
-    "EXPO_PUBLIC_SUPABASE_ANON_KEY",
-  ];
+  const requiredEnv = ["EXPO_PUBLIC_SUPABASE_URL"];
+  const clientKey =
+    process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
   if (strictEnv) {
     for (const envName of requiredEnv) {
@@ -189,6 +222,17 @@ function checkStoreAndEnvironment() {
         warnings.push(`${envName} is not set locally; confirm it is configured in EAS for ${targetEnv}`);
       }
     }
+  }
+
+  if (strictEnv) {
+    requireValue(
+      clientKey,
+      "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY (or legacy EXPO_PUBLIC_SUPABASE_ANON_KEY) is required for strict release preflight",
+    );
+  } else if (!clientKey) {
+    warnings.push(
+      `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY is not set locally (legacy EXPO_PUBLIC_SUPABASE_ANON_KEY is also accepted); confirm a client key is configured in EAS for ${targetEnv}`,
+    );
   }
 
   const storeUrls = [
@@ -217,9 +261,7 @@ checkEasConfig(easJson);
 checkStoreAndEnvironment();
 
 if (!skipQuality) {
-  run("npm", ["run", "typecheck"]);
-  run("npm", ["run", "lint"]);
-  run("npm", ["test"]);
+  run("npm", ["run", "quality"]);
 }
 
 for (const warning of warnings) {

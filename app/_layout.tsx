@@ -16,23 +16,29 @@ import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
 import "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
-import { ErrorBoundary } from "@/src/components/ErrorBoundary";
-import { InAppNotificationToast } from "@/src/components/InAppNotificationToast";
-import { Button as NativeButton } from "@/src/components/ui/Button";
+import { ErrorBoundary } from "@/src/presentation/components/ErrorBoundary";
+import { InAppNotificationToast } from "@/src/presentation/components/InAppNotificationToast";
+import { Button as NativeButton } from "@/src/presentation/design-system/Button";
 import {
     palette,
     spacing,
     typefaces,
     typography,
-} from "@/src/constants/design";
-import { RootNavigator } from "@/src/navigation/RootNavigator";
+} from "@/src/presentation/theme/design";
+import { RootNavigator } from "@/src/presentation/navigation/RootNavigator";
 import {
     addTelemetryBreadcrumb,
     configureTelemetry,
+    configureTelemetrySink,
     installGlobalCrashHandler,
-} from "@/src/services/telemetry";
-import { AppDataProvider, useAppData } from "@/src/state/AppDataProvider";
-import { AuthProvider, useAuth } from "@/src/state/AuthProvider";
+} from "@/src/application/observability/telemetry";
+import { AppDataProvider, useAppData } from "@/src/presentation/providers/AppDataProvider";
+import { AuthProvider, useAuth } from "@/src/presentation/providers/AuthProvider";
+import { PlatformServicesProvider } from "@/src/presentation/providers/PlatformServicesProvider";
+import { expoPlatformFileServices } from "@/src/platform/files/expoPlatformFileServices";
+import { CollaborationProvider } from "@/src/presentation/providers/CollaborationProvider";
+import { createSupabaseCollaborationGateway } from "@/src/infrastructure/supabase/SupabaseCollaborationGateway";
+import { supabaseTelemetrySink } from "@/src/infrastructure/supabase/SupabaseTelemetrySink";
 
 export const unstable_settings = {
   anchor: "(tabs)",
@@ -52,6 +58,11 @@ const DebtulatorTheme = {
     notification: palette.coral,
   },
 };
+
+const collaborationGateway = createSupabaseCollaborationGateway(
+  expoPlatformFileServices.files,
+);
+configureTelemetrySink(supabaseTelemetrySink);
 
 export default function RootLayout() {
   const [manropeLoaded] = useManropeFonts({
@@ -85,23 +96,27 @@ export default function RootLayout() {
   }
 
   return (
-    <SafeAreaProvider>
-      <AppDataProvider>
-        <TelemetrySettingsBridge />
-        <ThemeProvider value={DebtulatorTheme}>
-          <ErrorBoundary>
-            <AppDataGate>
-              <AuthProvider>
-                <StartupRouteGate>
-                  <RootNavigator />
-                  <InAppNotificationToast />
-                </StartupRouteGate>
-              </AuthProvider>
-            </AppDataGate>
-          </ErrorBoundary>
-        </ThemeProvider>
-      </AppDataProvider>
-    </SafeAreaProvider>
+    <PlatformServicesProvider services={expoPlatformFileServices}>
+      <CollaborationProvider gateway={collaborationGateway}>
+        <SafeAreaProvider>
+          <AppDataProvider>
+            <TelemetrySettingsBridge />
+            <ThemeProvider value={DebtulatorTheme}>
+              <ErrorBoundary>
+                <AppDataGate>
+                  <AuthProvider>
+                    <StartupRouteGate>
+                      <RootNavigator />
+                      <InAppNotificationToast />
+                    </StartupRouteGate>
+                  </AuthProvider>
+                </AppDataGate>
+              </ErrorBoundary>
+            </ThemeProvider>
+          </AppDataProvider>
+        </SafeAreaProvider>
+      </CollaborationProvider>
+    </PlatformServicesProvider>
   );
 }
 

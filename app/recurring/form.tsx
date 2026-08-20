@@ -1,3 +1,3 @@
-import { RecurringTemplateFormScreen } from '@/src/screens/RecurringTemplateFormScreen';
+import { RecurringTemplateFormScreen } from '@/src/presentation/features/settings/screens/RecurringTemplateFormScreen';
 
 export default RecurringTemplateFormScreen;

@@ -1,3 +1,3 @@
-import { ExpenseFormScreen } from '@/src/screens/ExpenseFormScreen';
+import { ExpenseFormScreen } from '@/src/presentation/features/groups/screens/ExpenseFormScreen';
 
 export default ExpenseFormScreen;

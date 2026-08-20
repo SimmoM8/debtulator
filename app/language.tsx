@@ -1,3 +1,3 @@
-import { LanguageSettingsScreen } from '@/src/screens/LanguageSettingsScreen';
+import { LanguageSettingsScreen } from '@/src/presentation/features/settings/screens/LanguageSettingsScreen';
 
 export default LanguageSettingsScreen;

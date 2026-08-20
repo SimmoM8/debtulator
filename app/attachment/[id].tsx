@@ -1,3 +1,3 @@
-import { AttachmentDetailScreen } from '@/src/screens/AttachmentDetailScreen';
+import { AttachmentDetailScreen } from '@/src/presentation/features/groups/screens/AttachmentDetailScreen';
 
 export default AttachmentDetailScreen;

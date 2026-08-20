@@ -4,7 +4,7 @@ import {
   IOS_COMPACT_HEADER_OPTIONS,
   IOS_LARGE_HEADER_OPTIONS,
   IOS_LARGE_TITLE_STYLE,
-} from "@/src/components/ios/NativeNavigationStyle";
+} from "@/src/presentation/navigation/NativeNavigationStyle";
 
 export default function SettingsStackLayout() {
   return (

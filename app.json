@@ -12,16 +12,12 @@
       "bundleIdentifier": "com.debtulator.app",
       "buildNumber": "1",
       "infoPlist": {
-        "NSUserNotificationsUsageDescription": "Debtulator can send optional reminders and shared ledger updates.",
-        "NSPhotoLibraryUsageDescription": "Debtulator can attach receipt or proof images when you choose a file.",
-        "NSFaceIDUsageDescription": "Debtulator may use device authentication before sensitive export or deletion actions.",
         "UIViewControllerBasedStatusBarAppearance": true
       }
     },
     "android": {
       "package": "com.debtulator.app",
       "versionCode": 1,
-      "permissions": ["POST_NOTIFICATIONS"],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -35,8 +31,29 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      "expo-router",
-      "expo-secure-store",
+      [
+        "expo-router",
+        {
+          "headers": {
+            "Cross-Origin-Embedder-Policy": "credentialless",
+            "Cross-Origin-Opener-Policy": "same-origin"
+          }
+        }
+      ],
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Debtulator accesses your photo library only when you choose an image to attach as a receipt or proof.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
       [
         "expo-splash-screen",
         {
@@ -54,7 +71,8 @@
       "expo-sqlite",
       "expo-status-bar",
       "expo-web-browser",
-      "expo-asset"
+      "expo-asset",
+      "./plugins/withIosUserScriptSandboxing"
     ],
     "experiments": {
       "typedRoutes": true,

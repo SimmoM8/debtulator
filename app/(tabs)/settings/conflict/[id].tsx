@@ -1,1 +1,1 @@
-export { ConflictDetailScreen as default } from "@/src/screens/ConflictDetailScreen";
+export { ConflictDetailScreen as default } from "@/src/presentation/features/settings/screens/ConflictDetailScreen";

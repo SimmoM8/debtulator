@@ -2,7 +2,7 @@
 
 UI hiding is not sufficient. The app uses central permission helpers and Supabase RLS policies.
 
-Client helpers live in `src/services/permissions.ts` and cover viewing, editing, archiving, voiding financial records, export access, attachments, comments, group management, participant management, conflict resolution, and restoring backups into shared records.
+Client helpers live in `src/domain/permissions/permissions.ts` and cover viewing, editing, archiving, voiding financial records, export access, attachments, comments, group management, participant management, conflict resolution, and restoring backups into shared records.
 
 Shared group permissions respect group roles, archived/settled/finalised state, locked groups, claim approval, duplicate merge, attachment/comment access, and export access.
 

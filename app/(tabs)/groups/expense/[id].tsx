@@ -1,1 +1,1 @@
-export { ExpenseDetailScreen as default } from "@/src/screens/ExpenseDetailScreen";
+export { ExpenseDetailScreen as default } from "@/src/presentation/features/groups/screens/ExpenseDetailScreen";

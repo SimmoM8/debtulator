@@ -1,1 +1,1 @@
-export { GroupDetailScreen as default } from "@/src/screens/GroupDetailScreen";
+export { GroupDetailScreen as default } from "@/src/presentation/features/groups/screens/GroupDetailScreen";

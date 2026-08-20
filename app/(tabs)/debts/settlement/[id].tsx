@@ -1,1 +1,1 @@
-export { SettlementDetailScreen as default } from "@/src/screens/SettlementDetailScreen";
+export { SettlementDetailScreen as default } from "@/src/presentation/features/debts/screens/SettlementDetailScreen";

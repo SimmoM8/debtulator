@@ -1,1 +1,1 @@
-export { GroupFormScreen as default } from "@/src/screens/GroupFormScreen";
+export { GroupFormScreen as default } from "@/src/presentation/features/groups/screens/GroupFormScreen";

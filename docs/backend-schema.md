@@ -82,7 +82,9 @@ For a fresh prelaunch backend:
 
 1. Create a Supabase project.
 2. Run `supabase/schema.sql` in the Supabase SQL editor.
-3. Add `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` to the app environment.
+3. Add `EXPO_PUBLIC_SUPABASE_URL` and
+   `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` to the app environment. The legacy
+   `EXPO_PUBLIC_SUPABASE_ANON_KEY` remains a compatibility fallback.
 4. Create/sign up a test user.
 
 ## Future production migration strategy

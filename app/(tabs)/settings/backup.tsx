@@ -1,1 +1,1 @@
-export { BackupRestoreScreen as default } from "@/src/screens/BackupRestoreScreen";
+export { BackupRestoreScreen as default } from "@/src/presentation/features/settings/screens/BackupRestoreScreen";
