@@ -126,10 +126,7 @@ export function Screen({
         <ScrollView
           style={styles.scrollView}
           contentInsetAdjustmentBehavior="automatic"
-          contentContainerStyle={[
-            styles.scrollContent,
-            { paddingBottom: bottomReserve + insets.bottom },
-          ]}
+          contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -140,7 +137,14 @@ export function Screen({
             />
           }
         >
-          {scrollPage}
+          <View style={[styles.scrollPage, { paddingBottom: bottomReserve }]}>
+            <PageBackdrop />
+            <View
+              style={[styles.content, { maxWidth: width >= 960 ? 1100 : 760 }]}
+            >
+              {bodyChildren}
+            </View>
+          </View>
         </ScrollView>
         {floatingAction ? (
           <View
