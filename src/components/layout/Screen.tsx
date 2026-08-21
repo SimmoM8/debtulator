@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from "react";
-import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
-
+import { StyleSheet, type StyleProp, type ViewStyle } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { colors } from "@/src/theme";
 
 type ScreenProps = PropsWithChildren<{
@@ -8,12 +8,12 @@ type ScreenProps = PropsWithChildren<{
 }>;
 
 export function Screen({ children, style }: ScreenProps) {
-  return <View style={[styles.root, style]}>{children}</View>;
+  return <SafeAreaView style={[styles.root, style]}>{children}</SafeAreaView>;
 }
 
 const styles = StyleSheet.create({
   root: {
-    backgroundColor: colors.background,
     flex: 1,
+    backgroundColor: colors.background,
   },
 });

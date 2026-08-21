@@ -1,6 +1,5 @@
 import { Stack } from "expo-router";
 import { useEffect } from "react";
-import { View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import {
@@ -21,8 +20,8 @@ import {
 } from "@/src/presentation/providers/AppDataProvider";
 import { AuthProvider } from "@/src/presentation/providers/AuthProvider";
 import { CollaborationProvider } from "@/src/presentation/providers/CollaborationProvider";
+import { AppBackground } from "@/src/components/layout";
 import { PlatformServicesProvider } from "@/src/presentation/providers/PlatformServicesProvider";
-import { colors } from "@/src/theme";
 
 const apiClient = createDebtulatorApiClient(
   process.env.EXPO_PUBLIC_API_URL ?? "",
@@ -41,25 +40,27 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <PlatformServicesProvider services={expoPlatformFileServices}>
-        <CollaborationProvider gateway={collaborationGateway}>
-          <SafeAreaProvider>
+    <SafeAreaProvider>
+      <AppBackground>
+        <PlatformServicesProvider services={expoPlatformFileServices}>
+          <CollaborationProvider gateway={collaborationGateway}>
             <AppDataProvider bootstrap={sqliteLocalDataBootstrap}>
               <TelemetrySettingsBridge />
               <AuthProvider services={supabaseAuthServices}>
                 <Stack
                   screenOptions={{
                     headerShown: false,
-                    contentStyle: { backgroundColor: colors.background },
+                    contentStyle: {
+                      backgroundColor: "transparent",
+                    },
                   }}
                 />
               </AuthProvider>
             </AppDataProvider>
-          </SafeAreaProvider>
-        </CollaborationProvider>
-      </PlatformServicesProvider>
-    </View>
+          </CollaborationProvider>
+        </PlatformServicesProvider>
+      </AppBackground>
+    </SafeAreaProvider>
   );
 }
 
