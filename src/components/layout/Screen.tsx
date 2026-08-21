@@ -8,7 +8,7 @@ type ScreenProps = PropsWithChildren<{
 
 export function Screen({ children, style }: ScreenProps) {
   return (
-    <SafeAreaView edges={["top"]} style={[styles.root, style]}>
+    <SafeAreaView edges={["left", "right"]} style={[styles.root, style]}>
       {children}
     </SafeAreaView>
   );
