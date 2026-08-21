@@ -15,7 +15,7 @@ export const palette = {
   warningSoft: "rgba(245,158,11,0.16)",
   danger: "#FF6B6B",
   dangerSoft: "rgba(255,107,107,0.16)",
-  background: "#FCFDFF",
+  background: "#3730A3",
   backgroundDeep: "#F7F9FE",
   surface: "#FFFFFF",
   surfaceWarm: "#FFFEFC",

@@ -1,5 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { router, useSegments } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
@@ -32,6 +31,10 @@ import {
 } from "@/src/presentation/design-system/Finance";
 import { GlassSurface } from "@/src/presentation/design-system/GlassSurface";
 import { TextField } from "@/src/presentation/design-system/TextField";
+import { NativeFormToolbar } from "@/src/presentation/navigation/NativeFormToolbar";
+import { NativePageNavigation } from "@/src/presentation/navigation/NativePageNavigation";
+import type { NativeNavigationAction } from "@/src/presentation/navigation/types";
+import { useAuth } from "@/src/presentation/providers/AuthProvider";
 import {
     palette,
     radii,
@@ -40,10 +43,6 @@ import {
     typefaces,
     typography,
 } from "@/src/presentation/theme/design";
-import { NativePageNavigation } from "@/src/presentation/navigation/NativePageNavigation";
-import { NativeFormToolbar } from "@/src/presentation/navigation/NativeFormToolbar";
-import type { NativeNavigationAction } from "@/src/presentation/navigation/types";
-import { useAuth } from "@/src/presentation/providers/AuthProvider";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -89,17 +88,18 @@ export function Screen({
       : childArray;
   const resolvedHeaderBackground: "primary" | "transparent" =
     headerBackground ?? (resolvedHeader ? "primary" : "transparent");
-  const safeAreaEdges: ("top" | "bottom" | "left" | "right")[] = usesNativeNavigation
-    ? scroll
-      ? []
-      : ["top", "bottom"]
-    : resolvedHeader
-    ? isTabRoute
-      ? []
-      : ["bottom"]
-    : isTabRoute
-      ? ["top"]
-      : ["top", "bottom"];
+  const safeAreaEdges: ("top" | "bottom" | "left" | "right")[] =
+    usesNativeNavigation
+      ? scroll
+        ? []
+        : ["top", "bottom"]
+      : resolvedHeader
+        ? isTabRoute
+          ? []
+          : ["bottom"]
+        : isTabRoute
+          ? ["top"]
+          : ["top", "bottom"];
   const refresh = async () => {
     if (refreshing) return;
     setRefreshing(true);
@@ -111,7 +111,6 @@ export function Screen({
   };
   const scrollPage = (
     <View style={styles.scrollPage}>
-      <PageBackdrop />
       <View style={[styles.content, { maxWidth: width >= 960 ? 1100 : 760 }]}>
         {bodyChildren}
       </View>
@@ -122,7 +121,9 @@ export function Screen({
     return (
       <>
         {nativeHeader}
-        {nativeFooterAction ? <NativeFormToolbar {...nativeFooterAction} /> : null}
+        {nativeFooterAction ? (
+          <NativeFormToolbar {...nativeFooterAction} />
+        ) : null}
         <ScrollView
           style={styles.scrollView}
           contentInsetAdjustmentBehavior="automatic"
@@ -138,7 +139,6 @@ export function Screen({
           }
         >
           <View style={[styles.scrollPage, { paddingBottom: bottomReserve }]}>
-            <PageBackdrop />
             <View
               style={[styles.content, { maxWidth: width >= 960 ? 1100 : 760 }]}
             >
@@ -173,110 +173,88 @@ export function Screen({
   return (
     <>
       {nativeHeader}
-      {nativeFooterAction ? <NativeFormToolbar {...nativeFooterAction} /> : null}
+      {nativeFooterAction ? (
+        <NativeFormToolbar {...nativeFooterAction} />
+      ) : null}
       <SafeAreaView
         style={[
           styles.safeArea,
-          resolvedHeaderBackground === "primary" && styles.safeAreaHeaderPrimary,
+          resolvedHeaderBackground === "primary" &&
+            styles.safeAreaHeaderPrimary,
         ]}
         edges={safeAreaEdges}
       >
-      {resolvedHeader ? (
-        <View
-          style={[
-            styles.pageHeaderBand,
-            {
-              paddingTop: insets.top,
-              backgroundColor:
-                resolvedHeaderBackground === "primary"
-                  ? palette.primaryDeep
-                  : "transparent",
-            },
-          ]}
-        >
-          {resolvedHeader}
-        </View>
-      ) : null}
-      {scroll ? (
-        <ScrollView
-          contentInsetAdjustmentBehavior="never"
-          contentContainerStyle={[
-            styles.scrollContent,
-            { paddingBottom: bottomReserve + (isTabRoute ? 0 : insets.bottom) },
-          ]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={refresh}
-              colors={[palette.primary]}
-              tintColor={palette.primary}
-            />
-          }
-        >
-          {scrollPage}
-        </ScrollView>
-      ) : (
-        <View
-          style={[
-            styles.scrollContent,
-            { paddingBottom: bottomReserve + (isTabRoute ? 0 : insets.bottom) },
-          ]}
-        >
-          {scrollPage}
-        </View>
-      )}
-      {floatingAction ? (
-        <View
-          pointerEvents="box-none"
-          style={[
-            styles.floatingAction,
-            { bottom: (renderedFooter ? 112 : 28) + insets.bottom },
-          ]}
-        >
-          {floatingAction}
-        </View>
-      ) : null}
-      {renderedFooter ? (
-        <View
-          style={[styles.footerWrap, { paddingBottom: insets.bottom + 10 }]}
-        >
-          <GlassSurface role="elevated" style={styles.footer}>
-            {renderedFooter}
-          </GlassSurface>
-        </View>
-      ) : null}
+        {resolvedHeader ? (
+          <View
+            style={[
+              styles.pageHeaderBand,
+              {
+                paddingTop: insets.top,
+                backgroundColor:
+                  resolvedHeaderBackground === "primary"
+                    ? palette.primaryDeep
+                    : "transparent",
+              },
+            ]}
+          >
+            {resolvedHeader}
+          </View>
+        ) : null}
+        {scroll ? (
+          <ScrollView
+            contentInsetAdjustmentBehavior="never"
+            contentContainerStyle={[
+              styles.scrollContent,
+              {
+                paddingBottom: bottomReserve + (isTabRoute ? 0 : insets.bottom),
+              },
+            ]}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={refresh}
+                colors={[palette.primary]}
+                tintColor={palette.primary}
+              />
+            }
+          >
+            {scrollPage}
+          </ScrollView>
+        ) : (
+          <View
+            style={[
+              styles.scrollContent,
+              {
+                paddingBottom: bottomReserve + (isTabRoute ? 0 : insets.bottom),
+              },
+            ]}
+          >
+            {scrollPage}
+          </View>
+        )}
+        {floatingAction ? (
+          <View
+            pointerEvents="box-none"
+            style={[
+              styles.floatingAction,
+              { bottom: (renderedFooter ? 112 : 28) + insets.bottom },
+            ]}
+          >
+            {floatingAction}
+          </View>
+        ) : null}
+        {renderedFooter ? (
+          <View
+            style={[styles.footerWrap, { paddingBottom: insets.bottom + 10 }]}
+          >
+            <GlassSurface role="elevated" style={styles.footer}>
+              {renderedFooter}
+            </GlassSurface>
+          </View>
+        ) : null}
       </SafeAreaView>
-    </>
-  );
-}
-
-function PageBackdrop() {
-  return (
-    <>
-      <LinearGradient
-        colors={[palette.background, palette.backgroundDeep, palette.background]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.backdropCanvas}
-      />
-      <LinearGradient
-        colors={[
-          "rgba(222,228,248,0.14)",
-          "rgba(222,228,248,0.03)",
-          "rgba(255,255,255,0)",
-        ]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.backdropSheenTop}
-      />
-      <LinearGradient
-        colors={["rgba(214,224,247,0.07)", "rgba(255,255,255,0)"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.backdropSheenBottom}
-      />
     </>
   );
 }
@@ -335,10 +313,11 @@ export function PageHeader({
     const leadingAction = nativeActionFromElement(topLeft);
     const trailingAction = nativeActionFromElement(topRight ?? action);
     const unresolvedLeading = topLeft && !leadingAction ? topLeft : null;
-    const unresolvedTrailing = (topRight ?? action) && !trailingAction
-      ? (topRight ?? action)
-      : null;
-    const hasUnresolvedActions = Boolean(unresolvedLeading || unresolvedTrailing);
+    const unresolvedTrailing =
+      (topRight ?? action) && !trailingAction ? (topRight ?? action) : null;
+    const hasUnresolvedActions = Boolean(
+      unresolvedLeading || unresolvedTrailing,
+    );
     return (
       <>
         <NativePageNavigation
@@ -349,7 +328,9 @@ export function PageHeader({
         {hasUnresolvedActions ? (
           <View style={styles.nativeHeaderActions}>
             <View>{unresolvedLeading}</View>
-            <View style={styles.nativeHeaderTrailing}>{unresolvedTrailing}</View>
+            <View style={styles.nativeHeaderTrailing}>
+              {unresolvedTrailing}
+            </View>
           </View>
         ) : null}
       </>
@@ -1521,44 +1502,23 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
-    backgroundColor: palette.background,
+    backgroundColor: "transparent",
   },
   safeAreaHeaderPrimary: {
     backgroundColor: palette.primaryDeep,
   },
   scrollView: {
     flex: 1,
-    backgroundColor: palette.background,
-  },
-  backdropCanvas: {
-    ...StyleSheet.absoluteFill,
-  },
-  backdropSheenTop: {
-    position: "absolute",
-    top: -48,
-    right: -24,
-    width: 280,
-    height: 200,
-    borderRadius: 40,
-    transform: [{ rotate: "-8deg" }],
-  },
-  backdropSheenBottom: {
-    position: "absolute",
-    bottom: 84,
-    left: -12,
-    width: 260,
-    height: 180,
-    borderRadius: 40,
-    transform: [{ rotate: "6deg" }],
+    backgroundColor: "transparent",
   },
   scrollContent: {
     alignItems: "center",
-    backgroundColor: palette.background,
+    backgroundColor: "transparent",
     flexGrow: 1,
   },
   scrollPage: {
     alignItems: "center",
-    backgroundColor: palette.background,
+    backgroundColor: "transparent",
     flexGrow: 1,
     overflow: "hidden",
     width: "100%",
