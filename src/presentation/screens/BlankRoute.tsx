@@ -1,7 +1,5 @@
-import { View } from "react-native";
-
-const LAVENDER = "#DDD6FE";
+import { Screen } from "@/src/components/layout";
 
 export function BlankRoute() {
-  return <View style={{ flex: 1, backgroundColor: LAVENDER }} />;
+  return <Screen />;
 }

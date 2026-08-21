@@ -1,13 +1,13 @@
 import { Stack } from "expo-router";
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import { View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import {
-    addTelemetryBreadcrumb,
-    configureTelemetry,
-    configureTelemetrySink,
-    installGlobalCrashHandler,
+  addTelemetryBreadcrumb,
+  configureTelemetry,
+  configureTelemetrySink,
+  installGlobalCrashHandler,
 } from "@/src/application/observability/telemetry";
 import { createApiCollaborationGateway } from "@/src/infrastructure/api/ApiCollaborationGateway";
 import { createDebtulatorApiClient } from "@/src/infrastructure/api/DebtulatorApiClient";
@@ -16,16 +16,13 @@ import { supabaseAuthServices } from "@/src/infrastructure/auth/clientAuthAdapte
 import { sqliteLocalDataBootstrap } from "@/src/infrastructure/sqlite/localDataBootstrap";
 import { expoPlatformFileServices } from "@/src/platform/files/expoPlatformFileServices";
 import {
-    AppDataProvider,
-    useAppData,
+  AppDataProvider,
+  useAppData,
 } from "@/src/presentation/providers/AppDataProvider";
-import {
-    AuthProvider,
-} from "@/src/presentation/providers/AuthProvider";
+import { AuthProvider } from "@/src/presentation/providers/AuthProvider";
 import { CollaborationProvider } from "@/src/presentation/providers/CollaborationProvider";
 import { PlatformServicesProvider } from "@/src/presentation/providers/PlatformServicesProvider";
-
-const LAVENDER = "#DDD6FE";
+import { colors } from "@/src/theme";
 
 const apiClient = createDebtulatorApiClient(
   process.env.EXPO_PUBLIC_API_URL ?? "",
@@ -44,7 +41,7 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <View style={{ flex: 1, backgroundColor: LAVENDER }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <PlatformServicesProvider services={expoPlatformFileServices}>
         <CollaborationProvider gateway={collaborationGateway}>
           <SafeAreaProvider>
@@ -54,7 +51,7 @@ export default function RootLayout() {
                 <Stack
                   screenOptions={{
                     headerShown: false,
-                    contentStyle: { backgroundColor: LAVENDER },
+                    contentStyle: { backgroundColor: colors.background },
                   }}
                 />
               </AuthProvider>

@@ -4,7 +4,6 @@ const expoConfig = require('eslint-config-expo/flat');
 
 const sourceFiles = '**/*.{js,jsx,ts,tsx}';
 const legacyDirectories = [
-  'components',
   'config',
   'constants',
   'data',
@@ -13,7 +12,6 @@ const legacyDirectories = [
   'screens',
   'services',
   'state',
-  'theme',
   'types',
   'utils',
 ];
@@ -27,7 +25,7 @@ const legacyPatterns = [
   },
   {
     group: ['@/components', '@/components/**', '@/constants', '@/constants/**', '@/hooks', '@/hooks/**'],
-    message: 'This root alias is legacy. Import the canonical module under src/domain or src/presentation.',
+    message: 'This root alias is legacy. Import the canonical module under src/domain, src/components, src/theme, or src/presentation.',
   },
 ];
 const sdkPatterns = [
@@ -77,6 +75,8 @@ module.exports = defineConfig([
             ...layerPatterns('infrastructure'),
             ...layerPatterns('platform'),
             ...layerPatterns('presentation'),
+            ...layerPatterns('components'),
+            ...layerPatterns('theme'),
             '@/src/composition',
             '@/src/composition/**',
           ],
@@ -98,6 +98,8 @@ module.exports = defineConfig([
             ...layerPatterns('infrastructure'),
             ...layerPatterns('platform'),
             ...layerPatterns('presentation'),
+            ...layerPatterns('components'),
+            ...layerPatterns('theme'),
             '@/src/composition',
             '@/src/composition/**',
           ],
@@ -117,6 +119,8 @@ module.exports = defineConfig([
         {
           group: [
             ...layerPatterns('presentation'),
+            ...layerPatterns('components'),
+            ...layerPatterns('theme'),
             '@/src/composition',
             '@/src/composition/**',
           ],
@@ -133,6 +137,8 @@ module.exports = defineConfig([
           group: [
             ...layerPatterns('infrastructure'),
             ...layerPatterns('presentation'),
+            ...layerPatterns('components'),
+            ...layerPatterns('theme'),
             '@/src/composition',
             '@/src/composition/**',
           ],
@@ -153,6 +159,45 @@ module.exports = defineConfig([
             '@/src/composition/**',
           ],
           message: 'Presentation must consume an application contract/provider, not a concrete adapter.',
+        },
+      ]),
+    },
+  },
+  {
+    files: [`src/components/${sourceFiles}`],
+    rules: {
+      'no-restricted-imports': restrictedImports([
+        {
+          group: [
+            ...layerPatterns('domain'),
+            ...layerPatterns('application'),
+            ...layerPatterns('infrastructure'),
+            ...layerPatterns('platform'),
+            ...layerPatterns('presentation'),
+            '@/src/composition',
+            '@/src/composition/**',
+          ],
+          message: 'Reusable components may depend only on components, theme, and external UI APIs.',
+        },
+      ]),
+    },
+  },
+  {
+    files: [`src/theme/${sourceFiles}`],
+    rules: {
+      'no-restricted-imports': restrictedImports([
+        {
+          group: [
+            ...layerPatterns('domain'),
+            ...layerPatterns('application'),
+            ...layerPatterns('infrastructure'),
+            ...layerPatterns('platform'),
+            ...layerPatterns('presentation'),
+            ...layerPatterns('components'),
+            '@/src/composition',
+            '@/src/composition/**',
+          ],
+          message: 'Theme tokens must be dependency-free global styling values.',
         },
       ]),
     },
@@ -179,6 +224,8 @@ module.exports = defineConfig([
             ...layerPatterns('application'),
             ...layerPatterns('infrastructure'),
             ...layerPatterns('platform'),
+            ...layerPatterns('components'),
+            ...layerPatterns('theme'),
             '@/src/composition',
             '@/src/composition/**',
             '@/src/presentation/components',
