@@ -1,8 +1,8 @@
 import { NativeTabs } from "expo-router/unstable-native-tabs";
 import { useWindowDimensions } from "react-native";
 
-import { IOS_APP_TINT } from "@/src/presentation/theme/iosBrand";
 import { palette } from "@/src/presentation/theme/design";
+import { IOS_APP_TINT } from "@/src/presentation/theme/iosBrand";
 
 export default function AppTabs() {
   const { fontScale } = useWindowDimensions();

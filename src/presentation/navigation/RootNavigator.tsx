@@ -1,5 +1,5 @@
-import { Stack } from "expo-router";
 import { palette } from "@/src/presentation/theme/design";
+import { Stack } from "expo-router";
 
 export function RootNavigator() {
   return (
