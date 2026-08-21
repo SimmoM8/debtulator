@@ -1,72 +1,86 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { Platform } from 'react-native';
+import React, {
+    createContext,
+    useCallback,
+    useContext,
+    useEffect,
+    useMemo,
+    useState,
+} from "react";
+import { Platform } from "react-native";
 
-import type { AppSnapshot } from '@/src/application/model/AppSnapshot';
+import type { RestoreResult } from "@/src/application/data/backupRestore";
+import type { AppSnapshot } from "@/src/application/model/AppSnapshot";
 import {
-  loadSnapshot,
-  openDebtulatorDatabase,
-} from '@/src/infrastructure/sqlite/database';
-import { DebtulatorRepository } from '@/src/infrastructure/sqlite/DebtulatorRepository';
-import type { RestoreResult } from '@/src/application/data/backupRestore';
-import { buildSyncSummary } from '@/src/application/sync/syncPolicy';
-import { buildLedgerEntries, calculateMemberBalances, calculatePersonalTotals } from '@/src/domain/ledger/ledger';
-import { addTelemetryBreadcrumb, captureTelemetryException, trackTelemetryEvent } from '@/src/application/observability/telemetry';
+    addTelemetryBreadcrumb,
+    captureTelemetryException,
+    trackTelemetryEvent,
+} from "@/src/application/observability/telemetry";
 import type {
-  AppSettings,
-  AccountDeletionState,
-  BackupMode,
-  AppNotification,
-  Attachment,
-  AttachmentKind,
-  AttachmentTargetType,
-  AttachmentVisibility,
-  AuditLog,
-  Comment,
-  CommentTargetType,
-  CommentVisibility,
-  CsvImportBatch,
-  CurrencyCode,
-  Debt,
-  DebtChangeSummary,
-  DebtVerification,
-  DebtVerificationRequestType,
-  DebtStatus,
-  Group,
-  GroupActivityLog,
-  GroupDebt,
-  GroupDuplicateWarning,
-  GroupInvite,
-  GroupMemberClaim,
-  GroupParticipant,
-  GroupRole,
-  GroupStatus,
-  GroupVerificationResponse,
-  ExportLog,
-  ExportType,
-  ConflictResolution,
-  LedgerEntry,
-  LinkRequest,
-  Member,
-  MoneyMap,
-  Payment,
-  ParticipantId,
-  RecurringTemplate,
-  Reminder,
-  SharedGroupMember,
-  SharedExpense,
-  Settlement,
-  SettlementLine,
-  SoftReminder,
-  SmartSuggestion,
-  SmartSuggestionStatus,
-  SmartSuggestionType,
-  SyncConflict,
-  SyncQueueEntry,
-  SyncStatus,
-  SuggestedDebtChange,
-  VerificationStatus,
-  UserProfile,
-} from '@/src/domain/models';
+    AppDataRepository,
+    LocalDataBootstrap,
+} from "@/src/application/ports/localDataBootstrap";
+import { buildSyncSummary } from "@/src/application/sync/syncPolicy";
+import {
+    buildLedgerEntries,
+    calculateMemberBalances,
+    calculatePersonalTotals,
+} from "@/src/domain/ledger/ledger";
+import type {
+    AccountDeletionState,
+    AppNotification,
+    AppSettings,
+    Attachment,
+    AttachmentKind,
+    AttachmentTargetType,
+    AttachmentVisibility,
+    AuditLog,
+    BackupMode,
+    Comment,
+    CommentTargetType,
+    CommentVisibility,
+    ConflictResolution,
+    CsvImportBatch,
+    CurrencyCode,
+    Debt,
+    DebtChangeSummary,
+    DebtStatus,
+    DebtVerification,
+    DebtVerificationRequestType,
+    ExportLog,
+    ExportType,
+    Group,
+    GroupActivityLog,
+    GroupDebt,
+    GroupDuplicateWarning,
+    GroupInvite,
+    GroupMemberClaim,
+    GroupParticipant,
+    GroupRole,
+    GroupStatus,
+    GroupVerificationResponse,
+    LedgerEntry,
+    LinkRequest,
+    Member,
+    MoneyMap,
+    ParticipantId,
+    Payment,
+    RecurringTemplate,
+    Reminder,
+    Settlement,
+    SettlementLine,
+    SharedExpense,
+    SharedGroupMember,
+    SmartSuggestion,
+    SmartSuggestionStatus,
+    SmartSuggestionType,
+    SoftReminder,
+    SuggestedDebtChange,
+    SyncConflict,
+    SyncQueueEntry,
+    SyncStatus,
+    UserProfile,
+    VerificationStatus,
+} from "@/src/domain/models";
 
 type CreateMemberInput = {
   displayName: string;
@@ -74,7 +88,7 @@ type CreateMemberInput = {
   email?: string | null;
   phone?: string | null;
   linkedUserId?: string | null;
-  linkStatus?: Member['linkStatus'];
+  linkStatus?: Member["linkStatus"];
   linkedProfileDisplayName?: string | null;
   linkedProfileEmail?: string | null;
   linkedProfilePhone?: string | null;
@@ -83,7 +97,7 @@ type CreateMemberInput = {
 
 type CreateDebtInput = {
   memberId: string;
-  direction: Debt['direction'];
+  direction: Debt["direction"];
   amount: number;
   currency: CurrencyCode;
   title: string;
@@ -96,7 +110,7 @@ type CreateDebtInput = {
   groupId?: string | null;
   status?: DebtStatus;
   verificationStatus?: VerificationStatus;
-  visibility?: Debt['visibility'];
+  visibility?: Debt["visibility"];
 };
 
 type CreateGroupInput = {
@@ -106,7 +120,7 @@ type CreateGroupInput = {
   allowedCurrencies?: CurrencyCode[];
   tags?: string[];
   status?: GroupStatus;
-  visibility?: Group['visibility'];
+  visibility?: Group["visibility"];
   ownerUserId?: string | null;
   ownerDisplayName?: string | null;
   ownerEmail?: string | null;
@@ -126,7 +140,7 @@ type CreateExpenseInput = {
   notes?: string | null;
   expenseDate?: string;
   participantIds: ParticipantId[];
-  splitMethod?: SharedExpense['splitMethod'];
+  splitMethod?: SharedExpense["splitMethod"];
   splitAllocations?: Record<ParticipantId, number>;
   expensePayers?: { groupMemberId: ParticipantId; amountPaid: number }[];
   dueDate?: string | null;
@@ -134,7 +148,7 @@ type CreateExpenseInput = {
   tags?: string[];
   status?: DebtStatus;
   verificationStatus?: VerificationStatus;
-  visibility?: SharedExpense['visibility'];
+  visibility?: SharedExpense["visibility"];
   remoteId?: string | null;
   syncStatus?: SyncStatus;
 };
@@ -147,7 +161,7 @@ type CreateGroupInviteInput = {
   invitedEmail?: string | null;
   invitedPhone?: string | null;
   invitedDisplayName: string;
-  offeredRole: Exclude<GroupRole, 'owner'>;
+  offeredRole: Exclude<GroupRole, "owner">;
   message?: string | null;
   remoteId?: string | null;
   syncStatus?: SyncStatus;
@@ -156,7 +170,7 @@ type CreateGroupInviteInput = {
 type CreateSharedGroupMemberInput = {
   groupId: string;
   remoteGroupId?: string | null;
-  type?: SharedGroupMember['type'];
+  type?: SharedGroupMember["type"];
   linkedUserId?: string | null;
   displayName: string;
   alias?: string | null;
@@ -164,7 +178,7 @@ type CreateSharedGroupMemberInput = {
   phone?: string | null;
   notes?: string | null;
   createdByUserId?: string | null;
-  status?: SharedGroupMember['status'];
+  status?: SharedGroupMember["status"];
   remoteId?: string | null;
   syncStatus?: SyncStatus;
 };
@@ -198,18 +212,18 @@ type CreatePaymentSettlementInput = {
   notes?: string | null;
   groupId?: string | null;
   relatedMemberId?: string | null;
-  visibility?: Payment['visibility'];
-  status?: Payment['status'];
-  confirmationStatus?: Payment['confirmationStatus'];
+  visibility?: Payment["visibility"];
+  status?: Payment["status"];
+  confirmationStatus?: Payment["confirmationStatus"];
   createdByUserId?: string | null;
   payerUserId?: string | null;
   payeeUserId?: string | null;
   lines?: {
-    sourceRecordType: SettlementLine['sourceRecordType'];
+    sourceRecordType: SettlementLine["sourceRecordType"];
     sourceRecordId: string;
     appliedAmount: number;
   }[];
-  settlementType?: Settlement['type'];
+  settlementType?: Settlement["type"];
   settlementNotes?: string | null;
   convertedSettlement?: {
     originalCurrency: CurrencyCode;
@@ -226,7 +240,7 @@ type CreateRecurringTemplateInput = {
   createdByUserId?: string | null;
   groupId?: string | null;
   memberId?: string | null;
-  type: RecurringTemplate['type'];
+  type: RecurringTemplate["type"];
   title: string;
   amount: number;
   currency: CurrencyCode;
@@ -271,7 +285,7 @@ type CreateCommentInput = {
 type CreateSmartSuggestionInput = {
   userId?: string | null;
   suggestionType: SmartSuggestionType;
-  targetType?: SmartSuggestion['targetType'];
+  targetType?: SmartSuggestion["targetType"];
   targetId?: string | null;
   title: string;
   message: string;
@@ -282,14 +296,14 @@ type CreateSmartSuggestionInput = {
 type CreateExportLogInput = {
   userId?: string | null;
   exportType: ExportType;
-  targetType?: ExportLog['targetType'];
+  targetType?: ExportLog["targetType"];
   targetId?: string | null;
   metadata?: Record<string, unknown>;
 };
 
 type CreateCsvImportBatchInput = {
   userId?: string | null;
-  status?: CsvImportBatch['status'];
+  status?: CsvImportBatch["status"];
   sourceName?: string | null;
   rowCount: number;
   importedMemberCount?: number;
@@ -314,23 +328,40 @@ type AppDataContextValue = AppSnapshot & {
   syncedDataResetVersion: number;
   upsertProfile: (profile: UserProfile) => Promise<UserProfile>;
   upsertLinkRequest: (linkRequest: LinkRequest) => Promise<LinkRequest>;
-  upsertDebtVerification: (verification: DebtVerification) => Promise<DebtVerification>;
+  upsertDebtVerification: (
+    verification: DebtVerification,
+  ) => Promise<DebtVerification>;
   upsertDebt: (debt: Debt) => Promise<Debt>;
   upsertSharedExpense: (expense: SharedExpense) => Promise<SharedExpense>;
   upsertGroup: (group: Group) => Promise<Group>;
-  upsertGroupParticipant: (participant: GroupParticipant) => Promise<GroupParticipant>;
+  upsertGroupParticipant: (
+    participant: GroupParticipant,
+  ) => Promise<GroupParticipant>;
   upsertGroupInvite: (invite: GroupInvite) => Promise<GroupInvite>;
-  upsertSharedGroupMember: (member: SharedGroupMember) => Promise<SharedGroupMember>;
-  upsertGroupMemberClaim: (claim: GroupMemberClaim) => Promise<GroupMemberClaim>;
-  upsertGroupDuplicateWarning: (warning: GroupDuplicateWarning) => Promise<GroupDuplicateWarning>;
+  upsertSharedGroupMember: (
+    member: SharedGroupMember,
+  ) => Promise<SharedGroupMember>;
+  upsertGroupMemberClaim: (
+    claim: GroupMemberClaim,
+  ) => Promise<GroupMemberClaim>;
+  upsertGroupDuplicateWarning: (
+    warning: GroupDuplicateWarning,
+  ) => Promise<GroupDuplicateWarning>;
   upsertGroupDebt: (debt: GroupDebt) => Promise<GroupDebt>;
-  upsertGroupVerificationResponse: (response: GroupVerificationResponse) => Promise<GroupVerificationResponse>;
-  upsertGroupActivityLog: (activity: GroupActivityLog) => Promise<GroupActivityLog>;
+  upsertGroupVerificationResponse: (
+    response: GroupVerificationResponse,
+  ) => Promise<GroupVerificationResponse>;
+  upsertGroupActivityLog: (
+    activity: GroupActivityLog,
+  ) => Promise<GroupActivityLog>;
   upsertPayment: (payment: Payment) => Promise<Payment>;
   upsertSettlement: (settlement: Settlement) => Promise<Settlement>;
   upsertSettlementLine: (line: SettlementLine) => Promise<SettlementLine>;
   createMember: (input: CreateMemberInput) => Promise<Member>;
-  updateMember: (memberId: string, input: Partial<CreateMemberInput> & { archived?: boolean }) => Promise<Member>;
+  updateMember: (
+    memberId: string,
+    input: Partial<CreateMemberInput> & { archived?: boolean },
+  ) => Promise<Member>;
   sendMemberLinkRequest: (
     memberId: string,
     input: {
@@ -345,10 +376,16 @@ type AppDataContextValue = AppSnapshot & {
   ) => Promise<LinkRequest>;
   respondToLinkRequest: (
     requestId: string,
-    status: Extract<LinkRequest['status'], 'accepted' | 'rejected' | 'cancelled'>,
+    status: Extract<
+      LinkRequest["status"],
+      "accepted" | "rejected" | "cancelled"
+    >,
     actorUserId: string,
   ) => Promise<LinkRequest>;
-  unlinkMember: (memberId: string, actorUserId?: string | null) => Promise<Member>;
+  unlinkMember: (
+    memberId: string,
+    actorUserId?: string | null,
+  ) => Promise<Member>;
   createDebt: (input: CreateDebtInput) => Promise<Debt>;
   updateDebt: (
     debtId: string,
@@ -369,7 +406,7 @@ type AppDataContextValue = AppSnapshot & {
   ) => Promise<{ debt: Debt; verification: DebtVerification }>;
   respondToDebtVerification: (
     verificationId: string,
-    status: Extract<VerificationStatus, 'verified' | 'rejected'>,
+    status: Extract<VerificationStatus, "verified" | "rejected">,
     actorUserId: string,
     rejectionReason?: string | null,
     suggestedChange?: SuggestedDebtChange | null,
@@ -388,26 +425,48 @@ type AppDataContextValue = AppSnapshot & {
       updated_at: string;
     } | null,
   ) => Promise<{ debt: Debt; verification: DebtVerification }>;
-  markDebtDisputed: (debtId: string, actorUserId?: string | null, disputeReason?: string | null) => Promise<Debt>;
-  markDebtResolved: (debtId: string, actorUserId?: string | null, resolutionNote?: string | null) => Promise<Debt>;
-  cancelDebtVerification: (debtId: string, actorUserId?: string | null) => Promise<Debt>;
+  markDebtDisputed: (
+    debtId: string,
+    actorUserId?: string | null,
+    disputeReason?: string | null,
+  ) => Promise<Debt>;
+  markDebtResolved: (
+    debtId: string,
+    actorUserId?: string | null,
+    resolutionNote?: string | null,
+  ) => Promise<Debt>;
+  cancelDebtVerification: (
+    debtId: string,
+    actorUserId?: string | null,
+  ) => Promise<Debt>;
   createGroup: (input: CreateGroupInput) => Promise<Group>;
   updateGroup: (
     groupId: string,
-    input: Partial<CreateGroupInput> & { archived?: boolean; ignoredDuplicateKeys?: string[] },
+    input: Partial<CreateGroupInput> & {
+      archived?: boolean;
+      ignoredDuplicateKeys?: string[];
+    },
   ) => Promise<Group>;
   setGroupMembers: (groupId: string, memberIds: string[]) => Promise<void>;
   createSharedExpense: (input: CreateExpenseInput) => Promise<SharedExpense>;
-  updateSharedExpense: (expenseId: string, input: Partial<CreateExpenseInput>) => Promise<SharedExpense>;
+  updateSharedExpense: (
+    expenseId: string,
+    input: Partial<CreateExpenseInput>,
+  ) => Promise<SharedExpense>;
   createGroupInvite: (input: CreateGroupInviteInput) => Promise<GroupInvite>;
   respondToGroupInvite: (
     inviteId: string,
-    status: Extract<GroupInvite['status'], 'accepted' | 'rejected' | 'cancelled'>,
+    status: Extract<
+      GroupInvite["status"],
+      "accepted" | "rejected" | "cancelled"
+    >,
     actorUserId: string,
     actorDisplayName?: string | null,
     actorEmail?: string | null,
   ) => Promise<GroupInvite>;
-  createSharedGroupMember: (input: CreateSharedGroupMemberInput) => Promise<SharedGroupMember>;
+  createSharedGroupMember: (
+    input: CreateSharedGroupMemberInput,
+  ) => Promise<SharedGroupMember>;
   updateSharedGroupMember: (
     groupMemberId: string,
     input: Partial<CreateSharedGroupMemberInput> & { archived?: boolean },
@@ -420,17 +479,26 @@ type AppDataContextValue = AppSnapshot & {
   ) => Promise<GroupMemberClaim>;
   respondToGroupMemberClaim: (
     claimId: string,
-    status: Extract<GroupMemberClaim['status'], 'approved' | 'rejected' | 'cancelled'>,
+    status: Extract<
+      GroupMemberClaim["status"],
+      "approved" | "rejected" | "cancelled"
+    >,
     actorUserId: string,
   ) => Promise<GroupMemberClaim>;
-  ignoreGroupDuplicateWarning: (warningId: string, actorUserId: string) => Promise<GroupDuplicateWarning>;
+  ignoreGroupDuplicateWarning: (
+    warningId: string,
+    actorUserId: string,
+  ) => Promise<GroupDuplicateWarning>;
   mergeSharedGroupMembers: (
     sourceGroupMemberId: string,
     targetGroupMemberId: string,
     actorUserId: string,
   ) => Promise<{ sourceId: string; targetId: string }>;
   createGroupDebt: (input: CreateGroupDebtInput) => Promise<GroupDebt>;
-  updateGroupDebt: (groupDebtId: string, input: Partial<CreateGroupDebtInput>) => Promise<GroupDebt>;
+  updateGroupDebt: (
+    groupDebtId: string,
+    input: Partial<CreateGroupDebtInput>,
+  ) => Promise<GroupDebt>;
   createPaymentSettlement: (input: CreatePaymentSettlementInput) => Promise<{
     payment: Payment;
     settlement: Settlement;
@@ -438,51 +506,86 @@ type AppDataContextValue = AppSnapshot & {
   }>;
   respondToPaymentConfirmation: (
     paymentId: string,
-    status: Extract<Payment['confirmationStatus'], 'confirmed' | 'rejected'>,
+    status: Extract<Payment["confirmationStatus"], "confirmed" | "rejected">,
     actorUserId: string,
   ) => Promise<Payment>;
-  createRecurringTemplate: (input: CreateRecurringTemplateInput) => Promise<RecurringTemplate>;
+  createRecurringTemplate: (
+    input: CreateRecurringTemplateInput,
+  ) => Promise<RecurringTemplate>;
   updateRecurringTemplate: (
     templateId: string,
-    input: Partial<CreateRecurringTemplateInput> & { status?: RecurringTemplate['status'] },
+    input: Partial<CreateRecurringTemplateInput> & {
+      status?: RecurringTemplate["status"];
+    },
   ) => Promise<RecurringTemplate>;
   generateDueRecurringRecords: () => Promise<string[]>;
   createReminder: (
-    input: Omit<Reminder, 'id' | 'createdAt' | 'updatedAt' | 'status'> & { status?: Reminder['status'] },
+    input: Omit<Reminder, "id" | "createdAt" | "updatedAt" | "status"> & {
+      status?: Reminder["status"];
+    },
   ) => Promise<Reminder>;
   createSoftReminder: (
-    input: Omit<SoftReminder, 'id' | 'createdAt' | 'updatedAt' | 'status'> & { status?: SoftReminder['status'] },
+    input: Omit<SoftReminder, "id" | "createdAt" | "updatedAt" | "status"> & {
+      status?: SoftReminder["status"];
+    },
   ) => Promise<SoftReminder>;
   createAttachment: (input: CreateAttachmentInput) => Promise<Attachment>;
   upsertAttachment: (attachment: Attachment) => Promise<Attachment>;
-  archiveAttachment: (attachmentId: string, actorUserId?: string | null) => Promise<Attachment>;
+  archiveAttachment: (
+    attachmentId: string,
+    actorUserId?: string | null,
+  ) => Promise<Attachment>;
   upsertComment: (comment: Comment) => Promise<Comment>;
   createComment: (input: CreateCommentInput) => Promise<Comment>;
-  updateComment: (commentId: string, input: Partial<CreateCommentInput>) => Promise<Comment>;
-  deleteComment: (commentId: string, actorUserId?: string | null) => Promise<Comment>;
-  upsertSmartSuggestion: (input: SmartSuggestion | CreateSmartSuggestionInput) => Promise<SmartSuggestion>;
-  setSmartSuggestionStatus: (suggestionId: string, status: SmartSuggestionStatus) => Promise<SmartSuggestion>;
+  updateComment: (
+    commentId: string,
+    input: Partial<CreateCommentInput>,
+  ) => Promise<Comment>;
+  deleteComment: (
+    commentId: string,
+    actorUserId?: string | null,
+  ) => Promise<Comment>;
+  upsertSmartSuggestion: (
+    input: SmartSuggestion | CreateSmartSuggestionInput,
+  ) => Promise<SmartSuggestion>;
+  setSmartSuggestionStatus: (
+    suggestionId: string,
+    status: SmartSuggestionStatus,
+  ) => Promise<SmartSuggestion>;
   createExportLog: (input: CreateExportLogInput) => Promise<ExportLog>;
-  createCsvImportBatch: (input: CreateCsvImportBatchInput) => Promise<CsvImportBatch>;
+  createCsvImportBatch: (
+    input: CreateCsvImportBatchInput,
+  ) => Promise<CsvImportBatch>;
   upsertSyncQueueEntry: (entry: SyncQueueEntry) => Promise<SyncQueueEntry>;
   queueSyncOperation: (input: {
-    entityType: SyncQueueEntry['entityType'];
+    entityType: SyncQueueEntry["entityType"];
     entityId: string;
-    operation: SyncQueueEntry['operation'];
+    operation: SyncQueueEntry["operation"];
     payload?: Record<string, unknown>;
     dependencyIds?: string[];
   }) => Promise<SyncQueueEntry>;
-  updateSyncQueueEntry: (entryId: string, patch: Partial<SyncQueueEntry>) => Promise<SyncQueueEntry>;
+  updateSyncQueueEntry: (
+    entryId: string,
+    patch: Partial<SyncQueueEntry>,
+  ) => Promise<SyncQueueEntry>;
   upsertSyncConflict: (conflict: SyncConflict) => Promise<SyncConflict>;
   resolveSyncConflict: (
     conflictId: string,
     resolution: ConflictResolution,
     actorUserId?: string | null,
   ) => Promise<SyncConflict>;
-  createNotification: (input: Omit<AppNotification, 'id' | 'createdAt' | 'readAt'> & { readAt?: string | null }) => Promise<AppNotification>;
+  createNotification: (
+    input: Omit<AppNotification, "id" | "createdAt" | "readAt"> & {
+      readAt?: string | null;
+    },
+  ) => Promise<AppNotification>;
   markNotificationRead: (notificationId: string) => Promise<AppNotification>;
   markAllNotificationsRead: () => Promise<void>;
-  createAuditLog: (input: Omit<AuditLog, 'id' | 'createdAt' | 'deviceId'> & { deviceId?: string | null }) => Promise<AuditLog>;
+  createAuditLog: (
+    input: Omit<AuditLog, "id" | "createdAt" | "deviceId"> & {
+      deviceId?: string | null;
+    },
+  ) => Promise<AuditLog>;
   submitAccountDeletionRequest: (input: {
     userId: string;
     deleteLocalData: boolean;
@@ -491,11 +594,11 @@ type AppDataContextValue = AppSnapshot & {
   restoreBackup: (rawJson: string, mode: BackupMode) => Promise<RestoreResult>;
   respondToGroupVerification: (input: {
     groupId: string;
-    targetType: GroupVerificationResponse['targetType'];
+    targetType: GroupVerificationResponse["targetType"];
     targetId: string;
     groupMemberId: string;
     linkedUserId: string;
-    status: Extract<VerificationStatus, 'verified' | 'rejected'>;
+    status: Extract<VerificationStatus, "verified" | "rejected">;
     rejectionReason?: string | null;
   }) => Promise<GroupVerificationResponse>;
   updateSettings: (settings: Partial<AppSettings>) => Promise<void>;
@@ -540,27 +643,27 @@ const emptySnapshot: AppSnapshot = {
   tags: [],
   currencyRates: [],
   settings: {
-    baseCurrency: 'SEK',
+    baseCurrency: "SEK",
     hasCompletedFirstRun: false,
     localDisplayName: null,
     showEstimatedBase: true,
-    theme: 'system',
+    theme: "system",
     convertedSettlementOptIn: false,
-    defaultReminderPreference: 'none',
-    recurringGenerationPreference: 'prompt',
+    defaultReminderPreference: "none",
+    recurringGenerationPreference: "prompt",
     includePendingSettlements: false,
     includeRejectedDisputedSettlements: false,
     verifiedOnlySettlements: false,
     smartSuggestionsEnabled: true,
     analyticsEstimatedCurrencyMode: false,
-    attachmentUploadPreference: 'ask',
+    attachmentUploadPreference: "ask",
     includePrivateNotesInExports: false,
     includeRejectedDisputedInExports: false,
     includeArchivedInExports: false,
     includeCommentsInExports: false,
     includeAttachmentsInExports: false,
-    defaultDebtVisibility: 'private',
-    defaultGroupVisibility: 'private',
+    defaultDebtVisibility: "private",
+    defaultGroupVisibility: "private",
     showSensitiveDetailsInNotifications: false,
     syncPrivateLocalDataToAccountBackup: false,
     uploadAttachmentsForSharedRecords: false,
@@ -574,9 +677,9 @@ const emptySnapshot: AppSnapshot = {
     notificationReminderEnabled: true,
     notificationCommentEnabled: false,
     quietHoursEnabled: false,
-    quietHoursStart: '22:00',
-    quietHoursEnd: '07:00',
-    language: 'system',
+    quietHoursStart: "22:00",
+    quietHoursEnd: "07:00",
+    language: "system",
     backupIncludeAttachments: false,
     backupIncludePrivateNotes: false,
     betaTelemetryEnabled: true,
@@ -587,9 +690,15 @@ const emptySnapshot: AppSnapshot = {
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
 
-export function AppDataProvider({ children }: { children: React.ReactNode }) {
+export function AppDataProvider({
+  children,
+  bootstrap,
+}: {
+  children: React.ReactNode;
+  bootstrap: LocalDataBootstrap;
+}) {
   const [snapshot, setSnapshot] = useState<AppSnapshot>(emptySnapshot);
-  const [repository, setRepository] = useState<DebtulatorRepository | null>(null);
+  const [repository, setRepository] = useState<AppDataRepository | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [bootAttempt, setBootAttempt] = useState(0);
@@ -603,21 +712,10 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       try {
         setLoading(true);
         setError(null);
-        const { repo, loaded } = await withBootTimeout(
-          (async () => {
-            const db = await openDebtulatorDatabase();
-            const repo = new DebtulatorRepository(db);
-            const initial = await loadSnapshot(db);
-            if (initial.settings.recurringGenerationPreference === 'auto') {
-              await repo.generateDueRecurringRecords();
-            }
-            return {
-              repo,
-              loaded: await loadSnapshot(db),
-            };
-          })(),
-          Platform.OS === 'web' ? 6000 : 20000,
-          'Local database boot timed out. Continuing in local preview mode.',
+        const { repository: repo, snapshot: loaded } = await withBootTimeout(
+          bootstrap.boot(),
+          Platform.OS === "web" ? 6000 : 20000,
+          "Local database boot timed out. Continuing in local preview mode.",
         );
 
         if (mounted) {
@@ -628,7 +726,11 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       } catch (bootError) {
         if (mounted) {
           setRepository(null);
-          setError(bootError instanceof Error ? bootError.message : 'Unable to open local database');
+          setError(
+            bootError instanceof Error
+              ? bootError.message
+              : "Unable to open local database",
+          );
         }
       } finally {
         if (mounted) {
@@ -642,7 +744,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     return () => {
       mounted = false;
     };
-  }, [bootAttempt]);
+  }, [bootAttempt, bootstrap]);
 
   const retryBoot = useCallback(() => {
     setBootAttempt((attempt) => attempt + 1);
@@ -657,9 +759,9 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   }, [repository]);
 
   const runAndRefresh = useCallback(
-    async <T,>(operation: (repo: DebtulatorRepository) => Promise<T>) => {
+    async <T,>(operation: (repo: AppDataRepository) => Promise<T>) => {
       if (!repository) {
-        throw new Error('Local database is not ready yet.');
+        throw new Error("Local database is not ready yet.");
       }
 
       const result = await repository.transaction(operation);
@@ -696,8 +798,14 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       ledgerUserId,
     ],
   );
-  const memberBalances = useMemo(() => calculateMemberBalances(ledgerEntries), [ledgerEntries]);
-  const personalTotals = useMemo(() => calculatePersonalTotals(ledgerEntries), [ledgerEntries]);
+  const memberBalances = useMemo(
+    () => calculateMemberBalances(ledgerEntries),
+    [ledgerEntries],
+  );
+  const personalTotals = useMemo(
+    () => calculatePersonalTotals(ledgerEntries),
+    [ledgerEntries],
+  );
   const syncSummary = useMemo(() => buildSyncSummary(snapshot), [snapshot]);
 
   const value = useMemo<AppDataContextValue>(
@@ -721,30 +829,45 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         setSyncedDataResetVersion((version) => version + 1);
       },
       syncedDataResetVersion,
-      upsertProfile: (profile) => runAndRefresh((repo) => repo.upsertProfile(profile)),
-      upsertLinkRequest: (linkRequest) => runAndRefresh((repo) => repo.upsertLinkRequest(linkRequest)),
-      upsertDebtVerification: (verification) => runAndRefresh((repo) => repo.upsertDebtVerification(verification)),
+      upsertProfile: (profile) =>
+        runAndRefresh((repo) => repo.upsertProfile(profile)),
+      upsertLinkRequest: (linkRequest) =>
+        runAndRefresh((repo) => repo.upsertLinkRequest(linkRequest)),
+      upsertDebtVerification: (verification) =>
+        runAndRefresh((repo) => repo.upsertDebtVerification(verification)),
       upsertDebt: (debt) => runAndRefresh((repo) => repo.upsertDebt(debt)),
-      upsertSharedExpense: (expense) => runAndRefresh((repo) => repo.upsertSharedExpense(expense)),
+      upsertSharedExpense: (expense) =>
+        runAndRefresh((repo) => repo.upsertSharedExpense(expense)),
       upsertGroup: (group) => runAndRefresh((repo) => repo.upsertGroup(group)),
-      upsertGroupParticipant: (participant) => runAndRefresh((repo) => repo.upsertGroupParticipant(participant)),
-      upsertGroupInvite: (invite) => runAndRefresh((repo) => repo.upsertGroupInvite(invite)),
-      upsertSharedGroupMember: (member) => runAndRefresh((repo) => repo.upsertSharedGroupMember(member)),
-      upsertGroupMemberClaim: (claim) => runAndRefresh((repo) => repo.upsertGroupMemberClaim(claim)),
-      upsertGroupDuplicateWarning: (warning) => runAndRefresh((repo) => repo.upsertGroupDuplicateWarning(warning)),
-      upsertGroupDebt: (debt) => runAndRefresh((repo) => repo.upsertGroupDebt(debt)),
+      upsertGroupParticipant: (participant) =>
+        runAndRefresh((repo) => repo.upsertGroupParticipant(participant)),
+      upsertGroupInvite: (invite) =>
+        runAndRefresh((repo) => repo.upsertGroupInvite(invite)),
+      upsertSharedGroupMember: (member) =>
+        runAndRefresh((repo) => repo.upsertSharedGroupMember(member)),
+      upsertGroupMemberClaim: (claim) =>
+        runAndRefresh((repo) => repo.upsertGroupMemberClaim(claim)),
+      upsertGroupDuplicateWarning: (warning) =>
+        runAndRefresh((repo) => repo.upsertGroupDuplicateWarning(warning)),
+      upsertGroupDebt: (debt) =>
+        runAndRefresh((repo) => repo.upsertGroupDebt(debt)),
       upsertGroupVerificationResponse: (response) =>
         runAndRefresh((repo) => repo.upsertGroupVerificationResponse(response)),
-      upsertGroupActivityLog: (activity) => runAndRefresh((repo) => repo.upsertGroupActivityLog(activity)),
-      upsertPayment: (payment) => runAndRefresh((repo) => repo.upsertPayment(payment)),
-      upsertSettlement: (settlement) => runAndRefresh((repo) => repo.upsertSettlement(settlement)),
-      upsertSettlementLine: (line) => runAndRefresh((repo) => repo.upsertSettlementLine(line)),
-      createMember: (input) => runAndRefresh((repo) => repo.createMember(input)),
+      upsertGroupActivityLog: (activity) =>
+        runAndRefresh((repo) => repo.upsertGroupActivityLog(activity)),
+      upsertPayment: (payment) =>
+        runAndRefresh((repo) => repo.upsertPayment(payment)),
+      upsertSettlement: (settlement) =>
+        runAndRefresh((repo) => repo.upsertSettlement(settlement)),
+      upsertSettlementLine: (line) =>
+        runAndRefresh((repo) => repo.upsertSettlementLine(line)),
+      createMember: (input) =>
+        runAndRefresh((repo) => repo.createMember(input)),
       updateMember: (memberId, input) =>
         runAndRefresh((repo) => {
           const member = snapshot.members.find((item) => item.id === memberId);
           if (!member) {
-            throw new Error('Member not found.');
+            throw new Error("Member not found.");
           }
           return repo.updateMember(member, input);
         }),
@@ -753,15 +876,17 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           const latest = await repo.load();
           const member = latest.members.find((item) => item.id === memberId);
           if (!member) {
-            throw new Error('Member not found.');
+            throw new Error("Member not found.");
           }
           return repo.sendMemberLinkRequest({ member, ...input });
         }),
       respondToLinkRequest: (requestId, status, actorUserId) =>
         runAndRefresh((repo) => {
-          const linkRequest = snapshot.linkRequests.find((item) => item.id === requestId);
+          const linkRequest = snapshot.linkRequests.find(
+            (item) => item.id === requestId,
+          );
           if (!linkRequest) {
-            throw new Error('Link request not found.');
+            throw new Error("Link request not found.");
           }
           return repo.respondToLinkRequest(linkRequest, status, actorUserId);
         }),
@@ -769,7 +894,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         runAndRefresh((repo) => {
           const member = snapshot.members.find((item) => item.id === memberId);
           if (!member) {
-            throw new Error('Member not found.');
+            throw new Error("Member not found.");
           }
           return repo.unlinkMember(member, actorUserId);
         }),
@@ -779,7 +904,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           const latest = await repo.load();
           const debt = latest.debts.find((item) => item.id === debtId);
           if (!debt) {
-            throw new Error('Debt not found.');
+            throw new Error("Debt not found.");
           }
           return repo.updateDebt(debt, input, actorUserId);
         }),
@@ -788,36 +913,64 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           const latest = await repo.load();
           const debt = latest.debts.find((item) => item.id === debtId);
           if (!debt) {
-            throw new Error('Debt not found.');
+            throw new Error("Debt not found.");
           }
-          const member = latest.members.find((item) => item.id === debt.memberId);
+          const member = latest.members.find(
+            (item) => item.id === debt.memberId,
+          );
           if (!member) {
-            throw new Error('Member not found.');
+            throw new Error("Member not found.");
           }
           return repo.requestDebtVerification({ debt, member, ...input });
         }),
-      respondToDebtVerification: (verificationId, status, actorUserId, rejectionReason, suggestedChange) =>
+      respondToDebtVerification: (
+        verificationId,
+        status,
+        actorUserId,
+        rejectionReason,
+        suggestedChange,
+      ) =>
         runAndRefresh((repo) => {
-          const verification = snapshot.debtVerifications.find((item) => item.id === verificationId);
+          const verification = snapshot.debtVerifications.find(
+            (item) => item.id === verificationId,
+          );
           if (!verification) {
-            throw new Error('Verification request not found.');
+            throw new Error("Verification request not found.");
           }
-          const debt = snapshot.debts.find((item) => item.id === verification.debtId);
+          const debt = snapshot.debts.find(
+            (item) => item.id === verification.debtId,
+          );
           if (!debt) {
-            throw new Error('Debt not found.');
+            throw new Error("Debt not found.");
           }
-          return repo.respondToDebtVerification(verification, debt, status, actorUserId, rejectionReason, suggestedChange);
+          return repo.respondToDebtVerification(
+            verification,
+            debt,
+            status,
+            actorUserId,
+            rejectionReason,
+            suggestedChange,
+          );
         }),
-      counterDebtVerification: (verificationId, actorUserId, changeSummary, remoteCounterproposal = null) =>
+      counterDebtVerification: (
+        verificationId,
+        actorUserId,
+        changeSummary,
+        remoteCounterproposal = null,
+      ) =>
         runAndRefresh(async (repo) => {
           const latest = await repo.load();
-          const verification = latest.debtVerifications.find((item) => item.id === verificationId);
+          const verification = latest.debtVerifications.find(
+            (item) => item.id === verificationId,
+          );
           if (!verification) {
-            throw new Error('Verification request not found.');
+            throw new Error("Verification request not found.");
           }
-          const debt = latest.debts.find((item) => item.id === verification.debtId);
+          const debt = latest.debts.find(
+            (item) => item.id === verification.debtId,
+          );
           if (!debt) {
-            throw new Error('Debt not found.');
+            throw new Error("Debt not found.");
           }
           return repo.counterDebtVerification(
             verification,
@@ -831,7 +984,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         runAndRefresh((repo) => {
           const debt = snapshot.debts.find((item) => item.id === debtId);
           if (!debt) {
-            throw new Error('Debt not found.');
+            throw new Error("Debt not found.");
           }
           return repo.markDebtDisputed(debt, actorUserId, disputeReason);
         }),
@@ -839,7 +992,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         runAndRefresh((repo) => {
           const debt = snapshot.debts.find((item) => item.id === debtId);
           if (!debt) {
-            throw new Error('Debt not found.');
+            throw new Error("Debt not found.");
           }
           return repo.markDebtResolved(debt, actorUserId, resolutionNote);
         }),
@@ -847,10 +1000,12 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         runAndRefresh((repo) => {
           const debt = snapshot.debts.find((item) => item.id === debtId);
           if (!debt) {
-            throw new Error('Debt not found.');
+            throw new Error("Debt not found.");
           }
           const verification = debt.verificationRequestId
-            ? snapshot.debtVerifications.find((item) => item.id === debt.verificationRequestId)
+            ? snapshot.debtVerifications.find(
+                (item) => item.id === debt.verificationRequestId,
+              )
             : undefined;
           return repo.cancelDebtVerification(debt, verification, actorUserId);
         }),
@@ -859,197 +1014,309 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         runAndRefresh((repo) => {
           const group = snapshot.groups.find((item) => item.id === groupId);
           if (!group) {
-            throw new Error('Group not found.');
+            throw new Error("Group not found.");
           }
           return repo.updateGroup(group, input);
         }),
       setGroupMembers: async (groupId, memberIds) => {
         await runAndRefresh((repo) => repo.setGroupMembers(groupId, memberIds));
       },
-      createSharedExpense: (input) => runAndRefresh((repo) => repo.createSharedExpense(input)),
+      createSharedExpense: (input) =>
+        runAndRefresh((repo) => repo.createSharedExpense(input)),
       updateSharedExpense: (expenseId, input) =>
         runAndRefresh((repo) => {
-          const expense = snapshot.sharedExpenses.find((item) => item.id === expenseId);
+          const expense = snapshot.sharedExpenses.find(
+            (item) => item.id === expenseId,
+          );
           if (!expense) {
-            throw new Error('Expense not found.');
+            throw new Error("Expense not found.");
           }
           return repo.updateSharedExpense(expense, input);
         }),
-      createGroupInvite: (input) => runAndRefresh((repo) => repo.createGroupInvite(input)),
-      respondToGroupInvite: (inviteId, status, actorUserId, actorDisplayName, actorEmail) =>
+      createGroupInvite: (input) =>
+        runAndRefresh((repo) => repo.createGroupInvite(input)),
+      respondToGroupInvite: (
+        inviteId,
+        status,
+        actorUserId,
+        actorDisplayName,
+        actorEmail,
+      ) =>
         runAndRefresh((repo) => {
-          const invite = snapshot.groupInvites.find((item) => item.id === inviteId);
+          const invite = snapshot.groupInvites.find(
+            (item) => item.id === inviteId,
+          );
           if (!invite) {
-            throw new Error('Group invite not found.');
+            throw new Error("Group invite not found.");
           }
-          return repo.respondToGroupInvite(invite, status, actorUserId, actorDisplayName, actorEmail);
+          return repo.respondToGroupInvite(
+            invite,
+            status,
+            actorUserId,
+            actorDisplayName,
+            actorEmail,
+          );
         }),
-      createSharedGroupMember: (input) => runAndRefresh((repo) => repo.createSharedGroupMember(input)),
+      createSharedGroupMember: (input) =>
+        runAndRefresh((repo) => repo.createSharedGroupMember(input)),
       updateSharedGroupMember: (groupMemberId, input) =>
         runAndRefresh((repo) => {
-          const member = snapshot.sharedGroupMembers.find((item) => item.id === groupMemberId);
+          const member = snapshot.sharedGroupMembers.find(
+            (item) => item.id === groupMemberId,
+          );
           if (!member) {
-            throw new Error('Group member not found.');
+            throw new Error("Group member not found.");
           }
           return repo.updateSharedGroupMember(member, input);
         }),
-      createGroupMemberClaim: (groupMemberId, claimantUserId, message, remoteId) =>
+      createGroupMemberClaim: (
+        groupMemberId,
+        claimantUserId,
+        message,
+        remoteId,
+      ) =>
         runAndRefresh((repo) => {
-          const member = snapshot.sharedGroupMembers.find((item) => item.id === groupMemberId);
+          const member = snapshot.sharedGroupMembers.find(
+            (item) => item.id === groupMemberId,
+          );
           if (!member) {
-            throw new Error('Group member not found.');
+            throw new Error("Group member not found.");
           }
-          return repo.createGroupMemberClaim(member, claimantUserId, message, remoteId);
+          return repo.createGroupMemberClaim(
+            member,
+            claimantUserId,
+            message,
+            remoteId,
+          );
         }),
       respondToGroupMemberClaim: (claimId, status, actorUserId) =>
         runAndRefresh((repo) => {
-          const claim = snapshot.groupMemberClaims.find((item) => item.id === claimId);
+          const claim = snapshot.groupMemberClaims.find(
+            (item) => item.id === claimId,
+          );
           if (!claim) {
-            throw new Error('Claim request not found.');
+            throw new Error("Claim request not found.");
           }
-          const member = snapshot.sharedGroupMembers.find((item) => item.id === claim.groupMemberId);
+          const member = snapshot.sharedGroupMembers.find(
+            (item) => item.id === claim.groupMemberId,
+          );
           if (!member) {
-            throw new Error('Group member not found.');
+            throw new Error("Group member not found.");
           }
-          return repo.respondToGroupMemberClaim(claim, member, status, actorUserId);
+          return repo.respondToGroupMemberClaim(
+            claim,
+            member,
+            status,
+            actorUserId,
+          );
         }),
       ignoreGroupDuplicateWarning: (warningId, actorUserId) =>
         runAndRefresh((repo) => {
-          const warning = snapshot.groupDuplicateWarnings.find((item) => item.id === warningId);
+          const warning = snapshot.groupDuplicateWarnings.find(
+            (item) => item.id === warningId,
+          );
           if (!warning) {
-            throw new Error('Duplicate warning not found.');
+            throw new Error("Duplicate warning not found.");
           }
           return repo.ignoreGroupDuplicateWarning(warning, actorUserId);
         }),
-      mergeSharedGroupMembers: (sourceGroupMemberId, targetGroupMemberId, actorUserId) =>
+      mergeSharedGroupMembers: (
+        sourceGroupMemberId,
+        targetGroupMemberId,
+        actorUserId,
+      ) =>
         runAndRefresh((repo) => {
-          const source = snapshot.sharedGroupMembers.find((item) => item.id === sourceGroupMemberId);
-          const target = snapshot.sharedGroupMembers.find((item) => item.id === targetGroupMemberId);
+          const source = snapshot.sharedGroupMembers.find(
+            (item) => item.id === sourceGroupMemberId,
+          );
+          const target = snapshot.sharedGroupMembers.find(
+            (item) => item.id === targetGroupMemberId,
+          );
           if (!source || !target) {
-            throw new Error('Group member not found.');
+            throw new Error("Group member not found.");
           }
           return repo.mergeSharedGroupMembers(source, target, actorUserId);
         }),
-      createGroupDebt: (input) => runAndRefresh((repo) => repo.createGroupDebt(input)),
+      createGroupDebt: (input) =>
+        runAndRefresh((repo) => repo.createGroupDebt(input)),
       updateGroupDebt: (groupDebtId, input) =>
         runAndRefresh((repo) => {
-          const debt = snapshot.groupDebts.find((item) => item.id === groupDebtId);
+          const debt = snapshot.groupDebts.find(
+            (item) => item.id === groupDebtId,
+          );
           if (!debt) {
-            throw new Error('Group debt not found.');
+            throw new Error("Group debt not found.");
           }
           return repo.updateGroupDebt(debt, input);
         }),
-      createPaymentSettlement: (input) => runAndRefresh((repo) => repo.createPaymentSettlement(input)),
+      createPaymentSettlement: (input) =>
+        runAndRefresh((repo) => repo.createPaymentSettlement(input)),
       respondToPaymentConfirmation: (paymentId, status, actorUserId) =>
         runAndRefresh(async (repo) => {
           const latest = await repo.load();
           const payment = latest.payments.find((item) => item.id === paymentId);
           if (!payment) {
-            throw new Error('Payment not found.');
+            throw new Error("Payment not found.");
           }
-          return repo.respondToPaymentConfirmation(payment, status, actorUserId);
+          return repo.respondToPaymentConfirmation(
+            payment,
+            status,
+            actorUserId,
+          );
         }),
-      createRecurringTemplate: (input) => runAndRefresh((repo) => repo.createRecurringTemplate(input)),
+      createRecurringTemplate: (input) =>
+        runAndRefresh((repo) => repo.createRecurringTemplate(input)),
       updateRecurringTemplate: (templateId, input) =>
         runAndRefresh((repo) => {
-          const template = snapshot.recurringTemplates.find((item) => item.id === templateId);
+          const template = snapshot.recurringTemplates.find(
+            (item) => item.id === templateId,
+          );
           if (!template) {
-            throw new Error('Recurring template not found.');
+            throw new Error("Recurring template not found.");
           }
           return repo.updateRecurringTemplate(template, input);
         }),
-      generateDueRecurringRecords: () => runAndRefresh((repo) => repo.generateDueRecurringRecords()),
-      createReminder: (input) => runAndRefresh((repo) => repo.createReminder(input)),
-      createSoftReminder: (input) => runAndRefresh((repo) => repo.createSoftReminder(input)),
-      createAttachment: (input) => runAndRefresh((repo) => repo.createAttachment(input)),
-      upsertAttachment: (attachment) => runAndRefresh((repo) => repo.upsertAttachment(attachment)),
+      generateDueRecurringRecords: () =>
+        runAndRefresh((repo) => repo.generateDueRecurringRecords()),
+      createReminder: (input) =>
+        runAndRefresh((repo) => repo.createReminder(input)),
+      createSoftReminder: (input) =>
+        runAndRefresh((repo) => repo.createSoftReminder(input)),
+      createAttachment: (input) =>
+        runAndRefresh((repo) => repo.createAttachment(input)),
+      upsertAttachment: (attachment) =>
+        runAndRefresh((repo) => repo.upsertAttachment(attachment)),
       archiveAttachment: (attachmentId, actorUserId = null) =>
         runAndRefresh((repo) => {
-          const attachment = snapshot.attachments.find((item) => item.id === attachmentId);
+          const attachment = snapshot.attachments.find(
+            (item) => item.id === attachmentId,
+          );
           if (!attachment) {
-            throw new Error('Attachment not found.');
+            throw new Error("Attachment not found.");
           }
           return repo.archiveAttachment(attachment, actorUserId);
         }),
-      upsertComment: (comment) => runAndRefresh((repo) => repo.upsertComment(comment)),
-      createComment: (input) => runAndRefresh((repo) => repo.createComment(input)),
+      upsertComment: (comment) =>
+        runAndRefresh((repo) => repo.upsertComment(comment)),
+      createComment: (input) =>
+        runAndRefresh((repo) => repo.createComment(input)),
       updateComment: (commentId, input) =>
         runAndRefresh((repo) => {
-          const comment = snapshot.comments.find((item) => item.id === commentId);
+          const comment = snapshot.comments.find(
+            (item) => item.id === commentId,
+          );
           if (!comment) {
-            throw new Error('Comment not found.');
+            throw new Error("Comment not found.");
           }
           return repo.updateComment(comment, input);
         }),
       deleteComment: (commentId, actorUserId = null) =>
         runAndRefresh((repo) => {
-          const comment = snapshot.comments.find((item) => item.id === commentId);
+          const comment = snapshot.comments.find(
+            (item) => item.id === commentId,
+          );
           if (!comment) {
-            throw new Error('Comment not found.');
+            throw new Error("Comment not found.");
           }
           return repo.deleteComment(comment, actorUserId);
         }),
-      upsertSmartSuggestion: (input) => runAndRefresh((repo) => repo.upsertSmartSuggestion(input)),
+      upsertSmartSuggestion: (input) =>
+        runAndRefresh((repo) => repo.upsertSmartSuggestion(input)),
       setSmartSuggestionStatus: (suggestionId, status) =>
         runAndRefresh((repo) => {
-          const suggestion = snapshot.smartSuggestions.find((item) => item.id === suggestionId);
+          const suggestion = snapshot.smartSuggestions.find(
+            (item) => item.id === suggestionId,
+          );
           if (!suggestion) {
-            throw new Error('Smart suggestion not found.');
+            throw new Error("Smart suggestion not found.");
           }
           return repo.setSmartSuggestionStatus(suggestion, status);
         }),
-      createExportLog: (input) => runAndRefresh((repo) => repo.createExportLog(input)),
-      createCsvImportBatch: (input) => runAndRefresh((repo) => repo.createCsvImportBatch(input)),
-      upsertSyncQueueEntry: (entry) => runAndRefresh((repo) => repo.upsertSyncQueueEntry(entry)),
-      queueSyncOperation: (input) => runAndRefresh((repo) => repo.queueSyncOperation(input)),
+      createExportLog: (input) =>
+        runAndRefresh((repo) => repo.createExportLog(input)),
+      createCsvImportBatch: (input) =>
+        runAndRefresh((repo) => repo.createCsvImportBatch(input)),
+      upsertSyncQueueEntry: (entry) =>
+        runAndRefresh((repo) => repo.upsertSyncQueueEntry(entry)),
+      queueSyncOperation: (input) =>
+        runAndRefresh((repo) => repo.queueSyncOperation(input)),
       updateSyncQueueEntry: (entryId, patch) =>
         runAndRefresh((repo) => {
           const entry = snapshot.syncQueue.find((item) => item.id === entryId);
           if (!entry) {
-            throw new Error('Sync queue item not found.');
+            throw new Error("Sync queue item not found.");
           }
           return repo.markSyncQueueEntry(entry, patch);
         }),
-      upsertSyncConflict: (conflict) => runAndRefresh((repo) => repo.upsertSyncConflict(conflict)),
-      resolveSyncConflict: async (conflictId, resolution, actorUserId = null) => {
-        addTelemetryBreadcrumb('conflict', 'resolution_started', { resolution });
+      upsertSyncConflict: (conflict) =>
+        runAndRefresh((repo) => repo.upsertSyncConflict(conflict)),
+      resolveSyncConflict: async (
+        conflictId,
+        resolution,
+        actorUserId = null,
+      ) => {
+        addTelemetryBreadcrumb("conflict", "resolution_started", {
+          resolution,
+        });
         try {
-          const result = await runAndRefresh((repo) => {
-            const conflict = snapshot.syncConflicts.find((item) => item.id === conflictId);
+          const result = await runAndRefresh<SyncConflict>((repo) => {
+            const conflict = snapshot.syncConflicts.find(
+              (item) => item.id === conflictId,
+            );
             if (!conflict) {
-              throw new Error('Sync conflict not found.');
+              throw new Error("Sync conflict not found.");
             }
             return repo.resolveSyncConflict(conflict, resolution, actorUserId);
           });
-          addTelemetryBreadcrumb('conflict', 'resolution_completed', { resolution, result: 'success' });
-          trackTelemetryEvent('conflict_resolution_completed', { resolution, result: 'success' });
+          addTelemetryBreadcrumb("conflict", "resolution_completed", {
+            resolution,
+            result: "success",
+          });
+          trackTelemetryEvent("conflict_resolution_completed", {
+            resolution,
+            result: "success",
+          });
           return result;
         } catch (error) {
-          addTelemetryBreadcrumb('conflict', 'resolution_failed', { resolution, result: 'failure' });
-          captureTelemetryException(error, 'conflict_resolution', { resolution });
+          addTelemetryBreadcrumb("conflict", "resolution_failed", {
+            resolution,
+            result: "failure",
+          });
+          captureTelemetryException(error, "conflict_resolution", {
+            resolution,
+          });
           throw error;
         }
       },
-      createNotification: (input) => runAndRefresh((repo) => repo.createNotification(input)),
+      createNotification: (input) =>
+        runAndRefresh((repo) => repo.createNotification(input)),
       markNotificationRead: (notificationId) =>
         runAndRefresh((repo) => {
-          const notification = snapshot.notifications.find((item) => item.id === notificationId);
+          const notification = snapshot.notifications.find(
+            (item) => item.id === notificationId,
+          );
           if (!notification) {
-            throw new Error('Notification not found.');
+            throw new Error("Notification not found.");
           }
           return repo.markNotificationRead(notification);
         }),
       markAllNotificationsRead: async () => {
         await runAndRefresh(async (repo) => {
-          for (const notification of snapshot.notifications.filter((item) => !item.readAt)) {
+          for (const notification of snapshot.notifications.filter(
+            (item) => !item.readAt,
+          )) {
             await repo.markNotificationRead(notification);
           }
         });
       },
-      createAuditLog: (input) => runAndRefresh((repo) => repo.createAuditLog(input)),
-      restoreBackup: (rawJson, mode) => runAndRefresh((repo) => repo.restoreBackup(rawJson, mode)),
-      submitAccountDeletionRequest: (input) => runAndRefresh((repo) => repo.submitAccountDeletionRequest(input)),
-      respondToGroupVerification: (input) => runAndRefresh((repo) => repo.respondToGroupVerification(input)),
+      createAuditLog: (input) =>
+        runAndRefresh((repo) => repo.createAuditLog(input)),
+      restoreBackup: (rawJson, mode) =>
+        runAndRefresh((repo) => repo.restoreBackup(rawJson, mode)),
+      submitAccountDeletionRequest: (input) =>
+        runAndRefresh((repo) => repo.submitAccountDeletionRequest(input)),
+      respondToGroupVerification: (input) =>
+        runAndRefresh((repo) => repo.respondToGroupVerification(input)),
       updateSettings: async (settings) => {
         await runAndRefresh((repo) => repo.updateSettings(settings));
       },
@@ -1073,10 +1340,16 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     ],
   );
 
-  return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;
+  return (
+    <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>
+  );
 }
 
-function withBootTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string) {
+function withBootTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  message: string,
+) {
   return new Promise<T>((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error(message)), timeoutMs);
     promise.then(
@@ -1095,7 +1368,7 @@ function withBootTimeout<T>(promise: Promise<T>, timeoutMs: number, message: str
 export function useAppData() {
   const value = useContext(AppDataContext);
   if (!value) {
-    throw new Error('useAppData must be used inside AppDataProvider.');
+    throw new Error("useAppData must be used inside AppDataProvider.");
   }
   return value;
 }

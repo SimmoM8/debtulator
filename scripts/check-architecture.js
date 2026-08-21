@@ -8,15 +8,17 @@ const ts = require('typescript');
 
 const repositoryRoot = path.resolve(__dirname, '..');
 const sourceExtensions = new Set(['.js', '.jsx', '.ts', '.tsx']);
-const scannedRoots = ['app', 'src'];
+const scannedRoots = ['app', 'src', 'backend', 'packages/contracts'];
 
 const layers = ['domain', 'application', 'infrastructure', 'platform', 'presentation'];
 const allowedInternalDependencies = {
   domain: new Set(['domain']),
-  application: new Set(['application', 'domain']),
-  infrastructure: new Set(['infrastructure', 'platform', 'application', 'domain']),
+  application: new Set(['application', 'domain', 'contracts']),
+  infrastructure: new Set(['infrastructure', 'platform', 'application', 'domain', 'contracts']),
   platform: new Set(['platform', 'application', 'domain']),
   presentation: new Set(['presentation', 'application', 'domain']),
+  backend: new Set(['backend', 'contracts']),
+  contracts: new Set(['contracts']),
 };
 
 const legacySrcAliases = new Map([
@@ -75,6 +77,15 @@ function layerForRepositoryPath(repositoryPath) {
   }
   if (repositoryPath === 'src/composition' || repositoryPath.startsWith('src/composition/')) {
     return 'composition';
+  }
+  if (repositoryPath === 'backend' || repositoryPath.startsWith('backend/')) {
+    return 'backend';
+  }
+  if (
+    repositoryPath === 'packages/contracts' ||
+    repositoryPath.startsWith('packages/contracts/')
+  ) {
+    return 'contracts';
   }
   if (repositoryPath === 'app' || repositoryPath.startsWith('app/')) {
     return 'app';
@@ -242,7 +253,11 @@ function checkLayerImport(repositoryPath, sourceLayer, imported, target) {
   }
 
   if (sourceLayer === 'presentation' && isCompositionController(repositoryPath)) {
-    if (target.kind === 'internal' && target.layer && target.layer !== 'app') {
+    if (
+      target.kind === 'internal' &&
+      target.layer &&
+      ['application', 'domain', 'platform'].includes(target.layer)
+    ) {
       return null;
     }
     if (target.kind === 'external') {
@@ -256,10 +271,35 @@ function checkLayerImport(repositoryPath, sourceLayer, imported, target) {
   }
 
   if (
+    sourceLayer === 'backend' &&
+    target.kind === 'internal' &&
+    target.layer !== 'backend' &&
+    target.layer !== 'contracts'
+  ) {
+    return violation(
+      repositoryPath,
+      imported,
+      'backend-frontend-boundary',
+      `Backend code must not import frontend implementation through "${imported.specifier}".`,
+      'Expose a serializable contract in packages/contracts or keep the implementation inside backend.',
+    );
+  }
+  if (sourceLayer === 'contracts' && target.kind === 'internal') {
+    return violation(
+      repositoryPath,
+      imported,
+      'contract-boundary',
+      `API contracts must not depend on application implementation through "${imported.specifier}".`,
+      'Keep contracts serializable and dependency-free so any client or server can consume them.',
+    );
+  }
+
+  if (
     target.kind === 'external' &&
     (sourceLayer === 'infrastructure' ||
       sourceLayer === 'platform' ||
-      sourceLayer === 'presentation')
+      sourceLayer === 'presentation' ||
+      sourceLayer === 'backend')
   ) {
     return null;
   }
@@ -271,6 +311,24 @@ function checkLayerImport(repositoryPath, sourceLayer, imported, target) {
       'domain-boundary',
       `Domain code may import only src/domain/**; "${imported.specifier}" points outside the domain.`,
       'Move framework, persistence, network, and platform behavior behind an application port; keep domain logic pure.',
+    );
+  }
+  if (sourceLayer === 'backend') {
+    return violation(
+      repositoryPath,
+      imported,
+      'backend-boundary',
+      `Backend code may import only backend code, packages/contracts, or external server dependencies; found "${imported.specifier}".`,
+      'Move shared wire types to packages/contracts and keep frontend code out of the backend.',
+    );
+  }
+  if (sourceLayer === 'contracts') {
+    return violation(
+      repositoryPath,
+      imported,
+      'contract-boundary',
+      `API contracts must not import implementation code through "${imported.specifier}".`,
+      'Use plain serializable TypeScript types with no framework or runtime dependencies.',
     );
   }
   if (sourceLayer === 'application') {
