@@ -17,12 +17,20 @@ createServer(async (nodeRequest, nodeResponse) => {
     });
     const response = await runtime(request);
     nodeResponse.statusCode = response.status;
-    response.headers.forEach((value, key) => nodeResponse.setHeader(key, value));
+    response.headers.forEach((value, key) =>
+      nodeResponse.setHeader(key, value),
+    );
     nodeResponse.end(Buffer.from(await response.arrayBuffer()));
   } catch (error) {
     nodeResponse.statusCode = 500;
     nodeResponse.setHeader("Content-Type", "application/problem+json");
-    nodeResponse.end(JSON.stringify({ type: "about:blank", title: "Internal Server Error", status: 500 }));
+    nodeResponse.end(
+      JSON.stringify({
+        type: "about:blank",
+        title: "Internal Server Error",
+        status: 500,
+      }),
+    );
   }
 }).listen(port, () => {
   console.log(`Debtulator API listening on http://localhost:${port}`);

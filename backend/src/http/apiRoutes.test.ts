@@ -16,9 +16,11 @@ describe("backend API routes", () => {
     );
     const handler = routes.get("/api/v1/member-profiles");
     expect(handler).toBeDefined();
-    const response = await handler!(new Request("https://api.test/api/v1/member-profiles?query=Ada", {
-      headers: { Authorization: "Bearer token" },
-    }));
+    const response = await handler!(
+      new Request("https://api.test/api/v1/member-profiles?query=Ada", {
+        headers: { Authorization: "Bearer token" },
+      }),
+    );
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
       data: { path: "/api/v1/member-profiles" },
@@ -34,7 +36,9 @@ describe("backend API routes", () => {
       },
       { memberDirectory: async () => ({ reached: true }) },
     ).get("/api/v1/member-profiles");
-    const response = await handler!(new Request("https://api.test/api/v1/member-profiles"));
+    const response = await handler!(
+      new Request("https://api.test/api/v1/member-profiles"),
+    );
     expect(response.status).toBe(401);
   });
 });
