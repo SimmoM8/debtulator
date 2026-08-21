@@ -310,6 +310,7 @@ function checkLayerImport(repositoryPath, sourceLayer, imported, target) {
       sourceLayer === 'presentation' ||
       sourceLayer === 'components' ||
       sourceLayer === 'navigation' ||
+      sourceLayer === 'theme' ||
       sourceLayer === 'backend')
   ) {
     return null;

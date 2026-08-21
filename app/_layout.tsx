@@ -20,7 +20,6 @@ import {
 } from "@/src/presentation/providers/AppDataProvider";
 import { AuthProvider } from "@/src/presentation/providers/AuthProvider";
 import { CollaborationProvider } from "@/src/presentation/providers/CollaborationProvider";
-import { AppBackground } from "@/src/components/layout";
 import { PlatformServicesProvider } from "@/src/presentation/providers/PlatformServicesProvider";
 
 const apiClient = createDebtulatorApiClient(
@@ -41,25 +40,20 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <AppBackground>
-        <PlatformServicesProvider services={expoPlatformFileServices}>
-          <CollaborationProvider gateway={collaborationGateway}>
-            <AppDataProvider bootstrap={sqliteLocalDataBootstrap}>
-              <TelemetrySettingsBridge />
-              <AuthProvider services={supabaseAuthServices}>
-                <Stack
-                  screenOptions={{
-                    headerShown: false,
-                    contentStyle: {
-                      backgroundColor: "transparent",
-                    },
-                  }}
-                />
-              </AuthProvider>
-            </AppDataProvider>
-          </CollaborationProvider>
-        </PlatformServicesProvider>
-      </AppBackground>
+      <PlatformServicesProvider services={expoPlatformFileServices}>
+        <CollaborationProvider gateway={collaborationGateway}>
+          <AppDataProvider bootstrap={sqliteLocalDataBootstrap}>
+            <TelemetrySettingsBridge />
+            <AuthProvider services={supabaseAuthServices}>
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                }}
+              />
+            </AuthProvider>
+          </AppDataProvider>
+        </CollaborationProvider>
+      </PlatformServicesProvider>
     </SafeAreaProvider>
   );
 }
