@@ -47,8 +47,7 @@ export default function RootLayout() {
             <AuthProvider services={supabaseAuthServices}>
               <Stack
                 screenOptions={{
-                  headerShown: true,
-                  headerBackTitle: "Back",
+                  headerShown: false,
                 }}
               />
             </AuthProvider>

@@ -1,4 +1,5 @@
-export { spacing } from "./spacing";
-export { colors } from "./colors";
-export { textStyles } from "./textStyles";
 export { brand } from "./brand";
+export { colors } from "./colors";
+export { spacing } from "./spacing";
+export { textStyles } from "./textStyles";
+
