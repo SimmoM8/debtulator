@@ -1,5 +1,1 @@
-import { Redirect } from "expo-router";
-
-export default function IndexRoute() {
-  return <Redirect href="/(tabs)/home" />;
-}
+export { BlankRoute as default } from "@/src/presentation/screens/BlankRoute";
