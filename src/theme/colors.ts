@@ -1,4 +1,5 @@
 import { Platform, PlatformColor } from "react-native";
+import { brand } from "./brand";
 
 const materialColors = {
   background: "#FFFBFE",
@@ -9,7 +10,7 @@ const materialColors = {
   tint: "#6750A4",
 } as const;
 
-export const colors =
+const nativeColors =
   Platform.OS === "ios"
     ? {
         background: PlatformColor("systemBackground"),
@@ -20,3 +21,9 @@ export const colors =
         tint: PlatformColor("systemBlue"),
       }
     : materialColors;
+
+export const colors = {
+  ...nativeColors,
+  background: brand.colors.primary,
+  tabBarBackground: brand.colors.primary,
+};

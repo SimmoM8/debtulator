@@ -1,21 +1,25 @@
+import { colors } from "@/src/theme";
 import type { PropsWithChildren } from "react";
-import { StyleSheet, type StyleProp, type ViewStyle } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { ScrollView, StyleSheet, View } from "react-native";
 
-type ScreenProps = PropsWithChildren<{
-  style?: StyleProp<ViewStyle>;
-}>;
+type ScreenProps = PropsWithChildren;
 
-export function Screen({ children, style }: ScreenProps) {
+export function Screen({ children }: ScreenProps) {
   return (
-    <SafeAreaView edges={["left", "right"]} style={[styles.root, style]}>
-      {children}
-    </SafeAreaView>
+    <View style={styles.root}>
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        style={styles.root}
+      >
+        {children}
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    backgroundColor: colors.background,
   },
 });
