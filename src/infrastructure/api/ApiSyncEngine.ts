@@ -7,17 +7,17 @@ import {
 import { canRetrySyncEntry } from "@/src/application/sync/syncPolicy";
 import type { SyncQueueEntry } from "@/src/domain/models";
 import {
-  mapRemoteActivityToLocal,
-  mapRemoteAttachmentToLocal,
-  mapRemoteCommentToLocal,
-  mapRemoteExpenseToLocal,
-  mapRemoteGroupDebtToLocal,
-  mapRemoteGroupInviteToLocal,
-  mapRemoteGroupMemberToLocal,
-  mapRemoteGroupParticipantToLocal,
-  mapRemoteGroupToLocal,
-  mapRemotePaymentToLocal,
-  mapRemoteSettlementToLocal,
+    mapRemoteActivityToLocal,
+    mapRemoteAttachmentToLocal,
+    mapRemoteCommentToLocal,
+    mapRemoteExpenseToLocal,
+    mapRemoteGroupDebtToLocal,
+    mapRemoteGroupInviteToLocal,
+    mapRemoteGroupMemberToLocal,
+    mapRemoteGroupParticipantToLocal,
+    mapRemoteGroupToLocal,
+    mapRemotePaymentToLocal,
+    mapRemoteSettlementToLocal,
 } from "@/src/infrastructure/sync/mappers";
 
 export type ApiSyncStore = {
@@ -87,7 +87,8 @@ export function createApiSyncEngine(
             : "failed";
         await store.updateSyncQueueEntry(entry.id, { status });
       }
-      if (result.data.remote) await applyPulledRecords(store as any, result.data.remote);
+      if (result.data.remote)
+        await applyPulledRecords(store as any, result.data.remote);
       const summary = {
         processed: entries.length,
         succeeded: result.data.succeeded.length,
@@ -119,25 +120,43 @@ export function createApiSyncEngine(
 
 async function applyPulledRecords(store: any, remote: Record<string, any[]>) {
   let snapshot = store as any;
-  for (const row of remote.groups ?? []) await store.upsertGroup(mapRemoteGroupToLocal(row, snapshot));
+  for (const row of remote.groups ?? [])
+    await store.upsertGroup(mapRemoteGroupToLocal(row, snapshot));
   snapshot = store;
-  for (const row of remote.participants ?? []) await store.upsertGroupParticipant(mapRemoteGroupParticipantToLocal(row, snapshot));
-  for (const row of remote.members ?? []) await store.upsertSharedGroupMember(mapRemoteGroupMemberToLocal(row, snapshot));
-  for (const row of remote.invites ?? []) await store.upsertGroupInvite(mapRemoteGroupInviteToLocal(row, snapshot));
+  for (const row of remote.participants ?? [])
+    await store.upsertGroupParticipant(
+      mapRemoteGroupParticipantToLocal(row, snapshot),
+    );
+  for (const row of remote.members ?? [])
+    await store.upsertSharedGroupMember(
+      mapRemoteGroupMemberToLocal(row, snapshot),
+    );
+  for (const row of remote.invites ?? [])
+    await store.upsertGroupInvite(mapRemoteGroupInviteToLocal(row, snapshot));
   for (const row of remote.expenses ?? []) {
     await store.upsertSharedExpense(
       mapRemoteExpenseToLocal(
         row,
-        (remote.splits ?? []).filter((split: any) => split.expense_id === row.id),
-        (remote.payers ?? []).filter((payer: any) => payer.expense_id === row.id),
+        (remote.splits ?? []).filter(
+          (split: any) => split.expense_id === row.id,
+        ),
+        (remote.payers ?? []).filter(
+          (payer: any) => payer.expense_id === row.id,
+        ),
         snapshot,
       ),
     );
   }
-  for (const row of remote.debts ?? []) await store.upsertGroupDebt(mapRemoteGroupDebtToLocal(row, snapshot));
-  for (const row of remote.payments ?? []) await store.upsertPayment(mapRemotePaymentToLocal(row, snapshot));
-  for (const row of remote.settlements ?? []) await store.upsertSettlement(mapRemoteSettlementToLocal(row, snapshot));
-  for (const row of remote.comments ?? []) await store.upsertComment(mapRemoteCommentToLocal(row, snapshot));
-  for (const row of remote.attachments ?? []) await store.upsertAttachment(mapRemoteAttachmentToLocal(row, snapshot));
-  for (const row of remote.activity ?? []) await store.upsertGroupActivityLog(mapRemoteActivityToLocal(row, snapshot));
+  for (const row of remote.debts ?? [])
+    await store.upsertGroupDebt(mapRemoteGroupDebtToLocal(row, snapshot));
+  for (const row of remote.payments ?? [])
+    await store.upsertPayment(mapRemotePaymentToLocal(row, snapshot));
+  for (const row of remote.settlements ?? [])
+    await store.upsertSettlement(mapRemoteSettlementToLocal(row, snapshot));
+  for (const row of remote.comments ?? [])
+    await store.upsertComment(mapRemoteCommentToLocal(row, snapshot));
+  for (const row of remote.attachments ?? [])
+    await store.upsertAttachment(mapRemoteAttachmentToLocal(row, snapshot));
+  for (const row of remote.activity ?? [])
+    await store.upsertGroupActivityLog(mapRemoteActivityToLocal(row, snapshot));
 }

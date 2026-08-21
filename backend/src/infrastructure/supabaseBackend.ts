@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { AuthenticatedUser } from "../http/requestContext";
 import type { Authenticator } from "../auth/authenticator";
+import type { AuthenticatedUser } from "../http/requestContext";
 import type { MemberDirectoryRepository } from "../memberDirectory/memberDirectoryRepository";
 
 type BackendConfig = {
@@ -31,13 +31,16 @@ export class SupabaseAuthenticator implements Authenticator {
     });
   }
 
-  async authenticate(authorizationHeader: string | null): Promise<AuthenticatedUser> {
+  async authenticate(
+    authorizationHeader: string | null,
+  ): Promise<AuthenticatedUser> {
     const token = authorizationHeader?.startsWith("Bearer ")
       ? authorizationHeader.slice("Bearer ".length)
       : null;
     if (!token) throw new Error("Bearer authentication is required.");
     const { data, error } = await this.client.auth.getUser(token);
-    if (error || !data.user) throw new Error("The bearer token is invalid or expired.");
+    if (error || !data.user)
+      throw new Error("The bearer token is invalid or expired.");
     return {
       id: data.user.id,
       email: data.user.email,
@@ -85,7 +88,12 @@ export class SupabaseBackendRepository implements MemberDirectoryRepository {
     };
   }
 
-  async execute(path: string, body: any, request: Request, user: AuthenticatedUser) {
+  async execute(
+    path: string,
+    body: any,
+    request: Request,
+    user: AuthenticatedUser,
+  ) {
     const client = this.client;
     if (path === "/api/v1/member-profiles") {
       const url = new URL(request.url);
@@ -98,14 +106,18 @@ export class SupabaseBackendRepository implements MemberDirectoryRepository {
       });
     }
     if (path === "/api/v1/member-links" && request.method === "POST") {
-      const { data, error } = await client.from("link_requests").insert({
-        target_user_id: body.targetUserId ?? null,
-        target_email: body.targetEmail ?? null,
-        target_phone: body.targetPhone ?? null,
-        requester_member_local_or_remote_id: body.requesterMemberId,
-        requester_label: body.requesterDisplayName,
-        message: body.message ?? null,
-      }).select("id").single();
+      const { data, error } = await client
+        .from("link_requests")
+        .insert({
+          target_user_id: body.targetUserId ?? null,
+          target_email: body.targetEmail ?? null,
+          target_phone: body.targetPhone ?? null,
+          requester_member_local_or_remote_id: body.requesterMemberId,
+          requester_label: body.requesterDisplayName,
+          message: body.message ?? null,
+        })
+        .select("id")
+        .single();
       if (error) throw error;
       return data?.id ?? null;
     }
@@ -117,10 +129,14 @@ export class SupabaseBackendRepository implements MemberDirectoryRepository {
     }
     if (path.startsWith("/api/v1/member-links/") && path.endsWith("/profile")) {
       const userId = path.split("/")[4];
-      return this.rpc("get_accepted_linked_member_profile", { p_other_user_id: userId });
+      return this.rpc("get_accepted_linked_member_profile", {
+        p_other_user_id: userId,
+      });
     }
     if (path.startsWith("/api/v1/member-links/") && request.method === "GET") {
-      return this.rpc("has_accepted_member_link", { p_other_user_id: path.split("/").pop() });
+      return this.rpc("has_accepted_member_link", {
+        p_other_user_id: path.split("/").pop(),
+      });
     }
     if (path === "/api/v1/debt-verifications") {
       const input = body;
@@ -147,7 +163,9 @@ export class SupabaseBackendRepository implements MemberDirectoryRepository {
       });
     }
     if (path === "/api/v1/debt-verifications/remind") {
-      return this.rpc("send_debt_confirmation_reminder", { p_verification_id: body.verificationRemoteId });
+      return this.rpc("send_debt_confirmation_reminder", {
+        p_verification_id: body.verificationRemoteId,
+      });
     }
     if (path === "/api/v1/payment-confirmations/respond") {
       return this.rpc("respond_to_payment_confirmation", {
@@ -156,11 +174,18 @@ export class SupabaseBackendRepository implements MemberDirectoryRepository {
       });
     }
     if (path === "/api/v1/payment-confirmations/remind") {
-      return this.rpc("send_payment_confirmation_reminder", { p_payment_id: body.paymentRemoteId });
+      return this.rpc("send_payment_confirmation_reminder", {
+        p_payment_id: body.paymentRemoteId,
+      });
     }
     if (path === "/api/v1/account/deletion" && request.method === "GET") {
-      const { data, error } = await client.from("account_deletion_requests")
-        .select("*").eq("subject_user_id", user.id).order("requested_at", { ascending: false }).limit(1).maybeSingle();
+      const { data, error } = await client
+        .from("account_deletion_requests")
+        .select("*")
+        .eq("subject_user_id", user.id)
+        .order("requested_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
       if (error) throw error;
       return data;
     }
@@ -182,17 +207,34 @@ export class SupabaseBackendRepository implements MemberDirectoryRepository {
       return { recorded: true };
     }
     if (path === "/api/v1/development/reset-data") {
-      if (!this.config.developmentResetEnabled) throw new Error("Development reset is disabled.");
+      if (!this.config.developmentResetEnabled)
+        throw new Error("Development reset is disabled.");
       return this.rpc("reset_development_test_data", {});
     }
     if (path === "/api/v1/sync/stage-two") {
       const [linkRequests, sharedDebts, verifications] = await Promise.all([
-        client.from("link_requests").select("*").or(`requester_user_id.eq.${user.id},target_user_id.eq.${user.id}`),
-        client.from("shared_debt_records").select("*").or(`creator_user_id.eq.${user.id},involved_user_id.eq.${user.id}`),
-        client.from("debt_verifications").select("*").or(`requester_user_id.eq.${user.id},responder_user_id.eq.${user.id}`),
+        client
+          .from("link_requests")
+          .select("*")
+          .or(`requester_user_id.eq.${user.id},target_user_id.eq.${user.id}`),
+        client
+          .from("shared_debt_records")
+          .select("*")
+          .or(`creator_user_id.eq.${user.id},involved_user_id.eq.${user.id}`),
+        client
+          .from("debt_verifications")
+          .select("*")
+          .or(
+            `requester_user_id.eq.${user.id},responder_user_id.eq.${user.id}`,
+          ),
       ]);
-      for (const result of [linkRequests, sharedDebts, verifications]) if (result.error) throw result.error;
-      return { linkRequests: linkRequests.data ?? [], sharedDebts: sharedDebts.data ?? [], verifications: verifications.data ?? [] };
+      for (const result of [linkRequests, sharedDebts, verifications])
+        if (result.error) throw result.error;
+      return {
+        linkRequests: linkRequests.data ?? [],
+        sharedDebts: sharedDebts.data ?? [],
+        verifications: verifications.data ?? [],
+      };
     }
     if (path === "/api/v1/sync") {
       const entries = Array.isArray(body.entries) ? body.entries : [];
@@ -202,12 +244,15 @@ export class SupabaseBackendRepository implements MemberDirectoryRepository {
       for (const entry of entries) {
         try {
           const table = syncTableForEntity(entry.entityType);
-          if (!table) throw new Error(`Unsupported sync entity: ${entry.entityType}`);
+          if (!table)
+            throw new Error(`Unsupported sync entity: ${entry.entityType}`);
           const payload = { ...(entry.payload ?? {}) };
-          if (entry.operation === "archive") payload.archived_at ??= new Date().toISOString();
+          if (entry.operation === "archive")
+            payload.archived_at ??= new Date().toISOString();
           const { error } = await client.from(table).upsert(payload);
           if (error) {
-            if (error.code === "23505" || error.code === "PGRST116") conflicts.push(entry.id);
+            if (error.code === "23505" || error.code === "PGRST116")
+              conflicts.push(entry.id);
             else throw error;
           } else succeeded.push(entry.id);
         } catch {
@@ -215,43 +260,67 @@ export class SupabaseBackendRepository implements MemberDirectoryRepository {
         }
       }
       const remote = await this.pullAccessibleRecords(client, user.id);
-      return { succeeded, failed, conflicts, pulled: remote.groups.length, remote };
+      return {
+        succeeded,
+        failed,
+        conflicts,
+        pulled: remote.groups.length,
+        remote,
+      };
     }
     if (path === "/api/v1/group-invites" && request.method === "POST") {
-      const { data, error } = await client.from("group_invites").insert({
-        group_id: body.groupId,
-        inviter_user_id: user.id,
-        invited_user_id: body.invitedUserId ?? null,
-        invited_email: body.invitedEmail ?? null,
-        invited_phone: body.invitedPhone ?? null,
-        invited_display_name: body.invitedDisplayName,
-        offered_role: body.offeredRole ?? "member",
-        message: body.message ?? null,
-      }).select("id").single();
+      const { data, error } = await client
+        .from("group_invites")
+        .insert({
+          group_id: body.groupId,
+          inviter_user_id: user.id,
+          invited_user_id: body.invitedUserId ?? null,
+          invited_email: body.invitedEmail ?? null,
+          invited_phone: body.invitedPhone ?? null,
+          invited_display_name: body.invitedDisplayName,
+          offered_role: body.offeredRole ?? "member",
+          message: body.message ?? null,
+        })
+        .select("id")
+        .single();
       if (error) throw error;
       return data?.id ?? null;
     }
-    if (path.startsWith("/api/v1/group-invites/") && request.method === "PATCH") {
+    if (
+      path.startsWith("/api/v1/group-invites/") &&
+      request.method === "PATCH"
+    ) {
       const id = path.split("/").pop();
-      const { data, error } = await client.from("group_invites").update({
-        status: body.status,
-        responded_at: new Date().toISOString(),
-      }).eq("id", id).select("id").single();
+      const { data, error } = await client
+        .from("group_invites")
+        .update({
+          status: body.status,
+          responded_at: new Date().toISOString(),
+        })
+        .eq("id", id)
+        .select("id")
+        .single();
       if (error) throw error;
       return data?.id ?? null;
     }
     if (path === "/api/v1/group-members" && request.method === "POST") {
-      const { data, error } = await client.from("group_members").insert({
-        group_id: body.groupId,
-        type: body.type ?? (body.linkedUserId ? "linked_user" : "unlinked_placeholder"),
-        linked_user_id: body.linkedUserId ?? null,
-        display_name: body.displayName,
-        alias: body.alias ?? null,
-        email: body.email ?? null,
-        phone: body.phone ?? null,
-        notes: body.notes ?? null,
-        created_by_user_id: user.id,
-      }).select("id").single();
+      const { data, error } = await client
+        .from("group_members")
+        .insert({
+          group_id: body.groupId,
+          type:
+            body.type ??
+            (body.linkedUserId ? "linked_user" : "unlinked_placeholder"),
+          linked_user_id: body.linkedUserId ?? null,
+          display_name: body.displayName,
+          alias: body.alias ?? null,
+          email: body.email ?? null,
+          phone: body.phone ?? null,
+          notes: body.notes ?? null,
+          created_by_user_id: user.id,
+        })
+        .select("id")
+        .single();
       if (error) throw error;
       return data?.id ?? null;
     }
@@ -259,10 +328,12 @@ export class SupabaseBackendRepository implements MemberDirectoryRepository {
       const content = Buffer.from(String(body.content ?? ""), "base64");
       const attachment = body.attachment ?? {};
       const storagePath = `groups/${attachment.groupId ?? "private"}/${attachment.targetType}/${attachment.targetId}/${attachment.id}-${attachment.fileName}`;
-      const upload = await client.storage.from("debtulator-attachments").upload(storagePath, content, {
-        contentType: attachment.mimeType ?? "application/octet-stream",
-        upsert: false,
-      });
+      const upload = await client.storage
+        .from("debtulator-attachments")
+        .upload(storagePath, content, {
+          contentType: attachment.mimeType ?? "application/octet-stream",
+          upsert: false,
+        });
       if (upload.error) throw upload.error;
       const { error } = await client.from("attachments").insert({
         id: attachment.id,
@@ -280,11 +351,15 @@ export class SupabaseBackendRepository implements MemberDirectoryRepository {
         sync_status: "synced",
       });
       if (error) throw error;
-      const signed = await client.storage.from("debtulator-attachments").createSignedUrl(storagePath, 600);
+      const signed = await client.storage
+        .from("debtulator-attachments")
+        .createSignedUrl(storagePath, 600);
       if (signed.error) throw signed.error;
       return { storagePath, remoteUrl: signed.data.signedUrl };
     }
-    throw new Error(`No backend operation is registered for ${request.method} ${path}.`);
+    throw new Error(
+      `No backend operation is registered for ${request.method} ${path}.`,
+    );
   }
 
   private async rpc(name: string, args: Record<string, unknown>) {
@@ -294,25 +369,78 @@ export class SupabaseBackendRepository implements MemberDirectoryRepository {
   }
 
   private async pullAccessibleRecords(client: SupabaseClient, userId: string) {
-    const membership = await client.from("group_participants").select("group_id").eq("user_id", userId);
+    const membership = await client
+      .from("group_participants")
+      .select("group_id")
+      .eq("user_id", userId);
     if (membership.error) throw membership.error;
-    const groupIds = (membership.data ?? []).map((row: { group_id: string }) => row.group_id);
-    const query = (table: string) => groupIds.length
-      ? client.from(table).select("*").in("group_id", groupIds)
-      : Promise.resolve({ data: [], error: null });
-    const [groups, participants, invites, members, expenses, splits, payers, debts, payments, settlements, comments, attachments, activity] = await Promise.all([
-      query("groups"), query("group_participants"), query("group_invites"), query("group_members"),
-      query("group_expenses"), query("group_expense_splits"), query("expense_payers"), query("group_debts"), query("payments"), query("settlements"),
-      query("comments"), query("attachments"), query("group_activity_logs"),
+    const groupIds = (membership.data ?? []).map(
+      (row: { group_id: string }) => row.group_id,
+    );
+    const query = (table: string) =>
+      groupIds.length
+        ? client.from(table).select("*").in("group_id", groupIds)
+        : Promise.resolve({ data: [], error: null });
+    const [
+      groups,
+      participants,
+      invites,
+      members,
+      expenses,
+      splits,
+      payers,
+      debts,
+      payments,
+      settlements,
+      comments,
+      attachments,
+      activity,
+    ] = await Promise.all([
+      query("groups"),
+      query("group_participants"),
+      query("group_invites"),
+      query("group_members"),
+      query("group_expenses"),
+      query("group_expense_splits"),
+      query("expense_payers"),
+      query("group_debts"),
+      query("payments"),
+      query("settlements"),
+      query("comments"),
+      query("attachments"),
+      query("group_activity_logs"),
     ]);
-    for (const result of [groups, participants, invites, members, expenses, splits, payers, debts, payments, settlements, comments, attachments, activity]) {
+    for (const result of [
+      groups,
+      participants,
+      invites,
+      members,
+      expenses,
+      splits,
+      payers,
+      debts,
+      payments,
+      settlements,
+      comments,
+      attachments,
+      activity,
+    ]) {
       if (result.error) throw result.error;
     }
     return {
-      groups: groups.data ?? [], participants: participants.data ?? [], invites: invites.data ?? [],
-      members: members.data ?? [], expenses: expenses.data ?? [], splits: splits.data ?? [], payers: payers.data ?? [], debts: debts.data ?? [],
-      payments: payments.data ?? [], settlements: settlements.data ?? [], comments: comments.data ?? [],
-      attachments: attachments.data ?? [], activity: activity.data ?? [],
+      groups: groups.data ?? [],
+      participants: participants.data ?? [],
+      invites: invites.data ?? [],
+      members: members.data ?? [],
+      expenses: expenses.data ?? [],
+      splits: splits.data ?? [],
+      payers: payers.data ?? [],
+      debts: debts.data ?? [],
+      payments: payments.data ?? [],
+      settlements: settlements.data ?? [],
+      comments: comments.data ?? [],
+      attachments: attachments.data ?? [],
+      activity: activity.data ?? [],
     };
   }
 }
