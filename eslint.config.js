@@ -8,7 +8,6 @@ const legacyDirectories = [
   'constants',
   'data',
   'features',
-  'navigation',
   'screens',
   'services',
   'state',
