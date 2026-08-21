@@ -1,18 +1,19 @@
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React from "react";
+import { StyleSheet, Text, View } from "react-native";
 
-import { Button } from '@/src/presentation/design-system/Primitives';
-import { palette, spacing,
-typography,
-} from '@/src/presentation/theme/design';
-import { userMessageForError } from '@/src/application/errors/userMessage';
-import { captureTelemetryException } from '@/src/application/observability/telemetry';
+import { userMessageForError } from "@/src/application/errors/userMessage";
+import { captureTelemetryException } from "@/src/application/observability/telemetry";
+import { Button } from "@/src/presentation/design-system/Primitives";
+import { palette, spacing, typography } from "@/src/presentation/theme/design";
 
 type State = {
   error: unknown;
 };
 
-export class ErrorBoundary extends React.Component<{ children: React.ReactNode }, State> {
+export class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  State
+> {
   state: State = { error: null };
 
   static getDerivedStateFromError(error: unknown) {
@@ -20,7 +21,9 @@ export class ErrorBoundary extends React.Component<{ children: React.ReactNode }
   }
 
   componentDidCatch(error: unknown) {
-    captureTelemetryException(error, 'render_error_boundary', { screen: 'root_layout' });
+    captureTelemetryException(error, "render_error_boundary", {
+      screen: "root_layout",
+    });
   }
 
   render() {
@@ -33,7 +36,11 @@ export class ErrorBoundary extends React.Component<{ children: React.ReactNode }
         <Text style={styles.title}>{message.title}</Text>
         <Text style={styles.body}>{message.body}</Text>
         <Text style={styles.body}>{message.recovery}</Text>
-        <Button title="Try again" icon="refresh" onPress={() => this.setState({ error: null })} />
+        <Button
+          title="Try again"
+          icon="refresh"
+          onPress={() => this.setState({ error: null })}
+        />
       </View>
     );
   }
@@ -41,16 +48,16 @@ export class ErrorBoundary extends React.Component<{ children: React.ReactNode }
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: palette.background,
+    backgroundColor: "transparent",
     flex: 1,
     gap: spacing.md,
-    justifyContent: 'center',
+    justifyContent: "center",
     padding: spacing.xl,
   },
   title: {
     color: palette.ink,
     fontSize: typography.size.h2,
-    fontWeight: '900',
+    fontWeight: "900",
   },
   body: {
     color: palette.muted,

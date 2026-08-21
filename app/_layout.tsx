@@ -60,7 +60,7 @@ const DebtulatorTheme = {
   colors: {
     ...DefaultTheme.colors,
     primary: palette.brand,
-    background: palette.background,
+    background: "transparent",
     card: palette.surfaceGlassStrong,
     text: palette.ink,
     border: palette.borderIndigoSoft,
@@ -110,27 +110,29 @@ export default function RootLayout() {
   }
 
   return (
-    <PlatformServicesProvider services={expoPlatformFileServices}>
-      <CollaborationProvider gateway={collaborationGateway}>
-        <SafeAreaProvider>
-          <AppDataProvider bootstrap={sqliteLocalDataBootstrap}>
-            <TelemetrySettingsBridge />
-            <ThemeProvider value={DebtulatorTheme}>
-              <ErrorBoundary>
-                <AppDataGate>
-                  <AuthProvider services={supabaseAuthServices}>
-                    <StartupRouteGate>
-                      <RootNavigator />
-                      <InAppNotificationToast />
-                    </StartupRouteGate>
-                  </AuthProvider>
-                </AppDataGate>
-              </ErrorBoundary>
-            </ThemeProvider>
-          </AppDataProvider>
-        </SafeAreaProvider>
-      </CollaborationProvider>
-    </PlatformServicesProvider>
+    <View style={styles.root}>
+      <PlatformServicesProvider services={expoPlatformFileServices}>
+        <CollaborationProvider gateway={collaborationGateway}>
+          <SafeAreaProvider>
+            <AppDataProvider bootstrap={sqliteLocalDataBootstrap}>
+              <TelemetrySettingsBridge />
+              <ThemeProvider value={DebtulatorTheme}>
+                <ErrorBoundary>
+                  <AppDataGate>
+                    <AuthProvider services={supabaseAuthServices}>
+                      <StartupRouteGate>
+                        <RootNavigator />
+                        <InAppNotificationToast />
+                      </StartupRouteGate>
+                    </AuthProvider>
+                  </AppDataGate>
+                </ErrorBoundary>
+              </ThemeProvider>
+            </AppDataProvider>
+          </SafeAreaProvider>
+        </CollaborationProvider>
+      </PlatformServicesProvider>
+    </View>
   );
 }
 
@@ -214,9 +216,13 @@ function StartupRouteGate({ children }: { children: React.ReactNode }) {
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: palette.background,
+  },
   gate: {
     alignItems: "center",
-    backgroundColor: palette.background,
+    backgroundColor: "transparent",
     flex: 1,
     gap: spacing.md,
     justifyContent: "center",
