@@ -1,18 +1,18 @@
 import { Stack } from "expo-router";
 
-import { HomeScreen } from "@/src/presentation/screens/HomeScreen";
+import { DebtsScreen } from "@/src/presentation/screens/DebtsScreen";
 
-export default function HomeRoute() {
+export default function DebtsRoute() {
   return (
     <>
       <Stack.Screen
         options={{
-          title: "Home",
+          title: "Debts",
           headerLargeTitle: true,
         }}
       />
 
-      <HomeScreen />
+      <DebtsScreen />
     </>
   );
 }

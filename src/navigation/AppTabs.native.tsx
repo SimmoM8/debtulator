@@ -14,12 +14,6 @@ export default function TabsLayout() {
 
         <NativeTabs.Trigger.Icon sf="creditcard.fill" md="credit_card" />
       </NativeTabs.Trigger>
-
-      <NativeTabs.Trigger name="groups">
-        <NativeTabs.Trigger.Label>Groups</NativeTabs.Trigger.Label>
-
-        <NativeTabs.Trigger.Icon sf="person.3.fill" md="groups" />
-      </NativeTabs.Trigger>
     </NativeTabs>
   );
 }
