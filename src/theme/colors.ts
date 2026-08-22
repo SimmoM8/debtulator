@@ -35,11 +35,11 @@ Global colors exported and used throughout the app.
 export const colors = {
   native: { ...nativeColors },
   brand: brand.colors,
-  appBackground: nativeColors.background,
+  appBackground: nativeColors.secondaryBackground,
   mainBackground: brand.colors.primary,
   contentBackground: nativeColors.background,
   navHeaderBackground: brand.colors.primary,
-  tabBarBackground: nativeColors.background,
+  tabBarBackground: nativeColors.secondaryBackground,
   onLightBackground: nativeColors.text,
   onDarkBackground: "#FFFFFF",
   heroBackground: brand.colors.primary,
