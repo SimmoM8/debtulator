@@ -5,7 +5,7 @@ import { ScrollView, StyleSheet, View } from "react-native";
 
 type ScreenProps = PropsWithChildren;
 
-export function GradientScreen({ children }: ScreenProps) {
+export function SplitBackgroundScreen({ children }: ScreenProps) {
   return (
     <View style={styles.root}>
       <ScrollView contentInsetAdjustmentBehavior="automatic">
@@ -28,6 +28,11 @@ const styles = StyleSheet.create({
   },
   background: {
     flex: 1,
+    /*
+     * Oversized vertically so iOS rubber-band scrolling never exposes
+     * the underlying app background. The upper half backs the transparent
+     * native header; the lower half backs the transparent native tab bar.
+     */
     minHeight: "200%",
     marginTop: "-100%",
     paddingTop: "100%",

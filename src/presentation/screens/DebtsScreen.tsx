@@ -1,4 +1,4 @@
-import { GradientScreen } from "@/src/components/layout/GradientScreen";
+import { SplitBackgroundScreen } from "@/src/components/layout";
 import { colors } from "@/src/theme";
 import { StyleSheet, View } from "react-native";
 
@@ -6,16 +6,16 @@ import { DebtSummaryHeader } from "@/src/presentation/components/debts/DebtSumma
 
 export function DebtsScreen() {
   return (
-    <GradientScreen>
+    <SplitBackgroundScreen>
       <DebtSummaryHeader />
       <View style={styles.content}>{/* debt rows */}</View>
-    </GradientScreen>
+    </SplitBackgroundScreen>
   );
 }
 
 const styles = StyleSheet.create({
   content: {
-    minHeight: "50%",
+    minHeight: "100%",
     backgroundColor: colors.appBackground,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,

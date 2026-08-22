@@ -13,7 +13,7 @@ export function NavHeader() {
         headerStyle: {
           backgroundColor: isIos ? "transparent" : colors.navHeaderBackground,
         },
-        headerTintColor: colors.native.text,
+        headerTintColor: isIos ? colors.native.text : colors.onDarkBackground,
         headerShadowVisible: false,
       }}
     />
