@@ -1,15 +1,8 @@
-import { colors, gradients } from "@/src/theme";
-import { LinearGradient } from "expo-linear-gradient";
+import { colors } from "@/src/theme";
 import { useHeaderHeight } from "expo-router/react-navigation";
 import type { PropsWithChildren, ReactNode } from "react";
 import { useState } from "react";
-import {
-  Animated,
-  Platform,
-  StyleSheet,
-  View,
-  useWindowDimensions,
-} from "react-native";
+import { Animated, Platform, StyleSheet, View } from "react-native";
 
 type ScreenProps = PropsWithChildren<{
   hero: ReactNode;
@@ -19,39 +12,13 @@ export function SplitBackgroundScreen({ hero, children }: ScreenProps) {
   const isIos = Platform.OS === "ios";
   const navHeaderHeight = useHeaderHeight();
   const topInset = navHeaderHeight;
+
   const [heroHeight, setHeroHeight] = useState(0);
   const [scrollY] = useState(() => new Animated.Value(0));
-  const { height: screenHeight } = useWindowDimensions();
-  const gradientHeight = screenHeight;
-  const maxGradientTravel = screenHeight * 0.3;
 
   return (
     <View style={styles.root}>
       {/* Layer 0: scrolling gradient background */}
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          styles.gradientLayer,
-          {
-            height: gradientHeight,
-            transform: [
-              {
-                translateY: scrollY.interpolate({
-                  inputRange: [-maxGradientTravel, 0, maxGradientTravel],
-                  outputRange: [maxGradientTravel, 0, -maxGradientTravel],
-                  extrapolate: "clamp",
-                }),
-              },
-            ],
-          },
-        ]}
-      >
-        <LinearGradient
-          colors={gradients.background}
-          locations={[0.5, 0.5]}
-          style={styles.gradientBackground}
-        />
-      </Animated.View>
 
       {/* Layer 1: fixed hero */}
       <View
@@ -69,11 +36,35 @@ export function SplitBackgroundScreen({ hero, children }: ScreenProps) {
         {hero}
       </View>
 
+      {/* Layer 1.5: scrolling white background */}
+      {heroHeight > 0 && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.contentBackground,
+            {
+              top: heroHeight + (isIos ? 0 : heroHeight),
+              transform: [
+                {
+                  translateY: scrollY.interpolate({
+                    inputRange: [-heroHeight, 0],
+                    outputRange: [0, -heroHeight],
+                    extrapolateLeft: "extend",
+                    extrapolateRight: "extend",
+                  }),
+                },
+              ],
+            },
+          ]}
+        />
+      )}
       {/* Layer 2: scrolling foreground content */}
       <Animated.ScrollView
-        style={[styles.scrollLayer]}
+        style={styles.scrollLayer}
         contentInsetAdjustmentBehavior={isIos ? "automatic" : "never"}
-        contentInset={{ top: isIos ? heroHeight - topInset : 0 }}
+        contentInset={{
+          top: isIos ? heroHeight - topInset : 0,
+        }}
         scrollEventThrottle={16}
         onScroll={Animated.event(
           [
@@ -90,7 +81,11 @@ export function SplitBackgroundScreen({ hero, children }: ScreenProps) {
           },
         )}
       >
-        <View style={{ height: isIos ? 0 : heroHeight }} />
+        <View
+          style={{
+            height: isIos ? 0 : heroHeight,
+          }}
+        />
         {children}
       </Animated.ScrollView>
     </View>
@@ -100,11 +95,18 @@ export function SplitBackgroundScreen({ hero, children }: ScreenProps) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.appBackground,
+    backgroundColor: colors.mainBackground,
   },
 
   gradientLayer: {
     ...StyleSheet.absoluteFill,
+  },
+
+  gradientBackground: {
+    height: "200%",
+    top: "-50%",
+    marginTop: "auto",
+    marginBottom: "auto",
   },
 
   hero: {
@@ -114,14 +116,22 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
 
-  scrollLayer: {
-    flex: 1,
+  contentBackground: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: -1000,
+
+    backgroundColor: colors.appBackground,
+
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+
     zIndex: 2,
   },
-  gradientBackground: {
-    height: "200%",
-    top: "-50%",
-    marginTop: "auto",
-    marginBottom: "auto",
+
+  scrollLayer: {
+    flex: 1,
+    zIndex: 3,
   },
 });
