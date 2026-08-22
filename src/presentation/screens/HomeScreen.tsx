@@ -1,5 +1,5 @@
-import { Screen } from "@/src/components/layout";
+import { SolidScreen } from "@/src/components/layout";
 
 export function HomeScreen() {
-  return <Screen>{/* Home content */}</Screen>;
+  return <SolidScreen>{/* Home content */}</SolidScreen>;
 }

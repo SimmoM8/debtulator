@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 
-import { textStyles } from "@/src/theme";
+import { colors, textStyles } from "@/src/theme";
 
 export function DebtSummaryHeader() {
   return (
@@ -8,13 +8,13 @@ export function DebtSummaryHeader() {
       <Text style={styles.subtitle}>Overview of your balances</Text>
 
       <View style={styles.summary}>
-        <View>
+        <View style={styles.balanceBlock}>
           <Text style={styles.label}>You owe</Text>
 
           <Text style={styles.amount}>58 kr</Text>
         </View>
 
-        <View>
+        <View style={styles.balanceBlock}>
           <Text style={styles.label}>They owe</Text>
 
           <Text style={styles.amount}>28 kr</Text>
@@ -26,28 +26,39 @@ export function DebtSummaryHeader() {
 
 const styles = StyleSheet.create({
   container: {
-    paddingTop: 24,
+    paddingTop: 16,
     paddingHorizontal: 24,
-    paddingBottom: 32,
+    paddingBottom: 20,
+    backgroundColor: colors.transparent,
+    top: 10,
   },
 
   subtitle: {
-    ...textStyles.body,
-    color: "#FFFFFF",
+    ...textStyles.caption,
+    color: colors.onDarkBackground,
+    opacity: 0.82,
   },
 
   summary: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 24,
+    alignItems: "flex-end",
+    marginTop: 12,
+  },
+
+  balanceBlock: {
+    flex: 1,
   },
 
   label: {
-    color: "#FFFFFF",
+    ...textStyles.caption,
+    color: colors.onDarkBackground,
+    opacity: 0.82,
   },
 
   amount: {
-    ...textStyles.largeTitle,
-    color: "#FFFFFF",
+    ...textStyles.title,
+    color: colors.onDarkBackground,
+    marginTop: 4,
   },
 });
