@@ -1,7 +1,6 @@
-import { StyleSheet, Text, View } from "react-native";
-
 import type { MoneyMap } from "@/src/domain/models";
 import { colors, textStyles } from "@/src/theme";
+import { StyleSheet, Text, View } from "react-native";
 
 type DebtSummaryHeaderProps = {
   youOwe: MoneyMap;
@@ -10,7 +9,7 @@ type DebtSummaryHeaderProps = {
 
 export function DebtSummaryHeader({ youOwe, theyOwe }: DebtSummaryHeaderProps) {
   return (
-    <View style={styles.container}>
+    <View style={[styles.container]}>
       <Text style={styles.subtitle}>Overview of your balances</Text>
 
       <View style={styles.summary}>

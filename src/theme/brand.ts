@@ -7,6 +7,8 @@ export const brand = {
     success: "#34C759",
     warning: "#FF9500",
     danger: "#FF3B30",
+
+    test: "#003127",
   },
 
   radius: {

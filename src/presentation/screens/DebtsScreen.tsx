@@ -23,9 +23,9 @@ export function DebtsScreen() {
   );
 
   return (
-    <SplitBackgroundScreen>
-      <DebtSummaryHeader youOwe={model.youOwe} theyOwe={model.theyOwe} />
-
+    <SplitBackgroundScreen
+      hero={<DebtSummaryHeader youOwe={model.youOwe} theyOwe={model.theyOwe} />}
+    >
       <View style={styles.content}>
         <DebtsList items={model.items} />
       </View>
