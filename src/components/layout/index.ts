@@ -1,3 +1,4 @@
+export { GradientScreen } from "./GradientScreen";
 export { NavHeader } from "./NavHeader";
-export { Screen } from "./Screen";
+export { SolidScreen } from "./SolidScreen";
 

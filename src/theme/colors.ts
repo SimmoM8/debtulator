@@ -1,4 +1,4 @@
-import { Platform, PlatformColor } from "react-native";
+import { ColorValue, Platform, PlatformColor } from "react-native";
 import { brand } from "./brand";
 
 const materialColors = {
@@ -10,6 +10,11 @@ const materialColors = {
   tint: "#6750A4",
 } as const;
 
+/*
+ DO NOT MODIFY THE NATIVE COLORS BELOW. 
+ These colors are used to ensure that the app's colors 
+ match the system colors on iOS and Android. 
+ */
 const nativeColors =
   Platform.OS === "ios"
     ? {
@@ -22,9 +27,28 @@ const nativeColors =
       }
     : materialColors;
 
+/*
+
+Global colors exported and used throughout the app.
+ 
+*/
 export const colors = {
-  ...nativeColors,
-  background: brand.colors.primary,
-  tabBarBackground: brand.colors.primary,
-  onBackground: "#FFFFFF",
+  native: { ...nativeColors },
+  brand: brand.colors,
+  appBackground: nativeColors.background,
+  mainBackground: brand.colors.primary,
+  contentBackground: nativeColors.background,
+  navHeaderBackground: brand.colors.primary,
+  tabBarBackground: nativeColors.background,
+  onLightBackground: nativeColors.text,
+  onDarkBackground: "#FFFFFF",
+  heroBackground: brand.colors.primary,
+  transparent: "transparent",
+};
+
+export const gradients = {
+  background: [brand.colors.primary, colors.appBackground] as [
+    ColorValue,
+    ColorValue,
+  ],
 };
