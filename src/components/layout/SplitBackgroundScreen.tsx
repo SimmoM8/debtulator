@@ -2,7 +2,13 @@ import { colors } from "@/src/theme";
 import { useHeaderHeight } from "expo-router/react-navigation";
 import type { PropsWithChildren, ReactNode } from "react";
 import { useState } from "react";
-import { Animated, Platform, StyleSheet, View } from "react-native";
+import {
+  Animated,
+  Platform,
+  StyleSheet,
+  View,
+  useWindowDimensions,
+} from "react-native";
 
 type ScreenProps = PropsWithChildren<{
   hero: ReactNode;
@@ -12,21 +18,68 @@ export function SplitBackgroundScreen({ hero, children }: ScreenProps) {
   const isIos = Platform.OS === "ios";
   const navHeaderHeight = useHeaderHeight();
   const topInset = navHeaderHeight;
-
+  const { height: screenHeight } = useWindowDimensions();
   const [heroHeight, setHeroHeight] = useState(0);
   const [scrollY] = useState(() => new Animated.Value(0));
 
+  if (!isIos) {
+    return (
+      <View style={styles.root}>
+        <Animated.ScrollView
+          style={styles.scrollLayer}
+          contentInsetAdjustmentBehavior="never"
+          scrollEventThrottle={16}
+          onScroll={Animated.event(
+            [
+              {
+                nativeEvent: {
+                  contentOffset: {
+                    y: scrollY,
+                  },
+                },
+              },
+            ],
+            {
+              useNativeDriver: true,
+            },
+          )}
+        >
+          <Animated.View
+            style={[
+              styles.androidHero,
+              {
+                transform: [{ translateY: scrollY }],
+              },
+            ]}
+            onLayout={(event) => {
+              setHeroHeight(event.nativeEvent.layout.height);
+            }}
+          >
+            {hero}
+          </Animated.View>
+
+          <View
+            style={[
+              styles.androidContent,
+              {
+                minHeight: Math.max(screenHeight - heroHeight, 0),
+              },
+            ]}
+          >
+            {children}
+          </View>
+        </Animated.ScrollView>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.root}>
-      {/* Layer 0: scrolling gradient background */}
-
-      {/* Layer 1: fixed hero */}
       <View
-        pointerEvents="none"
         style={[
           styles.hero,
           {
-            paddingTop: isIos ? topInset : 0,
+            paddingTop: topInset,
           },
         ]}
         onLayout={(event) => {
@@ -36,14 +89,13 @@ export function SplitBackgroundScreen({ hero, children }: ScreenProps) {
         {hero}
       </View>
 
-      {/* Layer 1.5: scrolling white background */}
       {heroHeight > 0 && (
         <Animated.View
           pointerEvents="none"
           style={[
             styles.contentBackground,
             {
-              top: heroHeight + (isIos ? 0 : heroHeight),
+              top: heroHeight,
               transform: [
                 {
                   translateY: scrollY.interpolate({
@@ -58,12 +110,13 @@ export function SplitBackgroundScreen({ hero, children }: ScreenProps) {
           ]}
         />
       )}
-      {/* Layer 2: scrolling foreground content */}
+
       <Animated.ScrollView
         style={styles.scrollLayer}
-        contentInsetAdjustmentBehavior={isIos ? "automatic" : "never"}
+        pointerEvents="box-none"
+        contentInsetAdjustmentBehavior="automatic"
         contentInset={{
-          top: isIos ? heroHeight - topInset : 0,
+          top: heroHeight - topInset,
         }}
         scrollEventThrottle={16}
         onScroll={Animated.event(
@@ -81,11 +134,6 @@ export function SplitBackgroundScreen({ hero, children }: ScreenProps) {
           },
         )}
       >
-        <View
-          style={{
-            height: isIos ? 0 : heroHeight,
-          }}
-        />
         {children}
       </Animated.ScrollView>
     </View>
@@ -98,21 +146,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.mainBackground,
   },
 
-  gradientLayer: {
-    ...StyleSheet.absoluteFill,
-  },
-
-  gradientBackground: {
-    height: "200%",
-    top: "-50%",
-    marginTop: "auto",
-    marginBottom: "auto",
-  },
-
   hero: {
     position: "absolute",
     left: 0,
     right: 0,
+    zIndex: 1,
+  },
+
+  androidHero: {
+    width: "100%",
+  },
+
+  androidContent: {
     zIndex: 1,
   },
 
