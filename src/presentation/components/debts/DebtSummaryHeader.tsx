@@ -1,8 +1,14 @@
 import { StyleSheet, Text, View } from "react-native";
 
+import type { MoneyMap } from "@/src/domain/models";
 import { colors, textStyles } from "@/src/theme";
 
-export function DebtSummaryHeader() {
+type DebtSummaryHeaderProps = {
+  youOwe: MoneyMap;
+  theyOwe: MoneyMap;
+};
+
+export function DebtSummaryHeader({ youOwe, theyOwe }: DebtSummaryHeaderProps) {
   return (
     <View style={styles.container}>
       <Text style={styles.subtitle}>Overview of your balances</Text>
@@ -10,14 +16,12 @@ export function DebtSummaryHeader() {
       <View style={styles.summary}>
         <View style={styles.balanceBlock}>
           <Text style={styles.label}>You owe</Text>
-
-          <Text style={styles.amount}>58 kr</Text>
+          <Text style={styles.amount}>{youOwe.SEK ?? 0} kr</Text>
         </View>
 
         <View style={styles.balanceBlock}>
           <Text style={styles.label}>They owe</Text>
-
-          <Text style={styles.amount}>28 kr</Text>
+          <Text style={styles.amount}>{theyOwe.SEK ?? 0} kr</Text>
         </View>
       </View>
     </View>
@@ -29,8 +33,6 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingHorizontal: 24,
     paddingBottom: 20,
-    backgroundColor: colors.transparent,
-    top: 10,
   },
 
   subtitle: {
@@ -42,7 +44,6 @@ const styles = StyleSheet.create({
   summary: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-end",
     marginTop: 12,
   },
 
