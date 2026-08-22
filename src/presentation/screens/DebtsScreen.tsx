@@ -1,16 +1,19 @@
 import { SplitBackgroundScreen } from "@/src/components/layout/SplitBackgroundScreen";
-import { DebtSummaryHeader } from "@/src/presentation/components/debts/DebtSummaryHeader";
+import {
+  DebtSummaryHeader,
+  type DebtFilter,
+} from "@/src/presentation/components/debts/DebtSummaryHeader";
 import { DebtsList } from "@/src/presentation/components/debts/DebtsList";
 import { buildDebtsScreenModel } from "@/src/presentation/dto/debtsScreenModel";
 import { useAppData } from "@/src/presentation/providers/AppDataProvider";
-
-import { useMemo } from "react";
-import { StyleSheet, View } from "react-native";
-
 import { colors } from "@/src/theme";
+
+import { useMemo, useState } from "react";
+import { StyleSheet, View } from "react-native";
 
 export function DebtsScreen() {
   const data = useAppData();
+  const [filter, setFilter] = useState<DebtFilter>("all");
 
   const model = useMemo(
     () =>
@@ -22,12 +25,27 @@ export function DebtsScreen() {
     [data.ledgerEntries, data.members, data.personalTotals],
   );
 
+  const filteredItems = useMemo(() => {
+    if (filter === "all") {
+      return model.items;
+    }
+
+    return model.items.filter((item) => item.direction === filter);
+  }, [filter, model.items]);
+
   return (
     <SplitBackgroundScreen
-      hero={<DebtSummaryHeader youOwe={model.youOwe} theyOwe={model.theyOwe} />}
+      hero={
+        <DebtSummaryHeader
+          youOwe={model.youOwe}
+          theyOwe={model.theyOwe}
+          filter={filter}
+          onFilterChange={setFilter}
+        />
+      }
     >
       <View style={styles.content}>
-        <DebtsList items={model.items} />
+        <DebtsList items={filteredItems} />
       </View>
     </SplitBackgroundScreen>
   );
@@ -36,6 +54,7 @@ export function DebtsScreen() {
 const styles = StyleSheet.create({
   content: {
     backgroundColor: colors.appBackground,
+    minHeight: "100%",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     overflow: "hidden",
