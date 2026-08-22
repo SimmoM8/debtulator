@@ -23,6 +23,7 @@
     "supabase:reset": "supabase db reset"
   },
   "dependencies": {
+    "@expo/material-symbols": "^0.1.1",
     "@expo/vector-icons": "^15.0.2",
     "@supabase/supabase-js": "^2.108.1",
     "expo": "~56.0.20",
