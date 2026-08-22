@@ -11,7 +11,7 @@ export function NavHeader() {
         headerTitleAlign: "center",
         headerTransparent: isIos,
         headerStyle: {
-          backgroundColor: isIos ? "transparent" : colors.navHeaderBackground,
+          backgroundColor: isIos ? colors.transparent : colors.mainBackground,
         },
         headerTintColor: isIos ? colors.native.text : colors.onDarkBackground,
         headerShadowVisible: false,
