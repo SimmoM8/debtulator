@@ -1,16 +1,5 @@
-import { colors } from "@/src/theme/colors";
-import { Stack } from "expo-router";
+import { NavHeader } from "@/src/components/layout";
 
 export default function DebtsLayout() {
-  return (
-    <Stack
-      screenOptions={{
-        headerLargeTitle: true,
-        headerStyle: {
-          backgroundColor: colors.background,
-        },
-        headerShadowVisible: false,
-      }}
-    />
-  );
+  return <NavHeader />;
 }

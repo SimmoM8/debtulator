@@ -8,7 +8,6 @@ export default function HomeRoute() {
       <Stack.Screen
         options={{
           title: "Home",
-          headerLargeTitle: true,
         }}
       />
 

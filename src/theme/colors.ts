@@ -26,4 +26,5 @@ export const colors = {
   ...nativeColors,
   background: brand.colors.primary,
   tabBarBackground: brand.colors.primary,
+  onBackground: "#FFFFFF",
 };
