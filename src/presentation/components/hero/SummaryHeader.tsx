@@ -14,8 +14,6 @@ type SummaryHeaderProps<T extends string> = {
   filter: T;
   filterOptions: readonly SummaryHeaderOption<T>[];
   onFilterChange: (filter: T) => void;
-
-  filterAccessibilityLabel?: string;
 };
 
 export function SummaryHeader<T extends string>({
@@ -23,7 +21,6 @@ export function SummaryHeader<T extends string>({
   filter,
   filterOptions,
   onFilterChange,
-  filterAccessibilityLabel = "Filter",
 }: SummaryHeaderProps<T>) {
   return (
     <View style={styles.container}>
@@ -34,7 +31,6 @@ export function SummaryHeader<T extends string>({
           value={filter}
           options={filterOptions}
           onChange={onFilterChange}
-          accessibilityLabel={filterAccessibilityLabel}
           colorScheme="dark"
         />
       </View>
