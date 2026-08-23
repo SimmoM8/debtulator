@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { StyleSheet, View } from "react-native";
 
-import { SegmentedControl } from "@/src/presentation/components/segmented_controls";
+import { SegmentedControl } from "@/src/presentation/components/controls";
 
 type SummaryHeaderOption<T extends string> = {
   value: T;
