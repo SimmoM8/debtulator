@@ -43,7 +43,6 @@ export function DebtSummaryHeader({
       filter={filter}
       filterOptions={FILTERS}
       onFilterChange={onFilterChange}
-      filterAccessibilityLabel="Debt filter"
     >
       <View style={styles.summary}>
         <View style={styles.balanceBlock}>
