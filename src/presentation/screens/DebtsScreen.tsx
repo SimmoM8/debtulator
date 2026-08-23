@@ -1,12 +1,9 @@
-import { Stack } from "expo-router";
+import { router, Stack } from "expo-router";
 import { useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 
 import { toolbarIcons } from "@/src/navigation/toolbarIcons";
-import {
-  AddDebtForm,
-  type AddDebtFormValue,
-} from "@/src/presentation/components/debts/AddDebtForm";
+
 import {
   DebtSummaryHeader,
   type DebtFilter,
@@ -21,7 +18,6 @@ export function DebtsScreen() {
   const data = useAppData();
 
   const [filter, setFilter] = useState<DebtFilter>("all");
-  const [isAddDebtPresented, setIsAddDebtPresented] = useState(false);
 
   const model = useMemo(
     () =>
@@ -68,7 +64,7 @@ export function DebtsScreen() {
           icon={toolbarIcons.plus}
           accessibilityLabel="Add debt"
           onPress={() => {
-            setIsAddDebtPresented(true);
+            router.push("/(modals)/debt/select-member");
           }}
         />
 
@@ -108,20 +104,8 @@ export function DebtsScreen() {
           <DebtsList items={filteredItems} />
         </View>
       </SplitBackgroundScreen>
-
-      <AddDebtForm
-        isPresented={isAddDebtPresented}
-        members={data.members}
-        currencies={["SEK"]}
-        onDismiss={() => setIsAddDebtPresented(false)}
-        onSubmit={handleAddDebt}
-      />
     </>
   );
-}
-
-async function handleAddDebt(value: AddDebtFormValue) {
-  // Application-layer command goes here.
 }
 
 const styles = StyleSheet.create({
