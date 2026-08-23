@@ -1,25 +1,31 @@
-import { BottomSheet, Host, RNHostView } from "@expo/ui";
-import type { ReactElement } from "react";
+import { BottomSheet, Host } from "@expo/ui";
+import type { ReactNode } from "react";
 
 type FormSheetProps = {
   isPresented: boolean;
   onDismiss: () => void;
-  children: ReactElement;
+  size?: "compact" | "full";
+  children: ReactNode;
 };
 
 export function FormSheet({
   isPresented,
   onDismiss,
+  size = "full",
   children,
 }: FormSheetProps) {
+  if (!isPresented) {
+    return null;
+  }
+
   return (
     <Host matchContents>
       <BottomSheet
-        isPresented={isPresented}
+        isPresented
         onDismiss={onDismiss}
-        snapPoints={["half", "full"]}
+        snapPoints={size === "compact" ? ["half", "full"] : ["full"]}
       >
-        <RNHostView>{children}</RNHostView>
+        {children}
       </BottomSheet>
     </Host>
   );
