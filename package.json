@@ -41,6 +41,7 @@
     "expo-splash-screen": "~56.0.14",
     "expo-sqlite": "~56.0.5",
     "expo-status-bar": "~56.0.4",
+    "expo-symbols": "~56.0.7",
     "expo-web-browser": "~56.0.6",
     "jest-expo": "~56.0.5",
     "react": "19.2.3",

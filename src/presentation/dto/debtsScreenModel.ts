@@ -1,9 +1,10 @@
 import type {
-    CurrencyCode,
-    LedgerEntry,
-    Member,
-    MoneyMap,
+  CurrencyCode,
+  LedgerEntry,
+  Member,
+  MoneyMap,
 } from "@/src/domain/models";
+import { isDueSoon } from "@/src/domain/shared/dates";
 
 export type DebtListItemModel = {
   id: string;
@@ -13,11 +14,16 @@ export type DebtListItemModel = {
   currency: CurrencyCode;
   direction: "you_owe" | "they_owe";
   date: string;
+  dueDate: string | null;
+  dueSoon: boolean;
 };
 
 export type DebtsScreenModel = {
   youOwe: MoneyMap;
   theyOwe: MoneyMap;
+  youOweCount: number;
+  theyOweCount: number;
+  netBalance: MoneyMap;
   items: DebtListItemModel[];
 };
 
@@ -51,13 +57,26 @@ export function buildDebtsScreenModel(input: {
         currency: entry.currency,
         direction: isYouOwe ? "you_owe" : "they_owe",
         date: entry.date,
+        dueDate: entry.dueDate,
+        dueSoon: isDueSoon(entry.dueDate),
       };
     })
     .sort((a, b) => b.date.localeCompare(a.date));
 
+  const youOweCount = items.filter(
+    (item) => item.direction === "you_owe",
+  ).length;
+
+  const theyOweCount = items.filter(
+    (item) => item.direction === "they_owe",
+  ).length;
+
   return {
     youOwe: input.personalTotals.iOwe,
     theyOwe: input.personalTotals.owedToMe,
+    youOweCount,
+    theyOweCount,
+    netBalance: input.personalTotals.net,
     items,
   };
 }

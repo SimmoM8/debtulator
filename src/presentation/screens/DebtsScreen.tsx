@@ -30,6 +30,10 @@ export function DebtsScreen() {
       return model.items;
     }
 
+    if (filter === "due_soon") {
+      return model.items.filter((item) => item.dueSoon);
+    }
+
     return model.items.filter((item) => item.direction === filter);
   }, [filter, model.items]);
 
@@ -39,6 +43,9 @@ export function DebtsScreen() {
         <DebtSummaryHeader
           youOwe={model.youOwe}
           theyOwe={model.theyOwe}
+          youOweCount={model.youOweCount}
+          theyOweCount={model.theyOweCount}
+          netBalance={model.netBalance}
           filter={filter}
           onFilterChange={setFilter}
         />
