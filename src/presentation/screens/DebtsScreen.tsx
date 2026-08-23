@@ -1,9 +1,9 @@
-import { SplitBackgroundScreen } from "@/src/components/layout/SplitBackgroundScreen";
 import {
-  DebtSummaryHeader,
-  type DebtFilter,
+    DebtSummaryHeader,
+    type DebtFilter,
 } from "@/src/presentation/components/debts/DebtSummaryHeader";
 import { DebtsList } from "@/src/presentation/components/debts/DebtsList";
+import { SplitBackgroundScreen } from "@/src/presentation/components/layout/SplitBackgroundScreen";
 import { buildDebtsScreenModel } from "@/src/presentation/dto/debtsScreenModel";
 import { useAppData } from "@/src/presentation/providers/AppDataProvider";
 import { colors } from "@/src/theme";
