@@ -1,5 +1,5 @@
 import type { MoneyMap } from "@/src/domain/models";
-import { SegmentedControl } from "@/src/presentation/components/segmented_controls";
+import { SummaryHeader } from "@/src/presentation/components/hero";
 import { colors, textStyles } from "@/src/theme";
 import { SymbolView } from "expo-symbols";
 import { StyleSheet, Text, View } from "react-native";
@@ -39,7 +39,12 @@ export function DebtSummaryHeader({
   const netLabel = netAmount > 0 ? `+${netAmount} kr` : `${netAmount} kr`;
 
   return (
-    <View style={styles.container}>
+    <SummaryHeader
+      filter={filter}
+      filterOptions={FILTERS}
+      onFilterChange={onFilterChange}
+      filterAccessibilityLabel="Debt filter"
+    >
       <View style={styles.summary}>
         <View style={styles.balanceBlock}>
           <Text style={styles.label}>You owe</Text>
@@ -90,28 +95,11 @@ export function DebtSummaryHeader({
         <Text style={styles.netLabel}>Net balance</Text>
         <Text style={styles.netAmount}>{netLabel}</Text>
       </View>
-
-      <View style={styles.filter}>
-        <SegmentedControl
-          value={filter}
-          options={FILTERS}
-          onChange={onFilterChange}
-          accessibilityLabel="Debt filter"
-          colorScheme="dark"
-        />
-      </View>
-    </View>
+    </SummaryHeader>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    alignItems: "center",
-    paddingTop: 16,
-    paddingHorizontal: 24,
-    paddingBottom: 20,
-  },
-
   summary: {
     width: "100%",
     flexDirection: "row",
@@ -172,10 +160,5 @@ const styles = StyleSheet.create({
     ...textStyles.body,
     color: colors.onDarkBackground,
     marginTop: 2,
-  },
-
-  filter: {
-    marginTop: 20,
-    width: "100%",
   },
 });
