@@ -21,6 +21,7 @@ import {
 import { AuthProvider } from "@/src/presentation/providers/AuthProvider";
 import { CollaborationProvider } from "@/src/presentation/providers/CollaborationProvider";
 import { PlatformServicesProvider } from "@/src/presentation/providers/PlatformServicesProvider";
+import { Platform } from "react-native";
 
 const apiClient = createDebtulatorApiClient(
   process.env.EXPO_PUBLIC_API_URL ?? "",
@@ -44,12 +45,30 @@ export default function RootLayout() {
         <CollaborationProvider gateway={collaborationGateway}>
           <AppDataProvider bootstrap={sqliteLocalDataBootstrap}>
             <TelemetrySettingsBridge />
+
             <AuthProvider services={supabaseAuthServices}>
               <Stack
                 screenOptions={{
                   headerShown: false,
                 }}
-              />
+              >
+                <Stack.Screen name="(tabs)" />
+
+                <Stack.Screen
+                  name="(modals)"
+                  options={{
+                    presentation: Platform.OS === "ios" ? "formSheet" : "modal",
+
+                    ...(Platform.OS === "ios"
+                      ? {
+                          sheetAllowedDetents: [1],
+                          sheetInitialDetentIndex: 0,
+                          sheetGrabberVisible: true,
+                        }
+                      : {}),
+                  }}
+                />
+              </Stack>
             </AuthProvider>
           </AppDataProvider>
         </CollaborationProvider>
