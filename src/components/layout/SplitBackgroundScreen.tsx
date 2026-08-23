@@ -114,9 +114,14 @@ export function SplitBackgroundScreen({ hero, children }: ScreenProps) {
       <Animated.ScrollView
         style={styles.scrollLayer}
         pointerEvents="box-none"
-        contentInsetAdjustmentBehavior="automatic"
+        contentInsetAdjustmentBehavior="never"
         contentInset={{
-          top: heroHeight - topInset,
+          top: heroHeight,
+        }}
+        contentOffset={{
+          x: 0,
+
+          y: -heroHeight,
         }}
         scrollEventThrottle={16}
         onScroll={Animated.event(
