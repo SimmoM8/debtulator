@@ -9,6 +9,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type ScreenProps = PropsWithChildren<{
   hero: ReactNode;
@@ -17,7 +18,7 @@ type ScreenProps = PropsWithChildren<{
 export function SplitBackgroundScreen({ hero, children }: ScreenProps) {
   const isIos = Platform.OS === "ios";
   const navHeaderHeight = useHeaderHeight();
-  const topInset = navHeaderHeight;
+  const insets = useSafeAreaInsets();
   const { height: screenHeight } = useWindowDimensions();
   const [heroHeight, setHeroHeight] = useState(0);
   const [scrollY] = useState(() => new Animated.Value(0));
@@ -79,7 +80,7 @@ export function SplitBackgroundScreen({ hero, children }: ScreenProps) {
         style={[
           styles.hero,
           {
-            paddingTop: topInset,
+            paddingTop: navHeaderHeight,
           },
         ]}
         onLayout={(event) => {
@@ -117,6 +118,10 @@ export function SplitBackgroundScreen({ hero, children }: ScreenProps) {
         contentInsetAdjustmentBehavior="never"
         contentInset={{
           top: heroHeight,
+          bottom: insets.bottom,
+        }}
+        scrollIndicatorInsets={{
+          bottom: insets.bottom,
         }}
         contentOffset={{
           x: 0,
