@@ -3,7 +3,10 @@ import { useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 
 import { toolbarIcons } from "@/src/navigation/toolbarIcons";
-import { AddDebtForm } from "@/src/presentation/components/debts/AddDebtForm";
+import {
+  AddDebtForm,
+  type AddDebtFormValue,
+} from "@/src/presentation/components/debts/AddDebtForm";
 import {
   DebtSummaryHeader,
   type DebtFilter,
@@ -108,10 +111,17 @@ export function DebtsScreen() {
 
       <AddDebtForm
         isPresented={isAddDebtPresented}
+        members={data.members}
+        currencies={["SEK"]}
         onDismiss={() => setIsAddDebtPresented(false)}
+        onSubmit={handleAddDebt}
       />
     </>
   );
+}
+
+async function handleAddDebt(value: AddDebtFormValue) {
+  // Application-layer command goes here.
 }
 
 const styles = StyleSheet.create({
