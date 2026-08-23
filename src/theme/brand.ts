@@ -8,6 +8,9 @@ export const brand = {
     warning: "#FF9500",
     danger: "#FF3B30",
 
+    positive: "#64b72a",
+    negative: "#c4682b",
+
     test: "#003127",
   },
 
