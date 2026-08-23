@@ -1,9 +1,12 @@
 import { toolbarIcons } from "@/src/navigation/toolbarIcons";
-import { Stack } from "expo-router";
-
+import { AddDebtForm } from "@/src/presentation/components/debts/AddDebtForm";
 import { DebtsScreen } from "@/src/presentation/screens/DebtsScreen";
+import { Stack } from "expo-router";
+import { useState } from "react";
 
 export default function DebtsRoute() {
+  const [isAddDebtPresented, setIsAddDebtPresented] = useState(false);
+
   return (
     <>
       <Stack.Screen
@@ -27,7 +30,7 @@ export default function DebtsRoute() {
           icon={toolbarIcons.plus}
           accessibilityLabel="Add debt"
           onPress={() => {
-            // Add debt
+            setIsAddDebtPresented(true);
           }}
         />
 
@@ -51,6 +54,11 @@ export default function DebtsRoute() {
       </Stack.Toolbar>
 
       <DebtsScreen />
+
+      <AddDebtForm
+        isPresented={isAddDebtPresented}
+        onDismiss={() => setIsAddDebtPresented(false)}
+      />
     </>
   );
 }
