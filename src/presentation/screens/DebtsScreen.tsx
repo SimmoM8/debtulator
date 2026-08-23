@@ -1,4 +1,4 @@
-import { SplitBackgroundScreen } from "@/src/components/layout/SplitBackgroundScreen";
+import { SplitBackgroundScreen } from "@/src/presentation/components/layout";
 import {
   DebtSummaryHeader,
   type DebtFilter,
