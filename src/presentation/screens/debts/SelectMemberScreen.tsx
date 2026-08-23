@@ -9,6 +9,7 @@ import { colors } from "@/src/theme";
 
 export function SelectMemberScreen() {
   const data = useAppData();
+
   const [searchQuery, setSearchQuery] = useState("");
 
   const filteredMembers = useMemo(() => {
@@ -32,6 +33,10 @@ export function SelectMemberScreen() {
     });
   }
 
+  function close() {
+    router.dismiss();
+  }
+
   return (
     <>
       <Stack.Screen
@@ -51,9 +56,7 @@ export function SelectMemberScreen() {
         <Stack.Toolbar.Button
           icon={toolbarIcons.close}
           accessibilityLabel="Close"
-          onPress={() => {
-            router.dismiss();
-          }}
+          onPress={close}
         />
       </Stack.Toolbar>
 
@@ -62,7 +65,7 @@ export function SelectMemberScreen() {
           icon={toolbarIcons.plus}
           accessibilityLabel="Add member"
           onPress={() => {
-            // Add Member modal flow comes later.
+            // Add Member flow comes later.
           }}
         />
       </Stack.Toolbar>

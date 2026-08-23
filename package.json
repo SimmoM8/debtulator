@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "@expo/material-symbols": "^0.1.1",
+    "@expo/ui": "~56.0.26",
     "@expo/vector-icons": "^15.0.2",
     "@react-navigation/elements": "^2.9.39",
     "@supabase/supabase-js": "^2.108.1",
