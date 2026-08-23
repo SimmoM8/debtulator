@@ -1,19 +1,24 @@
+import { Stack } from "expo-router";
+import { useMemo, useState } from "react";
+import { StyleSheet, View } from "react-native";
+
+import { toolbarIcons } from "@/src/navigation/toolbarIcons";
+import { AddDebtForm } from "@/src/presentation/components/debts/AddDebtForm";
 import {
-    DebtSummaryHeader,
-    type DebtFilter,
+  DebtSummaryHeader,
+  type DebtFilter,
 } from "@/src/presentation/components/debts/DebtSummaryHeader";
 import { DebtsList } from "@/src/presentation/components/debts/DebtsList";
-import { SplitBackgroundScreen } from "@/src/presentation/components/layout/SplitBackgroundScreen";
+import { SplitBackgroundScreen } from "@/src/presentation/components/layout";
 import { buildDebtsScreenModel } from "@/src/presentation/dto/debtsScreenModel";
 import { useAppData } from "@/src/presentation/providers/AppDataProvider";
 import { colors } from "@/src/theme";
 
-import { useMemo, useState } from "react";
-import { StyleSheet, View } from "react-native";
-
 export function DebtsScreen() {
   const data = useAppData();
+
   const [filter, setFilter] = useState<DebtFilter>("all");
+  const [isAddDebtPresented, setIsAddDebtPresented] = useState(false);
 
   const model = useMemo(
     () =>
@@ -38,23 +43,74 @@ export function DebtsScreen() {
   }, [filter, model.items]);
 
   return (
-    <SplitBackgroundScreen
-      hero={
-        <DebtSummaryHeader
-          youOwe={model.youOwe}
-          theyOwe={model.theyOwe}
-          youOweCount={model.youOweCount}
-          theyOweCount={model.theyOweCount}
-          netBalance={model.netBalance}
-          filter={filter}
-          onFilterChange={setFilter}
+    <>
+      <Stack.Screen
+        options={{
+          title: "Debts",
+        }}
+      />
+
+      <Stack.Toolbar placement="left">
+        <Stack.Toolbar.Button
+          icon={toolbarIcons.magnifyingglass}
+          accessibilityLabel="Search debts"
+          onPress={() => {
+            // Search debts
+          }}
         />
-      }
-    >
-      <View style={styles.content}>
-        <DebtsList items={filteredItems} />
-      </View>
-    </SplitBackgroundScreen>
+      </Stack.Toolbar>
+
+      <Stack.Toolbar placement="right">
+        <Stack.Toolbar.Button
+          icon={toolbarIcons.plus}
+          accessibilityLabel="Add debt"
+          onPress={() => {
+            setIsAddDebtPresented(true);
+          }}
+        />
+
+        <Stack.Toolbar.Menu icon={toolbarIcons.ellipsis}>
+          <Stack.Toolbar.MenuAction
+            onPress={() => {
+              // Filter debts
+            }}
+          >
+            Filter
+          </Stack.Toolbar.MenuAction>
+
+          <Stack.Toolbar.MenuAction
+            onPress={() => {
+              // Sort debts
+            }}
+          >
+            Sort
+          </Stack.Toolbar.MenuAction>
+        </Stack.Toolbar.Menu>
+      </Stack.Toolbar>
+
+      <SplitBackgroundScreen
+        hero={
+          <DebtSummaryHeader
+            youOwe={model.youOwe}
+            theyOwe={model.theyOwe}
+            youOweCount={model.youOweCount}
+            theyOweCount={model.theyOweCount}
+            netBalance={model.netBalance}
+            filter={filter}
+            onFilterChange={setFilter}
+          />
+        }
+      >
+        <View style={styles.content}>
+          <DebtsList items={filteredItems} />
+        </View>
+      </SplitBackgroundScreen>
+
+      <AddDebtForm
+        isPresented={isAddDebtPresented}
+        onDismiss={() => setIsAddDebtPresented(false)}
+      />
+    </>
   );
 }
 
