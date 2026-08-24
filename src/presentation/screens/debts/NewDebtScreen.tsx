@@ -1,8 +1,16 @@
-import { Host, ListItem, Switch, Text, TextInput } from "@expo/ui";
+import ChevronRightIcon from "@expo/material-symbols/chevron_right.xml";
+
+import { Host, Icon, ListItem } from "@expo/ui";
 import { DateTimePicker } from "@expo/ui/community/datetime-picker";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import {
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View
+} from "react-native";
 
 import { renderToolbarAction } from "@/src/navigation/toolbarActions";
 import { toolbarIcons } from "@/src/navigation/toolbarIcons";
@@ -23,6 +31,11 @@ const DIRECTION_OPTIONS = [
   },
 ] as const;
 
+const MEMBER_CHEVRON = Icon.select({
+  ios: "chevron.right",
+  android: ChevronRightIcon,
+});
+
 export function NewDebtScreen() {
   const data = useAppData();
 
@@ -37,10 +50,11 @@ export function NewDebtScreen() {
 
   const [direction, setDirection] = useState<DebtDirection>("you_owe");
 
-  const [hasDueDate, setHasDueDate] = useState(false);
-  const [dueDate, setDueDate] = useState(() => startOfToday());
-
   const [amount, setAmount] = useState("");
+
+  const [hasDueDate, setHasDueDate] = useState(false);
+
+  const [dueDate, setDueDate] = useState(() => startOfToday());
 
   const parsedAmount = useMemo(() => {
     if (amount.length === 0 || amount === ".") {
@@ -52,6 +66,8 @@ export function NewDebtScreen() {
     return Number.isFinite(parsed) ? parsed : 0;
   }, [amount]);
 
+  const canCreate = selectedMember !== null && parsedAmount > 0;
+
   function changeAmount(candidate: string) {
     const normalized = candidate.replace(",", ".");
 
@@ -60,7 +76,6 @@ export function NewDebtScreen() {
     }
   }
 
-  const canCreate = selectedMember !== null && parsedAmount > 0;
   function createDebt() {
     if (!canCreate || !selectedMember) {
       return;
@@ -114,104 +129,76 @@ export function NewDebtScreen() {
       </Stack.Toolbar>
 
       <View style={styles.root}>
-        <View style={styles.directionSection}>
+        <View style={styles.topSection}>
           <SegmentedControl
             value={direction}
             options={DIRECTION_OPTIONS}
             onChange={setDirection}
           />
-        </View>
 
-        <Host
-          matchContents={{ vertical: true, horizontal: false }}
-          style={styles.memberHost}
-        >
-          <ListItem onPress={changeMember}>
-            {selectedMember?.displayName ?? "Select Member"}
-          </ListItem>
-        </Host>
-
-        <View style={styles.amountSection}>
           <Host
-            matchContents={{ vertical: true, horizontal: false }}
-            style={styles.amountHost}
+            matchContents={{
+              vertical: true,
+              horizontal: false,
+            }}
+            style={styles.memberHost}
           >
-            <Text
-              textStyle={{
-                fontSize: 14,
-                textAlign: "center",
-              }}
+            <ListItem
+              onPress={changeMember}
+              trailing={<Icon name={MEMBER_CHEVRON} size={16} />}
             >
-              SEK
-            </Text>
-
-            <TextInput
-              autoFocus
-              defaultValue=""
-              onChangeText={changeAmount}
-              keyboardType="decimal-pad"
-              inputMode="decimal"
-              placeholder="0"
-              textAlign="center"
-              maxLength={12}
-              style={{
-                width: 260,
-                height: 80,
-              }}
-              textStyle={{
-                fontSize: 52,
-                fontWeight: "600",
-                textAlign: "center",
-              }}
-            />
+              {selectedMember?.displayName ?? "Select Member"}
+            </ListItem>
           </Host>
         </View>
 
-        <Host
-          matchContents={{ vertical: true, horizontal: false }}
-          style={styles.dueDateHost}
-        >
-          <ListItem
-            trailing={
-              <Switch
-                value={hasDueDate}
-                onValueChange={(enabled) => {
-                  setHasDueDate(enabled);
+        <View style={styles.amountSection}>
+          <Text style={styles.currency}>SEK</Text>
 
-                  if (enabled && dueDate < startOfToday()) {
-                    setDueDate(startOfToday());
-                  }
+          <TextInput
+            autoFocus
+            value={amount}
+            onChangeText={changeAmount}
+            keyboardType="decimal-pad"
+            inputMode="decimal"
+            placeholder="0"
+            placeholderTextColor={colors.native.secondaryText}
+            selectionColor={colors.native.text}
+            maxLength={12}
+            style={styles.amountInput}
+          />
+        </View>
+
+        <View style={styles.dueDateRow}>
+          <Text style={styles.dueDateLabel}>Due date</Text>
+
+          <View style={styles.dueDateValue}>
+            {hasDueDate ? (
+              <DateTimePicker
+                value={dueDate}
+                mode="date"
+                display="compact"
+                minimumDate={startOfToday()}
+                onValueChange={(_, value) => {
+                  setDueDate(value);
                 }}
               />
-            }
-          >
-            Add due date
-          </ListItem>
-        </Host>
-
-        {hasDueDate && (
-          <View style={styles.datePickerRow}>
-            <Host matchContents>
-              <Text
-                textStyle={{
-                  fontSize: 17,
-                }}
-              >
-                Due date
-              </Text>
-            </Host>
-
-            <DateTimePicker
-              value={dueDate}
-              mode="date"
-              display="compact"
-              minimumDate={startOfToday()}
-              onValueChange={(_, value) => {
-                setDueDate(value);
-              }}
-            />
+            ) : (
+              <Text style={styles.disabledDate}>{formatDate(dueDate)}</Text>
+            )}
           </View>
-        )}
+
+          <Switch
+            value={hasDueDate}
+            onValueChange={(enabled) => {
+              setHasDueDate(enabled);
+
+              if (enabled && dueDate < startOfToday()) {
+                setDueDate(startOfToday());
+              }
+            }}
+          />
+        </View>
       </View>
     </>
   );
@@ -235,41 +222,84 @@ function toDateString(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
+function formatDate(date: Date) {
+  return new Intl.DateTimeFormat(undefined, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+}
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.appBackground,
   },
 
-  directionSection: {
-    paddingHorizontal: 24,
+  topSection: {
     paddingTop: 20,
+    gap: 14,
   },
 
   memberHost: {
     width: "100%",
-    marginTop: 12,
   },
 
   amountSection: {
     alignItems: "center",
-    paddingTop: 24,
-    paddingBottom: 20,
+    justifyContent: "center",
+    paddingTop: 28,
+    paddingBottom: 24,
   },
 
-  amountHost: {
+  currency: {
+    color: colors.native.secondaryText,
+    fontSize: 14,
+    marginBottom: 4,
+  },
+
+  amountInput: {
     width: 260,
+    height: 82,
+
+    color: colors.native.text,
+
+    fontSize: 52,
+    fontWeight: "600",
+
+    textAlign: "center",
+    textAlignVertical: "center",
+
+    paddingHorizontal: 0,
+    paddingVertical: 0,
   },
 
-  dueDateHost: {
-    width: "100%",
-  },
+  dueDateRow: {
+    minHeight: 64,
 
-  datePickerRow: {
-    minHeight: 56,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+
     paddingHorizontal: 24,
+  },
+
+  dueDateLabel: {
+    flex: 1,
+
+    color: colors.native.text,
+
+    fontSize: 17,
+  },
+
+  dueDateValue: {
+    minWidth: 130,
+    alignItems: "flex-end",
+    marginRight: 12,
+  },
+
+  disabledDate: {
+    color: colors.native.secondaryText,
+    fontSize: 17,
+    opacity: 0.45,
   },
 });
