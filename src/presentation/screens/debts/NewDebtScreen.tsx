@@ -1,17 +1,12 @@
 import ChevronRightIcon from "@expo/material-symbols/chevron_right.xml";
 
-import { Host, Icon, ListItem } from "@expo/ui";
+import { Host, Icon, ListItem, Picker, Switch } from "@expo/ui";
 import { DateTimePicker } from "@expo/ui/community/datetime-picker";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
-import {
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  View
-} from "react-native";
+import { StyleSheet, Text, TextInput, View } from "react-native";
 
+import type { CurrencyCode } from "@/src/domain/models";
 import { renderToolbarAction } from "@/src/navigation/toolbarActions";
 import { toolbarIcons } from "@/src/navigation/toolbarIcons";
 import { SegmentedControl } from "@/src/presentation/components/controls";
@@ -30,6 +25,13 @@ const DIRECTION_OPTIONS = [
     label: "They owe",
   },
 ] as const;
+
+const CURRENCIES = [
+  "SEK",
+  "AUD",
+  "USD",
+  "EUR",
+] as const satisfies readonly CurrencyCode[];
 
 const MEMBER_CHEVRON = Icon.select({
   ios: "chevron.right",
@@ -51,6 +53,8 @@ export function NewDebtScreen() {
   const [direction, setDirection] = useState<DebtDirection>("you_owe");
 
   const [amount, setAmount] = useState("");
+
+  const [currency, setCurrency] = useState<CurrencyCode>("SEK");
 
   const [hasDueDate, setHasDueDate] = useState(false);
 
@@ -85,7 +89,7 @@ export function NewDebtScreen() {
       direction,
       memberId: selectedMember.id,
       amount: parsedAmount,
-      currency: "SEK" as const,
+      currency,
       dueDate: hasDueDate ? toDateString(dueDate) : null,
     };
 
@@ -129,75 +133,104 @@ export function NewDebtScreen() {
       </Stack.Toolbar>
 
       <View style={styles.root}>
-        <View style={styles.topSection}>
-          <SegmentedControl
-            value={direction}
-            options={DIRECTION_OPTIONS}
-            onChange={setDirection}
-          />
-
-          <Host
-            matchContents={{
-              vertical: true,
-              horizontal: false,
-            }}
-            style={styles.memberHost}
-          >
-            <ListItem
-              onPress={changeMember}
-              trailing={<Icon name={MEMBER_CHEVRON} size={16} />}
-            >
-              {selectedMember?.displayName ?? "Select Member"}
-            </ListItem>
-          </Host>
-        </View>
-
-        <View style={styles.amountSection}>
-          <Text style={styles.currency}>SEK</Text>
-
-          <TextInput
-            autoFocus
-            value={amount}
-            onChangeText={changeAmount}
-            keyboardType="decimal-pad"
-            inputMode="decimal"
-            placeholder="0"
-            placeholderTextColor={colors.native.secondaryText}
-            selectionColor={colors.native.text}
-            maxLength={12}
-            style={styles.amountInput}
-          />
-        </View>
-
-        <View style={styles.dueDateRow}>
-          <Text style={styles.dueDateLabel}>Due date</Text>
-
-          <View style={styles.dueDateValue}>
-            {hasDueDate ? (
-              <DateTimePicker
-                value={dueDate}
-                mode="date"
-                display="compact"
-                minimumDate={startOfToday()}
-                onValueChange={(_, value) => {
-                  setDueDate(value);
-                }}
-              />
-            ) : (
-              <Text style={styles.disabledDate}>{formatDate(dueDate)}</Text>
-            )}
+        <View style={styles.content}>
+          <View style={styles.directionSection}>
+            <SegmentedControl
+              value={direction}
+              options={DIRECTION_OPTIONS}
+              onChange={setDirection}
+              colorScheme="dark"
+            />
           </View>
 
-          <Switch
-            value={hasDueDate}
-            onValueChange={(enabled) => {
-              setHasDueDate(enabled);
+          <View style={styles.memberCard}>
+            <Host
+              colorScheme="dark"
+              matchContents={{
+                vertical: true,
+                horizontal: false,
+              }}
+              style={styles.memberHost}
+            >
+              <ListItem
+                onPress={changeMember}
+                supportingText="Tap to change"
+                trailing={<Icon name={MEMBER_CHEVRON} size={16} />}
+              >
+                {selectedMember?.displayName ?? "Select Member"}
+              </ListItem>
+            </Host>
+          </View>
 
-              if (enabled && dueDate < startOfToday()) {
-                setDueDate(startOfToday());
-              }
-            }}
-          />
+          <View style={styles.amountSection}>
+            <View style={styles.amountRow}>
+              <TextInput
+                autoFocus
+                value={amount}
+                onChangeText={changeAmount}
+                keyboardType="decimal-pad"
+                inputMode="decimal"
+                placeholder="0"
+                placeholderTextColor={colors.onDarkBackground}
+                selectionColor={colors.onDarkBackground}
+                maxLength={12}
+                style={styles.amountInput}
+              />
+
+              <Host
+                colorScheme="dark"
+                matchContents={{
+                  vertical: true,
+                  horizontal: true,
+                }}
+                style={styles.currencyHost}
+              >
+                <Picker
+                  selectedValue={currency}
+                  onValueChange={(value) => {
+                    setCurrency(value as CurrencyCode);
+                  }}
+                >
+                  {CURRENCIES.map((option) => (
+                    <Picker.Item key={option} label={option} value={option} />
+                  ))}
+                </Picker>
+              </Host>
+            </View>
+          </View>
+
+          <View style={styles.dueDateRow}>
+            <Text style={styles.dueDateLabel}>Due date</Text>
+
+            <View style={styles.dueDateValue}>
+              {hasDueDate ? (
+                <DateTimePicker
+                  value={dueDate}
+                  mode="date"
+                  display="compact"
+                  minimumDate={startOfToday()}
+                  onValueChange={(_, value) => {
+                    setDueDate(value);
+                  }}
+                />
+              ) : (
+                <Text style={styles.disabledDate}>{formatDate(dueDate)}</Text>
+              )}
+            </View>
+
+            <Host colorScheme="dark" matchContents style={styles.switchHost}>
+              <Switch
+                value={hasDueDate}
+                onValueChange={(enabled) => {
+                  setHasDueDate(enabled);
+
+                  if (enabled && dueDate < startOfToday()) {
+                    setDueDate(startOfToday());
+                  }
+                }}
+              />
+            </Host>
+          </View>
         </View>
       </View>
     </>
@@ -233,12 +266,31 @@ function formatDate(date: Date) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.appBackground,
+    backgroundColor: colors.mainBackground,
   },
 
-  topSection: {
-    paddingTop: 20,
-    gap: 14,
+  content: {
+    flex: 1,
+
+    paddingHorizontal: 20,
+    paddingTop: 18,
+  },
+
+  directionSection: {
+    width: "100%",
+  },
+
+  memberCard: {
+    marginTop: 16,
+
+    overflow: "hidden",
+
+    borderRadius: 20,
+
+    backgroundColor: colors.transparent,
+
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255, 255, 255, 0.18)",
   },
 
   memberHost: {
@@ -246,32 +298,39 @@ const styles = StyleSheet.create({
   },
 
   amountSection: {
+    minHeight: 200,
+
     alignItems: "center",
     justifyContent: "center",
-    paddingTop: 28,
-    paddingBottom: 24,
+
+    paddingVertical: 28,
   },
 
-  currency: {
-    color: colors.native.secondaryText,
-    fontSize: 14,
-    marginBottom: 4,
+  amountRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   amountInput: {
-    width: 260,
-    height: 82,
-
-    color: colors.native.text,
-
-    fontSize: 52,
-    fontWeight: "600",
-
-    textAlign: "center",
-    textAlignVertical: "center",
+    minWidth: 110,
+    maxWidth: 260,
+    height: 90,
 
     paddingHorizontal: 0,
     paddingVertical: 0,
+
+    color: colors.onDarkBackground,
+
+    fontSize: 58,
+    fontWeight: "400",
+
+    textAlign: "right",
+    textAlignVertical: "center",
+  },
+
+  currencyHost: {
+    marginLeft: 10,
   },
 
   dueDateRow: {
@@ -280,26 +339,35 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
 
-    paddingHorizontal: 24,
+    paddingHorizontal: 4,
   },
 
   dueDateLabel: {
     flex: 1,
 
-    color: colors.native.text,
+    color: colors.onDarkBackground,
 
     fontSize: 17,
   },
 
   dueDateValue: {
-    minWidth: 130,
+    minWidth: 124,
+
     alignItems: "flex-end",
+    justifyContent: "center",
+
     marginRight: 12,
   },
 
   disabledDate: {
-    color: colors.native.secondaryText,
-    fontSize: 17,
-    opacity: 0.45,
+    color: colors.onDarkBackground,
+
+    fontSize: 16,
+
+    opacity: 0.38,
+  },
+
+  switchHost: {
+    justifyContent: "center",
   },
 });
