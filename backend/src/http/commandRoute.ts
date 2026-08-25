@@ -42,7 +42,16 @@ export function createCommandRoute(
         },
       );
     } catch (error) {
-      if (error instanceof HttpProblem) return problemResponse(error.problem);
+      if (error instanceof HttpProblem) {
+        return problemResponse(error.problem);
+      }
+
+      console.error("Backend route failed", {
+        method: request.method,
+        url: request.url,
+        error,
+      });
+
       return problemResponse({
         type: "https://api.debtulator.example/problems/internal-error",
         title: "Internal Server Error",
