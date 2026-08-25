@@ -41,11 +41,10 @@ export function SelectedMemberCard({
               : "outlined"
         }
         onPress={onPress}
-        accessibilityLabel={`Change member, currently ${memberName}`}
         style={styles.button}
         modifiers={supportsLiquidGlass ? [buttonStyle("glass")] : undefined}
       >
-        <Row alignment="center" style={styles.content}>
+        <Row alignment="center">
           <Column spacing={2}>
             <Text
               textStyle={{
@@ -83,13 +82,8 @@ const styles = StyleSheet.create({
   },
 
   button: {
-    width: "100%",
     height: 68,
     paddingHorizontal: 16,
     borderRadius: 20,
-  },
-
-  content: {
-    width: "100%",
   },
 });
