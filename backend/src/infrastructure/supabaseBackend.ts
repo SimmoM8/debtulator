@@ -129,8 +129,9 @@ export class SupabaseBackendRepository implements MemberDirectoryRepository {
     }
     if (path.startsWith("/api/v1/member-links/") && path.endsWith("/profile")) {
       const userId = path.split("/")[4];
+
       return this.rpc("get_accepted_linked_member_profile", {
-        p_other_user_id: userId,
+        p_linked_user_id: userId,
       });
     }
     if (path.startsWith("/api/v1/member-links/") && request.method === "GET") {
@@ -364,7 +365,19 @@ export class SupabaseBackendRepository implements MemberDirectoryRepository {
 
   private async rpc(name: string, args: Record<string, unknown>) {
     const { data, error } = await this.client.rpc(name, args);
-    if (error) throw error;
+
+    if (error) {
+      console.error(`Supabase RPC failed: ${name}`, {
+        args,
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+      });
+
+      throw error;
+    }
+
     return data;
   }
 

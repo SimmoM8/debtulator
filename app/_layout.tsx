@@ -1,7 +1,7 @@
 import { Stack } from "expo-router";
 import type { PropsWithChildren } from "react";
 import { useEffect } from "react";
-import { Platform } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import {
@@ -20,14 +20,22 @@ import {
   AppDataProvider,
   useAppData,
 } from "@/src/presentation/providers/AppDataProvider";
-import { AuthProvider } from "@/src/presentation/providers/AuthProvider";
+import {
+  AuthProvider,
+  useAuth,
+} from "@/src/presentation/providers/AuthProvider";
 import { CollaborationProvider } from "@/src/presentation/providers/CollaborationProvider";
 import { PlatformServicesProvider } from "@/src/presentation/providers/PlatformServicesProvider";
-import { AppThemeProvider } from "@/src/theme";
+import { AppThemeProvider, useAppTheme } from "@/src/theme";
 
-const apiClient = createDebtulatorApiClient(
-  process.env.EXPO_PUBLIC_API_URL ?? "",
-  () => supabaseAuthServices.getAccessToken(),
+const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+
+if (!apiUrl) {
+  throw new Error("EXPO_PUBLIC_API_URL is not configured.");
+}
+
+const apiClient = createDebtulatorApiClient(apiUrl, () =>
+  supabaseAuthServices.getAccessToken(),
 );
 
 const collaborationGateway = createApiCollaborationGateway(
@@ -53,37 +61,73 @@ export default function RootLayout() {
               <TelemetrySettingsBridge />
 
               <AuthProvider services={supabaseAuthServices}>
-                <Stack
-                  screenOptions={{
-                    headerShown: false,
-                  }}
-                >
-                  <Stack.Screen name="(tabs)" />
-
-                  <Stack.Screen
-                    name="(modals)"
-                    options={{
-                      presentation:
-                        Platform.OS === "ios" ? "formSheet" : "modal",
-
-                      ...(Platform.OS === "ios"
-                        ? {
-                            sheetAllowedDetents: [1],
-
-                            sheetInitialDetentIndex: 0,
-
-                            sheetGrabberVisible: true,
-                          }
-                        : {}),
-                    }}
-                  />
-                </Stack>
+                <RootNavigator />
               </AuthProvider>
             </ThemeSettingsBridge>
           </AppDataProvider>
         </CollaborationProvider>
       </PlatformServicesProvider>
     </SafeAreaProvider>
+  );
+}
+
+function RootNavigator() {
+  const auth = useAuth();
+
+  if (auth.loading) {
+    return <AuthLoadingScreen />;
+  }
+
+  const authenticated = Boolean(auth.session);
+
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <Stack.Protected guard={!authenticated}>
+        <Stack.Screen name="login" />
+      </Stack.Protected>
+
+      <Stack.Protected guard={authenticated}>
+        <Stack.Screen name="index" />
+
+        <Stack.Screen name="(tabs)" />
+
+        <Stack.Screen
+          name="(modals)"
+          options={{
+            presentation: Platform.OS === "ios" ? "formSheet" : "modal",
+
+            ...(Platform.OS === "ios"
+              ? {
+                  sheetAllowedDetents: [1],
+
+                  sheetInitialDetentIndex: 0,
+
+                  sheetGrabberVisible: true,
+                }
+              : {}),
+          }}
+        />
+      </Stack.Protected>
+    </Stack>
+  );
+}
+
+function AuthLoadingScreen() {
+  const theme = useAppTheme();
+
+  return (
+    <View
+      style={[
+        styles.loading,
+        {
+          backgroundColor: theme.colors.mainBackground,
+        },
+      ]}
+    />
   );
 }
 
@@ -114,3 +158,9 @@ function TelemetrySettingsBridge() {
 
   return null;
 }
+
+const styles = StyleSheet.create({
+  loading: {
+    flex: 1,
+  },
+});
