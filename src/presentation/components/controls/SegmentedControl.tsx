@@ -1,17 +1,27 @@
-import { Platform, StyleSheet, View } from "react-native";
-
 import {
   Host as AndroidHost,
+  Row as AndroidRow,
   Text as AndroidText,
-  SegmentedButton,
-  SingleChoiceSegmentedButtonRow,
+  ToggleButton,
 } from "@expo/ui/jetpack-compose";
+
+import {
+  border,
+  clip,
+  fillMaxHeight,
+  fillMaxWidth,
+  height,
+  Shapes,
+  weight,
+} from "@expo/ui/jetpack-compose/modifiers";
 
 import { Host as IOSHost, Text as IOSText, Picker } from "@expo/ui/swift-ui";
 
 import { pickerStyle, tag } from "@expo/ui/swift-ui/modifiers";
 
-import { colors } from "@/src/theme";
+import { Platform, StyleSheet, View } from "react-native";
+
+import { nativeTheme, useAppTheme } from "@/src/theme";
 
 export type SegmentedControlOption<T extends string> = {
   value: T;
@@ -20,54 +30,34 @@ export type SegmentedControlOption<T extends string> = {
 
 export type SegmentedControlProps<T extends string> = {
   value: T;
+
   options: readonly SegmentedControlOption<T>[];
+
   onChange: (value: T) => void;
-  colorScheme?: "light" | "dark";
+
+  variant?: "default" | "onBrand";
 };
 
 export function SegmentedControl<T extends string>({
   value,
   options,
   onChange,
-  colorScheme,
+  variant = "default",
 }: SegmentedControlProps<T>) {
   if (Platform.OS === "android") {
-    const isDark = colorScheme === "dark";
-
     return (
-      <AndroidHost style={styles.androidHost}>
-        <SingleChoiceSegmentedButtonRow>
-          {options.map((option) => (
-            <SegmentedButton
-              key={option.value}
-              selected={option.value === value}
-              onClick={() => onChange(option.value)}
-              colors={
-                isDark
-                  ? {
-                      activeContainerColor: colors.onDarkBackground,
-                      activeContentColor: colors.mainBackground,
-                      activeBorderColor: colors.onDarkBackground,
-                      inactiveContainerColor: colors.transparent,
-                      inactiveContentColor: colors.onDarkBackground,
-                      inactiveBorderColor: colors.onDarkBackground,
-                    }
-                  : undefined
-              }
-            >
-              <SegmentedButton.Label>
-                <AndroidText>{option.label}</AndroidText>
-              </SegmentedButton.Label>
-            </SegmentedButton>
-          ))}
-        </SingleChoiceSegmentedButtonRow>
-      </AndroidHost>
+      <AndroidSegmentedControl
+        value={value}
+        options={options}
+        onChange={onChange}
+        variant={variant}
+      />
     );
   }
 
   return (
     <View style={styles.iosContainer}>
-      <IOSHost colorScheme={colorScheme} style={styles.iosHost}>
+      <IOSHost style={styles.iosHost}>
         <Picker
           label="Segmented control"
           selection={value}
@@ -87,15 +77,123 @@ export function SegmentedControl<T extends string>({
   );
 }
 
+function AndroidSegmentedControl<T extends string>({
+  value,
+  options,
+  onChange,
+  variant = "default",
+}: SegmentedControlProps<T>) {
+  const theme = useAppTheme();
+
+  const selectedContainer =
+    variant === "onBrand"
+      ? nativeTheme.onBrand.selectedContainer
+      : theme.colors.controlContainer;
+
+  const selectedContent =
+    variant === "onBrand"
+      ? nativeTheme.onBrand.selectedContent
+      : theme.colors.onControlContainer;
+
+  const unselectedContainer =
+    variant === "onBrand"
+      ? nativeTheme.onBrand.unselectedContainer
+      : theme.colors.controlSurface;
+
+  const unselectedContent =
+    variant === "onBrand"
+      ? nativeTheme.onBrand.unselectedContent
+      : theme.colors.onControlSurface;
+
+  const outline =
+    variant === "onBrand" ? nativeTheme.onBrand.outline : theme.colors.outline;
+
+  return (
+    <AndroidHost
+      seedColor={nativeTheme.seedColor}
+      colorScheme={variant === "onBrand" ? "dark" : theme.scheme}
+      style={styles.androidHost}
+    >
+      <AndroidRow
+        verticalAlignment="center"
+        modifiers={[fillMaxWidth(), height(40)]}
+      >
+        {options.map((option, index) => {
+          const shape = segmentShape(index, options.length);
+
+          return (
+            <ToggleButton
+              key={option.value}
+              checked={value === option.value}
+              onCheckedChange={() => {
+                onChange(option.value);
+              }}
+              colors={{
+                checkedContainerColor: selectedContainer,
+
+                checkedContentColor: selectedContent,
+
+                containerColor: unselectedContainer,
+
+                contentColor: unselectedContent,
+              }}
+              modifiers={[
+                weight(1),
+
+                fillMaxHeight(),
+
+                clip(shape),
+
+                border(0.75, outline),
+              ]}
+            >
+              <AndroidText>{option.label}</AndroidText>
+            </ToggleButton>
+          );
+        })}
+      </AndroidRow>
+    </AndroidHost>
+  );
+}
+
+function segmentShape(index: number, count: number) {
+  const radius = 20;
+
+  if (count === 1) {
+    return Shapes.RoundedCorner(radius);
+  }
+
+  if (index === 0) {
+    return Shapes.RoundedCorner({
+      topStart: radius,
+      bottomStart: radius,
+      topEnd: 0,
+      bottomEnd: 0,
+    });
+  }
+
+  if (index === count - 1) {
+    return Shapes.RoundedCorner({
+      topStart: 0,
+      bottomStart: 0,
+      topEnd: radius,
+      bottomEnd: radius,
+    });
+  }
+
+  return Shapes.RoundedCorner(0);
+}
+
 const styles = StyleSheet.create({
   androidHost: {
     width: "100%",
-    height: 48,
+    height: 40,
   },
 
   iosContainer: {
     width: "100%",
     height: 36,
+
     overflow: "hidden",
   },
 

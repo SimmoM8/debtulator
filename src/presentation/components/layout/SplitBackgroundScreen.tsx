@@ -1,7 +1,9 @@
-import { colors } from "@/src/theme";
 import { useHeaderHeight } from "expo-router/react-navigation";
+
 import type { PropsWithChildren, ReactNode } from "react";
+
 import { useState } from "react";
+
 import {
   Animated,
   Platform,
@@ -9,23 +11,41 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
+
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { useAppTheme } from "@/src/theme";
 
 type ScreenProps = PropsWithChildren<{
   hero: ReactNode;
 }>;
 
 export function SplitBackgroundScreen({ hero, children }: ScreenProps) {
+  const theme = useAppTheme();
+
   const isIos = Platform.OS === "ios";
+
   const navHeaderHeight = useHeaderHeight();
+
   const insets = useSafeAreaInsets();
+
   const { height: screenHeight } = useWindowDimensions();
+
   const [heroHeight, setHeroHeight] = useState(0);
+
   const [scrollY] = useState(() => new Animated.Value(0));
 
   if (!isIos) {
     return (
-      <View style={styles.root}>
+      <View
+        style={[
+          styles.root,
+
+          {
+            backgroundColor: theme.colors.mainBackground,
+          },
+        ]}
+      >
         <Animated.ScrollView
           style={styles.scrollLayer}
           contentInsetAdjustmentBehavior="never"
@@ -48,8 +68,13 @@ export function SplitBackgroundScreen({ hero, children }: ScreenProps) {
           <Animated.View
             style={[
               styles.androidHero,
+
               {
-                transform: [{ translateY: scrollY }],
+                transform: [
+                  {
+                    translateY: scrollY,
+                  },
+                ],
               },
             ]}
             onLayout={(event) => {
@@ -62,8 +87,11 @@ export function SplitBackgroundScreen({ hero, children }: ScreenProps) {
           <View
             style={[
               styles.androidContent,
+
               {
                 minHeight: Math.max(screenHeight - heroHeight, 0),
+
+                backgroundColor: theme.colors.appBackground,
               },
             ]}
           >
@@ -75,10 +103,19 @@ export function SplitBackgroundScreen({ hero, children }: ScreenProps) {
   }
 
   return (
-    <View style={styles.root}>
+    <View
+      style={[
+        styles.root,
+
+        {
+          backgroundColor: theme.colors.mainBackground,
+        },
+      ]}
+    >
       <View
         style={[
           styles.hero,
+
           {
             paddingTop: navHeaderHeight,
           },
@@ -95,14 +132,21 @@ export function SplitBackgroundScreen({ hero, children }: ScreenProps) {
           pointerEvents="none"
           style={[
             styles.contentBackground,
+
             {
               top: heroHeight,
+
+              backgroundColor: theme.colors.appBackground,
+
               transform: [
                 {
                   translateY: scrollY.interpolate({
                     inputRange: [-heroHeight, 0],
+
                     outputRange: [0, -heroHeight],
+
                     extrapolateLeft: "extend",
+
                     extrapolateRight: "extend",
                   }),
                 },
@@ -118,6 +162,7 @@ export function SplitBackgroundScreen({ hero, children }: ScreenProps) {
         contentInsetAdjustmentBehavior="never"
         contentInset={{
           top: heroHeight,
+
           bottom: insets.bottom,
         }}
         scrollIndicatorInsets={{
@@ -153,13 +198,14 @@ export function SplitBackgroundScreen({ hero, children }: ScreenProps) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.mainBackground,
   },
 
   hero: {
     position: "absolute",
+
     left: 0,
     right: 0,
+
     zIndex: 1,
   },
 
@@ -173,13 +219,13 @@ const styles = StyleSheet.create({
 
   contentBackground: {
     position: "absolute",
+
     left: 0,
     right: 0,
     bottom: -1000,
 
-    backgroundColor: colors.appBackground,
-
     borderTopLeftRadius: 28,
+
     borderTopRightRadius: 28,
 
     zIndex: 2,
@@ -187,6 +233,7 @@ const styles = StyleSheet.create({
 
   scrollLayer: {
     flex: 1,
+
     zIndex: 3,
   },
 });

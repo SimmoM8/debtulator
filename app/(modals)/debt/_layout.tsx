@@ -1,26 +1,32 @@
 import { Stack } from "expo-router";
 
 import { NewDebtDraftProvider } from "@/src/presentation/providers/NewDebtDraftProvider";
-import { colors } from "@/src/theme";
+
+import { useAppTheme } from "@/src/theme";
 
 export default function DebtModalLayout() {
+  const theme = useAppTheme();
+
   return (
     <NewDebtDraftProvider>
       <Stack
         screenOptions={{
           headerShown: true,
+
           headerLargeTitle: false,
+
           headerTitleAlign: "center",
 
           headerStyle: {
-            backgroundColor: colors.appBackground,
+            backgroundColor: theme.colors.appBackground,
           },
 
-          headerTintColor: colors.native.text,
+          headerTintColor: theme.colors.text,
+
           headerShadowVisible: false,
 
           contentStyle: {
-            backgroundColor: colors.appBackground,
+            backgroundColor: theme.colors.appBackground,
           },
         }}
       >

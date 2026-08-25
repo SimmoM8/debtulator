@@ -1,10 +1,12 @@
 import ChevronRightIcon from "@expo/material-symbols/chevron_right.xml";
 
-import { Button, Column, Host, Icon, Row, Spacer, Text } from "@expo/ui";
+import { Button, Column, Icon, Row, Spacer, Text } from "@expo/ui";
+
 import { buttonStyle } from "@expo/ui/swift-ui/modifiers";
+
 import { Platform, StyleSheet } from "react-native";
 
-import { colors } from "@/src/theme";
+import { NativeThemeHost } from "@/src/theme";
 
 type SelectedMemberCardProps = {
   memberName: string;
@@ -13,6 +15,7 @@ type SelectedMemberCardProps = {
 
 const CHEVRON_ICON = Icon.select({
   ios: "chevron.right",
+
   android: ChevronRightIcon,
 });
 
@@ -24,8 +27,7 @@ export function SelectedMemberCard({
   onPress,
 }: SelectedMemberCardProps) {
   return (
-    <Host
-      seedColor={colors.nativeControlTint}
+    <NativeThemeHost
       matchContents={{
         vertical: true,
         horizontal: false,
@@ -49,6 +51,7 @@ export function SelectedMemberCard({
             <Text
               textStyle={{
                 fontSize: 17,
+
                 fontWeight: "600",
               }}
             >
@@ -72,7 +75,7 @@ export function SelectedMemberCard({
           <Icon name={CHEVRON_ICON} size={17} />
         </Row>
       </Button>
-    </Host>
+    </NativeThemeHost>
   );
 }
 
@@ -83,7 +86,9 @@ const styles = StyleSheet.create({
 
   button: {
     height: 68,
+
     paddingHorizontal: 16,
+
     borderRadius: 20,
   },
 });

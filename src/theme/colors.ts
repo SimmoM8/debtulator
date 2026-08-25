@@ -1,57 +1,72 @@
-import { ColorValue, Platform, PlatformColor } from "react-native";
+import { type ColorValue, Platform, PlatformColor } from "react-native";
 
 import { brand } from "./brand";
 
-const materialColors = {
-  background: "#FFFBFE",
-  secondaryBackground: "#F7F2FA",
-  text: "#1D1B20",
-  secondaryText: "#49454F",
-  separator: "#CAC4D0",
-  tint: "#6750A4",
-} as const;
-
 /*
- DO NOT MODIFY THE NATIVE COLORS BELOW.
- These colors are used to ensure that the app's colors
- match the system colors on iOS and Android.
+ * iOS can safely retain UIKit semantic colours because that
+ * behaviour is already correct and consistent with iOS.
+ *
+ * Android deliberately DOES NOT use ?attr/... here.
+ *
+ * OEM theme attributes may differ between Pixel, Samsung,
+ * Xiaomi, etc. Adaptive Android UI should instead consume
+ * useAppTheme(), whose palette is deterministically generated
+ * from our Material 3 seed.
  */
 const nativeColors =
   Platform.OS === "ios"
     ? {
         background: PlatformColor("systemBackground"),
+
         secondaryBackground: PlatformColor("secondarySystemBackground"),
+
         text: PlatformColor("label"),
+
         secondaryText: PlatformColor("secondaryLabel"),
+
+        placeholder: PlatformColor("placeholderText"),
+
         separator: PlatformColor("separator"),
+
         tint: PlatformColor("systemBlue"),
       }
-    : materialColors;
+    : {
+        /*
+         * Deterministic light fallbacks only.
+         *
+         * New/adaptive components should use useAppTheme()
+         * instead of these values.
+         */
+        background: "#FFFBFE",
+        secondaryBackground: "#F7F2FA",
+        text: "#1D1B20",
+        secondaryText: "#49454F",
+        placeholder: "#79747E",
+        separator: "#CAC4D0",
+        tint: brand.colors.primary,
+      };
 
-/*
- Global colors exported and used throughout the app.
- */
 export const colors = {
-  native: { ...nativeColors },
+  native: {
+    ...nativeColors,
+  },
 
   brand: brand.colors,
 
   appBackground: nativeColors.secondaryBackground,
+
   mainBackground: brand.colors.primary,
+
   contentBackground: nativeColors.background,
 
   navHeaderBackground: brand.colors.primary,
+
   tabBarBackground: nativeColors.secondaryBackground,
 
   onLightBackground: nativeColors.text,
+
   onDarkBackground: "#FFFFFF",
 
-  /*
-   * App-level tint/seed for native interactive controls.
-   *
-   * - SwiftUI tint on iOS
-   * - Material 3 seed palette on Android
-   */
   nativeControlTint: brand.colors.primary,
 
   heroBackground: brand.colors.primary,

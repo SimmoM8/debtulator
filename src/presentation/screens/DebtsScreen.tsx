@@ -1,5 +1,7 @@
 import { router, Stack } from "expo-router";
+
 import { useMemo, useState } from "react";
+
 import { StyleSheet, View } from "react-native";
 
 import { toolbarIcons } from "@/src/navigation/toolbarIcons";
@@ -8,14 +10,21 @@ import {
   DebtSummaryHeader,
   type DebtFilter,
 } from "@/src/presentation/components/debts/DebtSummaryHeader";
+
 import { DebtsList } from "@/src/presentation/components/debts/DebtsList";
+
 import { SplitBackgroundScreen } from "@/src/presentation/components/layout";
+
 import { buildDebtsScreenModel } from "@/src/presentation/dto/debtsScreenModel";
+
 import { useAppData } from "@/src/presentation/providers/AppDataProvider";
-import { colors } from "@/src/theme";
+
+import { useAppTheme } from "@/src/theme";
 
 export function DebtsScreen() {
   const data = useAppData();
+
+  const theme = useAppTheme();
 
   const [filter, setFilter] = useState<DebtFilter>("all");
 
@@ -23,9 +32,12 @@ export function DebtsScreen() {
     () =>
       buildDebtsScreenModel({
         ledgerEntries: data.ledgerEntries,
+
         members: data.members,
+
         personalTotals: data.personalTotals,
       }),
+
     [data.ledgerEntries, data.members, data.personalTotals],
   );
 
@@ -100,7 +112,15 @@ export function DebtsScreen() {
           />
         }
       >
-        <View style={styles.content}>
+        <View
+          style={[
+            styles.content,
+
+            {
+              backgroundColor: theme.colors.appBackground,
+            },
+          ]}
+        >
           <DebtsList items={filteredItems} />
         </View>
       </SplitBackgroundScreen>
@@ -110,10 +130,12 @@ export function DebtsScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    backgroundColor: colors.appBackground,
     minHeight: "100%",
+
     borderTopLeftRadius: 28,
+
     borderTopRightRadius: 28,
+
     overflow: "hidden",
   },
 });
