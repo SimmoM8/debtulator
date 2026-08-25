@@ -46,7 +46,13 @@ export const colors = {
   onLightBackground: nativeColors.text,
   onDarkBackground: "#FFFFFF",
 
-  nativeControlTint: brand.colors.secondary,
+  /*
+   * App-level tint/seed for native interactive controls.
+   *
+   * - SwiftUI tint on iOS
+   * - Material 3 seed palette on Android
+   */
+  nativeControlTint: brand.colors.primary,
 
   heroBackground: brand.colors.primary,
 

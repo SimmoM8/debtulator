@@ -1,4 +1,10 @@
-import { Button, Host, Picker, Switch } from "@expo/ui";
+import {
+  Button,
+  Host,
+  TextInput as NativeTextInput,
+  Picker,
+  Switch,
+} from "@expo/ui";
 import { DateTimePicker } from "@expo/ui/community/datetime-picker";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
@@ -60,6 +66,9 @@ export function NewDebtScreen() {
   );
 
   const [direction, setDirection] = useState<DebtDirection>("you_owe");
+
+  const [debtName, setDebtName] = useState("");
+
   const [amount, setAmount] = useState("");
   const [currency, setCurrency] = useState<CurrencyCode>("SEK");
 
@@ -77,7 +86,8 @@ export function NewDebtScreen() {
     return Number.isFinite(parsed) ? parsed : 0;
   }, [amount]);
 
-  const canCreate = selectedMember !== null && parsedAmount > 0;
+  const canCreate =
+    selectedMember !== null && debtName.trim().length > 0 && parsedAmount > 0;
 
   const amountColor =
     direction === "you_owe" ? colors.brand.negative : colors.brand.positive;
@@ -86,16 +96,8 @@ export function NewDebtScreen() {
     const normalized = candidate.replace(",", ".");
 
     /*
-     * Because TextInput is controlled, an invalid candidate is never
-     * committed to the native input.
-     *
-     * Valid intermediate states:
-     * ""
-     * "1"
-     * "12"
-     * "12."
-     * "12.3"
-     * "12.34"
+     * Because this is a controlled React Native TextInput,
+     * invalid candidates never become the displayed value.
      */
     if (/^\d*(\.\d{0,2})?$/.test(normalized)) {
       setAmount(normalized);
@@ -120,6 +122,7 @@ export function NewDebtScreen() {
     }
 
     const value = {
+      title: debtName.trim(),
       direction,
       memberId: selectedMember.id,
       amount: parsedAmount,
@@ -137,7 +140,12 @@ export function NewDebtScreen() {
   }
 
   function changeMember() {
-    router.back();
+    router.push({
+      pathname: "/(modals)/debt/select-member",
+      params: {
+        from: "new-debt",
+      },
+    });
   }
 
   return (
@@ -172,7 +180,6 @@ export function NewDebtScreen() {
             value={direction}
             options={DIRECTION_OPTIONS}
             onChange={setDirection}
-            colorScheme="dark"
           />
 
           <View style={styles.memberSection}>
@@ -181,6 +188,29 @@ export function NewDebtScreen() {
               onPress={changeMember}
             />
           </View>
+
+          <Host
+            seedColor={colors.nativeControlTint}
+            matchContents={{
+              vertical: true,
+              horizontal: false,
+            }}
+            style={styles.nameHost}
+          >
+            <NativeTextInput
+              placeholder="Debt name"
+              defaultValue=""
+              onChangeText={setDebtName}
+              autoCapitalize="sentences"
+              returnKeyType="done"
+              style={{
+                height: 48,
+              }}
+              textStyle={{
+                fontSize: 17,
+              }}
+            />
+          </Host>
 
           <View style={styles.amountSection}>
             <View style={styles.amountRow}>
@@ -203,7 +233,6 @@ export function NewDebtScreen() {
               />
 
               <Host
-                colorScheme="dark"
                 seedColor={colors.nativeControlTint}
                 matchContents
                 style={styles.currencyHost}
@@ -233,16 +262,13 @@ export function NewDebtScreen() {
                     mode="date"
                     display="compact"
                     minimumDate={startOfToday()}
+                    accentColor={colors.nativeControlTint}
                     onValueChange={(_, value) => {
                       setDueDate(value);
                     }}
                   />
                 ) : (
-                  <Host
-                    colorScheme="dark"
-                    seedColor={colors.nativeControlTint}
-                    matchContents
-                  >
+                  <Host seedColor={colors.nativeControlTint} matchContents>
                     <Button
                       variant="text"
                       label={formatDate(dueDate)}
@@ -256,7 +282,6 @@ export function NewDebtScreen() {
             )}
 
             <Host
-              colorScheme="dark"
               seedColor={colors.nativeControlTint}
               matchContents
               style={styles.switchHost}
@@ -271,6 +296,7 @@ export function NewDebtScreen() {
               mode="date"
               presentation="dialog"
               minimumDate={startOfToday()}
+              accentColor={colors.nativeControlTint}
               onValueChange={(_, value) => {
                 setDueDate(value);
                 setShowAndroidDatePicker(false);
@@ -313,7 +339,7 @@ function formatDate(date: Date) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.mainBackground,
+    backgroundColor: colors.appBackground,
   },
 
   content: {
@@ -327,13 +353,18 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
 
+  nameHost: {
+    width: "100%",
+    marginTop: 12,
+  },
+
   amountSection: {
-    minHeight: 210,
+    minHeight: 190,
 
     alignItems: "center",
     justifyContent: "center",
 
-    paddingVertical: 28,
+    paddingVertical: 24,
   },
 
   amountRow: {
@@ -373,7 +404,7 @@ const styles = StyleSheet.create({
   dueDateLabel: {
     flex: 1,
 
-    color: colors.onDarkBackground,
+    color: colors.native.text,
 
     fontSize: 17,
   },
