@@ -1,7 +1,19 @@
 import { Button, Host, Picker, Switch } from "@expo/ui";
+
+import {
+  Button as AndroidButton,
+  Host as AndroidHost,
+  Text as AndroidText,
+  DropdownMenu,
+  DropdownMenuItem,
+} from "@expo/ui/jetpack-compose";
+
 import { DateTimePicker } from "@expo/ui/community/datetime-picker";
+
 import { router, Stack, useFocusEffect } from "expo-router";
+
 import { useCallback, useMemo, useRef, useState } from "react";
+
 import {
   KeyboardAvoidingView,
   LayoutAnimation,
@@ -12,16 +24,25 @@ import {
   View,
 } from "react-native";
 
+import { CURRENCIES } from "@/src/domain/finance/currencies";
+
 import type { CurrencyCode } from "@/src/domain/models";
+
 import { renderToolbarAction } from "@/src/navigation/toolbarActions";
+
 import { toolbarIcons } from "@/src/navigation/toolbarIcons";
+
 import { SegmentedControl } from "@/src/presentation/components/controls";
+
 import { SelectedMemberCard } from "@/src/presentation/components/debts/SelectedMemberCard";
+
 import { useAppData } from "@/src/presentation/providers/AppDataProvider";
+
 import {
   type NewDebtDirection,
   useNewDebtDraft,
 } from "@/src/presentation/providers/NewDebtDraftProvider";
+
 import { colors, textStyles } from "@/src/theme";
 
 const DIRECTION_OPTIONS = [
@@ -35,13 +56,6 @@ const DIRECTION_OPTIONS = [
   },
 ] as const;
 
-const CURRENCIES = [
-  "SEK",
-  "AUD",
-  "USD",
-  "EUR",
-] as const satisfies readonly CurrencyCode[];
-
 export function NewDebtScreen() {
   const data = useAppData();
   const draft = useNewDebtDraft();
@@ -53,6 +67,8 @@ export function NewDebtScreen() {
   const hasFocusedOnceRef = useRef(false);
 
   const [showAndroidDatePicker, setShowAndroidDatePicker] = useState(false);
+
+  const [showAndroidCurrencyMenu, setShowAndroidCurrencyMenu] = useState(false);
 
   const selectedMember = useMemo(
     () => data.members.find((member) => member.id === draft.memberId) ?? null,
@@ -74,16 +90,6 @@ export function NewDebtScreen() {
     draft.title.trim().length > 0 &&
     parsedAmount > 0;
 
-  /*
-   * First entry:
-   *   Title gets focus.
-   *
-   * Every subsequent return to this existing screen:
-   *   Amount gets focus.
-   *
-   * Because the draft is held above both debt screens,
-   * returning from Select Member never resets the form.
-   */
   useFocusEffect(
     useCallback(() => {
       const frame = requestAnimationFrame(() => {
@@ -127,6 +133,8 @@ export function NewDebtScreen() {
   function changeCurrency(value: CurrencyCode) {
     draft.setCurrency(value);
 
+    setShowAndroidCurrencyMenu(false);
+
     focusAmount();
   }
 
@@ -167,9 +175,13 @@ export function NewDebtScreen() {
 
     const value = {
       title: draft.title.trim(),
+
       direction: draft.direction,
+
       memberId: selectedMember.id,
+
       amount: parsedAmount,
+
       currency: draft.currency,
 
       dueDate: draft.hasDueDate ? toDateString(draft.dueDate) : null,
@@ -187,13 +199,6 @@ export function NewDebtScreen() {
   }
 
   function changeMember() {
-    /*
-     * NewDebtScreen remains mounted underneath
-     * SelectMemberScreen.
-     *
-     * The provider also remains mounted, so every
-     * form value is preserved.
-     */
     router.push({
       pathname: "/(modals)/debt/select-member",
 
@@ -222,9 +227,13 @@ export function NewDebtScreen() {
       <Stack.Toolbar placement="right">
         {renderToolbarAction({
           label: "Create",
+
           androidIcon: toolbarIcons.check,
+
           accessibilityLabel: "Create debt",
+
           disabled: !canCreate,
+
           onPress: createDebt,
         })}
       </Stack.Toolbar>
@@ -275,22 +284,33 @@ export function NewDebtScreen() {
                 style={styles.amountInput}
               />
 
-              <Host
-                seedColor={colors.nativeControlTint}
-                matchContents
-                style={styles.currencyHost}
-              >
-                <Picker
-                  selectedValue={draft.currency}
-                  onValueChange={(value) => {
-                    changeCurrency(value as CurrencyCode);
-                  }}
-                >
-                  {CURRENCIES.map((option) => (
-                    <Picker.Item key={option} label={option} value={option} />
-                  ))}
-                </Picker>
-              </Host>
+              <View style={styles.currencyControl}>
+                {Platform.OS === "android" ? (
+                  <AndroidCurrencySelector
+                    value={draft.currency}
+                    expanded={showAndroidCurrencyMenu}
+                    onExpandedChange={setShowAndroidCurrencyMenu}
+                    onChange={changeCurrency}
+                  />
+                ) : (
+                  <Host seedColor={colors.nativeControlTint} matchContents>
+                    <Picker
+                      selectedValue={draft.currency}
+                      onValueChange={(value) => {
+                        changeCurrency(value as CurrencyCode);
+                      }}
+                    >
+                      {CURRENCIES.map((option) => (
+                        <Picker.Item
+                          key={option}
+                          label={option}
+                          value={option}
+                        />
+                      ))}
+                    </Picker>
+                  </Host>
+                )}
+              </View>
             </View>
           </View>
 
@@ -354,6 +374,60 @@ export function NewDebtScreen() {
         )}
       </KeyboardAvoidingView>
     </>
+  );
+}
+
+type AndroidCurrencySelectorProps = {
+  value: CurrencyCode;
+
+  expanded: boolean;
+
+  onExpandedChange: (expanded: boolean) => void;
+
+  onChange: (currency: CurrencyCode) => void;
+};
+
+function AndroidCurrencySelector({
+  value,
+  expanded,
+  onExpandedChange,
+  onChange,
+}: AndroidCurrencySelectorProps) {
+  return (
+    <AndroidHost matchContents style={styles.androidCurrencyHost}>
+      <DropdownMenu
+        expanded={expanded}
+        onDismissRequest={() => {
+          onExpandedChange(false);
+        }}
+      >
+        <DropdownMenu.Trigger>
+          <AndroidButton
+            variant="text"
+            onClick={() => {
+              onExpandedChange(true);
+            }}
+          >
+            <AndroidText>{value}</AndroidText>
+          </AndroidButton>
+        </DropdownMenu.Trigger>
+
+        <DropdownMenu.Items>
+          {CURRENCIES.map((currency) => (
+            <DropdownMenuItem
+              key={currency}
+              onClick={() => {
+                onChange(currency);
+              }}
+            >
+              <DropdownMenuItem.Text>
+                <AndroidText>{currency}</AndroidText>
+              </DropdownMenuItem.Text>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenu.Items>
+      </DropdownMenu>
+    </AndroidHost>
   );
 }
 
@@ -433,6 +507,7 @@ const styles = StyleSheet.create({
     height: 96,
 
     flexDirection: "row",
+
     alignItems: "center",
     justifyContent: "center",
   },
@@ -440,6 +515,7 @@ const styles = StyleSheet.create({
   amountInput: {
     minWidth: 110,
     maxWidth: 250,
+
     height: 88,
 
     paddingHorizontal: 0,
@@ -454,8 +530,22 @@ const styles = StyleSheet.create({
     textAlignVertical: "center",
   },
 
-  currencyHost: {
-    marginLeft: 10,
+  /*
+   * This control is deliberately content-sized.
+   *
+   * Android no longer gets the large Material exposed
+   * text field produced by the universal Picker.
+   */
+  currencyControl: {
+    marginLeft: 8,
+
+    alignItems: "flex-start",
+
+    justifyContent: "center",
+  },
+
+  androidCurrencyHost: {
+    alignSelf: "flex-start",
   },
 
   dueDateRow: {
@@ -479,6 +569,7 @@ const styles = StyleSheet.create({
 
   dueDateActions: {
     flexDirection: "row",
+
     alignItems: "center",
   },
 

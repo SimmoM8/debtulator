@@ -1,4 +1,5 @@
 import type { CurrencyCode } from "@/src/domain/models";
+import { useAppData } from "@/src/presentation/providers/AppDataProvider";
 import type { PropsWithChildren } from "react";
 import { createContext, useContext, useMemo, useState } from "react";
 
@@ -34,6 +35,8 @@ const NewDebtDraftContext = createContext<NewDebtDraftContextValue | null>(
 );
 
 export function NewDebtDraftProvider({ children }: PropsWithChildren) {
+  const { settings } = useAppData();
+
   const [memberId, setMemberId] = useState<string | null>(null);
 
   const [direction, setDirection] = useState<NewDebtDirection>("you_owe");
@@ -42,7 +45,17 @@ export function NewDebtDraftProvider({ children }: PropsWithChildren) {
 
   const [amount, setAmount] = useState("");
 
-  const [currency, setCurrency] = useState<CurrencyCode>("SEK");
+  /*
+   * The user's configured app/account currency is the default
+   * for each new debt flow.
+   *
+   * This is deliberately initialised once when the provider mounts.
+   * If settings change while the user is halfway through this form,
+   * we do NOT unexpectedly overwrite their currently selected currency.
+   */
+  const [currency, setCurrency] = useState<CurrencyCode>(
+    () => settings.baseCurrency,
+  );
 
   const [hasDueDate, setHasDueDate] = useState(false);
 
@@ -76,12 +89,27 @@ export function NewDebtDraftProvider({ children }: PropsWithChildren) {
         setDirection("you_owe");
         setTitle("");
         setAmount("");
-        setCurrency("SEK");
+
+        /*
+         * Reset to the user's CURRENT configured currency rather
+         * than a hardcoded fallback.
+         */
+        setCurrency(settings.baseCurrency);
+
         setHasDueDate(false);
         setDueDate(startOfToday());
       },
     }),
-    [amount, currency, direction, dueDate, hasDueDate, memberId, title],
+    [
+      amount,
+      currency,
+      direction,
+      dueDate,
+      hasDueDate,
+      memberId,
+      settings.baseCurrency,
+      title,
+    ],
   );
 
   return (
