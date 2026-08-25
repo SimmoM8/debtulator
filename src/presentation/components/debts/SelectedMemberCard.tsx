@@ -25,7 +25,6 @@ export function SelectedMemberCard({
 }: SelectedMemberCardProps) {
   return (
     <Host
-      colorScheme="dark"
       seedColor={colors.nativeControlTint}
       matchContents={{
         vertical: true,
@@ -42,6 +41,7 @@ export function SelectedMemberCard({
               : "outlined"
         }
         onPress={onPress}
+        accessibilityLabel={`Change member, currently ${memberName}`}
         style={styles.button}
         modifiers={supportsLiquidGlass ? [buttonStyle("glass")] : undefined}
       >
@@ -58,7 +58,7 @@ export function SelectedMemberCard({
 
             <Text
               style={{
-                opacity: 0.64,
+                opacity: 0.58,
               }}
               textStyle={{
                 fontSize: 13,
@@ -85,9 +85,7 @@ const styles = StyleSheet.create({
   button: {
     width: "100%",
     height: 68,
-
     paddingHorizontal: 16,
-
     borderRadius: 20,
   },
 

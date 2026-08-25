@@ -1,5 +1,5 @@
 import { Host, List, ListItem } from "@expo/ui";
-import { router, Stack } from "expo-router";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 import { StyleSheet } from "react-native";
 
@@ -9,6 +9,12 @@ import { colors } from "@/src/theme";
 
 export function SelectMemberScreen() {
   const data = useAppData();
+
+  const { from } = useLocalSearchParams<{
+    from?: string;
+  }>();
+
+  const isChangingMember = from === "new-debt";
 
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -25,13 +31,32 @@ export function SelectMemberScreen() {
   }, [data.members, searchQuery]);
 
   function selectMember(memberId: string) {
-    router.push({
-      pathname: "/(modals)/debt/new",
-
+    const destination = {
+      pathname: "/(modals)/debt/new" as const,
       params: {
         memberId,
       },
-    });
+    };
+
+    if (isChangingMember) {
+      /*
+       * New Debt is already underneath this screen.
+       *
+       * navigate() unwinds to the existing route rather than creating
+       * another New Debt screen, preserving the existing form instance.
+       */
+      router.navigate(destination);
+
+      return;
+    }
+
+    /*
+     * Initial flow:
+     *
+     * Replace Select Member with New Debt. NewDebtScreen has
+     * animationTypeForReplace="pop", giving the native reverse transition.
+     */
+    router.replace(destination);
   }
 
   function close() {
@@ -53,13 +78,17 @@ export function SelectMemberScreen() {
         }}
       />
 
-      <Stack.Toolbar placement="left">
-        <Stack.Toolbar.Button
-          icon={toolbarIcons.close}
-          accessibilityLabel="Close"
-          onPress={close}
-        />
-      </Stack.Toolbar>
+      {isChangingMember ? (
+        <Stack.Screen.BackButton displayMode="minimal" />
+      ) : (
+        <Stack.Toolbar placement="left">
+          <Stack.Toolbar.Button
+            icon={toolbarIcons.close}
+            accessibilityLabel="Close"
+            onPress={close}
+          />
+        </Stack.Toolbar>
+      )}
 
       <Stack.Toolbar placement="right">
         <Stack.Toolbar.Button
@@ -72,7 +101,6 @@ export function SelectMemberScreen() {
       </Stack.Toolbar>
 
       <Host
-        colorScheme="dark"
         seedColor={colors.nativeControlTint}
         useViewportSizeMeasurement
         style={styles.root}
@@ -97,6 +125,6 @@ export function SelectMemberScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.mainBackground,
+    backgroundColor: colors.appBackground,
   },
 });
