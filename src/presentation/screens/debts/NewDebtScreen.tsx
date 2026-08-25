@@ -1,15 +1,22 @@
-import ChevronRightIcon from "@expo/material-symbols/chevron_right.xml";
-
-import { Host, Icon, ListItem, Picker, Switch } from "@expo/ui";
+import { Button, Host, Picker, Switch } from "@expo/ui";
 import { DateTimePicker } from "@expo/ui/community/datetime-picker";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
-import { StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  LayoutAnimation,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  UIManager,
+  View,
+} from "react-native";
 
 import type { CurrencyCode } from "@/src/domain/models";
 import { renderToolbarAction } from "@/src/navigation/toolbarActions";
 import { toolbarIcons } from "@/src/navigation/toolbarIcons";
 import { SegmentedControl } from "@/src/presentation/components/controls";
+import { SelectedMemberCard } from "@/src/presentation/components/debts/SelectedMemberCard";
 import { useAppData } from "@/src/presentation/providers/AppDataProvider";
 import { colors } from "@/src/theme";
 
@@ -33,10 +40,12 @@ const CURRENCIES = [
   "EUR",
 ] as const satisfies readonly CurrencyCode[];
 
-const MEMBER_CHEVRON = Icon.select({
-  ios: "chevron.right",
-  android: ChevronRightIcon,
-});
+if (
+  Platform.OS === "android" &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 export function NewDebtScreen() {
   const data = useAppData();
@@ -51,14 +60,12 @@ export function NewDebtScreen() {
   );
 
   const [direction, setDirection] = useState<DebtDirection>("you_owe");
-
   const [amount, setAmount] = useState("");
-
   const [currency, setCurrency] = useState<CurrencyCode>("SEK");
 
   const [hasDueDate, setHasDueDate] = useState(false);
-
   const [dueDate, setDueDate] = useState(() => startOfToday());
+  const [showAndroidDatePicker, setShowAndroidDatePicker] = useState(false);
 
   const parsedAmount = useMemo(() => {
     if (amount.length === 0 || amount === ".") {
@@ -72,12 +79,39 @@ export function NewDebtScreen() {
 
   const canCreate = selectedMember !== null && parsedAmount > 0;
 
+  const amountColor =
+    direction === "you_owe" ? colors.brand.negative : colors.brand.positive;
+
   function changeAmount(candidate: string) {
     const normalized = candidate.replace(",", ".");
 
+    /*
+     * Because TextInput is controlled, an invalid candidate is never
+     * committed to the native input.
+     *
+     * Valid intermediate states:
+     * ""
+     * "1"
+     * "12"
+     * "12."
+     * "12.3"
+     * "12.34"
+     */
     if (/^\d*(\.\d{0,2})?$/.test(normalized)) {
       setAmount(normalized);
     }
+  }
+
+  function toggleDueDate(enabled: boolean) {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+
+    if (!enabled) {
+      setShowAndroidDatePicker(false);
+    } else if (dueDate < startOfToday()) {
+      setDueDate(startOfToday());
+    }
+
+    setHasDueDate(enabled);
   }
 
   function createDebt() {
@@ -134,32 +168,18 @@ export function NewDebtScreen() {
 
       <View style={styles.root}>
         <View style={styles.content}>
-          <View style={styles.directionSection}>
-            <SegmentedControl
-              value={direction}
-              options={DIRECTION_OPTIONS}
-              onChange={setDirection}
-              colorScheme="dark"
-            />
-          </View>
+          <SegmentedControl
+            value={direction}
+            options={DIRECTION_OPTIONS}
+            onChange={setDirection}
+            colorScheme="dark"
+          />
 
-          <View style={styles.memberCard}>
-            <Host
-              colorScheme="dark"
-              matchContents={{
-                vertical: true,
-                horizontal: false,
-              }}
-              style={styles.memberHost}
-            >
-              <ListItem
-                onPress={changeMember}
-                supportingText="Tap to change"
-                trailing={<Icon name={MEMBER_CHEVRON} size={16} />}
-              >
-                {selectedMember?.displayName ?? "Select Member"}
-              </ListItem>
-            </Host>
+          <View style={styles.memberSection}>
+            <SelectedMemberCard
+              memberName={selectedMember?.displayName ?? "Select Member"}
+              onPress={changeMember}
+            />
           </View>
 
           <View style={styles.amountSection}>
@@ -171,18 +191,21 @@ export function NewDebtScreen() {
                 keyboardType="decimal-pad"
                 inputMode="decimal"
                 placeholder="0"
-                placeholderTextColor={colors.onDarkBackground}
-                selectionColor={colors.onDarkBackground}
+                placeholderTextColor={amountColor}
+                selectionColor={amountColor}
                 maxLength={12}
-                style={styles.amountInput}
+                style={[
+                  styles.amountInput,
+                  {
+                    color: amountColor,
+                  },
+                ]}
               />
 
               <Host
                 colorScheme="dark"
-                matchContents={{
-                  vertical: true,
-                  horizontal: true,
-                }}
+                seedColor={colors.nativeControlTint}
+                matchContents
                 style={styles.currencyHost}
               >
                 <Picker
@@ -202,35 +225,61 @@ export function NewDebtScreen() {
           <View style={styles.dueDateRow}>
             <Text style={styles.dueDateLabel}>Due date</Text>
 
-            <View style={styles.dueDateValue}>
-              {hasDueDate ? (
-                <DateTimePicker
-                  value={dueDate}
-                  mode="date"
-                  display="compact"
-                  minimumDate={startOfToday()}
-                  onValueChange={(_, value) => {
-                    setDueDate(value);
-                  }}
-                />
-              ) : (
-                <Text style={styles.disabledDate}>{formatDate(dueDate)}</Text>
-              )}
-            </View>
+            {hasDueDate && (
+              <View style={styles.dateControl}>
+                {Platform.OS === "ios" ? (
+                  <DateTimePicker
+                    value={dueDate}
+                    mode="date"
+                    display="compact"
+                    minimumDate={startOfToday()}
+                    onValueChange={(_, value) => {
+                      setDueDate(value);
+                    }}
+                  />
+                ) : (
+                  <Host
+                    colorScheme="dark"
+                    seedColor={colors.nativeControlTint}
+                    matchContents
+                  >
+                    <Button
+                      variant="text"
+                      label={formatDate(dueDate)}
+                      onPress={() => {
+                        setShowAndroidDatePicker(true);
+                      }}
+                    />
+                  </Host>
+                )}
+              </View>
+            )}
 
-            <Host colorScheme="dark" matchContents style={styles.switchHost}>
-              <Switch
-                value={hasDueDate}
-                onValueChange={(enabled) => {
-                  setHasDueDate(enabled);
-
-                  if (enabled && dueDate < startOfToday()) {
-                    setDueDate(startOfToday());
-                  }
-                }}
-              />
+            <Host
+              colorScheme="dark"
+              seedColor={colors.nativeControlTint}
+              matchContents
+              style={styles.switchHost}
+            >
+              <Switch value={hasDueDate} onValueChange={toggleDueDate} />
             </Host>
           </View>
+
+          {Platform.OS === "android" && showAndroidDatePicker && (
+            <DateTimePicker
+              value={dueDate}
+              mode="date"
+              presentation="dialog"
+              minimumDate={startOfToday()}
+              onValueChange={(_, value) => {
+                setDueDate(value);
+                setShowAndroidDatePicker(false);
+              }}
+              onDismiss={() => {
+                setShowAndroidDatePicker(false);
+              }}
+            />
+          )}
         </View>
       </View>
     </>
@@ -247,9 +296,7 @@ function startOfToday() {
 
 function toDateString(date: Date) {
   const year = date.getFullYear();
-
   const month = `${date.getMonth() + 1}`.padStart(2, "0");
-
   const day = `${date.getDate()}`.padStart(2, "0");
 
   return `${year}-${month}-${day}`;
@@ -276,29 +323,12 @@ const styles = StyleSheet.create({
     paddingTop: 18,
   },
 
-  directionSection: {
-    width: "100%",
-  },
-
-  memberCard: {
+  memberSection: {
     marginTop: 16,
-
-    overflow: "hidden",
-
-    borderRadius: 20,
-
-    backgroundColor: colors.transparent,
-
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.18)",
-  },
-
-  memberHost: {
-    width: "100%",
   },
 
   amountSection: {
-    minHeight: 200,
+    minHeight: 210,
 
     alignItems: "center",
     justifyContent: "center",
@@ -314,15 +344,13 @@ const styles = StyleSheet.create({
 
   amountInput: {
     minWidth: 110,
-    maxWidth: 260,
-    height: 90,
+    maxWidth: 250,
+    height: 94,
 
     paddingHorizontal: 0,
     paddingVertical: 0,
 
-    color: colors.onDarkBackground,
-
-    fontSize: 58,
+    fontSize: 62,
     fontWeight: "400",
 
     textAlign: "right",
@@ -350,21 +378,8 @@ const styles = StyleSheet.create({
     fontSize: 17,
   },
 
-  dueDateValue: {
-    minWidth: 124,
-
-    alignItems: "flex-end",
-    justifyContent: "center",
-
-    marginRight: 12,
-  },
-
-  disabledDate: {
-    color: colors.onDarkBackground,
-
-    fontSize: 16,
-
-    opacity: 0.38,
+  dateControl: {
+    marginRight: 10,
   },
 
   switchHost: {

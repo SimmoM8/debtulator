@@ -1,4 +1,5 @@
 import { ColorValue, Platform, PlatformColor } from "react-native";
+
 import { brand } from "./brand";
 
 const materialColors = {
@@ -11,9 +12,9 @@ const materialColors = {
 } as const;
 
 /*
- DO NOT MODIFY THE NATIVE COLORS BELOW. 
- These colors are used to ensure that the app's colors 
- match the system colors on iOS and Android. 
+ DO NOT MODIFY THE NATIVE COLORS BELOW.
+ These colors are used to ensure that the app's colors
+ match the system colors on iOS and Android.
  */
 const nativeColors =
   Platform.OS === "ios"
@@ -28,21 +29,27 @@ const nativeColors =
     : materialColors;
 
 /*
-
-Global colors exported and used throughout the app.
- 
-*/
+ Global colors exported and used throughout the app.
+ */
 export const colors = {
   native: { ...nativeColors },
+
   brand: brand.colors,
+
   appBackground: nativeColors.secondaryBackground,
   mainBackground: brand.colors.primary,
   contentBackground: nativeColors.background,
+
   navHeaderBackground: brand.colors.primary,
   tabBarBackground: nativeColors.secondaryBackground,
+
   onLightBackground: nativeColors.text,
   onDarkBackground: "#FFFFFF",
+
+  nativeControlTint: brand.colors.secondary,
+
   heroBackground: brand.colors.primary,
+
   transparent: "transparent",
 };
 
