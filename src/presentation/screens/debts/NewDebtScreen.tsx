@@ -15,6 +15,7 @@ import { router, Stack, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
 
 import {
+  Alert,
   KeyboardAvoidingView,
   LayoutAnimation,
   Platform,
@@ -26,7 +27,7 @@ import {
 
 import { CURRENCIES } from "@/src/domain/finance/currencies";
 
-import type { CurrencyCode } from "@/src/domain/models";
+import type { CurrencyCode, DebtDirection } from "@/src/domain/models";
 
 import { renderToolbarAction } from "@/src/navigation/toolbarActions";
 
@@ -78,6 +79,8 @@ export function NewDebtScreen() {
 
   const [showAndroidCurrencyMenu, setShowAndroidCurrencyMenu] = useState(false);
 
+  const [isCreating, setIsCreating] = useState(false);
+
   const selectedMember = useMemo(
     () => data.members.find((member) => member.id === draft.memberId) ?? null,
 
@@ -95,6 +98,7 @@ export function NewDebtScreen() {
   }, [draft.amount]);
 
   const canCreate =
+    !isCreating &&
     selectedMember !== null &&
     draft.title.trim().length > 0 &&
     parsedAmount > 0;
@@ -175,37 +179,87 @@ export function NewDebtScreen() {
     focusAmount();
   }
 
-  function createDebt() {
-    if (!canCreate || !selectedMember) {
+  async function createDebt() {
+    if (!canCreate || !selectedMember || isCreating) {
       return;
     }
 
-    const value = {
-      title: draft.title.trim(),
+    setIsCreating(true);
 
-      direction: draft.direction,
+    try {
+      await data.createDebt({
+        memberId: selectedMember.id,
 
-      memberId: selectedMember.id,
+        direction: toDomainDirection(draft.direction),
 
-      amount: parsedAmount,
+        amount: parsedAmount,
 
-      currency: draft.currency,
+        currency: draft.currency,
 
-      dueDate: draft.hasDueDate ? toDateString(draft.dueDate) : null,
-    };
+        title: draft.title.trim(),
 
-    console.log("Create debt", value);
+        dueDate: draft.hasDueDate ? toDateString(draft.dueDate) : null,
 
-    // Application-layer command comes next.
+        /*
+         * These are intentionally explicit rather than relying on
+         * repository defaults.
+         */
+        status: "active",
+
+        visibility: data.settings.defaultDebtVisibility,
+
+        /*
+         * A normal locally-created debt begins local-only.
+         *
+         * If this debt later participates in linked-user verification,
+         * the collaboration workflow should promote the appropriate
+         * verification state separately.
+         */
+        verificationStatus: "local_only",
+
+        groupId: null,
+
+        recurringTemplateId: null,
+
+        tags: [],
+      });
+
+      /*
+       * Only clear the form after persistence succeeded.
+       *
+       * If createDebt throws, all draft values remain intact so the
+       * user can retry without re-entering anything.
+       */
+      draft.reset();
+
+      router.dismissTo("/(tabs)/debts");
+    } catch (error) {
+      console.error("Failed to create debt", error);
+
+      Alert.alert(
+        "Couldn’t create debt",
+        "Your debt wasn’t saved. Your entered details have been kept so you can try again.",
+      );
+    } finally {
+      setIsCreating(false);
+    }
   }
 
   function cancelDebtFlow() {
+    if (isCreating) {
+      return;
+    }
+
     draft.reset();
 
     router.dismissTo("/(tabs)/debts");
   }
 
   function changeMember() {
+    if (isCreating) {
+      return;
+    }
+
     router.push({
       pathname: "/(modals)/debt/select-member",
 
@@ -227,21 +281,24 @@ export function NewDebtScreen() {
         <Stack.Toolbar.Button
           icon={toolbarIcons.close}
           accessibilityLabel="Cancel new debt"
+          disabled={isCreating}
           onPress={cancelDebtFlow}
         />
       </Stack.Toolbar>
 
       <Stack.Toolbar placement="right">
         {renderToolbarAction({
-          label: "Create",
+          label: isCreating ? "Creating…" : "Create",
 
           androidIcon: toolbarIcons.check,
 
-          accessibilityLabel: "Create debt",
+          accessibilityLabel: isCreating ? "Creating debt" : "Create debt",
 
           disabled: !canCreate,
 
-          onPress: createDebt,
+          onPress: () => {
+            void createDebt();
+          },
         })}
       </Stack.Toolbar>
 
@@ -272,6 +329,7 @@ export function NewDebtScreen() {
               placeholderTextColor={theme.colors.placeholder}
               selectionColor={theme.colors.controlTint}
               maxLength={80}
+              editable={!isCreating}
               style={styles.titleInput}
             />
           </View>
@@ -288,6 +346,7 @@ export function NewDebtScreen() {
                 placeholderTextColor={theme.colors.placeholder}
                 selectionColor={theme.colors.controlTint}
                 maxLength={12}
+                editable={!isCreating}
                 style={styles.amountInput}
               />
 
@@ -439,6 +498,10 @@ function AndroidCurrencySelector({
       </DropdownMenu>
     </NativeThemeHost>
   );
+}
+
+function toDomainDirection(direction: NewDebtDirection): DebtDirection {
+  return direction === "you_owe" ? "i_owe_them" : "they_owe_me";
 }
 
 function startOfToday() {
