@@ -5,10 +5,12 @@ import { StyleSheet } from "react-native";
 
 import { toolbarIcons } from "@/src/navigation/toolbarIcons";
 import { useAppData } from "@/src/presentation/providers/AppDataProvider";
+import { useNewDebtDraft } from "@/src/presentation/providers/NewDebtDraftProvider";
 import { colors } from "@/src/theme";
 
 export function SelectMemberScreen() {
   const data = useAppData();
+  const draft = useNewDebtDraft();
 
   const { from } = useLocalSearchParams<{
     from?: string;
@@ -31,35 +33,39 @@ export function SelectMemberScreen() {
   }, [data.members, searchQuery]);
 
   function selectMember(memberId: string) {
-    const destination = {
-      pathname: "/(modals)/debt/new" as const,
-      params: {
-        memberId,
-      },
-    };
+    /*
+     * This is now the ONLY state we mutate.
+     *
+     * Every other New Debt field remains untouched.
+     */
+    draft.setMemberId(memberId);
 
     if (isChangingMember) {
       /*
-       * New Debt is already underneath this screen.
+       * NewDebtScreen is still mounted underneath.
        *
-       * navigate() unwinds to the existing route rather than creating
-       * another New Debt screen, preserving the existing form instance.
+       * Just pop Select Member.
        */
-      router.navigate(destination);
+      router.back();
 
       return;
     }
 
     /*
-     * Initial flow:
+     * Initial member selection.
      *
-     * Replace Select Member with New Debt. NewDebtScreen has
-     * animationTypeForReplace="pop", giving the native reverse transition.
+     * Replace the selection screen with the actual form.
      */
-    router.replace(destination);
+    router.replace("/(modals)/debt/new");
   }
 
   function close() {
+    /*
+     * Initial selection was cancelled.
+     * Clear any draft state before dismissing the flow.
+     */
+    draft.reset();
+
     router.dismiss();
   }
 

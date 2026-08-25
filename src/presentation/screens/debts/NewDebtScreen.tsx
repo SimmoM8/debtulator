@@ -1,14 +1,9 @@
-import {
-  Button,
-  Host,
-  TextInput as NativeTextInput,
-  Picker,
-  Switch,
-} from "@expo/ui";
+import { Button, Host, Picker, Switch } from "@expo/ui";
 import { DateTimePicker } from "@expo/ui/community/datetime-picker";
-import { router, Stack, useLocalSearchParams } from "expo-router";
-import { useMemo, useState } from "react";
+import { router, Stack, useFocusEffect } from "expo-router";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
+  KeyboardAvoidingView,
   LayoutAnimation,
   Platform,
   StyleSheet,
@@ -24,9 +19,11 @@ import { toolbarIcons } from "@/src/navigation/toolbarIcons";
 import { SegmentedControl } from "@/src/presentation/components/controls";
 import { SelectedMemberCard } from "@/src/presentation/components/debts/SelectedMemberCard";
 import { useAppData } from "@/src/presentation/providers/AppDataProvider";
-import { colors } from "@/src/theme";
-
-type DebtDirection = "you_owe" | "they_owe";
+import {
+  type NewDebtDirection,
+  useNewDebtDraft,
+} from "@/src/presentation/providers/NewDebtDraftProvider";
+import { colors, textStyles } from "@/src/theme";
 
 const DIRECTION_OPTIONS = [
   {
@@ -55,53 +52,91 @@ if (
 
 export function NewDebtScreen() {
   const data = useAppData();
+  const draft = useNewDebtDraft();
 
-  const { memberId } = useLocalSearchParams<{
-    memberId?: string;
-  }>();
+  const titleInputRef = useRef<TextInput>(null);
 
-  const selectedMember = useMemo(
-    () => data.members.find((member) => member.id === memberId) ?? null,
-    [data.members, memberId],
-  );
+  const amountInputRef = useRef<TextInput>(null);
 
-  const [direction, setDirection] = useState<DebtDirection>("you_owe");
+  const hasFocusedOnceRef = useRef(false);
 
-  const [debtName, setDebtName] = useState("");
-
-  const [amount, setAmount] = useState("");
-  const [currency, setCurrency] = useState<CurrencyCode>("SEK");
-
-  const [hasDueDate, setHasDueDate] = useState(false);
-  const [dueDate, setDueDate] = useState(() => startOfToday());
   const [showAndroidDatePicker, setShowAndroidDatePicker] = useState(false);
 
+  const selectedMember = useMemo(
+    () => data.members.find((member) => member.id === draft.memberId) ?? null,
+    [data.members, draft.memberId],
+  );
+
   const parsedAmount = useMemo(() => {
-    if (amount.length === 0 || amount === ".") {
+    if (draft.amount.length === 0 || draft.amount === ".") {
       return 0;
     }
 
-    const parsed = Number(amount);
+    const parsed = Number(draft.amount);
 
     return Number.isFinite(parsed) ? parsed : 0;
-  }, [amount]);
+  }, [draft.amount]);
 
   const canCreate =
-    selectedMember !== null && debtName.trim().length > 0 && parsedAmount > 0;
+    selectedMember !== null &&
+    draft.title.trim().length > 0 &&
+    parsedAmount > 0;
 
-  const amountColor =
-    direction === "you_owe" ? colors.brand.negative : colors.brand.positive;
+  /*
+   * First appearance -> title.
+   *
+   * Every later appearance -> amount.
+   *
+   * That includes:
+   *
+   * - Back from Select Member
+   * - selecting the same member
+   * - selecting a different member
+   */
+  useFocusEffect(
+    useCallback(() => {
+      const frame = requestAnimationFrame(() => {
+        if (!hasFocusedOnceRef.current) {
+          hasFocusedOnceRef.current = true;
+
+          titleInputRef.current?.focus();
+
+          return;
+        }
+
+        amountInputRef.current?.focus();
+      });
+
+      return () => {
+        cancelAnimationFrame(frame);
+      };
+    }, []),
+  );
+
+  function focusAmount() {
+    requestAnimationFrame(() => {
+      amountInputRef.current?.focus();
+    });
+  }
+
+  function changeDirection(value: NewDebtDirection) {
+    draft.setDirection(value);
+
+    focusAmount();
+  }
 
   function changeAmount(candidate: string) {
     const normalized = candidate.replace(",", ".");
 
-    /*
-     * Because this is a controlled React Native TextInput,
-     * invalid candidates never become the displayed value.
-     */
     if (/^\d*(\.\d{0,2})?$/.test(normalized)) {
-      setAmount(normalized);
+      draft.setAmount(normalized);
     }
+  }
+
+  function changeCurrency(value: CurrencyCode) {
+    draft.setCurrency(value);
+
+    focusAmount();
   }
 
   function toggleDueDate(enabled: boolean) {
@@ -109,11 +144,29 @@ export function NewDebtScreen() {
 
     if (!enabled) {
       setShowAndroidDatePicker(false);
-    } else if (dueDate < startOfToday()) {
-      setDueDate(startOfToday());
+    } else if (draft.dueDate < startOfToday()) {
+      draft.setDueDate(startOfToday());
     }
 
-    setHasDueDate(enabled);
+    draft.setHasDueDate(enabled);
+
+    focusAmount();
+  }
+
+  function changeDate(value: Date) {
+    draft.setDueDate(value);
+
+    if (Platform.OS === "android") {
+      setShowAndroidDatePicker(false);
+    }
+
+    focusAmount();
+  }
+
+  function dismissAndroidDatePicker() {
+    setShowAndroidDatePicker(false);
+
+    focusAmount();
   }
 
   function createDebt() {
@@ -122,12 +175,13 @@ export function NewDebtScreen() {
     }
 
     const value = {
-      title: debtName.trim(),
-      direction,
+      title: draft.title.trim(),
+      direction: draft.direction,
       memberId: selectedMember.id,
       amount: parsedAmount,
-      currency,
-      dueDate: hasDueDate ? toDateString(dueDate) : null,
+      currency: draft.currency,
+
+      dueDate: draft.hasDueDate ? toDateString(draft.dueDate) : null,
     };
 
     console.log("Create debt", value);
@@ -136,12 +190,15 @@ export function NewDebtScreen() {
   }
 
   function cancelDebtFlow() {
+    draft.reset();
+
     router.dismissTo("/(tabs)/debts");
   }
 
   function changeMember() {
     router.push({
       pathname: "/(modals)/debt/select-member",
+
       params: {
         from: "new-debt",
       },
@@ -174,12 +231,12 @@ export function NewDebtScreen() {
         })}
       </Stack.Toolbar>
 
-      <View style={styles.root}>
+      <KeyboardAvoidingView style={styles.root} behavior="height">
         <View style={styles.content}>
           <SegmentedControl
-            value={direction}
+            value={draft.direction}
             options={DIRECTION_OPTIONS}
-            onChange={setDirection}
+            onChange={changeDirection}
           />
 
           <View style={styles.memberSection}>
@@ -189,47 +246,35 @@ export function NewDebtScreen() {
             />
           </View>
 
-          <Host
-            seedColor={colors.nativeControlTint}
-            matchContents={{
-              vertical: true,
-              horizontal: false,
-            }}
-            style={styles.nameHost}
-          >
-            <NativeTextInput
-              placeholder="Debt name"
-              defaultValue=""
-              onChangeText={setDebtName}
+          <View style={styles.titleRow}>
+            <TextInput
+              ref={titleInputRef}
+              value={draft.title}
+              onChangeText={draft.setTitle}
+              onSubmitEditing={focusAmount}
               autoCapitalize="sentences"
-              returnKeyType="done"
-              style={{
-                height: 48,
-              }}
-              textStyle={{
-                fontSize: 17,
-              }}
+              returnKeyType="next"
+              placeholder="Debt name"
+              placeholderTextColor={colors.native.secondaryText}
+              selectionColor={colors.nativeControlTint}
+              maxLength={80}
+              style={styles.titleInput}
             />
-          </Host>
+          </View>
 
           <View style={styles.amountSection}>
             <View style={styles.amountRow}>
               <TextInput
-                autoFocus
-                value={amount}
+                ref={amountInputRef}
+                value={draft.amount}
                 onChangeText={changeAmount}
                 keyboardType="decimal-pad"
                 inputMode="decimal"
                 placeholder="0"
-                placeholderTextColor={amountColor}
-                selectionColor={amountColor}
+                placeholderTextColor={colors.native.secondaryText}
+                selectionColor={colors.nativeControlTint}
                 maxLength={12}
-                style={[
-                  styles.amountInput,
-                  {
-                    color: amountColor,
-                  },
-                ]}
+                style={styles.amountInput}
               />
 
               <Host
@@ -238,9 +283,9 @@ export function NewDebtScreen() {
                 style={styles.currencyHost}
               >
                 <Picker
-                  selectedValue={currency}
+                  selectedValue={draft.currency}
                   onValueChange={(value) => {
-                    setCurrency(value as CurrencyCode);
+                    changeCurrency(value as CurrencyCode);
                   }}
                 >
                   {CURRENCIES.map((option) => (
@@ -254,60 +299,62 @@ export function NewDebtScreen() {
           <View style={styles.dueDateRow}>
             <Text style={styles.dueDateLabel}>Due date</Text>
 
-            {hasDueDate && (
-              <View style={styles.dateControl}>
-                {Platform.OS === "ios" ? (
-                  <DateTimePicker
-                    value={dueDate}
-                    mode="date"
-                    display="compact"
-                    minimumDate={startOfToday()}
-                    accentColor={colors.nativeControlTint}
-                    onValueChange={(_, value) => {
-                      setDueDate(value);
-                    }}
-                  />
-                ) : (
-                  <Host seedColor={colors.nativeControlTint} matchContents>
-                    <Button
-                      variant="text"
-                      label={formatDate(dueDate)}
-                      onPress={() => {
-                        setShowAndroidDatePicker(true);
+            <View style={styles.dueDateActions}>
+              {draft.hasDueDate && (
+                <View style={styles.dateControl}>
+                  {Platform.OS === "ios" ? (
+                    <DateTimePicker
+                      value={draft.dueDate}
+                      mode="date"
+                      display="compact"
+                      minimumDate={startOfToday()}
+                      accentColor={colors.nativeControlTint}
+                      onValueChange={(_, value) => {
+                        changeDate(value);
                       }}
                     />
-                  </Host>
-                )}
-              </View>
-            )}
+                  ) : (
+                    <Host seedColor={colors.nativeControlTint} matchContents>
+                      <Button
+                        variant="text"
+                        label={formatDate(draft.dueDate)}
+                        onPress={() => {
+                          setShowAndroidDatePicker(true);
+                        }}
+                      />
+                    </Host>
+                  )}
+                </View>
+              )}
 
-            <Host
-              seedColor={colors.nativeControlTint}
-              matchContents
-              style={styles.switchHost}
-            >
-              <Switch value={hasDueDate} onValueChange={toggleDueDate} />
-            </Host>
+              <Host
+                seedColor={colors.nativeControlTint}
+                matchContents
+                style={styles.switchHost}
+              >
+                <Switch
+                  value={draft.hasDueDate}
+                  onValueChange={toggleDueDate}
+                />
+              </Host>
+            </View>
           </View>
-
-          {Platform.OS === "android" && showAndroidDatePicker && (
-            <DateTimePicker
-              value={dueDate}
-              mode="date"
-              presentation="dialog"
-              minimumDate={startOfToday()}
-              accentColor={colors.nativeControlTint}
-              onValueChange={(_, value) => {
-                setDueDate(value);
-                setShowAndroidDatePicker(false);
-              }}
-              onDismiss={() => {
-                setShowAndroidDatePicker(false);
-              }}
-            />
-          )}
         </View>
-      </View>
+
+        {Platform.OS === "android" && showAndroidDatePicker && (
+          <DateTimePicker
+            value={draft.dueDate}
+            mode="date"
+            presentation="dialog"
+            minimumDate={startOfToday()}
+            accentColor={colors.nativeControlTint}
+            onValueChange={(_, value) => {
+              changeDate(value);
+            }}
+            onDismiss={dismissAndroidDatePicker}
+          />
+        )}
+      </KeyboardAvoidingView>
     </>
   );
 }
@@ -322,7 +369,9 @@ function startOfToday() {
 
 function toDateString(date: Date) {
   const year = date.getFullYear();
+
   const month = `${date.getMonth() + 1}`.padStart(2, "0");
+
   const day = `${date.getDate()}`.padStart(2, "0");
 
   return `${year}-${month}-${day}`;
@@ -344,7 +393,6 @@ const styles = StyleSheet.create({
 
   content: {
     flex: 1,
-
     paddingHorizontal: 20,
     paddingTop: 18,
   },
@@ -353,21 +401,35 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
 
-  nameHost: {
+  titleRow: {
+    height: 58,
+    marginTop: 10,
+
+    justifyContent: "center",
+  },
+
+  titleInput: {
     width: "100%",
-    marginTop: 12,
+    height: 48,
+
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+
+    ...textStyles.body,
+
+    color: colors.native.text,
+
+    textAlign: "center",
   },
 
   amountSection: {
-    minHeight: 190,
-
     alignItems: "center",
-    justifyContent: "center",
-
-    paddingVertical: 24,
+    marginTop: 18,
   },
 
   amountRow: {
+    height: 96,
+
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -376,13 +438,15 @@ const styles = StyleSheet.create({
   amountInput: {
     minWidth: 110,
     maxWidth: 250,
-    height: 94,
+    height: 88,
 
     paddingHorizontal: 0,
     paddingVertical: 0,
 
     fontSize: 62,
     fontWeight: "400",
+
+    color: colors.native.text,
 
     textAlign: "right",
     textAlignVertical: "center",
@@ -393,10 +457,12 @@ const styles = StyleSheet.create({
   },
 
   dueDateRow: {
-    minHeight: 64,
+    height: 60,
 
     flexDirection: "row",
     alignItems: "center",
+
+    marginTop: 4,
 
     paddingHorizontal: 4,
   },
@@ -404,9 +470,14 @@ const styles = StyleSheet.create({
   dueDateLabel: {
     flex: 1,
 
-    color: colors.native.text,
+    ...textStyles.body,
 
-    fontSize: 17,
+    color: colors.native.text,
+  },
+
+  dueDateActions: {
+    flexDirection: "row",
+    alignItems: "center",
   },
 
   dateControl: {
