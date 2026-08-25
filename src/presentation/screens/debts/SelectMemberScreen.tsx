@@ -27,6 +27,7 @@ export function SelectMemberScreen() {
   function selectMember(memberId: string) {
     router.push({
       pathname: "/(modals)/debt/new",
+
       params: {
         memberId,
       },
@@ -65,12 +66,17 @@ export function SelectMemberScreen() {
           icon={toolbarIcons.plus}
           accessibilityLabel="Add member"
           onPress={() => {
-            // Add Member flow comes later.
+            // Add Member flow later.
           }}
         />
       </Stack.Toolbar>
 
-      <Host style={styles.root}>
+      <Host
+        colorScheme="dark"
+        seedColor={colors.nativeControlTint}
+        useViewportSizeMeasurement
+        style={styles.root}
+      >
         <List>
           {filteredMembers.map((member) => (
             <ListItem
@@ -91,6 +97,6 @@ export function SelectMemberScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.appBackground,
+    backgroundColor: colors.mainBackground,
   },
 });
