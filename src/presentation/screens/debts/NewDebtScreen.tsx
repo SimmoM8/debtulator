@@ -1,9 +1,9 @@
-import { Button, Host, Picker, Switch } from "@expo/ui";
+import { Button, Picker, Switch } from "@expo/ui";
 
 import {
-  Button as AndroidButton,
-  Host as AndroidHost,
+  DatePickerDialog as AndroidDatePickerDialog,
   Text as AndroidText,
+  TextButton as AndroidTextButton,
   DropdownMenu,
   DropdownMenuItem,
 } from "@expo/ui/jetpack-compose";
@@ -43,22 +43,30 @@ import {
   useNewDebtDraft,
 } from "@/src/presentation/providers/NewDebtDraftProvider";
 
-import { colors, textStyles } from "@/src/theme";
+import { NativeThemeHost, textStyles, useAppTheme } from "@/src/theme";
 
 const DIRECTION_OPTIONS = [
   {
     value: "you_owe",
     label: "You owe",
   },
+
   {
     value: "they_owe",
     label: "They owe",
   },
 ] as const;
 
+const LATEST_ALLOWED_DUE_DATE = new Date(2100, 11, 31, 23, 59, 59);
+
 export function NewDebtScreen() {
   const data = useAppData();
+
   const draft = useNewDebtDraft();
+
+  const theme = useAppTheme();
+
+  const styles = useMemo(() => createStyles(theme.colors), [theme.colors]);
 
   const titleInputRef = useRef<TextInput>(null);
 
@@ -72,6 +80,7 @@ export function NewDebtScreen() {
 
   const selectedMember = useMemo(
     () => data.members.find((member) => member.id === draft.memberId) ?? null,
+
     [data.members, draft.memberId],
   );
 
@@ -155,9 +164,7 @@ export function NewDebtScreen() {
   function changeDate(value: Date) {
     draft.setDueDate(value);
 
-    if (Platform.OS === "android") {
-      setShowAndroidDatePicker(false);
-    }
+    setShowAndroidDatePicker(false);
 
     focusAmount();
   }
@@ -262,8 +269,8 @@ export function NewDebtScreen() {
               autoCapitalize="sentences"
               returnKeyType="next"
               placeholder="Debt name"
-              placeholderTextColor={colors.native.secondaryText}
-              selectionColor={colors.nativeControlTint}
+              placeholderTextColor={theme.colors.placeholder}
+              selectionColor={theme.colors.controlTint}
               maxLength={80}
               style={styles.titleInput}
             />
@@ -278,8 +285,8 @@ export function NewDebtScreen() {
                 keyboardType="decimal-pad"
                 inputMode="decimal"
                 placeholder="0"
-                placeholderTextColor={colors.native.secondaryText}
-                selectionColor={colors.nativeControlTint}
+                placeholderTextColor={theme.colors.placeholder}
+                selectionColor={theme.colors.controlTint}
                 maxLength={12}
                 style={styles.amountInput}
               />
@@ -293,7 +300,7 @@ export function NewDebtScreen() {
                     onChange={changeCurrency}
                   />
                 ) : (
-                  <Host seedColor={colors.nativeControlTint} matchContents>
+                  <NativeThemeHost matchContents>
                     <Picker
                       selectedValue={draft.currency}
                       onValueChange={(value) => {
@@ -308,7 +315,7 @@ export function NewDebtScreen() {
                         />
                       ))}
                     </Picker>
-                  </Host>
+                  </NativeThemeHost>
                 )}
               </View>
             </View>
@@ -326,13 +333,14 @@ export function NewDebtScreen() {
                       mode="date"
                       display="compact"
                       minimumDate={startOfToday()}
-                      accentColor={colors.nativeControlTint}
+                      accentColor={theme.colors.controlTint}
+                      themeVariant={theme.scheme}
                       onValueChange={(_, value) => {
                         changeDate(value);
                       }}
                     />
                   ) : (
-                    <Host seedColor={colors.nativeControlTint} matchContents>
+                    <NativeThemeHost matchContents>
                       <Button
                         variant="text"
                         label={formatDate(draft.dueDate)}
@@ -340,37 +348,35 @@ export function NewDebtScreen() {
                           setShowAndroidDatePicker(true);
                         }}
                       />
-                    </Host>
+                    </NativeThemeHost>
                   )}
                 </View>
               )}
 
-              <Host
-                seedColor={colors.nativeControlTint}
-                matchContents
-                style={styles.switchHost}
-              >
+              <NativeThemeHost matchContents style={styles.switchHost}>
                 <Switch
                   value={draft.hasDueDate}
                   onValueChange={toggleDueDate}
                 />
-              </Host>
+              </NativeThemeHost>
             </View>
           </View>
         </View>
 
         {Platform.OS === "android" && showAndroidDatePicker && (
-          <DateTimePicker
-            value={draft.dueDate}
-            mode="date"
-            presentation="dialog"
-            minimumDate={startOfToday()}
-            accentColor={colors.nativeControlTint}
-            onValueChange={(_, value) => {
-              changeDate(value);
-            }}
-            onDismiss={dismissAndroidDatePicker}
-          />
+          <NativeThemeHost matchContents>
+            <AndroidDatePickerDialog
+              initialDate={draft.dueDate.toISOString()}
+              selectableDates={{
+                start: startOfToday(),
+
+                end: LATEST_ALLOWED_DUE_DATE,
+              }}
+              color={theme.colors.controlTint}
+              onDateSelected={changeDate}
+              onDismissRequest={dismissAndroidDatePicker}
+            />
+          </NativeThemeHost>
         )}
       </KeyboardAvoidingView>
     </>
@@ -393,8 +399,10 @@ function AndroidCurrencySelector({
   onExpandedChange,
   onChange,
 }: AndroidCurrencySelectorProps) {
+  const theme = useAppTheme();
+
   return (
-    <AndroidHost matchContents style={styles.androidCurrencyHost}>
+    <NativeThemeHost matchContents style={stylesStatic.androidCurrencyHost}>
       <DropdownMenu
         expanded={expanded}
         onDismissRequest={() => {
@@ -402,14 +410,16 @@ function AndroidCurrencySelector({
         }}
       >
         <DropdownMenu.Trigger>
-          <AndroidButton
-            variant="text"
+          <AndroidTextButton
+            colors={{
+              contentColor: theme.colors.controlTint,
+            }}
             onClick={() => {
               onExpandedChange(true);
             }}
           >
             <AndroidText>{value}</AndroidText>
-          </AndroidButton>
+          </AndroidTextButton>
         </DropdownMenu.Trigger>
 
         <DropdownMenu.Items>
@@ -427,7 +437,7 @@ function AndroidCurrencySelector({
           ))}
         </DropdownMenu.Items>
       </DropdownMenu>
-    </AndroidHost>
+    </NativeThemeHost>
   );
 }
 
@@ -452,132 +462,134 @@ function toDateString(date: Date) {
 function formatDate(date: Date) {
   return new Intl.DateTimeFormat(undefined, {
     day: "numeric",
+
     month: "short",
+
     year: "numeric",
   }).format(date);
 }
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
+function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
+  return StyleSheet.create({
+    root: {
+      flex: 1,
 
-    backgroundColor: colors.appBackground,
-  },
+      backgroundColor: colors.appBackground,
+    },
 
-  content: {
-    flex: 1,
+    content: {
+      flex: 1,
 
-    paddingHorizontal: 20,
-    paddingTop: 18,
-  },
+      paddingHorizontal: 20,
+      paddingTop: 18,
+    },
 
-  memberSection: {
-    marginTop: 16,
-  },
+    memberSection: {
+      marginTop: 16,
+    },
 
-  titleRow: {
-    height: 58,
+    titleRow: {
+      height: 58,
 
-    marginTop: 10,
+      marginTop: 10,
 
-    justifyContent: "center",
-  },
+      justifyContent: "center",
+    },
 
-  titleInput: {
-    width: "100%",
-    height: 48,
+    titleInput: {
+      width: "100%",
+      height: 48,
 
-    paddingHorizontal: 0,
-    paddingVertical: 0,
+      paddingHorizontal: 0,
+      paddingVertical: 0,
 
-    ...textStyles.body,
+      ...textStyles.body,
 
-    color: colors.native.text,
+      color: colors.text,
 
-    textAlign: "center",
-  },
+      textAlign: "center",
+    },
 
-  amountSection: {
-    alignItems: "center",
+    amountSection: {
+      alignItems: "center",
 
-    marginTop: 18,
-  },
+      marginTop: 18,
+    },
 
-  amountRow: {
-    height: 96,
+    amountRow: {
+      height: 96,
 
-    flexDirection: "row",
+      flexDirection: "row",
 
-    alignItems: "center",
-    justifyContent: "center",
-  },
+      alignItems: "center",
+      justifyContent: "center",
+    },
 
-  amountInput: {
-    minWidth: 110,
-    maxWidth: 250,
+    amountInput: {
+      minWidth: 110,
+      maxWidth: 250,
 
-    height: 88,
+      height: 88,
 
-    paddingHorizontal: 0,
-    paddingVertical: 0,
+      paddingHorizontal: 0,
+      paddingVertical: 0,
 
-    fontSize: 62,
-    fontWeight: "400",
+      fontSize: 62,
+      fontWeight: "400",
 
-    color: colors.native.text,
+      color: colors.text,
 
-    textAlign: "right",
-    textAlignVertical: "center",
-  },
+      textAlign: "right",
 
-  /*
-   * This control is deliberately content-sized.
-   *
-   * Android no longer gets the large Material exposed
-   * text field produced by the universal Picker.
-   */
-  currencyControl: {
-    marginLeft: 8,
+      textAlignVertical: "center",
+    },
 
-    alignItems: "flex-start",
+    currencyControl: {
+      marginLeft: 8,
 
-    justifyContent: "center",
-  },
+      alignItems: "flex-start",
 
+      justifyContent: "center",
+    },
+
+    dueDateRow: {
+      height: 60,
+
+      flexDirection: "row",
+
+      alignItems: "center",
+
+      marginTop: 4,
+
+      paddingHorizontal: 4,
+    },
+
+    dueDateLabel: {
+      flex: 1,
+
+      ...textStyles.body,
+
+      color: colors.text,
+    },
+
+    dueDateActions: {
+      flexDirection: "row",
+
+      alignItems: "center",
+    },
+
+    dateControl: {
+      marginRight: 10,
+    },
+
+    switchHost: {
+      justifyContent: "center",
+    },
+  });
+}
+
+const stylesStatic = StyleSheet.create({
   androidCurrencyHost: {
     alignSelf: "flex-start",
-  },
-
-  dueDateRow: {
-    height: 60,
-
-    flexDirection: "row",
-    alignItems: "center",
-
-    marginTop: 4,
-
-    paddingHorizontal: 4,
-  },
-
-  dueDateLabel: {
-    flex: 1,
-
-    ...textStyles.body,
-
-    color: colors.native.text,
-  },
-
-  dueDateActions: {
-    flexDirection: "row",
-
-    alignItems: "center",
-  },
-
-  dateControl: {
-    marginRight: 10,
-  },
-
-  switchHost: {
-    justifyContent: "center",
   },
 });

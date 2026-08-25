@@ -1,19 +1,25 @@
 import { Stack } from "expo-router";
 
-import { colors } from "@/src/theme";
+import { useAppTheme } from "@/src/theme";
 
 export default function ModalsLayout() {
+  const theme = useAppTheme();
+
   return (
     <Stack
       screenOptions={{
         headerShown: false,
+
         headerStyle: {
-          backgroundColor: colors.appBackground,
+          backgroundColor: theme.colors.appBackground,
         },
-        headerTintColor: colors.native.text,
+
+        headerTintColor: theme.colors.text,
+
         headerShadowVisible: false,
+
         contentStyle: {
-          backgroundColor: colors.appBackground,
+          backgroundColor: theme.colors.appBackground,
         },
       }}
     >

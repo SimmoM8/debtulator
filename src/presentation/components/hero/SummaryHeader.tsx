@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+
 import { StyleSheet, View } from "react-native";
 
 import { SegmentedControl } from "@/src/presentation/components/controls";
@@ -12,7 +13,9 @@ type SummaryHeaderProps<T extends string> = {
   children: ReactNode;
 
   filter: T;
+
   filterOptions: readonly SummaryHeaderOption<T>[];
+
   onFilterChange: (filter: T) => void;
 };
 
@@ -31,7 +34,7 @@ export function SummaryHeader<T extends string>({
           value={filter}
           options={filterOptions}
           onChange={onFilterChange}
-          colorScheme="dark"
+          variant="onBrand"
         />
       </View>
     </View>
@@ -41,6 +44,7 @@ export function SummaryHeader<T extends string>({
 const styles = StyleSheet.create({
   container: {
     alignItems: "center",
+
     paddingTop: 16,
     paddingHorizontal: 24,
     paddingBottom: 20,
@@ -48,11 +52,13 @@ const styles = StyleSheet.create({
 
   content: {
     width: "100%",
+
     alignItems: "center",
   },
 
   filter: {
     width: "100%",
+
     marginTop: 20,
   },
 });

@@ -1,16 +1,25 @@
-import { Host, List, ListItem } from "@expo/ui";
+import { List, ListItem } from "@expo/ui";
+
 import { router, Stack, useLocalSearchParams } from "expo-router";
+
 import { useMemo, useState } from "react";
-import { StyleSheet } from "react-native";
+
+import { StyleSheet, View } from "react-native";
 
 import { toolbarIcons } from "@/src/navigation/toolbarIcons";
+
 import { useAppData } from "@/src/presentation/providers/AppDataProvider";
+
 import { useNewDebtDraft } from "@/src/presentation/providers/NewDebtDraftProvider";
-import { colors } from "@/src/theme";
+
+import { NativeThemeHost, useAppTheme } from "@/src/theme";
 
 export function SelectMemberScreen() {
   const data = useAppData();
+
   const draft = useNewDebtDraft();
+
+  const theme = useAppTheme();
 
   const { from } = useLocalSearchParams<{
     from?: string;
@@ -33,37 +42,18 @@ export function SelectMemberScreen() {
   }, [data.members, searchQuery]);
 
   function selectMember(memberId: string) {
-    /*
-     * This is now the ONLY state we mutate.
-     *
-     * Every other New Debt field remains untouched.
-     */
     draft.setMemberId(memberId);
 
     if (isChangingMember) {
-      /*
-       * NewDebtScreen is still mounted underneath.
-       *
-       * Just pop Select Member.
-       */
       router.back();
 
       return;
     }
 
-    /*
-     * Initial member selection.
-     *
-     * Replace the selection screen with the actual form.
-     */
     router.replace("/(modals)/debt/new");
   }
 
   function close() {
-    /*
-     * Initial selection was cancelled.
-     * Clear any draft state before dismissing the flow.
-     */
     draft.reset();
 
     router.dismiss();
@@ -106,24 +96,30 @@ export function SelectMemberScreen() {
         />
       </Stack.Toolbar>
 
-      <Host
-        seedColor={colors.nativeControlTint}
-        useViewportSizeMeasurement
-        style={styles.root}
+      <View
+        style={[
+          styles.root,
+
+          {
+            backgroundColor: theme.colors.appBackground,
+          },
+        ]}
       >
-        <List>
-          {filteredMembers.map((member) => (
-            <ListItem
-              key={member.id}
-              onPress={() => {
-                selectMember(member.id);
-              }}
-            >
-              {member.displayName}
-            </ListItem>
-          ))}
-        </List>
-      </Host>
+        <NativeThemeHost useViewportSizeMeasurement style={styles.host}>
+          <List>
+            {filteredMembers.map((member) => (
+              <ListItem
+                key={member.id}
+                onPress={() => {
+                  selectMember(member.id);
+                }}
+              >
+                {member.displayName}
+              </ListItem>
+            ))}
+          </List>
+        </NativeThemeHost>
+      </View>
     </>
   );
 }
@@ -131,6 +127,9 @@ export function SelectMemberScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.appBackground,
+  },
+
+  host: {
+    flex: 1,
   },
 });
