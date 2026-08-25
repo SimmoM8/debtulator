@@ -1,19 +1,9 @@
 import {
   Host as AndroidHost,
-  Row as AndroidRow,
   Text as AndroidText,
-  ToggleButton,
+  SegmentedButton,
+  SingleChoiceSegmentedButtonRow,
 } from "@expo/ui/jetpack-compose";
-
-import {
-  border,
-  clip,
-  fillMaxHeight,
-  fillMaxWidth,
-  height,
-  Shapes,
-  weight,
-} from "@expo/ui/jetpack-compose/modifiers";
 
 import { Host as IOSHost, Text as IOSText, Picker } from "@expo/ui/swift-ui";
 
@@ -30,11 +20,8 @@ export type SegmentedControlOption<T extends string> = {
 
 export type SegmentedControlProps<T extends string> = {
   value: T;
-
   options: readonly SegmentedControlOption<T>[];
-
   onChange: (value: T) => void;
-
   variant?: "default" | "onBrand";
 };
 
@@ -55,6 +42,10 @@ export function SegmentedControl<T extends string>({
     );
   }
 
+  /*
+   * Leave iOS exactly on the native SwiftUI segmented Picker.
+   * Your iOS implementation already looks correct.
+   */
   return (
     <View style={styles.iosContainer}>
       <IOSHost style={styles.iosHost}>
@@ -85,115 +76,83 @@ function AndroidSegmentedControl<T extends string>({
 }: SegmentedControlProps<T>) {
   const theme = useAppTheme();
 
-  const selectedContainer =
-    variant === "onBrand"
-      ? nativeTheme.onBrand.selectedContainer
-      : theme.colors.controlContainer;
+  const isOnBrand = variant === "onBrand";
 
-  const selectedContent =
-    variant === "onBrand"
-      ? nativeTheme.onBrand.selectedContent
-      : theme.colors.onControlContainer;
+  const activeContainerColor = isOnBrand
+    ? nativeTheme.onBrand.selectedContainer
+    : theme.colors.controlContainer;
 
-  const unselectedContainer =
-    variant === "onBrand"
-      ? nativeTheme.onBrand.unselectedContainer
-      : theme.colors.controlSurface;
+  const activeContentColor = isOnBrand
+    ? nativeTheme.onBrand.selectedContent
+    : theme.colors.onControlContainer;
 
-  const unselectedContent =
-    variant === "onBrand"
-      ? nativeTheme.onBrand.unselectedContent
-      : theme.colors.onControlSurface;
+  const inactiveContainerColor = isOnBrand
+    ? nativeTheme.onBrand.unselectedContainer
+    : theme.colors.controlSurface;
 
-  const outline =
-    variant === "onBrand" ? nativeTheme.onBrand.outline : theme.colors.outline;
+  const inactiveContentColor = isOnBrand
+    ? nativeTheme.onBrand.unselectedContent
+    : theme.colors.onControlSurface;
+
+  const borderColor = isOnBrand
+    ? nativeTheme.onBrand.outline
+    : theme.colors.outline;
 
   return (
     <AndroidHost
       seedColor={nativeTheme.seedColor}
-      colorScheme={variant === "onBrand" ? "dark" : theme.scheme}
+      colorScheme={isOnBrand ? "dark" : theme.scheme}
       style={styles.androidHost}
     >
-      <AndroidRow
-        verticalAlignment="center"
-        modifiers={[fillMaxWidth(), height(40)]}
-      >
-        {options.map((option, index) => {
-          const shape = segmentShape(index, options.length);
+      <SingleChoiceSegmentedButtonRow>
+        {options.map((option) => {
+          const selected = option.value === value;
 
           return (
-            <ToggleButton
+            <SegmentedButton
               key={option.value}
-              checked={value === option.value}
-              onCheckedChange={() => {
+              selected={selected}
+              onClick={() => {
                 onChange(option.value);
               }}
               colors={{
-                checkedContainerColor: selectedContainer,
+                activeContainerColor,
+                activeContentColor,
+                activeBorderColor: borderColor,
 
-                checkedContentColor: selectedContent,
+                inactiveContainerColor,
+                inactiveContentColor,
+                inactiveBorderColor: borderColor,
 
-                containerColor: unselectedContainer,
+                disabledActiveContainerColor: activeContainerColor,
+                disabledActiveContentColor: activeContentColor,
+                disabledActiveBorderColor: borderColor,
 
-                contentColor: unselectedContent,
+                disabledInactiveContainerColor: inactiveContainerColor,
+                disabledInactiveContentColor: inactiveContentColor,
+                disabledInactiveBorderColor: borderColor,
               }}
-              modifiers={[
-                weight(1),
-
-                fillMaxHeight(),
-
-                clip(shape),
-
-                border(0.75, outline),
-              ]}
             >
-              <AndroidText>{option.label}</AndroidText>
-            </ToggleButton>
+              <SegmentedButton.Label>
+                <AndroidText>{option.label}</AndroidText>
+              </SegmentedButton.Label>
+            </SegmentedButton>
           );
         })}
-      </AndroidRow>
+      </SingleChoiceSegmentedButtonRow>
     </AndroidHost>
   );
-}
-
-function segmentShape(index: number, count: number) {
-  const radius = 20;
-
-  if (count === 1) {
-    return Shapes.RoundedCorner(radius);
-  }
-
-  if (index === 0) {
-    return Shapes.RoundedCorner({
-      topStart: radius,
-      bottomStart: radius,
-      topEnd: 0,
-      bottomEnd: 0,
-    });
-  }
-
-  if (index === count - 1) {
-    return Shapes.RoundedCorner({
-      topStart: 0,
-      bottomStart: 0,
-      topEnd: radius,
-      bottomEnd: radius,
-    });
-  }
-
-  return Shapes.RoundedCorner(0);
 }
 
 const styles = StyleSheet.create({
   androidHost: {
     width: "100%",
-    height: 40,
+    height: 48,
   },
 
   iosContainer: {
     width: "100%",
     height: 36,
-
     overflow: "hidden",
   },
 
