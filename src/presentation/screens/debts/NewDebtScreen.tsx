@@ -9,7 +9,6 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  UIManager,
   View,
 } from "react-native";
 
@@ -42,13 +41,6 @@ const CURRENCIES = [
   "USD",
   "EUR",
 ] as const satisfies readonly CurrencyCode[];
-
-if (
-  Platform.OS === "android" &&
-  UIManager.setLayoutAnimationEnabledExperimental
-) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 export function NewDebtScreen() {
   const data = useAppData();
@@ -83,15 +75,14 @@ export function NewDebtScreen() {
     parsedAmount > 0;
 
   /*
-   * First appearance -> title.
+   * First entry:
+   *   Title gets focus.
    *
-   * Every later appearance -> amount.
+   * Every subsequent return to this existing screen:
+   *   Amount gets focus.
    *
-   * That includes:
-   *
-   * - Back from Select Member
-   * - selecting the same member
-   * - selecting a different member
+   * Because the draft is held above both debt screens,
+   * returning from Select Member never resets the form.
    */
   useFocusEffect(
     useCallback(() => {
@@ -196,6 +187,13 @@ export function NewDebtScreen() {
   }
 
   function changeMember() {
+    /*
+     * NewDebtScreen remains mounted underneath
+     * SelectMemberScreen.
+     *
+     * The provider also remains mounted, so every
+     * form value is preserved.
+     */
     router.push({
       pathname: "/(modals)/debt/select-member",
 
@@ -388,11 +386,13 @@ function formatDate(date: Date) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+
     backgroundColor: colors.appBackground,
   },
 
   content: {
     flex: 1,
+
     paddingHorizontal: 20,
     paddingTop: 18,
   },
@@ -403,6 +403,7 @@ const styles = StyleSheet.create({
 
   titleRow: {
     height: 58,
+
     marginTop: 10,
 
     justifyContent: "center",
@@ -424,6 +425,7 @@ const styles = StyleSheet.create({
 
   amountSection: {
     alignItems: "center",
+
     marginTop: 18,
   },
 
