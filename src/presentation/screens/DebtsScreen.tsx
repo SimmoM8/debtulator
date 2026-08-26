@@ -1,10 +1,6 @@
-import { router, Stack } from "expo-router";
-
 import { useMemo, useState } from "react";
 
 import { StyleSheet, View } from "react-native";
-
-import { toolbarIcons } from "@/src/navigation/toolbarIcons";
 
 import {
   DebtSummaryHeader,
@@ -54,77 +50,31 @@ export function DebtsScreen() {
   }, [filter, model.items]);
 
   return (
-    <>
-      <Stack.Screen
-        options={{
-          title: "Debts",
-        }}
-      />
-
-      <Stack.Toolbar placement="left">
-        <Stack.Toolbar.Button
-          icon={toolbarIcons.magnifyingglass}
-          accessibilityLabel="Search debts"
-          onPress={() => {
-            // Search debts
-          }}
+    <SplitBackgroundScreen
+      hero={
+        <DebtSummaryHeader
+          youOwe={model.youOwe}
+          theyOwe={model.theyOwe}
+          youOweCount={model.youOweCount}
+          theyOweCount={model.theyOweCount}
+          netBalance={model.netBalance}
+          filter={filter}
+          onFilterChange={setFilter}
         />
-      </Stack.Toolbar>
+      }
+    >
+      <View
+        style={[
+          styles.content,
 
-      <Stack.Toolbar placement="right">
-        <Stack.Toolbar.Button
-          icon={toolbarIcons.plus}
-          accessibilityLabel="Add debt"
-          onPress={() => {
-            router.push("/(modals)/debt/select-member");
-          }}
-        />
-
-        <Stack.Toolbar.Menu icon={toolbarIcons.ellipsis}>
-          <Stack.Toolbar.MenuAction
-            onPress={() => {
-              // Filter debts
-            }}
-          >
-            Filter
-          </Stack.Toolbar.MenuAction>
-
-          <Stack.Toolbar.MenuAction
-            onPress={() => {
-              // Sort debts
-            }}
-          >
-            Sort
-          </Stack.Toolbar.MenuAction>
-        </Stack.Toolbar.Menu>
-      </Stack.Toolbar>
-
-      <SplitBackgroundScreen
-        hero={
-          <DebtSummaryHeader
-            youOwe={model.youOwe}
-            theyOwe={model.theyOwe}
-            youOweCount={model.youOweCount}
-            theyOweCount={model.theyOweCount}
-            netBalance={model.netBalance}
-            filter={filter}
-            onFilterChange={setFilter}
-          />
-        }
+          {
+            backgroundColor: theme.colors.appBackground,
+          },
+        ]}
       >
-        <View
-          style={[
-            styles.content,
-
-            {
-              backgroundColor: theme.colors.appBackground,
-            },
-          ]}
-        >
-          <DebtsList items={filteredItems} />
-        </View>
-      </SplitBackgroundScreen>
-    </>
+        <DebtsList items={filteredItems} />
+      </View>
+    </SplitBackgroundScreen>
   );
 }
 
