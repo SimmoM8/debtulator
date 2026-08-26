@@ -4,12 +4,14 @@
 --
 -- Core model only:
 --   auth.users
+--   public.currencies
 --   public.profiles
 --   public.members
 --   public.debts
 --
 -- Collaboration, member linking, verification, groups, payments, settlements,
--- reminders, etc. are deliberately excluded from this baseline.
+-- reminders, lifecycle/status tracking, notes, etc. are deliberately excluded
+-- from this baseline.
 -- ============================================================================
 
 
@@ -32,15 +34,84 @@ set search_path = ''
 as $$
 begin
   new.updated_at = now();
+
   return new;
 end;
 $$;
 
 
 -- ============================================================================
+-- Currencies
+--
+-- Canonical source of truth for currencies supported by Debtulator.
+--
+-- Profiles and debts reference this table rather than maintaining their own
+-- currency CHECK constraints.
+--
+-- The data can later be populated/synchronised from an external ISO-4217
+-- source without changing the profile or debt schemas.
+-- ============================================================================
+
+create table public.currencies (
+  code text primary key,
+
+  name text not null,
+
+  symbol text not null,
+
+  decimal_places smallint not null default 2,
+
+  constraint currencies_code_format
+    check (
+      code ~ '^[A-Z]{3}$'
+    ),
+
+  constraint currencies_name_not_empty
+    check (
+      char_length(trim(name)) > 0
+    ),
+
+  constraint currencies_symbol_not_empty
+    check (
+      char_length(trim(symbol)) > 0
+    ),
+
+  constraint currencies_decimal_places_range
+    check (
+      decimal_places between 0 and 6
+    )
+);
+
+
+insert into public.currencies (
+  code,
+  name,
+  symbol,
+  decimal_places
+)
+values
+  ('AUD', 'Australian Dollar', 'A$', 2),
+  ('EUR', 'Euro', '€', 2),
+  ('GBP', 'British Pound', '£', 2),
+  ('SEK', 'Swedish Krona', 'kr', 2),
+  ('USD', 'US Dollar', '$', 2);
+
+
+-- ============================================================================
+-- Domain types
+-- ============================================================================
+
+create type public.debt_direction as enum (
+  'you_owe',
+  'they_owe'
+);
+
+
+-- ============================================================================
 -- Profiles
 --
 -- auth.users owns authentication identity.
+--
 -- public.profiles contains Debtulator-specific account data.
 -- ============================================================================
 
@@ -52,17 +123,12 @@ create table public.profiles (
   display_name text,
 
   base_currency text not null default 'SEK'
-    check (
-      base_currency in (
-        'SEK',
-        'AUD',
-        'EUR',
-        'USD',
-        'GBP'
-      )
-    ),
+    references public.currencies(code)
+    on update cascade
+    on delete restrict,
 
   created_at timestamptz not null default now(),
+
   updated_at timestamptz not null default now(),
 
   constraint profiles_display_name_length
@@ -84,11 +150,12 @@ execute function public.set_updated_at();
 --
 -- A member is a person in one user's personal ledger.
 --
--- A member is NOT the same thing as a Debtulator account.
+-- A member is deliberately NOT the same thing as a Debtulator account.
 --
 -- In the future a member may gain a nullable linked_user_id/reference without
--- changing the member's id. This is important because local members may later
--- become linked to real Debtulator users.
+-- changing its identity. This allows a personal member created locally today
+-- to later become associated with a real Debtulator user without rebuilding
+-- debts that already reference that member.
 -- ============================================================================
 
 create table public.members (
@@ -100,50 +167,48 @@ create table public.members (
 
   display_name text not null,
 
-  email text,
-  phone text,
-  notes text,
-
-  archived boolean not null default false,
-
   created_at timestamptz not null default now(),
+
   updated_at timestamptz not null default now(),
 
   constraint members_display_name_not_empty
-    check (char_length(trim(display_name)) > 0),
+    check (
+      char_length(trim(display_name)) > 0
+    ),
 
   constraint members_display_name_length
-    check (char_length(display_name) <= 120),
-
-  constraint members_email_length
-    check (email is null or char_length(email) <= 320),
-
-  constraint members_phone_length
-    check (phone is null or char_length(phone) <= 64),
-
-  constraint members_notes_length
-    check (notes is null or char_length(notes) <= 10000),
+    check (
+      char_length(display_name) <= 120
+    ),
 
   /*
-   * This is intentionally redundant with the primary key.
+   * The primary key already guarantees id is globally unique.
    *
-   * It allows debts to use a composite foreign key
-   * (owner_user_id, member_id), which makes PostgreSQL itself guarantee
-   * that a debt can never reference another user's member.
+   * This additional unique constraint exists specifically so debts can use a
+   * composite foreign key on (owner_user_id, member_id).
+   *
+   * PostgreSQL therefore guarantees that a debt can only reference a member
+   * belonging to the same owner.
    */
   constraint members_owner_id_unique
-    unique (owner_user_id, id)
+    unique (
+      owner_user_id,
+      id
+    )
 );
 
 
 create index members_owner_user_id_idx
-  on public.members (owner_user_id);
+  on public.members (
+    owner_user_id
+  );
 
-create index members_owner_active_idx
-  on public.members (owner_user_id, archived);
 
 create index members_owner_display_name_idx
-  on public.members (owner_user_id, display_name);
+  on public.members (
+    owner_user_id,
+    display_name
+  );
 
 
 create trigger members_set_updated_at
@@ -155,12 +220,15 @@ execute function public.set_updated_at();
 -- ============================================================================
 -- Debts
 --
--- Debts are private ledger records owned by an account.
+-- Every debt belongs to one account and one of that account's members.
 --
--- Whether their member is linked in the future will NOT determine whether the
--- debt is persisted or synced.
+-- All debts are persisted regardless of whether the member may eventually
+-- become linked to another Debtulator user.
 --
--- Linking/verification is a separate collaboration concern to be added later.
+-- Linking and verification are separate collaboration concerns that can be
+-- layered on top of this model later.
+--
+-- created_at is the canonical debt creation timestamp.
 -- ============================================================================
 
 create table public.debts (
@@ -172,84 +240,81 @@ create table public.debts (
 
   member_id uuid not null,
 
-  direction text not null
-    check (
-      direction in (
-        'you_owe',
-        'they_owe'
-      )
-    ),
+  direction public.debt_direction not null,
 
-  amount numeric(19, 2) not null
-    check (amount > 0),
+  amount numeric(19, 2) not null,
 
   currency text not null
-    check (
-      currency in (
-        'SEK',
-        'AUD',
-        'EUR',
-        'USD',
-        'GBP'
-      )
-    ),
+    references public.currencies(code)
+    on update cascade
+    on delete restrict,
 
   title text not null,
-  notes text,
 
-  debt_date date not null default current_date,
   due_date date,
 
-  status text not null default 'active'
-    check (
-      status in (
-        'active',
-        'settled',
-        'archived'
-      )
-    ),
-
   created_at timestamptz not null default now(),
+
   updated_at timestamptz not null default now(),
 
+  constraint debts_amount_positive
+    check (
+      amount > 0
+    ),
+
   constraint debts_title_not_empty
-    check (char_length(trim(title)) > 0),
+    check (
+      char_length(trim(title)) > 0
+    ),
 
   constraint debts_title_length
-    check (char_length(title) <= 120),
-
-  constraint debts_notes_length
-    check (notes is null or char_length(notes) <= 10000),
+    check (
+      char_length(title) <= 120
+    ),
 
   /*
-   * This is a significant integrity rule.
+   * A debt owned by user A must reference a member also owned by user A.
    *
-   * member_id alone would technically allow a debt owned by user A to point
-   * at a member owned by user B if application code contained a bug.
-   *
-   * The composite FK makes that impossible at the database level.
+   * This protects the ownership relationship at the database level rather
+   * than relying solely on application code or RLS.
    */
   constraint debts_member_owned_by_same_user
-    foreign key (owner_user_id, member_id)
-    references public.members (owner_user_id, id)
+    foreign key (
+      owner_user_id,
+      member_id
+    )
+    references public.members (
+      owner_user_id,
+      id
+    )
     on delete restrict
 );
 
 
 create index debts_owner_user_id_idx
-  on public.debts (owner_user_id);
+  on public.debts (
+    owner_user_id
+  );
+
 
 create index debts_member_id_idx
-  on public.debts (member_id);
+  on public.debts (
+    member_id
+  );
 
-create index debts_owner_status_idx
-  on public.debts (owner_user_id, status);
 
-create index debts_owner_debt_date_idx
-  on public.debts (owner_user_id, debt_date desc);
+create index debts_owner_created_at_idx
+  on public.debts (
+    owner_user_id,
+    created_at desc
+  );
+
 
 create index debts_owner_due_date_idx
-  on public.debts (owner_user_id, due_date)
+  on public.debts (
+    owner_user_id,
+    due_date
+  )
   where due_date is not null;
 
 
@@ -263,9 +328,26 @@ execute function public.set_updated_at();
 -- Row Level Security
 -- ============================================================================
 
+alter table public.currencies enable row level security;
+
 alter table public.profiles enable row level security;
+
 alter table public.members enable row level security;
+
 alter table public.debts enable row level security;
+
+
+-- ============================================================================
+-- Currency policies
+-- ============================================================================
+
+create policy "currencies_select_all_authenticated"
+on public.currencies
+for select
+to authenticated
+using (
+  true
+);
 
 
 -- ============================================================================
@@ -390,6 +472,8 @@ using (
 
 -- ============================================================================
 -- Automatic profile creation
+--
+-- Every Supabase auth user receives a corresponding Debtulator profile.
 -- ============================================================================
 
 create or replace function public.handle_new_user()
@@ -406,6 +490,7 @@ begin
   )
   values (
     new.id,
+
     nullif(
       trim(
         coalesce(
@@ -415,6 +500,7 @@ begin
       ),
       ''
     ),
+
     coalesce(
       nullif(
         new.raw_user_meta_data ->> 'base_currency',
