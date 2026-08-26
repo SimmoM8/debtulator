@@ -6,8 +6,6 @@ import { useMemo, useState } from "react";
 
 import { StyleSheet, View } from "react-native";
 
-import { toolbarIcons } from "@/src/navigation/toolbarIcons";
-
 import { useAppData } from "@/src/presentation/providers/AppDataProvider";
 
 import { useNewDebtDraft } from "@/src/presentation/providers/NewDebtDraftProvider";
@@ -53,20 +51,8 @@ export function SelectMemberScreen() {
     router.replace("/(modals)/debt/new");
   }
 
-  function close() {
-    draft.reset();
-
-    router.dismiss();
-  }
-
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: "Select Member",
-        }}
-      />
-
       <Stack.SearchBar
         placeholder="Search Members"
         onChangeText={(event) => {
@@ -74,32 +60,9 @@ export function SelectMemberScreen() {
         }}
       />
 
-      {isChangingMember ? (
-        <Stack.Screen.BackButton displayMode="minimal" />
-      ) : (
-        <Stack.Toolbar placement="left">
-          <Stack.Toolbar.Button
-            icon={toolbarIcons.close}
-            accessibilityLabel="Close"
-            onPress={close}
-          />
-        </Stack.Toolbar>
-      )}
-
-      <Stack.Toolbar placement="right">
-        <Stack.Toolbar.Button
-          icon={toolbarIcons.plus}
-          accessibilityLabel="Add member"
-          onPress={() => {
-            // Add Member flow later.
-          }}
-        />
-      </Stack.Toolbar>
-
       <View
         style={[
           styles.root,
-
           {
             backgroundColor: theme.colors.appBackground,
           },

@@ -1,10 +1,12 @@
 import { Stack } from "expo-router";
 
+import type { PropsWithChildren } from "react";
+
 import { Platform } from "react-native";
 
 import { useAppTheme } from "@/src/theme";
 
-export function NavHeader() {
+export function NavHeader({ children }: PropsWithChildren) {
   const theme = useAppTheme();
 
   const isIos = Platform.OS === "ios";
@@ -30,6 +32,8 @@ export function NavHeader() {
 
         headerShadowVisible: false,
       }}
-    />
+    >
+      {children}
+    </Stack>
   );
 }

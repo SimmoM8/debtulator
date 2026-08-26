@@ -10,12 +10,11 @@ import {
 
 import { DateTimePicker } from "@expo/ui/community/datetime-picker";
 
-import { router, Stack, useFocusEffect } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 
 import { useCallback, useMemo, useRef, useState } from "react";
 
 import {
-  Alert,
   KeyboardAvoidingView,
   LayoutAnimation,
   Platform,
@@ -27,22 +26,18 @@ import {
 
 import { CURRENCIES } from "@/src/domain/finance/currencies";
 
-import type { CurrencyCode, DebtDirection } from "@/src/domain/models";
-
-import { renderToolbarAction } from "@/src/navigation/toolbarActions";
-
-import { toolbarIcons } from "@/src/navigation/toolbarIcons";
+import type { CurrencyCode } from "@/src/domain/models";
 
 import { SegmentedControl } from "@/src/presentation/components/controls";
 
 import { SelectedMemberCard } from "@/src/presentation/components/debts/SelectedMemberCard";
 
-import { useAppData } from "@/src/presentation/providers/AppDataProvider";
-
 import {
   type NewDebtDirection,
   useNewDebtDraft,
 } from "@/src/presentation/providers/NewDebtDraftProvider";
+
+import { useNewDebtFlow } from "@/src/presentation/providers/NewDebtFlowProvider";
 
 import { NativeThemeHost, textStyles, useAppTheme } from "@/src/theme";
 
@@ -61,9 +56,9 @@ const DIRECTION_OPTIONS = [
 const LATEST_ALLOWED_DUE_DATE = new Date(2100, 11, 31, 23, 59, 59);
 
 export function NewDebtScreen() {
-  const data = useAppData();
-
   const draft = useNewDebtDraft();
+
+  const flow = useNewDebtFlow();
 
   const theme = useAppTheme();
 
@@ -78,30 +73,6 @@ export function NewDebtScreen() {
   const [showAndroidDatePicker, setShowAndroidDatePicker] = useState(false);
 
   const [showAndroidCurrencyMenu, setShowAndroidCurrencyMenu] = useState(false);
-
-  const [isCreating, setIsCreating] = useState(false);
-
-  const selectedMember = useMemo(
-    () => data.members.find((member) => member.id === draft.memberId) ?? null,
-
-    [data.members, draft.memberId],
-  );
-
-  const parsedAmount = useMemo(() => {
-    if (draft.amount.length === 0 || draft.amount === ".") {
-      return 0;
-    }
-
-    const parsed = Number(draft.amount);
-
-    return Number.isFinite(parsed) ? parsed : 0;
-  }, [draft.amount]);
-
-  const canCreate =
-    !isCreating &&
-    selectedMember !== null &&
-    draft.title.trim().length > 0 &&
-    parsedAmount > 0;
 
   useFocusEffect(
     useCallback(() => {
@@ -179,84 +150,8 @@ export function NewDebtScreen() {
     focusAmount();
   }
 
-  async function createDebt() {
-    if (!canCreate || !selectedMember || isCreating) {
-      return;
-    }
-
-    setIsCreating(true);
-
-    try {
-      await data.createDebt({
-        memberId: selectedMember.id,
-
-        direction: toDomainDirection(draft.direction),
-
-        amount: parsedAmount,
-
-        currency: draft.currency,
-
-        title: draft.title.trim(),
-
-        dueDate: draft.hasDueDate ? toDateString(draft.dueDate) : null,
-
-        /*
-         * These are intentionally explicit rather than relying on
-         * repository defaults.
-         */
-        status: "active",
-
-        visibility: data.settings.defaultDebtVisibility,
-
-        /*
-         * A normal locally-created debt begins local-only.
-         *
-         * If this debt later participates in linked-user verification,
-         * the collaboration workflow should promote the appropriate
-         * verification state separately.
-         */
-        verificationStatus: "local_only",
-
-        groupId: null,
-
-        recurringTemplateId: null,
-
-        tags: [],
-      });
-
-      /*
-       * Only clear the form after persistence succeeded.
-       *
-       * If createDebt throws, all draft values remain intact so the
-       * user can retry without re-entering anything.
-       */
-      draft.reset();
-
-      router.dismissTo("/(tabs)/debts");
-    } catch (error) {
-      console.error("Failed to create debt", error);
-
-      Alert.alert(
-        "Couldn’t create debt",
-        "Your debt wasn’t saved. Your entered details have been kept so you can try again.",
-      );
-    } finally {
-      setIsCreating(false);
-    }
-  }
-
-  function cancelDebtFlow() {
-    if (isCreating) {
-      return;
-    }
-
-    draft.reset();
-
-    router.dismissTo("/(tabs)/debts");
-  }
-
   function changeMember() {
-    if (isCreating) {
+    if (flow.isCreating) {
       return;
     }
 
@@ -270,175 +165,135 @@ export function NewDebtScreen() {
   }
 
   return (
-    <>
-      <Stack.Screen
-        options={{
-          title: "New Debt",
-        }}
-      />
-
-      <Stack.Toolbar placement="left">
-        <Stack.Toolbar.Button
-          icon={toolbarIcons.close}
-          accessibilityLabel="Cancel new debt"
-          disabled={isCreating}
-          onPress={cancelDebtFlow}
+    <KeyboardAvoidingView style={styles.root} behavior="height">
+      <View style={styles.content}>
+        <SegmentedControl
+          value={draft.direction}
+          options={DIRECTION_OPTIONS}
+          onChange={changeDirection}
         />
-      </Stack.Toolbar>
 
-      <Stack.Toolbar placement="right">
-        {renderToolbarAction({
-          label: isCreating ? "Creating…" : "Create",
-
-          androidIcon: toolbarIcons.check,
-
-          accessibilityLabel: isCreating ? "Creating debt" : "Create debt",
-
-          disabled: !canCreate,
-
-          onPress: () => {
-            void createDebt();
-          },
-        })}
-      </Stack.Toolbar>
-
-      <KeyboardAvoidingView style={styles.root} behavior="height">
-        <View style={styles.content}>
-          <SegmentedControl
-            value={draft.direction}
-            options={DIRECTION_OPTIONS}
-            onChange={changeDirection}
+        <View style={styles.memberSection}>
+          <SelectedMemberCard
+            memberName={flow.selectedMember?.displayName ?? "Select Member"}
+            onPress={changeMember}
           />
+        </View>
 
-          <View style={styles.memberSection}>
-            <SelectedMemberCard
-              memberName={selectedMember?.displayName ?? "Select Member"}
-              onPress={changeMember}
-            />
-          </View>
+        <View style={styles.titleRow}>
+          <TextInput
+            ref={titleInputRef}
+            value={draft.title}
+            onChangeText={draft.setTitle}
+            onSubmitEditing={focusAmount}
+            autoCapitalize="sentences"
+            returnKeyType="next"
+            placeholder="Debt name"
+            placeholderTextColor={theme.colors.placeholder}
+            selectionColor={theme.colors.controlTint}
+            maxLength={80}
+            editable={!flow.isCreating}
+            style={styles.titleInput}
+          />
+        </View>
 
-          <View style={styles.titleRow}>
+        <View style={styles.amountSection}>
+          <View style={styles.amountRow}>
             <TextInput
-              ref={titleInputRef}
-              value={draft.title}
-              onChangeText={draft.setTitle}
-              onSubmitEditing={focusAmount}
-              autoCapitalize="sentences"
-              returnKeyType="next"
-              placeholder="Debt name"
+              ref={amountInputRef}
+              value={draft.amount}
+              onChangeText={changeAmount}
+              keyboardType="decimal-pad"
+              inputMode="decimal"
+              placeholder="0"
               placeholderTextColor={theme.colors.placeholder}
               selectionColor={theme.colors.controlTint}
-              maxLength={80}
-              editable={!isCreating}
-              style={styles.titleInput}
+              maxLength={12}
+              editable={!flow.isCreating}
+              style={styles.amountInput}
             />
-          </View>
 
-          <View style={styles.amountSection}>
-            <View style={styles.amountRow}>
-              <TextInput
-                ref={amountInputRef}
-                value={draft.amount}
-                onChangeText={changeAmount}
-                keyboardType="decimal-pad"
-                inputMode="decimal"
-                placeholder="0"
-                placeholderTextColor={theme.colors.placeholder}
-                selectionColor={theme.colors.controlTint}
-                maxLength={12}
-                editable={!isCreating}
-                style={styles.amountInput}
-              />
-
-              <View style={styles.currencyControl}>
-                {Platform.OS === "android" ? (
-                  <AndroidCurrencySelector
-                    value={draft.currency}
-                    expanded={showAndroidCurrencyMenu}
-                    onExpandedChange={setShowAndroidCurrencyMenu}
-                    onChange={changeCurrency}
-                  />
-                ) : (
-                  <NativeThemeHost matchContents>
-                    <Picker
-                      selectedValue={draft.currency}
-                      onValueChange={(value) => {
-                        changeCurrency(value as CurrencyCode);
-                      }}
-                    >
-                      {CURRENCIES.map((option) => (
-                        <Picker.Item
-                          key={option}
-                          label={option}
-                          value={option}
-                        />
-                      ))}
-                    </Picker>
-                  </NativeThemeHost>
-                )}
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.dueDateRow}>
-            <Text style={styles.dueDateLabel}>Due date</Text>
-
-            <View style={styles.dueDateActions}>
-              {draft.hasDueDate && (
-                <View style={styles.dateControl}>
-                  {Platform.OS === "ios" ? (
-                    <DateTimePicker
-                      value={draft.dueDate}
-                      mode="date"
-                      display="compact"
-                      minimumDate={startOfToday()}
-                      accentColor={theme.colors.controlTint}
-                      themeVariant={theme.scheme}
-                      onValueChange={(_, value) => {
-                        changeDate(value);
-                      }}
-                    />
-                  ) : (
-                    <NativeThemeHost matchContents>
-                      <Button
-                        variant="text"
-                        label={formatDate(draft.dueDate)}
-                        onPress={() => {
-                          setShowAndroidDatePicker(true);
-                        }}
-                      />
-                    </NativeThemeHost>
-                  )}
-                </View>
-              )}
-
-              <NativeThemeHost matchContents style={styles.switchHost}>
-                <Switch
-                  value={draft.hasDueDate}
-                  onValueChange={toggleDueDate}
+            <View style={styles.currencyControl}>
+              {Platform.OS === "android" ? (
+                <AndroidCurrencySelector
+                  value={draft.currency}
+                  expanded={showAndroidCurrencyMenu}
+                  onExpandedChange={setShowAndroidCurrencyMenu}
+                  onChange={changeCurrency}
                 />
-              </NativeThemeHost>
+              ) : (
+                <NativeThemeHost matchContents>
+                  <Picker
+                    selectedValue={draft.currency}
+                    onValueChange={(value) => {
+                      changeCurrency(value as CurrencyCode);
+                    }}
+                  >
+                    {CURRENCIES.map((option) => (
+                      <Picker.Item key={option} label={option} value={option} />
+                    ))}
+                  </Picker>
+                </NativeThemeHost>
+              )}
             </View>
           </View>
         </View>
 
-        {Platform.OS === "android" && showAndroidDatePicker && (
-          <NativeThemeHost matchContents>
-            <AndroidDatePickerDialog
-              initialDate={draft.dueDate.toISOString()}
-              selectableDates={{
-                start: startOfToday(),
+        <View style={styles.dueDateRow}>
+          <Text style={styles.dueDateLabel}>Due date</Text>
 
-                end: LATEST_ALLOWED_DUE_DATE,
-              }}
-              color={theme.colors.controlTint}
-              onDateSelected={changeDate}
-              onDismissRequest={dismissAndroidDatePicker}
-            />
-          </NativeThemeHost>
-        )}
-      </KeyboardAvoidingView>
-    </>
+          <View style={styles.dueDateActions}>
+            {draft.hasDueDate && (
+              <View style={styles.dateControl}>
+                {Platform.OS === "ios" ? (
+                  <DateTimePicker
+                    value={draft.dueDate}
+                    mode="date"
+                    display="compact"
+                    minimumDate={startOfToday()}
+                    accentColor={theme.colors.controlTint}
+                    themeVariant={theme.scheme}
+                    onValueChange={(_, value) => {
+                      changeDate(value);
+                    }}
+                  />
+                ) : (
+                  <NativeThemeHost matchContents>
+                    <Button
+                      variant="text"
+                      label={formatDate(draft.dueDate)}
+                      onPress={() => {
+                        setShowAndroidDatePicker(true);
+                      }}
+                    />
+                  </NativeThemeHost>
+                )}
+              </View>
+            )}
+
+            <NativeThemeHost matchContents style={styles.switchHost}>
+              <Switch value={draft.hasDueDate} onValueChange={toggleDueDate} />
+            </NativeThemeHost>
+          </View>
+        </View>
+      </View>
+
+      {Platform.OS === "android" && showAndroidDatePicker && (
+        <NativeThemeHost matchContents>
+          <AndroidDatePickerDialog
+            initialDate={draft.dueDate.toISOString()}
+            selectableDates={{
+              start: startOfToday(),
+
+              end: LATEST_ALLOWED_DUE_DATE,
+            }}
+            color={theme.colors.controlTint}
+            onDateSelected={changeDate}
+            onDismissRequest={dismissAndroidDatePicker}
+          />
+        </NativeThemeHost>
+      )}
+    </KeyboardAvoidingView>
   );
 }
 
@@ -500,26 +355,12 @@ function AndroidCurrencySelector({
   );
 }
 
-function toDomainDirection(direction: NewDebtDirection): DebtDirection {
-  return direction === "you_owe" ? "i_owe_them" : "they_owe_me";
-}
-
 function startOfToday() {
   const today = new Date();
 
   today.setHours(0, 0, 0, 0);
 
   return today;
-}
-
-function toDateString(date: Date) {
-  const year = date.getFullYear();
-
-  const month = `${date.getMonth() + 1}`.padStart(2, "0");
-
-  const day = `${date.getDate()}`.padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
 }
 
 function formatDate(date: Date) {
