@@ -1,85 +1,86 @@
 import React, {
-    createContext,
-    useCallback,
-    useContext,
-    useEffect,
-    useMemo,
-    useState,
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
 } from "react";
 import { Platform } from "react-native";
 
 import type { RestoreResult } from "@/src/application/data/backupRestore";
 import type { AppSnapshot } from "@/src/application/model/AppSnapshot";
 import {
-    addTelemetryBreadcrumb,
-    captureTelemetryException,
-    trackTelemetryEvent,
+  addTelemetryBreadcrumb,
+  captureTelemetryException,
+  trackTelemetryEvent,
 } from "@/src/application/observability/telemetry";
 import type {
-    AppDataRepository,
-    LocalDataBootstrap,
+  AppDataRepository,
+  LocalDataBootstrap,
 } from "@/src/application/ports/localDataBootstrap";
 import { buildSyncSummary } from "@/src/application/sync/syncPolicy";
 import {
-    buildLedgerEntries,
-    calculateMemberBalances,
-    calculatePersonalTotals,
+  buildLedgerEntries,
+  calculateMemberBalances,
+  calculatePersonalTotals,
 } from "@/src/domain/ledger/ledger";
 import type {
-    AccountDeletionState,
-    AppNotification,
-    AppSettings,
-    Attachment,
-    AttachmentKind,
-    AttachmentTargetType,
-    AttachmentVisibility,
-    AuditLog,
-    BackupMode,
-    Comment,
-    CommentTargetType,
-    CommentVisibility,
-    ConflictResolution,
-    CsvImportBatch,
-    CurrencyCode,
-    Debt,
-    DebtChangeSummary,
-    DebtStatus,
-    DebtVerification,
-    DebtVerificationRequestType,
-    ExportLog,
-    ExportType,
-    Group,
-    GroupActivityLog,
-    GroupDebt,
-    GroupDuplicateWarning,
-    GroupInvite,
-    GroupMemberClaim,
-    GroupParticipant,
-    GroupRole,
-    GroupStatus,
-    GroupVerificationResponse,
-    LedgerEntry,
-    LinkRequest,
-    Member,
-    MoneyMap,
-    ParticipantId,
-    Payment,
-    RecurringTemplate,
-    Reminder,
-    Settlement,
-    SettlementLine,
-    SharedExpense,
-    SharedGroupMember,
-    SmartSuggestion,
-    SmartSuggestionStatus,
-    SmartSuggestionType,
-    SoftReminder,
-    SuggestedDebtChange,
-    SyncConflict,
-    SyncQueueEntry,
-    SyncStatus,
-    UserProfile,
-    VerificationStatus,
+  AccountDeletionState,
+  AppNotification,
+  AppSettings,
+  Attachment,
+  AttachmentKind,
+  AttachmentTargetType,
+  AttachmentVisibility,
+  AuditLog,
+  BackupMode,
+  Comment,
+  CommentTargetType,
+  CommentVisibility,
+  ConflictResolution,
+  CsvImportBatch,
+  CurrencyCode,
+  Debt,
+  DebtChangeSummary,
+  DebtDirection,
+  DebtStatus,
+  DebtVerification,
+  DebtVerificationRequestType,
+  ExportLog,
+  ExportType,
+  Group,
+  GroupActivityLog,
+  GroupDebt,
+  GroupDuplicateWarning,
+  GroupInvite,
+  GroupMemberClaim,
+  GroupParticipant,
+  GroupRole,
+  GroupStatus,
+  GroupVerificationResponse,
+  LedgerEntry,
+  LinkRequest,
+  Member,
+  MoneyMap,
+  ParticipantId,
+  Payment,
+  RecurringTemplate,
+  Reminder,
+  Settlement,
+  SettlementLine,
+  SharedExpense,
+  SharedGroupMember,
+  SmartSuggestion,
+  SmartSuggestionStatus,
+  SmartSuggestionType,
+  SoftReminder,
+  SuggestedDebtChange,
+  SyncConflict,
+  SyncQueueEntry,
+  SyncStatus,
+  UserProfile,
+  VerificationStatus,
 } from "@/src/domain/models";
 
 type CreateMemberInput = {
@@ -88,7 +89,6 @@ type CreateMemberInput = {
   email?: string | null;
   phone?: string | null;
   linkedUserId?: string | null;
-  linkStatus?: Member["linkStatus"];
   linkedProfileDisplayName?: string | null;
   linkedProfileEmail?: string | null;
   linkedProfilePhone?: string | null;
@@ -97,20 +97,11 @@ type CreateMemberInput = {
 
 type CreateDebtInput = {
   memberId: string;
-  direction: Debt["direction"];
+  direction: DebtDirection;
   amount: number;
   currency: CurrencyCode;
   title: string;
-  notes?: string | null;
-  sharedNotes?: string | null;
-  debtDate?: string;
   dueDate?: string | null;
-  recurringTemplateId?: string | null;
-  tags?: string[];
-  groupId?: string | null;
-  status?: DebtStatus;
-  verificationStatus?: VerificationStatus;
-  visibility?: Debt["visibility"];
 };
 
 type CreateGroupInput = {
@@ -999,14 +990,15 @@ export function AppDataProvider({
       cancelDebtVerification: (debtId, actorUserId = null) =>
         runAndRefresh((repo) => {
           const debt = snapshot.debts.find((item) => item.id === debtId);
+
           if (!debt) {
             throw new Error("Debt not found.");
           }
-          const verification = debt.verificationRequestId
-            ? snapshot.debtVerifications.find(
-                (item) => item.id === debt.verificationRequestId,
-              )
-            : undefined;
+
+          const verification = snapshot.debtVerifications.find(
+            (item) => item.debtId === debt.id,
+          );
+
           return repo.cancelDebtVerification(debt, verification, actorUserId);
         }),
       createGroup: (input) => runAndRefresh((repo) => repo.createGroup(input)),

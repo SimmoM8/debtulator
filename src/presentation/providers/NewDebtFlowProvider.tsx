@@ -1,18 +1,15 @@
 import type { PropsWithChildren } from "react";
 import {
-    createContext,
-    useCallback,
-    useContext,
-    useMemo,
-    useState,
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
 } from "react";
 
-import type { DebtDirection, Member } from "@/src/domain/models";
+import type { Member } from "@/src/domain/models";
 import { useAppData } from "@/src/presentation/providers/AppDataProvider";
-import {
-    type NewDebtDirection,
-    useNewDebtDraft,
-} from "@/src/presentation/providers/NewDebtDraftProvider";
+import { useNewDebtDraft } from "@/src/presentation/providers/NewDebtDraftProvider";
 
 type NewDebtFlowContextValue = {
   selectedMember: Member | null;
@@ -72,7 +69,7 @@ export function NewDebtFlowProvider({ children }: PropsWithChildren) {
       await data.createDebt({
         memberId: selectedMember.id,
 
-        direction: toDomainDirection(draft.direction),
+        direction: draft.direction,
 
         amount: parsedAmount,
 
@@ -81,18 +78,6 @@ export function NewDebtFlowProvider({ children }: PropsWithChildren) {
         title: draft.title.trim(),
 
         dueDate: draft.hasDueDate ? toDateString(draft.dueDate) : null,
-
-        status: "active",
-
-        visibility: data.settings.defaultDebtVisibility,
-
-        verificationStatus: "local_only",
-
-        groupId: null,
-
-        recurringTemplateId: null,
-
-        tags: [],
       });
     } finally {
       setIsCreating(false);
@@ -139,10 +124,6 @@ export function useNewDebtFlow() {
   }
 
   return context;
-}
-
-function toDomainDirection(direction: NewDebtDirection): DebtDirection {
-  return direction === "you_owe" ? "i_owe_them" : "they_owe_me";
 }
 
 function toDateString(date: Date) {
