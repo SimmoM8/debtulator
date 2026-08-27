@@ -1,16 +1,14 @@
-import type { CurrencyCode } from "@/src/domain/models";
+import type { CurrencyCode, DebtDirection } from "@/src/domain/models";
 import { useAppData } from "@/src/presentation/providers/AppDataProvider";
 import type { PropsWithChildren } from "react";
 import { createContext, useContext, useMemo, useState } from "react";
-
-export type NewDebtDirection = "you_owe" | "they_owe";
 
 type NewDebtDraftContextValue = {
   memberId: string | null;
   setMemberId: (memberId: string | null) => void;
 
-  direction: NewDebtDirection;
-  setDirection: (direction: NewDebtDirection) => void;
+  direction: DebtDirection;
+  setDirection: (direction: DebtDirection) => void;
 
   title: string;
   setTitle: (title: string) => void;
@@ -39,7 +37,7 @@ export function NewDebtDraftProvider({ children }: PropsWithChildren) {
 
   const [memberId, setMemberId] = useState<string | null>(null);
 
-  const [direction, setDirection] = useState<NewDebtDirection>("you_owe");
+  const [direction, setDirection] = useState<DebtDirection>("you_owe");
 
   const [title, setTitle] = useState("");
 

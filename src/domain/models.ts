@@ -1,31 +1,31 @@
-export type CurrencyCode = 'SEK' | 'AUD' | 'EUR' | 'USD' | 'GBP';
+export type CurrencyCode = "SEK" | "AUD" | "EUR" | "USD" | "GBP";
 
-export type ParticipantId = 'me' | string;
+export type ParticipantId = "me" | string;
 
-export type DebtDirection = 'they_owe_me' | 'i_owe_them';
+export type DebtDirection = "you_owe" | "they_owe";
 
-export type DebtStatus = 'active' | 'settled' | 'archived';
+export type DebtStatus = "active" | "settled" | "archived";
 
 export type VerificationStatus =
-  | 'local_only'
-  | 'pending'
-  | 'partially_verified'
-  | 'verified'
-  | 'rejected'
-  | 'countered'
-  | 'disputed'
-  | 'resolved'
-  | 'cancelled';
+  | "local_only"
+  | "pending"
+  | "partially_verified"
+  | "verified"
+  | "rejected"
+  | "countered"
+  | "disputed"
+  | "resolved"
+  | "cancelled";
 
-export type DebtVerificationRequestType = 'creation' | 'amendment';
+export type DebtVerificationRequestType = "creation" | "amendment";
 
 export type DebtReviewField =
-  | 'member'
-  | 'direction'
-  | 'amount'
-  | 'title'
-  | 'dueDate'
-  | 'status';
+  | "member"
+  | "direction"
+  | "amount"
+  | "title"
+  | "dueDate"
+  | "status";
 
 export type DebtReviewValue = string | number | null;
 
@@ -36,282 +36,322 @@ export type DebtChangeSummary = {
 };
 
 export type MemberLinkStatus =
-  | 'unlinked'
-  | 'invite_pending'
-  | 'linked'
-  | 'link_rejected'
-  | 'link_removed';
+  | "unlinked"
+  | "invite_pending"
+  | "linked"
+  | "link_rejected"
+  | "link_removed";
 
-export type LinkRequestStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled' | 'expired';
+export type LinkRequestStatus =
+  | "pending"
+  | "accepted"
+  | "rejected"
+  | "cancelled"
+  | "expired";
 
-export type DebtVisibility = 'private' | 'shared_with_involved_member' | 'future_group_shared' | 'shared_group';
+export type DebtVisibility =
+  | "private"
+  | "shared_with_involved_member"
+  | "future_group_shared"
+  | "shared_group";
 
 export type SyncStatus =
-  | 'local_only'
-  | 'pending_upload'
-  | 'pending_create'
-  | 'synced'
-  | 'pending_update'
-  | 'pending_delete'
-  | 'conflict'
-  | 'sync_error'
-  | 'remote_deleted'
-  | 'permission_error';
+  | "local_only"
+  | "pending_upload"
+  | "pending_create"
+  | "synced"
+  | "pending_update"
+  | "pending_delete"
+  | "conflict"
+  | "sync_error"
+  | "remote_deleted"
+  | "permission_error";
 
 export type SyncOperation =
-  | 'create'
-  | 'update'
-  | 'delete'
-  | 'archive'
-  | 'restore'
-  | 'merge'
-  | 'verify'
-  | 'reject'
-  | 'comment'
-  | 'attach'
-  | 'void'
-  | 'export'
-  | 'restore_backup';
+  | "create"
+  | "update"
+  | "delete"
+  | "archive"
+  | "restore"
+  | "merge"
+  | "verify"
+  | "reject"
+  | "comment"
+  | "attach"
+  | "void"
+  | "export"
+  | "restore_backup";
 
-export type SyncQueueStatus = 'pending' | 'running' | 'succeeded' | 'failed' | 'conflict' | 'cancelled';
+export type SyncQueueStatus =
+  | "pending"
+  | "running"
+  | "succeeded"
+  | "failed"
+  | "conflict"
+  | "cancelled";
 
-export type ConflictStatus = 'unresolved' | 'resolved' | 'ignored';
+export type ConflictStatus = "unresolved" | "resolved" | "ignored";
 
 export type ConflictResolution =
-  | 'keep_mine'
-  | 'keep_theirs'
-  | 'merge'
-  | 'duplicate'
-  | 'cancel_local_change'
-  | 'archive_local_copy'
-  | 'manual_edit';
+  | "keep_mine"
+  | "keep_theirs"
+  | "merge"
+  | "duplicate"
+  | "cancel_local_change"
+  | "archive_local_copy"
+  | "manual_edit";
 
 export type ConflictType =
-  | 'update_update'
-  | 'update_delete'
-  | 'delete_update'
-  | 'permission_changed'
-  | 'group_locked'
-  | 'verification_changed'
-  | 'duplicate_create'
-  | 'merge_conflict'
-  | 'attachment_conflict'
-  | 'payment_conflict'
-  | 'settlement_conflict';
+  | "update_update"
+  | "update_delete"
+  | "delete_update"
+  | "permission_changed"
+  | "group_locked"
+  | "verification_changed"
+  | "duplicate_create"
+  | "merge_conflict"
+  | "attachment_conflict"
+  | "payment_conflict"
+  | "settlement_conflict";
 
-export type GroupStatus = 'planning' | 'active' | 'finalising' | 'settled' | 'archived';
+export type GroupStatus =
+  | "planning"
+  | "active"
+  | "finalising"
+  | "settled"
+  | "archived";
 
-export type GroupVisibility = 'private' | 'shared';
+export type GroupVisibility = "private" | "shared";
 
-export type GroupRole = 'owner' | 'admin' | 'member' | 'viewer';
+export type GroupRole = "owner" | "admin" | "member" | "viewer";
 
-export type GroupParticipantStatus = 'active' | 'removed' | 'left' | 'invited';
+export type GroupParticipantStatus = "active" | "removed" | "left" | "invited";
 
-export type GroupInviteStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled' | 'expired';
+export type GroupInviteStatus =
+  | "pending"
+  | "accepted"
+  | "rejected"
+  | "cancelled"
+  | "expired";
 
-export type GroupMemberType = 'linked_user' | 'unlinked_placeholder';
+export type GroupMemberType = "linked_user" | "unlinked_placeholder";
 
-export type GroupMemberStatus = 'active' | 'archived' | 'merged' | 'claim_pending';
+export type GroupMemberStatus =
+  | "active"
+  | "archived"
+  | "merged"
+  | "claim_pending";
 
-export type GroupMemberClaimStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
+export type GroupMemberClaimStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "cancelled";
 
-export type GroupDuplicateWarningStatus = 'active' | 'ignored' | 'resolved';
+export type GroupDuplicateWarningStatus = "active" | "ignored" | "resolved";
 
-export type GroupDuplicateWarningConfidence = 'low' | 'medium' | 'high';
+export type GroupDuplicateWarningConfidence = "low" | "medium" | "high";
 
-export type GroupVerificationTargetType = 'expense' | 'debt' | 'split';
+export type GroupVerificationTargetType = "expense" | "debt" | "split";
 
-export type SplitMethod = 'equal' | 'custom_amount' | 'custom_percentage' | 'shares';
+export type SplitMethod =
+  | "equal"
+  | "custom_amount"
+  | "custom_percentage"
+  | "shares";
 
-export type LedgerEntryKind = 'simple_debt' | 'expense_obligation' | 'group_direct_debt' | 'overpayment_credit';
+export type LedgerEntryKind =
+  | "simple_debt"
+  | "expense_obligation"
+  | "group_direct_debt"
+  | "overpayment_credit";
 
 export type PaymentStatus =
-  | 'recorded'
-  | 'pending_confirmation'
-  | 'confirmed'
-  | 'rejected'
-  | 'cancelled'
-  | 'archived';
+  | "recorded"
+  | "pending_confirmation"
+  | "confirmed"
+  | "rejected"
+  | "cancelled"
+  | "archived";
 
 export type PaymentConfirmationStatus =
-  | 'local_only'
-  | 'pending_confirmation'
-  | 'confirmed'
-  | 'rejected'
-  | 'disputed'
-  | 'resolved';
+  | "local_only"
+  | "pending_confirmation"
+  | "confirmed"
+  | "rejected"
+  | "disputed"
+  | "resolved";
 
-export type ObligationPaymentStatus = 'unpaid' | 'partially_paid' | 'paid' | 'overpaid' | 'cancelled' | 'archived';
+export type ObligationPaymentStatus =
+  | "unpaid"
+  | "partially_paid"
+  | "paid"
+  | "overpaid"
+  | "cancelled"
+  | "archived";
 
 export type SettlementStatus =
-  | 'draft'
-  | 'recorded'
-  | 'pending_confirmation'
-  | 'confirmed'
-  | 'rejected'
-  | 'cancelled'
-  | 'archived';
+  | "draft"
+  | "recorded"
+  | "pending_confirmation"
+  | "confirmed"
+  | "rejected"
+  | "cancelled"
+  | "archived";
 
-export type SettlementType = 'manual' | 'from_suggestion';
+export type SettlementType = "manual" | "from_suggestion";
 
 export type SettlementSourceRecordType =
-  | 'simple_debt'
-  | 'group_debt'
-  | 'shared_expense_obligation'
-  | 'overpayment_credit';
+  | "simple_debt"
+  | "group_debt"
+  | "shared_expense_obligation"
+  | "overpayment_credit";
 
-export type RecurringTemplateType = 'simple_debt' | 'shared_expense' | 'group_debt';
+export type RecurringTemplateType =
+  | "simple_debt"
+  | "shared_expense"
+  | "group_debt";
 
-export type RecurringStatus = 'active' | 'paused' | 'ended' | 'archived';
+export type RecurringStatus = "active" | "paused" | "ended" | "archived";
 
-export type ReminderTargetType = 'debt' | 'expense' | 'settlement' | 'recurring_template';
+export type ReminderTargetType =
+  | "debt"
+  | "expense"
+  | "settlement"
+  | "recurring_template";
 
-export type ReminderStatus = 'scheduled' | 'triggered' | 'dismissed' | 'cancelled';
+export type ReminderStatus =
+  | "scheduled"
+  | "triggered"
+  | "dismissed"
+  | "cancelled";
 
-export type SoftReminderStatus = 'draft' | 'sent' | 'dismissed';
+export type SoftReminderStatus = "draft" | "sent" | "dismissed";
 
-export type OverpaymentCreditStatus = 'open' | 'applied' | 'ignored' | 'gift' | 'archived';
+export type OverpaymentCreditStatus =
+  | "open"
+  | "applied"
+  | "ignored"
+  | "gift"
+  | "archived";
 
 export type AttachmentTargetType =
-  | 'debt'
-  | 'shared_expense'
-  | 'group_debt'
-  | 'payment'
-  | 'settlement'
-  | 'group'
-  | 'comment';
+  | "debt"
+  | "shared_expense"
+  | "group_debt"
+  | "payment"
+  | "settlement"
+  | "group"
+  | "comment";
 
-export type AttachmentKind = 'receipt' | 'proof' | 'screenshot' | 'invoice' | 'other';
+export type AttachmentKind =
+  | "receipt"
+  | "proof"
+  | "screenshot"
+  | "invoice"
+  | "other";
 
-export type AttachmentVisibility = 'private' | 'shared';
+export type AttachmentVisibility = "private" | "shared";
 
-export type CommentTargetType = Exclude<AttachmentTargetType, 'comment'>;
+export type CommentTargetType = Exclude<AttachmentTargetType, "comment">;
 
-export type CommentVisibility = 'private' | 'shared';
+export type CommentVisibility = "private" | "shared";
 
-export type SmartSuggestionType = 'tag' | 'group' | 'duplicate' | 'recurring';
+export type SmartSuggestionType = "tag" | "group" | "duplicate" | "recurring";
 
-export type SmartSuggestionStatus = 'active' | 'accepted' | 'dismissed' | 'expired';
+export type SmartSuggestionStatus =
+  | "active"
+  | "accepted"
+  | "dismissed"
+  | "expired";
 
-export type ExportType = 'pdf' | 'csv' | 'text_summary';
+export type ExportType = "pdf" | "csv" | "text_summary";
 
-export type ImportBatchStatus = 'preview' | 'imported' | 'cancelled';
+export type ImportBatchStatus = "preview" | "imported" | "cancelled";
 
 export type NotificationType =
-  | 'verification_request'
-  | 'verification_result'
-  | 'group_invite'
-  | 'group_update'
-  | 'payment'
-  | 'settlement'
-  | 'reminder'
-  | 'comment'
-  | 'claim_request'
-  | 'duplicate_warning'
-  | 'sync_problem'
-  | 'export_ready';
+  | "verification_request"
+  | "verification_result"
+  | "group_invite"
+  | "group_update"
+  | "payment"
+  | "settlement"
+  | "reminder"
+  | "comment"
+  | "claim_request"
+  | "duplicate_warning"
+  | "sync_problem"
+  | "export_ready";
 
-export type DataExportFormat = 'json' | 'csv_package' | 'pdf_summary';
+export type DataExportFormat = "json" | "csv_package" | "pdf_summary";
 
-export type BackupMode = 'merge' | 'replace_local' | 'duplicate_private';
+export type BackupMode = "merge" | "replace_local" | "duplicate_private";
 
 export type EntityKind =
-  | 'member'
-  | 'debt'
-  | 'group'
-  | 'shared_expense'
-  | 'group_invite'
-  | 'group_member'
-  | 'group_member_claim'
-  | 'group_duplicate_warning'
-  | 'group_debt'
-  | 'group_verification'
-  | 'payment'
-  | 'settlement'
-  | 'recurring_template'
-  | 'reminder'
-  | 'soft_reminder'
-  | 'overpayment_credit'
-  | 'attachment'
-  | 'comment'
-  | 'smart_suggestion'
-  | 'export_log'
-  | 'csv_import_batch'
-  | 'sync_queue'
-  | 'sync_conflict'
-  | 'notification'
-  | 'audit_log'
-  | 'backup';
+  | "member"
+  | "debt"
+  | "group"
+  | "shared_expense"
+  | "group_invite"
+  | "group_member"
+  | "group_member_claim"
+  | "group_duplicate_warning"
+  | "group_debt"
+  | "group_verification"
+  | "payment"
+  | "settlement"
+  | "recurring_template"
+  | "reminder"
+  | "soft_reminder"
+  | "overpayment_credit"
+  | "attachment"
+  | "comment"
+  | "smart_suggestion"
+  | "export_log"
+  | "csv_import_batch"
+  | "sync_queue"
+  | "sync_conflict"
+  | "notification"
+  | "audit_log"
+  | "backup";
 
 export type ActivityTargetKind =
   | EntityKind
-  | 'member_link'
-  | 'link_request'
-  | 'debt_verification'
-  | 'profile';
+  | "member_link"
+  | "link_request"
+  | "debt_verification"
+  | "profile";
 
 export type SortMode =
-  | 'date_desc'
-  | 'date_asc'
-  | 'amount_desc'
-  | 'amount_asc'
-  | 'name_asc'
-  | 'balance_desc'
-  | 'due_date'
-  | 'remaining_amount'
-  | 'payment_date'
-  | 'settlement_date'
-  | 'recurrence_next_date';
+  | "date_desc"
+  | "date_asc"
+  | "amount_desc"
+  | "amount_asc"
+  | "name_asc"
+  | "balance_desc"
+  | "due_date"
+  | "remaining_amount"
+  | "payment_date"
+  | "settlement_date"
+  | "recurrence_next_date";
 
 export type Member = {
   id: string;
+  ownerUserId: string;
   displayName: string;
-  notes: string | null;
-  email: string | null;
-  phone: string | null;
-  remoteId: string | null;
-  linkedUserId: string | null;
-  linkStatus: MemberLinkStatus;
-  linkRequestId: string | null;
-  linkedProfileDisplayName: string | null;
-  linkedProfileEmail: string | null;
-  linkedProfilePhone: string | null;
-  syncStatus: SyncStatus;
-  tags: string[];
-  archived: boolean;
   createdAt: string;
   updatedAt: string;
 };
 
 export type Debt = {
   id: string;
-  type: 'simple';
+  ownerUserId: string;
   memberId: string;
-  remoteId: string | null;
-  verificationRequestId: string | null;
-  visibility: DebtVisibility;
-  syncStatus: SyncStatus;
   direction: DebtDirection;
   amount: number;
   currency: CurrencyCode;
   title: string;
-  notes: string | null;
-  sharedNotes: string | null;
-  debtDate: string;
   dueDate: string | null;
-  recurringTemplateId: string | null;
-  tags: string[];
-  groupId: string | null;
-  status: DebtStatus;
-  verificationStatus: VerificationStatus;
-  verifiedByUserId: string | null;
-  verifiedAt: string | null;
-  rejectedByUserId: string | null;
-  rejectedAt: string | null;
-  rejectionReason: string | null;
-  disputeReason: string | null;
-  resolutionNote: string | null;
-  suggestedChange: SuggestedDebtChange | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -368,7 +408,7 @@ export type GroupInvite = {
   invitedEmail: string | null;
   invitedPhone: string | null;
   invitedDisplayName: string;
-  offeredRole: Exclude<GroupRole, 'owner'>;
+  offeredRole: Exclude<GroupRole, "owner">;
   status: GroupInviteStatus;
   message: string | null;
   createdAt: string;
@@ -675,7 +715,7 @@ export type SmartSuggestion = {
   id: string;
   userId: string | null;
   suggestionType: SmartSuggestionType;
-  targetType: AttachmentTargetType | 'member' | 'recurring_template' | null;
+  targetType: AttachmentTargetType | "member" | "recurring_template" | null;
   targetId: string | null;
   title: string;
   message: string;
@@ -689,7 +729,7 @@ export type ExportLog = {
   id: string;
   userId: string | null;
   exportType: ExportType;
-  targetType: AttachmentTargetType | 'member' | 'ledger' | null;
+  targetType: AttachmentTargetType | "member" | "ledger" | null;
   targetId: string | null;
   createdAt: string;
   metadata: Record<string, unknown>;
@@ -807,7 +847,7 @@ export type AuditLog = {
   id: string;
   actorUserId: string | null;
   action: string;
-  targetType: EntityKind | 'account' | 'security';
+  targetType: EntityKind | "account" | "security";
   targetId: string | null;
   groupId: string | null;
   metadata: Record<string, unknown>;
@@ -815,7 +855,7 @@ export type AuditLog = {
   createdAt: string;
 };
 
-export type AccountDeletionStatus = 'pending' | 'completed' | 'failed';
+export type AccountDeletionStatus = "pending" | "completed" | "failed";
 
 export type AccountDeletionState = {
   requestId: string;
@@ -828,14 +868,8 @@ export type AccountDeletionState = {
 };
 
 export type UserProfile = {
-  id: string;
-  firstName: string | null;
-  lastName: string | null;
-  displayName: string;
-  email: string | null;
-  phone: string | null;
-  country: string | null;
-  avatarUrl: string | null;
+  userId: string;
+  displayName: string | null;
   baseCurrency: CurrencyCode;
   createdAt: string;
   updatedAt: string;
@@ -899,16 +933,20 @@ export type AppSettings = {
   hasCompletedFirstRun: boolean;
   localDisplayName: string | null;
   showEstimatedBase: boolean;
-  theme: 'system' | 'light' | 'dark';
+  theme: "system" | "light" | "dark";
   convertedSettlementOptIn: boolean;
-  defaultReminderPreference: 'none' | 'due_date' | 'one_day_before' | 'one_week_before';
-  recurringGenerationPreference: 'auto' | 'prompt';
+  defaultReminderPreference:
+    | "none"
+    | "due_date"
+    | "one_day_before"
+    | "one_week_before";
+  recurringGenerationPreference: "auto" | "prompt";
   includePendingSettlements: boolean;
   includeRejectedDisputedSettlements: boolean;
   verifiedOnlySettlements: boolean;
   smartSuggestionsEnabled: boolean;
   analyticsEstimatedCurrencyMode: boolean;
-  attachmentUploadPreference: 'ask' | 'shared_only' | 'never';
+  attachmentUploadPreference: "ask" | "shared_only" | "never";
   includePrivateNotesInExports: boolean;
   includeRejectedDisputedInExports: boolean;
   includeArchivedInExports: boolean;
@@ -931,7 +969,7 @@ export type AppSettings = {
   quietHoursEnabled: boolean;
   quietHoursStart: string;
   quietHoursEnd: string;
-  language: 'system' | 'en' | 'sv';
+  language: "system" | "en" | "sv";
   backupIncludeAttachments: boolean;
   backupIncludePrivateNotes: boolean;
   betaTelemetryEnabled: boolean;
@@ -976,7 +1014,11 @@ export type SettlementSuggestion = {
   currency: CurrencyCode;
   includedRecordIds?: string[];
   excludedRecordIds?: string[];
-  mode?: 'fewest_payments' | 'direct_debt_only' | 'verified_only' | 'converted_estimate';
+  mode?:
+    | "fewest_payments"
+    | "direct_debt_only"
+    | "verified_only"
+    | "converted_estimate";
   approximate?: boolean;
   explanation?: Record<string, unknown>;
 };
@@ -996,7 +1038,13 @@ export type GroupSettlementSettings = {
 
 export type ExcludedLedgerEntry = {
   entry: LedgerEntry;
-  reason: 'rejected' | 'disputed' | 'archived' | 'settled' | 'pending_excluded' | 'cancelled';
+  reason:
+    | "rejected"
+    | "disputed"
+    | "archived"
+    | "settled"
+    | "pending_excluded"
+    | "cancelled";
 };
 
 export type SettlementMatchStep = {
@@ -1021,7 +1069,7 @@ export type DuplicateWarning = {
   groupId: string;
   memberAId: string;
   memberBId: string;
-  reason: 'same_name' | 'similar_name' | 'same_email' | 'same_phone';
+  reason: "same_name" | "similar_name" | "same_email" | "same_phone";
   message: string;
 };
 
@@ -1031,41 +1079,46 @@ export type DebtFilters = {
   groupId: string | null;
   minAmount: string;
   maxAmount: string;
-  currency: CurrencyCode | 'all';
-  direction: DebtDirection | 'all';
-  status: DebtStatus | 'all';
-  verificationStatus: VerificationStatus | 'all';
-  linkMode: 'all' | 'linked' | 'unlinked';
-  visibility: DebtVisibility | 'all';
+  currency: CurrencyCode | "all";
+  direction: DebtDirection | "all";
+  status: DebtStatus | "all";
+  verificationStatus: VerificationStatus | "all";
+  linkMode: "all" | "linked" | "unlinked";
+  visibility: DebtVisibility | "all";
   tag: string | null;
-  kind: LedgerEntryKind | 'all';
-  paymentStatus: ObligationPaymentStatus | 'all';
-  dueMode: 'all' | 'due_soon' | 'overdue' | 'no_due_date';
-  reminderMode: 'all' | 'has_reminder';
-  recurringMode: 'all' | 'recurring' | 'not_recurring';
-  settlementRecordMode: 'all' | 'has_settlement_record';
-  attachmentMode: 'all' | 'has_attachment' | 'has_receipt' | 'has_proof' | 'none';
-  commentMode: 'all' | 'has_comments' | 'none';
-  suggestionMode: 'all' | 'has_suggestion';
+  kind: LedgerEntryKind | "all";
+  paymentStatus: ObligationPaymentStatus | "all";
+  dueMode: "all" | "due_soon" | "overdue" | "no_due_date";
+  reminderMode: "all" | "has_reminder";
+  recurringMode: "all" | "recurring" | "not_recurring";
+  settlementRecordMode: "all" | "has_settlement_record";
+  attachmentMode:
+    | "all"
+    | "has_attachment"
+    | "has_receipt"
+    | "has_proof"
+    | "none";
+  commentMode: "all" | "has_comments" | "none";
+  suggestionMode: "all" | "has_suggestion";
   sort: SortMode;
 };
 
 export type MemberFilters = {
   query: string;
   tag: string | null;
-  balanceMode: 'all' | 'has_balance';
-  archivedMode: 'active' | 'archived' | 'all';
+  balanceMode: "all" | "has_balance";
+  archivedMode: "active" | "archived" | "all";
   sort: SortMode;
 };
 
 export type GroupFilters = {
   query: string;
-  status: GroupStatus | 'all';
-  visibility: GroupVisibility | 'all';
-  role: GroupRole | 'all';
-  attention: 'all' | 'pending_invites' | 'rejected_or_disputed' | 'unsettled';
+  status: GroupStatus | "all";
+  visibility: GroupVisibility | "all";
+  role: GroupRole | "all";
+  attention: "all" | "pending_invites" | "rejected_or_disputed" | "unsettled";
   tag: string | null;
-  archivedMode: 'active' | 'archived' | 'all';
-  currency: CurrencyCode | 'all';
+  archivedMode: "active" | "archived" | "all";
+  currency: CurrencyCode | "all";
   sort: SortMode;
 };
