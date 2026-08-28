@@ -61,7 +61,7 @@ export class SqliteDebtRepository implements DebtRepository {
   }
 
   async save(debt: Debt): Promise<void> {
-    await this.db.runAsync(
+    const result = await this.db.runAsync(
       `
         INSERT INTO debts (
           id,
@@ -76,8 +76,8 @@ export class SqliteDebtRepository implements DebtRepository {
           updated_at
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+
         ON CONFLICT(id) DO UPDATE SET
-          owner_user_id = excluded.owner_user_id,
           member_id = excluded.member_id,
           direction = excluded.direction,
           amount = excluded.amount,
@@ -85,6 +85,7 @@ export class SqliteDebtRepository implements DebtRepository {
           title = excluded.title,
           due_date = excluded.due_date,
           updated_at = excluded.updated_at
+        WHERE debts.owner_user_id = excluded.owner_user_id
       `,
       [
         debt.id,
@@ -99,6 +100,22 @@ export class SqliteDebtRepository implements DebtRepository {
         debt.updatedAt,
       ],
     );
+
+    if (result.changes === 0) {
+      const existing = await this.db.getFirstAsync<{ owner_user_id: string }>(
+        `
+          SELECT owner_user_id
+          FROM debts
+          WHERE id = ?
+          LIMIT 1
+        `,
+        [debt.id],
+      );
+
+      if (existing && existing.owner_user_id !== debt.ownerUserId) {
+        throw new Error("Cannot change the owner of an existing debt.");
+      }
+    }
   }
 
   async delete(ownerUserId: string, debtId: string): Promise<void> {

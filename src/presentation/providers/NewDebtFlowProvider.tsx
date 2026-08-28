@@ -7,29 +7,23 @@ import {
   useState,
 } from "react";
 
-import type { Member } from "@/src/domain/models";
-import { useAppData } from "@/src/presentation/providers/AppDataProvider";
+import type { Member } from "@/src/domain/members/Member";
+import { useCoreData } from "@/src/presentation/providers/CoreDataProvider";
 import { useNewDebtDraft } from "@/src/presentation/providers/NewDebtDraftProvider";
 
 type NewDebtFlowContextValue = {
   selectedMember: Member | null;
-
   parsedAmount: number;
-
   canCreate: boolean;
-
   isCreating: boolean;
-
   createDebt: () => Promise<void>;
 };
 
 const NewDebtFlowContext = createContext<NewDebtFlowContextValue | null>(null);
 
 export function NewDebtFlowProvider({ children }: PropsWithChildren) {
-  const data = useAppData();
-
+  const data = useCoreData();
   const draft = useNewDebtDraft();
-
   const [isCreating, setIsCreating] = useState(false);
 
   const selectedMember = useMemo(
@@ -43,7 +37,6 @@ export function NewDebtFlowProvider({ children }: PropsWithChildren) {
     }
 
     const parsed = Number(draft.amount);
-
     return Number.isFinite(parsed) ? parsed : 0;
   }, [draft.amount]);
 
@@ -68,15 +61,10 @@ export function NewDebtFlowProvider({ children }: PropsWithChildren) {
     try {
       await data.createDebt({
         memberId: selectedMember.id,
-
         direction: draft.direction,
-
         amount: parsedAmount,
-
         currency: draft.currency,
-
         title: draft.title.trim(),
-
         dueDate: draft.hasDueDate ? toDateString(draft.dueDate) : null,
       });
     } finally {
@@ -97,13 +85,9 @@ export function NewDebtFlowProvider({ children }: PropsWithChildren) {
   const value = useMemo<NewDebtFlowContextValue>(
     () => ({
       selectedMember,
-
       parsedAmount,
-
       canCreate,
-
       isCreating,
-
       createDebt,
     }),
     [canCreate, createDebt, isCreating, parsedAmount, selectedMember],
@@ -128,9 +112,7 @@ export function useNewDebtFlow() {
 
 function toDateString(date: Date) {
   const year = date.getFullYear();
-
   const month = `${date.getMonth() + 1}`.padStart(2, "0");
-
   const day = `${date.getDate()}`.padStart(2, "0");
 
   return `${year}-${month}-${day}`;

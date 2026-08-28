@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import type { DebtListItemModel } from "@/src/presentation/dto/debtsScreenModel";
+import type { DebtListItemModel } from "@/src/presentation/dto/debtsScreenDto";
 
 import { textStyles, useAppTheme } from "@/src/theme";
 

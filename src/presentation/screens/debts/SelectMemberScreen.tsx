@@ -1,22 +1,16 @@
 import { List, ListItem } from "@expo/ui";
-
 import { router, Stack, useLocalSearchParams } from "expo-router";
-
 import { useMemo, useState } from "react";
-
 import { StyleSheet, View } from "react-native";
 
-import { useAppData } from "@/src/presentation/providers/AppDataProvider";
-
+import { toolbarIcons } from "@/src/navigation/toolbarIcons";
+import { useCoreData } from "@/src/presentation/providers/CoreDataProvider";
 import { useNewDebtDraft } from "@/src/presentation/providers/NewDebtDraftProvider";
-
 import { NativeThemeHost, useAppTheme } from "@/src/theme";
 
 export function SelectMemberScreen() {
-  const data = useAppData();
-
+  const data = useCoreData();
   const draft = useNewDebtDraft();
-
   const theme = useAppTheme();
 
   const { from } = useLocalSearchParams<{
@@ -24,6 +18,11 @@ export function SelectMemberScreen() {
   }>();
 
   const isChangingMember = from === "new-debt";
+
+  function close() {
+    draft.reset();
+    router.dismiss();
+  }
 
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -44,7 +43,6 @@ export function SelectMemberScreen() {
 
     if (isChangingMember) {
       router.back();
-
       return;
     }
 
@@ -53,6 +51,28 @@ export function SelectMemberScreen() {
 
   return (
     <>
+      {isChangingMember ? (
+        <Stack.Screen.BackButton displayMode="minimal" />
+      ) : (
+        <Stack.Toolbar placement="left">
+          <Stack.Toolbar.Button
+            icon={toolbarIcons.close}
+            accessibilityLabel="Close"
+            onPress={close}
+          />
+        </Stack.Toolbar>
+      )}
+
+      <Stack.Toolbar placement="right">
+        <Stack.Toolbar.Button
+          icon={toolbarIcons.plus}
+          accessibilityLabel="Add member"
+          onPress={() => {
+            // Add Member flow later.
+          }}
+        />
+      </Stack.Toolbar>
+
       <Stack.SearchBar
         placeholder="Search Members"
         onChangeText={(event) => {
