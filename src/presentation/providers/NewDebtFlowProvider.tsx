@@ -27,8 +27,9 @@ export function NewDebtFlowProvider({ children }: PropsWithChildren) {
   const [isCreating, setIsCreating] = useState(false);
 
   const selectedMember = useMemo(
-    () => data.members.find((member) => member.id === draft.memberId) ?? null,
-    [data.members, draft.memberId],
+    () =>
+      data.members.data.find((member) => member.id === draft.memberId) ?? null,
+    [data.members.data, draft.memberId],
   );
 
   const parsedAmount = useMemo(() => {
@@ -71,7 +72,7 @@ export function NewDebtFlowProvider({ children }: PropsWithChildren) {
       setIsCreating(false);
     }
   }, [
-    data,
+    data.createDebt,
     draft.currency,
     draft.direction,
     draft.dueDate,
