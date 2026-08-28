@@ -59,7 +59,7 @@ module.exports = defineConfig([
     ignores: ['dist/**'],
   },
   {
-    files: [`app/${sourceFiles}`, `src/${sourceFiles}`],
+    files: [`src/${sourceFiles}`],
     rules: {
       'no-restricted-imports': restrictedImports([]),
     },
@@ -213,8 +213,8 @@ module.exports = defineConfig([
     },
   },
   {
-    files: [`app/${sourceFiles}`],
-    ignores: ['app/**/_layout.*'],
+    files: [`src/app/${sourceFiles}`],
+    ignores: ['src/app/**/_layout.*'],
     rules: {
       'no-restricted-imports': restrictedImports([
         {

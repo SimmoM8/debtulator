@@ -8,7 +8,7 @@ const ts = require('typescript');
 
 const repositoryRoot = path.resolve(__dirname, '..');
 const sourceExtensions = new Set(['.js', '.jsx', '.ts', '.tsx']);
-const scannedRoots = ['app', 'src', 'backend', 'packages/contracts'];
+const scannedRoots = ['src', 'backend', 'packages/contracts'];
 
 const layers = [
   'domain',
@@ -79,6 +79,9 @@ function walk(directory) {
 }
 
 function layerForRepositoryPath(repositoryPath) {
+  if (repositoryPath === 'src/app' || repositoryPath.startsWith('src/app/')) {
+    return 'app';
+  }
   for (const layer of layers) {
     if (repositoryPath === `src/${layer}` || repositoryPath.startsWith(`src/${layer}/`)) {
       return layer;
@@ -95,9 +98,6 @@ function layerForRepositoryPath(repositoryPath) {
     repositoryPath.startsWith('packages/contracts/')
   ) {
     return 'contracts';
-  }
-  if (repositoryPath === 'app' || repositoryPath.startsWith('app/')) {
-    return 'app';
   }
   return null;
 }
@@ -255,7 +255,7 @@ function checkLayerImport(repositoryPath, sourceLayer, imported, target) {
         imported,
         'composition-boundary',
         'Composition code must not depend on Expo Router route entries.',
-        'Move reusable behavior out of app/ and import its owning layer instead.',
+        'Move reusable behavior out of src/app/ and import its owning layer instead.',
       );
     }
     return null;
