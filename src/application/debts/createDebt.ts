@@ -1,3 +1,5 @@
+import * as Crypto from "expo-crypto";
+
 import type { CurrencyCode } from "@/src/domain/currencies/Currency";
 import type { Debt, DebtDirection } from "@/src/domain/debts/Debt";
 import type { DebtRepository } from "@/src/domain/debts/DebtRepository";
@@ -18,7 +20,14 @@ export async function createDebt(
 ): Promise<Debt> {
   const title = input.title.trim();
 
-  if (!title) throw new Error("Debt title is required.");
+  if (!input.memberId) {
+    throw new Error("Debt member is required.");
+  }
+
+  if (!title) {
+    throw new Error("Debt title is required.");
+  }
+
   if (!Number.isFinite(input.amount) || input.amount <= 0) {
     throw new Error("Debt amount must be greater than zero.");
   }
@@ -26,7 +35,7 @@ export async function createDebt(
   const now = new Date().toISOString();
 
   const debt: Debt = {
-    id: crypto.randomUUID(),
+    id: Crypto.randomUUID(),
     ownerUserId: input.ownerUserId,
     memberId: input.memberId,
     direction: input.direction,
@@ -39,5 +48,6 @@ export async function createDebt(
   };
 
   await repository.save(debt);
+
   return debt;
 }

@@ -1,3 +1,5 @@
+import * as Crypto from "expo-crypto";
+
 import type { Member } from "@/src/domain/members/Member";
 import type { MemberRepository } from "@/src/domain/members/MemberRepository";
 
@@ -12,12 +14,14 @@ export async function createMember(
 ): Promise<Member> {
   const displayName = input.displayName.trim();
 
-  if (!displayName) throw new Error("Member name is required.");
+  if (!displayName) {
+    throw new Error("Member name is required.");
+  }
 
   const now = new Date().toISOString();
 
   const member: Member = {
-    id: crypto.randomUUID(),
+    id: Crypto.randomUUID(),
     ownerUserId: input.ownerUserId,
     displayName,
     createdAt: now,
@@ -25,5 +29,6 @@ export async function createMember(
   };
 
   await repository.save(member);
+
   return member;
 }
