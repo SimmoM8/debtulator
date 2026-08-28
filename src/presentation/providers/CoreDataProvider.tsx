@@ -19,17 +19,17 @@ import {
   type CreateMemberInput as ApplicationCreateMemberInput,
 } from "@/src/application/members/createMember";
 import { getMembers } from "@/src/application/members/getMembers";
-import type { CoreSnapshot } from "@/src/application/model/CoreSnapshot";
 import type { Debt } from "@/src/domain/debts/Debt";
 import type { Member } from "@/src/domain/members/Member";
+import type { ResourceState } from "@/src/presentation/model/ResourceState";
 
 type CreateDebtInput = Omit<ApplicationCreateDebtInput, "ownerUserId">;
 type CreateMemberInput = Omit<ApplicationCreateMemberInput, "ownerUserId">;
 
-type CoreDataContextValue = CoreSnapshot & {
+type CoreDataContextValue = {
+  debts: ResourceState<Debt[]>;
+  members: ResourceState<Member[]>;
   ready: boolean;
-  loading: boolean;
-  error: string | null;
   refresh: () => Promise<void>;
   createDebt: (input: CreateDebtInput) => Promise<Debt>;
   createMember: (input: CreateMemberInput) => Promise<Member>;
@@ -40,10 +40,7 @@ type CoreDataProviderProps = PropsWithChildren<{
   dependencies: CoreDataDependencies;
 }>;
 
-const EMPTY_SNAPSHOT: CoreSnapshot = {
-  debts: [],
-  members: [],
-};
+type ResourceDataState<T> = Omit<ResourceState<T>, "refresh">;
 
 const CoreDataContext = createContext<CoreDataContextValue | null>(null);
 
@@ -52,60 +49,98 @@ export function CoreDataProvider({
   ownerUserId,
   dependencies,
 }: CoreDataProviderProps) {
-  const [snapshot, setSnapshot] = useState<CoreSnapshot>(EMPTY_SNAPSHOT);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [debtsState, setDebtsState] = useState<ResourceDataState<Debt[]>>({
+    data: [],
+    loading: true,
+    error: null,
+  });
 
-  const loadSnapshot = useCallback(async (): Promise<CoreSnapshot> => {
-    const [members, debts] = await Promise.all([
-      getMembers(dependencies.members, ownerUserId),
-      getDebts(dependencies.debts, ownerUserId),
-    ]);
+  const [membersState, setMembersState] = useState<ResourceDataState<Member[]>>({
+    data: [],
+    loading: true,
+    error: null,
+  });
 
-    return {
-      members,
-      debts,
-    };
-  }, [dependencies, ownerUserId]);
+  const loadDebts = useCallback(async () => {
+    try {
+      const debts = await getDebts(dependencies.debts, ownerUserId);
+
+      setDebtsState({
+        data: debts,
+        loading: false,
+        error: null,
+      });
+    } catch (error) {
+      setDebtsState((current) => ({
+        ...current,
+        loading: false,
+        error: getErrorMessage(error, "Unable to load debts."),
+      }));
+
+      throw error;
+    }
+  }, [dependencies.debts, ownerUserId]);
+
+  const loadMembers = useCallback(async () => {
+    try {
+      const members = await getMembers(dependencies.members, ownerUserId);
+
+      setMembersState({
+        data: members,
+        loading: false,
+        error: null,
+      });
+    } catch (error) {
+      setMembersState((current) => ({
+        ...current,
+        loading: false,
+        error: getErrorMessage(error, "Unable to load members."),
+      }));
+
+      throw error;
+    }
+  }, [dependencies.members, ownerUserId]);
 
   useEffect(() => {
-    let cancelled = false;
+    void loadDebts().catch(() => undefined);
+    void loadMembers().catch(() => undefined);
+  }, [loadDebts, loadMembers]);
 
-    void loadSnapshot()
-      .then((nextSnapshot) => {
-        if (cancelled) {
-          return;
-        }
+  const refreshDebts = useCallback(async () => {
+    setDebtsState((current) => ({
+      ...current,
+      loading: true,
+      error: null,
+    }));
 
-        setSnapshot(nextSnapshot);
-        setError(null);
-      })
-      .catch((loadError: unknown) => {
-        if (cancelled) {
-          return;
-        }
+    await loadDebts();
+  }, [loadDebts]);
 
-        setError(
-          loadError instanceof Error
-            ? loadError.message
-            : "Unable to load local data.",
-        );
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      });
+  const refreshMembers = useCallback(async () => {
+    setMembersState((current) => ({
+      ...current,
+      loading: true,
+      error: null,
+    }));
 
-    return () => {
-      cancelled = true;
-    };
-  }, [loadSnapshot]);
+    await loadMembers();
+  }, [loadMembers]);
 
   const refresh = useCallback(async () => {
-    const nextSnapshot = await loadSnapshot();
-    setSnapshot(nextSnapshot);
-  }, [loadSnapshot]);
+    const results = await Promise.allSettled([
+      refreshDebts(),
+      refreshMembers(),
+    ]);
+
+    const rejected = results.find(
+      (result): result is PromiseRejectedResult =>
+        result.status === "rejected",
+    );
+
+    if (rejected) {
+      throw rejected.reason;
+    }
+  }, [refreshDebts, refreshMembers]);
 
   const createDebt = useCallback(
     async (input: CreateDebtInput) => {
@@ -114,11 +149,11 @@ export function CoreDataProvider({
         ownerUserId,
       });
 
-      await refresh();
+      await loadDebts();
 
       return debt;
     },
-    [dependencies.debts, ownerUserId, refresh],
+    [dependencies.debts, loadDebts, ownerUserId],
   );
 
   const createMember = useCallback(
@@ -128,24 +163,41 @@ export function CoreDataProvider({
         ownerUserId,
       });
 
-      await refresh();
+      await loadMembers();
 
       return member;
     },
-    [dependencies.members, ownerUserId, refresh],
+    [dependencies.members, loadMembers, ownerUserId],
   );
+
+  const debts = useMemo<ResourceState<Debt[]>>(
+    () => ({
+      ...debtsState,
+      refresh: refreshDebts,
+    }),
+    [debtsState, refreshDebts],
+  );
+
+  const members = useMemo<ResourceState<Member[]>>(
+    () => ({
+      ...membersState,
+      refresh: refreshMembers,
+    }),
+    [membersState, refreshMembers],
+  );
+
+  const ready = !debts.loading && !members.loading;
 
   const value = useMemo<CoreDataContextValue>(
     () => ({
-      ...snapshot,
-      ready: !loading && error === null,
-      loading,
-      error,
+      debts,
+      members,
+      ready,
       refresh,
       createDebt,
       createMember,
     }),
-    [createDebt, createMember, error, loading, refresh, snapshot],
+    [createDebt, createMember, debts, members, ready, refresh],
   );
 
   return (
@@ -163,4 +215,8 @@ export function useCoreData() {
   }
 
   return value;
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
 }
