@@ -1,40 +1,28 @@
 import { useMemo, useState } from "react";
-
 import { StyleSheet, View } from "react-native";
 
 import {
   DebtSummaryHeader,
   type DebtFilter,
 } from "@/src/presentation/components/debts/DebtSummaryHeader";
-
 import { DebtsList } from "@/src/presentation/components/debts/DebtsList";
-
 import { SplitBackgroundScreen } from "@/src/presentation/components/layout";
-
-import { buildDebtsScreenModel } from "@/src/presentation/dto/debtsScreenModel";
-
-import { useAppData } from "@/src/presentation/providers/AppDataProvider";
-
+import { buildDebtsScreenModel } from "@/src/presentation/dto/debtsScreenDto";
+import { useCoreData } from "@/src/presentation/providers/CoreDataProvider";
 import { useAppTheme } from "@/src/theme";
 
 export function DebtsScreen() {
-  const data = useAppData();
-
+  const data = useCoreData();
   const theme = useAppTheme();
-
   const [filter, setFilter] = useState<DebtFilter>("all");
 
   const model = useMemo(
     () =>
       buildDebtsScreenModel({
-        ledgerEntries: data.ledgerEntries,
-
+        debts: data.debts,
         members: data.members,
-
-        personalTotals: data.personalTotals,
       }),
-
-    [data.ledgerEntries, data.members, data.personalTotals],
+    [data.debts, data.members],
   );
 
   const filteredItems = useMemo(() => {
@@ -66,7 +54,6 @@ export function DebtsScreen() {
       <View
         style={[
           styles.content,
-
           {
             backgroundColor: theme.colors.appBackground,
           },
@@ -81,11 +68,8 @@ export function DebtsScreen() {
 const styles = StyleSheet.create({
   content: {
     minHeight: "100%",
-
     borderTopLeftRadius: 28,
-
     borderTopRightRadius: 28,
-
     overflow: "hidden",
   },
 });

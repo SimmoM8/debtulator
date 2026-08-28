@@ -11,7 +11,12 @@ export class SqliteMemberRepository implements MemberRepository {
   async getAllByOwner(ownerUserId: string): Promise<Member[]> {
     const rows = await this.db.getAllAsync<MemberRow>(
       `
-        SELECT id, owner_user_id, display_name, created_at, updated_at
+        SELECT
+          id,
+          owner_user_id,
+          display_name,
+          created_at,
+          updated_at
         FROM members
         WHERE owner_user_id = ?
         ORDER BY display_name COLLATE NOCASE ASC
@@ -28,7 +33,12 @@ export class SqliteMemberRepository implements MemberRepository {
   ): Promise<Member | null> {
     const row = await this.db.getFirstAsync<MemberRow>(
       `
-        SELECT id, owner_user_id, display_name, created_at, updated_at
+        SELECT
+          id,
+          owner_user_id,
+          display_name,
+          created_at,
+          updated_at
         FROM members
         WHERE owner_user_id = ?
           AND id = ?
@@ -41,16 +51,21 @@ export class SqliteMemberRepository implements MemberRepository {
   }
 
   async save(member: Member): Promise<void> {
-    await this.db.runAsync(
+    const result = await this.db.runAsync(
       `
         INSERT INTO members (
-          id, owner_user_id, display_name, created_at, updated_at
+          id,
+          owner_user_id,
+          display_name,
+          created_at,
+          updated_at
         )
         VALUES (?, ?, ?, ?, ?)
+
         ON CONFLICT(id) DO UPDATE SET
-          owner_user_id = excluded.owner_user_id,
           display_name = excluded.display_name,
           updated_at = excluded.updated_at
+        WHERE members.owner_user_id = excluded.owner_user_id
       `,
       [
         member.id,
@@ -60,6 +75,22 @@ export class SqliteMemberRepository implements MemberRepository {
         member.updatedAt,
       ],
     );
+
+    if (result.changes === 0) {
+      const existing = await this.db.getFirstAsync<{ owner_user_id: string }>(
+        `
+          SELECT owner_user_id
+          FROM members
+          WHERE id = ?
+          LIMIT 1
+        `,
+        [member.id],
+      );
+
+      if (existing && existing.owner_user_id !== member.ownerUserId) {
+        throw new Error("Cannot change the owner of an existing member.");
+      }
+    }
   }
 
   async delete(ownerUserId: string, memberId: string): Promise<void> {
