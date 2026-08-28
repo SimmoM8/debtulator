@@ -6,7 +6,7 @@ It is an API boundary, not a library imported by the mobile application.
 ## Boundary
 
 `backend` may depend on `packages/contracts`, domain policy, persistence adapters,
-and Supabase server infrastructure. It must never import from `app/`,
+and Supabase server infrastructure. It must never import from `src/app/`,
 `src/presentation/`, or mobile platform adapters.
 
 The public HTTP contract is described in [`../docs/api/openapi.yaml`](../docs/api/openapi.yaml).
