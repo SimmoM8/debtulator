@@ -41,12 +41,19 @@ function DebtModalNavigator() {
         }}
       />
 
-      {/*       <Stack.Screen
+      <Stack.Screen
         name="select-member"
         options={{
           title: "Select Member",
         }}
-      /> */}
+      />
+
+      <Stack.Screen
+        name="new-member"
+        options={{
+          title: "New Member",
+        }}
+      />
     </Stack>
   );
 }

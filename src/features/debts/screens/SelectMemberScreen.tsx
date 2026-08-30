@@ -11,6 +11,7 @@ import { NativeThemeHost, useAppTheme } from "@/src/theme";
 
 export function SelectMemberScreen() {
   const draft = useNewDebt();
+
   const members = useMembers();
 
   const theme = useAppTheme();
@@ -20,23 +21,24 @@ export function SelectMemberScreen() {
   }>();
 
   const isChangingMember = from === "new-debt";
+
   const [searchQuery, setSearchQuery] = useState("");
-  const hasSearchQuery = searchQuery.trim().length > 0;
+
+  const normalizedSearchQuery = searchQuery.trim().toLocaleLowerCase();
 
   const filteredMembers = useMemo(() => {
-    const query = searchQuery.trim().toLocaleLowerCase();
-
-    if (!query) {
+    if (!normalizedSearchQuery) {
       return members.data;
     }
 
     return members.data.filter((member) =>
-      member.displayName.toLocaleLowerCase().includes(query),
+      member.displayName.toLocaleLowerCase().includes(normalizedSearchQuery),
     );
-  }, [members.data, searchQuery]);
+  }, [members.data, normalizedSearchQuery]);
 
   function close() {
     draft.reset();
+
     router.dismiss();
   }
 
@@ -45,6 +47,7 @@ export function SelectMemberScreen() {
 
     if (isChangingMember) {
       router.back();
+
       return;
     }
 
@@ -73,7 +76,7 @@ export function SelectMemberScreen() {
           icon={toolbarIcons.plus}
           accessibilityLabel="Add member"
           onPress={() => {
-            // Add Member flow later.
+            router.push("/(main)/(modals)/debt/new-member");
           }}
         />
       </Stack.Toolbar>
@@ -110,7 +113,7 @@ export function SelectMemberScreen() {
           ) : (
             <ListState
               loading={members.loading}
-              error={members.error}
+              error={members.error?.message ?? null}
               totalCount={members.data.length}
               visibleCount={filteredMembers.length}
               loadingState={{
@@ -122,7 +125,7 @@ export function SelectMemberScreen() {
                 message: "Add a member before creating a debt.",
               }}
               noResultsState={
-                hasSearchQuery
+                normalizedSearchQuery
                   ? {
                       title: "No matching members",
                       message: `No members match “${searchQuery.trim()}”.`,
@@ -146,6 +149,7 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
   },
+
   host: {
     flex: 1,
   },
