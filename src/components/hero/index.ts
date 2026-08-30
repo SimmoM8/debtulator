@@ -1,0 +1,1 @@
+export { FilteringHero } from "./FilteringHero";
