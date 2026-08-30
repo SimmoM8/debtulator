@@ -1,5 +1,4 @@
 import { openDatabase } from "@/src/database/openDatabase";
-import { dateToISOString } from "@/src/lib/dates";
 import * as Crypto from "expo-crypto";
 import { useCallback, useState } from "react";
 import { useAuth } from "../../auth/AuthProvider";
@@ -25,7 +24,7 @@ export function useCreateDebt() {
         throw new Error("Cannot create a debt while signed out.");
       }
 
-      if (input.amount <= 0) {
+      if (!Number.isFinite(input.amount) || input.amount <= 0) {
         throw new Error("Debt amount must be greater than zero.");
       }
 
@@ -44,7 +43,7 @@ export function useCreateDebt() {
           amount: input.amount,
           currency: input.currency,
           title: input.title.trim(),
-          dueDate: input.dueDate ? dateToISOString(input.dueDate) : null,
+          dueDate: input.dueDate ? toDateString(input.dueDate) : null,
           createdAt: now,
           updatedAt: now,
         });

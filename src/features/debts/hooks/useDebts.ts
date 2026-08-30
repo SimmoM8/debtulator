@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
 
 import { openDatabase } from "@/src/database/openDatabase";
 import { useAuth } from "@/src/features/auth/AuthProvider";
@@ -15,23 +16,23 @@ export function useDebts() {
 
   const ownerUserId = auth.session?.user.id ?? null;
 
-  const loadDebts = useCallback(async () => {
+  const refresh = useCallback(async () => {
     if (!ownerUserId) {
-      return [];
+      setData([]);
+      setError(null);
+      setLoading(false);
+      return;
     }
 
-    const database = await openDatabase();
-    const repository = new SqliteDebtRepository(database);
-
-    return repository.getAllByOwner(ownerUserId);
-  }, [ownerUserId]);
-
-  const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const debts = await loadDebts();
+      const database = await openDatabase();
+      const repository = new SqliteDebtRepository(database);
+
+      const debts = await repository.getAllByOwner(ownerUserId);
+
       setData(debts);
     } catch (error) {
       setError(
@@ -40,48 +41,13 @@ export function useDebts() {
     } finally {
       setLoading(false);
     }
-  }, [loadDebts]);
+  }, [ownerUserId]);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      if (!ownerUserId) {
-        if (!cancelled) {
-          setData([]);
-          setError(null);
-          setLoading(false);
-        }
-
-        return;
-      }
-
-      try {
-        const debts = await loadDebts();
-
-        if (!cancelled) {
-          setData(debts);
-          setError(null);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setError(
-            error instanceof Error ? error : new Error("Failed to load debts."),
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    }
-
-    void load();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [loadDebts, ownerUserId]);
+  useFocusEffect(
+    useCallback(() => {
+      void refresh();
+    }, [refresh]),
+  );
 
   return {
     data,

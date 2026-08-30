@@ -1,11 +1,10 @@
 export {
     AppThemeProvider,
     useAppTheme,
-    type AppColorScheme, type AppThemeColors, type AppThemePreference
+    type AppColorScheme,
+    type AppThemeColors,
+    type AppThemePreference
 } from "./AppThemeProvider";
-
-export { brand } from "./brand";
-export { colors, gradients } from "./colors";
 
 export { NativeThemeHost } from "./NativeThemeHost";
 

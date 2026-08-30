@@ -1,13 +1,13 @@
+import type { SQLiteDatabase } from "expo-sqlite";
 import * as SQLite from "expo-sqlite";
 
 import { createSchema } from "./createSchema";
-import type { DebtulatorDatabase } from "./types";
 
 const DATABASE_NAME = "debtulator.db";
 
-let databasePromise: Promise<DebtulatorDatabase> | null = null;
+let databasePromise: Promise<SQLiteDatabase> | null = null;
 
-async function createDatabase(): Promise<DebtulatorDatabase> {
+async function createDatabase(): Promise<SQLiteDatabase> {
   const db = await SQLite.openDatabaseAsync(DATABASE_NAME);
 
   await db.execAsync(`
@@ -19,7 +19,7 @@ async function createDatabase(): Promise<DebtulatorDatabase> {
   return db;
 }
 
-export function openDatabase(): Promise<DebtulatorDatabase> {
+export function openDatabase(): Promise<SQLiteDatabase> {
   if (!databasePromise) {
     databasePromise = createDatabase();
   }

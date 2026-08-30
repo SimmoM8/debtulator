@@ -54,13 +54,14 @@ export function NewDebtProvider({ children }: PropsWithChildren) {
 
   const { createDebt, isCreating } = useCreateDebt();
 
-  const canCreate = useMemo(() => {
-    return (
-      memberId !== "" &&
-      amount !== "" &&
-      (!hasDueDate || dueDate >= startOfToday())
-    );
-  }, [memberId, amount, hasDueDate, dueDate]);
+  const numericAmount = Number(amount);
+
+  const canCreate =
+    !isCreating &&
+    memberId !== "" &&
+    Number.isFinite(numericAmount) &&
+    numericAmount > 0 &&
+    (!hasDueDate || dueDate >= startOfToday());
 
   const create = useCallback(async () => {
     if (!canCreate) {
@@ -71,7 +72,7 @@ export function NewDebtProvider({ children }: PropsWithChildren) {
       memberId,
       direction,
       title,
-      amount: parseFloat(amount),
+      amount: numericAmount,
       currency,
       dueDate: hasDueDate ? dueDate : null,
     });
@@ -81,7 +82,7 @@ export function NewDebtProvider({ children }: PropsWithChildren) {
     memberId,
     direction,
     title,
-    amount,
+    numericAmount,
     currency,
     hasDueDate,
     dueDate,

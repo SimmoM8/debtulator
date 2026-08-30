@@ -39,6 +39,8 @@ const LATEST_ALLOWED_DUE_DATE = new Date(
   Date.now() + 5 * 365 * 24 * 60 * 60 * 1000,
 ); // Five years from now
 
+export type Currency = "SEK";
+
 export function NewDebtScreen() {
   const draft = useNewDebt();
 
@@ -89,7 +91,7 @@ export function NewDebtScreen() {
     }
   }
 
-  function changeCurrency(value: "SEK") {
+  function changeCurrency(value: Currency) {
     draft.setCurrency(value);
     setShowAndroidCurrencyMenu(false);
     focusAmount();
@@ -254,7 +256,7 @@ export function NewDebtScreen() {
               <View style={styles.currencyControl}>
                 {Platform.OS === "android" ? (
                   <AndroidCurrencySelector
-                    value={draft.currency as "SEK"}
+                    value={draft.currency as Currency}
                     expanded={showAndroidCurrencyMenu}
                     onExpandedChange={setShowAndroidCurrencyMenu}
                     onChange={changeCurrency}
@@ -264,7 +266,7 @@ export function NewDebtScreen() {
                     <Picker
                       selectedValue={draft.currency}
                       onValueChange={(value) => {
-                        changeCurrency(value as "SEK");
+                        changeCurrency(value as Currency);
                       }}
                     >
                       <Picker.Item key="SEK" label="SEK" value="SEK" />
@@ -337,10 +339,10 @@ export function NewDebtScreen() {
 }
 
 type AndroidCurrencySelectorProps = {
-  value: "SEK";
+  value: Currency;
   expanded: boolean;
   onExpandedChange: (expanded: boolean) => void;
-  onChange: (currency: "SEK") => void;
+  onChange: (currency: Currency) => void;
 };
 
 function AndroidCurrencySelector({

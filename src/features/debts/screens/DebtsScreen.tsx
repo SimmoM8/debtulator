@@ -64,7 +64,7 @@ export function DebtsScreen() {
         ) : (
           <ListState
             loading={debts.loading}
-            error={debts.error}
+            error={debts.error?.message ?? null}
             totalCount={model.items.length}
             visibleCount={filteredItems.length}
             loadingState={{

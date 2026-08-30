@@ -32,7 +32,7 @@ export function startOfToday(): Date {
   return startOfDay(new Date());
 }
 
-export function dateToISOString(date: Date): string {
+export function toDateString(date: Date): string {
   const year = date.getFullYear();
   const month = `${date.getMonth() + 1}`.padStart(2, "0");
   const day = `${date.getDate()}`.padStart(2, "0");

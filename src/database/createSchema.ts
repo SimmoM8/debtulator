@@ -1,6 +1,6 @@
-import type { DebtulatorDatabase } from "./types";
+import type { SQLiteDatabase } from "expo-sqlite";
 
-export async function createSchema(db: DebtulatorDatabase): Promise<void> {
+export async function createSchema(db: SQLiteDatabase): Promise<void> {
   await db.execAsync(`
     PRAGMA foreign_keys = ON;
 
