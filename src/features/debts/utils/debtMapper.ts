@@ -1,12 +1,16 @@
-import { DEBT_DIRECTIONS, type Debt, type DebtDirection } from "../model/Debt";
+import {
+  DEBT_DIRECTIONS,
+  type Debt,
+  type DebtDirection,
+} from "@/src/features/debts/model/Debt";
 
-import type { DebtRow } from "../data/DebtSqlRow";
+import type { DebtSqlRow } from "@/src/features/debts/data/DebtSqlRow";
 
 function isDebtDirection(value: string): value is DebtDirection {
   return DEBT_DIRECTIONS.some((direction) => direction === value);
 }
 
-export function mapDebtRow(row: DebtRow): Debt {
+export function mapDebtRow(row: DebtSqlRow): Debt {
   if (!isDebtDirection(row.direction)) {
     throw new Error(
       `Invalid debt direction stored in SQLite: ${row.direction}`,
