@@ -1,3 +1,4 @@
+import { useMembers } from "@/src/features/members/hooks/useMembers";
 import { List, ListItem } from "@expo/ui";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
@@ -5,11 +6,13 @@ import { StyleSheet, View } from "react-native";
 
 import { toolbarIcons } from "@/src/components/navigation/toolbarIcons";
 import { ListState } from "@/src/components/states/ListState";
+import { useNewDebt } from "@/src/features/debts/state/NewDebtProvider";
 import { NativeThemeHost, useAppTheme } from "@/src/theme";
 
 export function SelectMemberScreen() {
-  const data = useCoreData();
-  const draft = useNewDebtDraft();
+  const draft = useNewDebt();
+  const members = useMembers();
+
   const theme = useAppTheme();
 
   const { from } = useLocalSearchParams<{
@@ -24,13 +27,13 @@ export function SelectMemberScreen() {
     const query = searchQuery.trim().toLocaleLowerCase();
 
     if (!query) {
-      return data.members.data;
+      return members.data;
     }
 
-    return data.members.data.filter((member) =>
+    return members.data.filter((member) =>
       member.displayName.toLocaleLowerCase().includes(query),
     );
-  }, [data.members.data, searchQuery]);
+  }, [members.data, searchQuery]);
 
   function close() {
     draft.reset();
@@ -45,13 +48,11 @@ export function SelectMemberScreen() {
       return;
     }
 
-    router.replace("/(modals)/debt/new");
+    router.replace("/(main)/(modals)/debt/new");
   }
 
   const showList =
-    !data.members.loading &&
-    data.members.error === null &&
-    filteredMembers.length > 0;
+    !members.loading && members.error === null && filteredMembers.length > 0;
 
   return (
     <>
@@ -108,9 +109,9 @@ export function SelectMemberScreen() {
             </List>
           ) : (
             <ListState
-              loading={data.members.loading}
-              error={data.members.error}
-              totalCount={data.members.data.length}
+              loading={members.loading}
+              error={members.error}
+              totalCount={members.data.length}
               visibleCount={filteredMembers.length}
               loadingState={{
                 title: "Loading members…",
@@ -132,7 +133,7 @@ export function SelectMemberScreen() {
                 title: "Couldn’t load members",
                 message: "Your members couldn’t be loaded. Try again.",
               }}
-              onRetry={data.members.refresh}
+              onRetry={members.refresh}
             />
           )}
         </NativeThemeHost>
