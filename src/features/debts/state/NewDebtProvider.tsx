@@ -36,9 +36,7 @@ type NewDebtContextValue = {
 const NewDebtContext = createContext<NewDebtContextValue | null>(null);
 
 export function NewDebtProvider({ children }: PropsWithChildren) {
-  const [memberId, setMemberId] = useState(
-    "21072ae7-9ce1-443c-af71-ee7f6ea4fabb",
-  );
+  const [memberId, setMemberId] = useState("");
 
   const [direction, setDirection] = useState<DebtDirection>("you_owe");
 
@@ -89,7 +87,7 @@ export function NewDebtProvider({ children }: PropsWithChildren) {
   ]);
 
   const reset = useCallback(() => {
-    setMemberId("21072ae7-9ce1-443c-af71-ee7f6ea4fabb");
+    setMemberId("");
     setDirection("you_owe");
     setTitle("");
     setAmount("");

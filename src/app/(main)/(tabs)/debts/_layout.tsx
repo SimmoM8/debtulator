@@ -27,7 +27,7 @@ export default function DebtsLayout() {
             icon={toolbarIcons.plus}
             accessibilityLabel="Add debt"
             onPress={() => {
-              router.push("/(main)/(modals)/debt/new");
+              router.push("/(main)/(modals)/debt/select-member");
             }}
           />
 

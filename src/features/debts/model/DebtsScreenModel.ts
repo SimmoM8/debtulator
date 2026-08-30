@@ -2,6 +2,8 @@ import { isDueSoon } from "@/src/features/debts/utils/isDueSoon";
 import type { Debt } from "./Debt";
 import type { DebtListItem } from "./DebtListItem";
 
+import type { Member } from "@/src/features/members/model/Member";
+
 export type DebtsScreenModel = {
   youOwe: number;
   theyOwe: number;
@@ -11,7 +13,14 @@ export type DebtsScreenModel = {
   items: DebtListItem[];
 };
 
-export function buildDebtsScreenModel(debts: Debt[]): DebtsScreenModel {
+export function buildDebtsScreenModel(
+  debts: Debt[],
+  members: Member[],
+): DebtsScreenModel {
+  const memberNames = new Map(
+    members.map((member) => [member.id, member.displayName]),
+  );
+
   let youOwe = 0;
   let theyOwe = 0;
 
@@ -29,10 +38,11 @@ export function buildDebtsScreenModel(debts: Debt[]): DebtsScreenModel {
     youOweCount: debts.filter((debt) => debt.direction === "you_owe").length,
     theyOweCount: debts.filter((debt) => debt.direction === "they_owe").length,
     netBalance: theyOwe - youOwe,
+
     items: debts.map((debt) => ({
       id: debt.id,
       title: debt.title,
-      person: debt.memberId,
+      person: memberNames.get(debt.memberId) ?? "Unknown member",
       amount: debt.amount,
       direction: debt.direction,
       date: debt.createdAt,
