@@ -1,8 +1,14 @@
+import { palette } from "@/src/presentation/theme/design";
 import { Stack } from "expo-router";
 
 export function RootNavigator() {
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: palette.background },
+      }}
+    >
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="member/[id]" />
       <Stack.Screen name="member/form" />

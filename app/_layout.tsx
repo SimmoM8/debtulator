@@ -16,29 +16,38 @@ import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
 import "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
-import { ErrorBoundary } from "@/src/presentation/components/ErrorBoundary";
-import { InAppNotificationToast } from "@/src/presentation/components/InAppNotificationToast";
-import { Button as NativeButton } from "@/src/presentation/design-system/Button";
-import {
-    palette,
-    spacing,
-    typefaces,
-    typography,
-} from "@/src/presentation/theme/design";
-import { RootNavigator } from "@/src/presentation/navigation/RootNavigator";
 import {
     addTelemetryBreadcrumb,
     configureTelemetry,
     configureTelemetrySink,
     installGlobalCrashHandler,
 } from "@/src/application/observability/telemetry";
-import { AppDataProvider, useAppData } from "@/src/presentation/providers/AppDataProvider";
-import { AuthProvider, useAuth } from "@/src/presentation/providers/AuthProvider";
-import { PlatformServicesProvider } from "@/src/presentation/providers/PlatformServicesProvider";
+import { createApiCollaborationGateway } from "@/src/infrastructure/api/ApiCollaborationGateway";
+import { createDebtulatorApiClient } from "@/src/infrastructure/api/DebtulatorApiClient";
+import { createHttpTelemetrySink } from "@/src/infrastructure/api/HttpTelemetrySink";
+import { supabaseAuthServices } from "@/src/infrastructure/auth/clientAuthAdapter";
+import { sqliteLocalDataBootstrap } from "@/src/infrastructure/sqlite/localDataBootstrap";
 import { expoPlatformFileServices } from "@/src/platform/files/expoPlatformFileServices";
+import { ErrorBoundary } from "@/src/presentation/components/ErrorBoundary";
+import { InAppNotificationToast } from "@/src/presentation/components/InAppNotificationToast";
+import { Button as NativeButton } from "@/src/presentation/design-system/Button";
+import { RootNavigator } from "@/src/presentation/navigation/RootNavigator";
+import {
+    AppDataProvider,
+    useAppData,
+} from "@/src/presentation/providers/AppDataProvider";
+import {
+    AuthProvider,
+    useAuth,
+} from "@/src/presentation/providers/AuthProvider";
 import { CollaborationProvider } from "@/src/presentation/providers/CollaborationProvider";
-import { createSupabaseCollaborationGateway } from "@/src/infrastructure/supabase/SupabaseCollaborationGateway";
-import { supabaseTelemetrySink } from "@/src/infrastructure/supabase/SupabaseTelemetrySink";
+import { PlatformServicesProvider } from "@/src/presentation/providers/PlatformServicesProvider";
+import {
+    palette,
+    spacing,
+    typefaces,
+    typography,
+} from "@/src/presentation/theme/design";
 
 export const unstable_settings = {
   anchor: "(tabs)",
@@ -51,7 +60,7 @@ const DebtulatorTheme = {
   colors: {
     ...DefaultTheme.colors,
     primary: palette.brand,
-    background: palette.background,
+    background: "transparent",
     card: palette.surfaceGlassStrong,
     text: palette.ink,
     border: palette.borderIndigoSoft,
@@ -59,10 +68,15 @@ const DebtulatorTheme = {
   },
 };
 
-const collaborationGateway = createSupabaseCollaborationGateway(
+const apiClient = createDebtulatorApiClient(
+  process.env.EXPO_PUBLIC_API_URL ?? "",
+  () => supabaseAuthServices.getAccessToken(),
+);
+const collaborationGateway = createApiCollaborationGateway(
+  apiClient,
   expoPlatformFileServices.files,
 );
-configureTelemetrySink(supabaseTelemetrySink);
+configureTelemetrySink(createHttpTelemetrySink(apiClient));
 
 export default function RootLayout() {
   const [manropeLoaded] = useManropeFonts({
@@ -96,27 +110,29 @@ export default function RootLayout() {
   }
 
   return (
-    <PlatformServicesProvider services={expoPlatformFileServices}>
-      <CollaborationProvider gateway={collaborationGateway}>
-        <SafeAreaProvider>
-          <AppDataProvider>
-            <TelemetrySettingsBridge />
-            <ThemeProvider value={DebtulatorTheme}>
-              <ErrorBoundary>
-                <AppDataGate>
-                  <AuthProvider>
-                    <StartupRouteGate>
-                      <RootNavigator />
-                      <InAppNotificationToast />
-                    </StartupRouteGate>
-                  </AuthProvider>
-                </AppDataGate>
-              </ErrorBoundary>
-            </ThemeProvider>
-          </AppDataProvider>
-        </SafeAreaProvider>
-      </CollaborationProvider>
-    </PlatformServicesProvider>
+    <View style={styles.root}>
+      <PlatformServicesProvider services={expoPlatformFileServices}>
+        <CollaborationProvider gateway={collaborationGateway}>
+          <SafeAreaProvider>
+            <AppDataProvider bootstrap={sqliteLocalDataBootstrap}>
+              <TelemetrySettingsBridge />
+              <ThemeProvider value={DebtulatorTheme}>
+                <ErrorBoundary>
+                  <AppDataGate>
+                    <AuthProvider services={supabaseAuthServices}>
+                      <StartupRouteGate>
+                        <RootNavigator />
+                        <InAppNotificationToast />
+                      </StartupRouteGate>
+                    </AuthProvider>
+                  </AppDataGate>
+                </ErrorBoundary>
+              </ThemeProvider>
+            </AppDataProvider>
+          </SafeAreaProvider>
+        </CollaborationProvider>
+      </PlatformServicesProvider>
+    </View>
   );
 }
 
@@ -200,9 +216,13 @@ function StartupRouteGate({ children }: { children: React.ReactNode }) {
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: palette.background,
+  },
   gate: {
     alignItems: "center",
-    backgroundColor: palette.background,
+    backgroundColor: "transparent",
     flex: 1,
     gap: spacing.md,
     justifyContent: "center",
