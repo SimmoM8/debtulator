@@ -4,7 +4,6 @@
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
-    "postinstall": "patch-package",
     "reset-project": "node ./scripts/reset-project.js",
     "reset:test-data": "node ./scripts/reset-test-data.js",
     "preflight:beta": "node ./scripts/release-preflight.js --profile staging",
@@ -24,24 +23,17 @@
     "supabase:reset": "supabase db reset"
   },
   "dependencies": {
-    "@expo-google-fonts/manrope": "^0.4.2",
-    "@expo-google-fonts/sora": "^0.4.2",
+    "@expo/material-symbols": "^0.1.1",
     "@expo/ui": "~56.0.26",
-    "@expo/vector-icons": "^15.0.3",
+    "@expo/vector-icons": "^15.0.2",
+    "@react-navigation/elements": "^2.9.39",
     "@supabase/supabase-js": "^2.108.1",
-    "boring-avatars": "^2.0.4",
     "expo": "~56.0.20",
-    "expo-asset": "~56.0.20",
-    "expo-blur": "~56.0.4",
     "expo-constants": "^56.0.18",
     "expo-dev-client": "~56.0.25",
     "expo-document-picker": "~56.0.4",
     "expo-file-system": "~56.0.8",
-    "expo-font": "~56.0.6",
-    "expo-glass-effect": "~56.0.4",
     "expo-go": "^0.0.4",
-    "expo-haptics": "~56.0.3",
-    "expo-image": "~56.0.12",
     "expo-image-picker": "~56.0.24",
     "expo-linear-gradient": "~56.0.4",
     "expo-linking": "~56.0.17",
@@ -51,7 +43,6 @@
     "expo-sqlite": "~56.0.5",
     "expo-status-bar": "~56.0.4",
     "expo-symbols": "~56.0.7",
-    "expo-system-ui": "~56.0.5",
     "expo-web-browser": "~56.0.6",
     "jest-expo": "~56.0.5",
     "react": "19.2.3",
@@ -61,7 +52,6 @@
     "react-native-reanimated": "4.3.1",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "4.25.2",
-    "react-native-svg": "15.15.4",
     "react-native-url-polyfill": "^3.0.0",
     "react-native-web": "~0.21.0",
     "react-native-worklets": "0.8.3"
@@ -73,7 +63,6 @@
     "eslint": "^9.25.0",
     "eslint-config-expo": "~56.0.4",
     "jest": "^29.7.0",
-    "patch-package": "^8.0.1",
     "react-test-renderer": "19.2.3",
     "supabase": "^2.107.0",
     "typescript": "~6.0.3"
@@ -88,7 +77,7 @@
       "<rootDir>/jest.setup.js"
     ],
     "transformIgnorePatterns": [
-      "node_modules/(?!((jest-)?react-native|@react-native|expo(nent)?|@expo(nent)?/.*|@expo/ui|react-navigation|@react-navigation/.*))"
+      "node_modules/(?!((jest-)?react-native|@react-native|expo(nent)?|@expo(nent)?/.*|react-navigation|@react-navigation/.*))"
     ]
   },
   "expo": {

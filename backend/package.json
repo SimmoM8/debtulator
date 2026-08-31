@@ -5,11 +5,14 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "start": "node --experimental-strip-types src/server.ts"
+    "start": "node --env-file=.env --import=tsx src/server.ts"
   },
   "dependencies": {
     "@debtulator/contracts": "file:../packages/contracts",
     "@supabase/supabase-js": "^2.109.0",
     "@types/node": "^26.2.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.12"
   }
 }

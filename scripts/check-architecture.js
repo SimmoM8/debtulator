@@ -10,34 +10,43 @@ const repositoryRoot = path.resolve(__dirname, '..');
 const sourceExtensions = new Set(['.js', '.jsx', '.ts', '.tsx']);
 const scannedRoots = ['app', 'src', 'backend', 'packages/contracts'];
 
-const layers = ['domain', 'application', 'infrastructure', 'platform', 'presentation'];
+const layers = [
+  'domain',
+  'application',
+  'infrastructure',
+  'platform',
+  'presentation',
+  'components',
+  'navigation',
+  'theme',
+];
 const allowedInternalDependencies = {
   domain: new Set(['domain']),
   application: new Set(['application', 'domain', 'contracts']),
   infrastructure: new Set(['infrastructure', 'platform', 'application', 'domain', 'contracts']),
   platform: new Set(['platform', 'application', 'domain']),
-  presentation: new Set(['presentation', 'application', 'domain']),
+  presentation: new Set(['presentation', 'components', 'theme', 'application', 'domain']),
+  components: new Set(['components', 'theme']),
+  navigation: new Set(['navigation', 'components', 'theme']),
+  theme: new Set(['theme']),
   backend: new Set(['backend', 'contracts']),
   contracts: new Set(['contracts']),
 };
 
 const legacySrcAliases = new Map([
-  ['components', 'src/presentation/components or src/presentation/design-system'],
-  ['config', 'the owning layer (usually src/presentation/config)'],
-  ['constants', 'src/domain or src/presentation/theme'],
+  ['config', 'the owning layer'],
+  ['constants', 'src/domain or src/theme'],
   ['data', 'src/infrastructure or src/application'],
   ['features', 'src/presentation/features'],
-  ['navigation', 'src/presentation/navigation'],
   ['screens', 'src/presentation/screens'],
   ['services', 'src/domain, src/application, src/infrastructure, or src/platform'],
   ['state', 'src/presentation/providers'],
-  ['theme', 'src/presentation/theme'],
   ['types', 'src/domain/models'],
   ['utils', 'src/domain/shared or the owning layer'],
 ]);
 const legacyRootAliases = new Map([
-  ['components', 'src/presentation/components or src/presentation/design-system'],
-  ['constants', 'src/domain or src/presentation/theme'],
+  ['components', 'src/components'],
+  ['constants', 'src/domain or src/theme'],
   ['hooks', 'the owning src/presentation feature'],
 ]);
 
@@ -299,6 +308,9 @@ function checkLayerImport(repositoryPath, sourceLayer, imported, target) {
     (sourceLayer === 'infrastructure' ||
       sourceLayer === 'platform' ||
       sourceLayer === 'presentation' ||
+      sourceLayer === 'components' ||
+      sourceLayer === 'navigation' ||
+      sourceLayer === 'theme' ||
       sourceLayer === 'backend')
   ) {
     return null;
@@ -502,7 +514,7 @@ function printResult(result) {
     console.error(`  Fix: ${item.fix}`);
   }
   console.error(
-    '\nBoundary summary: domain -> domain; application -> application/domain; infrastructure -> infrastructure/platform/application/domain; platform -> platform/application/domain; presentation -> presentation/application/domain. Layouts and explicit composition providers are the wiring roots.',
+    '\nBoundary summary: domain -> domain; application -> application/domain; infrastructure -> infrastructure/platform/application/domain; platform -> platform/application/domain; theme -> theme; components -> components/theme; navigation -> navigation/components/theme; presentation -> presentation/components/theme/application/domain. Layouts and explicit composition providers are the wiring roots.',
   );
 }
 

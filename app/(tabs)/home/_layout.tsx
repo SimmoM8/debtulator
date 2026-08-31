@@ -1,3 +1,5 @@
-import { Slot } from "expo-router";
+import { NavHeader } from "@/src/presentation/components/layout";
 
-export default Slot;
+export default function HomeLayout() {
+  return <NavHeader />;
+}

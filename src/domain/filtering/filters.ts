@@ -14,6 +14,7 @@ import type {
 } from '@/src/domain/models';
 import { sumMoneyMap } from '@/src/domain/finance/money';
 import { normalizeText } from '@/src/domain/shared/text';
+import { isDueSoon } from '@/src/domain/shared/dates';
 
 export function filterMembers(members: Member[], balances: Record<string, MoneyMap>, filters: MemberFilters) {
   const query = normalizeText(filters.query);
@@ -59,9 +60,6 @@ export function filterDebtEntries(
   const minAmount = Number(filters.minAmount);
   const maxAmount = Number(filters.maxAmount);
   const today = new Date().toISOString().slice(0, 10);
-  const soon = new Date();
-  soon.setDate(soon.getDate() + 7);
-  const soonDate = soon.toISOString().slice(0, 10);
 
   const filtered = entries.filter((entry) => {
     const memberNames = [entry.fromId, entry.toId]
@@ -101,7 +99,7 @@ export function filterDebtEntries(
       filters.dueMode === 'all' ||
       (filters.dueMode === 'no_due_date' && !entry.dueDate) ||
       (filters.dueMode === 'overdue' && Boolean(entry.dueDate && entry.dueDate < today && entry.remainingAmount > 0.005)) ||
-      (filters.dueMode === 'due_soon' && Boolean(entry.dueDate && entry.dueDate >= today && entry.dueDate <= soonDate));
+      (filters.dueMode === 'due_soon' && isDueSoon(entry.dueDate));
     const amountMatch =
       (!Number.isFinite(minAmount) || entry.amount >= minAmount) &&
       (!Number.isFinite(maxAmount) || entry.amount <= maxAmount);

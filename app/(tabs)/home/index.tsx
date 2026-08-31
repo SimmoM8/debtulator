@@ -1,3 +1,17 @@
-import { DashboardScreen } from "@/src/presentation/features/home/screens/DashboardScreen";
+import { Stack } from "expo-router";
 
-export default DashboardScreen;
+import { HomeScreen } from "@/src/presentation/screens/HomeScreen";
+
+export default function HomeRoute() {
+  return (
+    <>
+      <Stack.Screen
+        options={{
+          title: "Home",
+        }}
+      />
+
+      <HomeScreen />
+    </>
+  );
+}

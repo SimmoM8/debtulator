@@ -1,3 +1,1 @@
-import { DebtsScreen } from "@/src/presentation/features/debts/screens/DebtsScreen";
-
-export default DebtsScreen;
+export { DebtsScreen as default } from "@/src/presentation/screens/DebtsScreen";

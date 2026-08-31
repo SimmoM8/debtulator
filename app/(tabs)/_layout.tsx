@@ -1,1 +1,1 @@
-export { default } from '@/src/presentation/navigation/AppTabs';
+export { default } from "@/src/navigation/AppTabs";

@@ -1,0 +1,21 @@
+import AddIcon from "@expo/material-symbols/add.xml";
+import ArrowBackIcon from "@expo/material-symbols/arrow_back.xml";
+import CheckIcon from "@expo/material-symbols/check.xml";
+import CloseIcon from "@expo/material-symbols/close.xml";
+import MoreIcon from "@expo/material-symbols/more_vert.xml";
+import SearchIcon from "@expo/material-symbols/search.xml";
+
+export const toolbarIcons = {
+  plus: process.env.EXPO_OS === "ios" ? "plus" : AddIcon,
+
+  back: process.env.EXPO_OS === "ios" ? "chevron.left" : ArrowBackIcon,
+
+  check: process.env.EXPO_OS === "ios" ? "checkmark" : CheckIcon,
+
+  close: process.env.EXPO_OS === "ios" ? "xmark" : CloseIcon,
+
+  ellipsis: process.env.EXPO_OS === "ios" ? "ellipsis" : MoreIcon,
+
+  magnifyingglass:
+    process.env.EXPO_OS === "ios" ? "magnifyingglass" : SearchIcon,
+} as const;

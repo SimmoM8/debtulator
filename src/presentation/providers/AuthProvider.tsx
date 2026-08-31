@@ -1,41 +1,41 @@
 import React, {
-    createContext,
-    useCallback,
-    useContext,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
 } from "react";
 
 import {
-    addTelemetryBreadcrumb,
-    captureTelemetryException,
-    trackFirstSuccess,
-    trackTelemetryEvent,
+  addTelemetryBreadcrumb,
+  captureTelemetryException,
+  trackFirstSuccess,
+  trackTelemetryEvent,
 } from "@/src/application/observability/telemetry";
 import type {
-    AuthServices,
-    AuthSession as Session,
-    AuthenticatedUser as User,
+  AuthServices,
+  AuthSession as Session,
+  AuthenticatedUser as User,
 } from "@/src/application/ports/authServices";
 import { canRetrySyncEntry } from "@/src/application/sync/syncPolicy";
 import { DEFAULT_BASE_CURRENCY } from "@/src/domain/finance/currencies";
 import type {
-    CurrencyCode,
-    Debt,
-    DebtVerification,
-    LinkRequest,
-    NotificationType,
-    Payment,
-    Settlement,
-    SettlementLine,
-    UserProfile,
+  CurrencyCode,
+  Debt,
+  DebtVerification,
+  LinkRequest,
+  NotificationType,
+  Payment,
+  Settlement,
+  SettlementLine,
+  UserProfile,
 } from "@/src/domain/models";
 import { nowIso } from "@/src/domain/shared/identifiers";
 import {
-    bindAuthAutoRefreshLifecycle,
-    subscribeToAppForeground,
+  bindAuthAutoRefreshLifecycle,
+  subscribeToAppForeground,
 } from "@/src/platform/lifecycle/appLifecycle";
 import { useAppData } from "@/src/presentation/providers/AppDataProvider";
 
@@ -1071,9 +1071,14 @@ export function AuthProvider({
     }
     if (user?.id && data.ready && bootSyncedUserIdRef.current !== user.id) {
       bootSyncedUserIdRef.current = user.id;
-      refreshProfileRef.current().catch(() => undefined);
-      syncStage2RecordsRef.current().catch(() => undefined);
-      runRemoteDataSyncRef.current().catch(() => undefined);
+
+      refreshProfileRef
+        .current()
+        .then(() => syncStage2RecordsRef.current())
+        .then(() => runRemoteDataSyncRef.current())
+        .catch((error) => {
+          console.error("auth bootstrap sync failed", error);
+        });
     }
   }, [client, data.ready, user?.id]);
 
@@ -1091,7 +1096,9 @@ export function AuthProvider({
       .current()
       .then(() => syncStage2RecordsRef.current())
       .then(() => runRemoteDataSyncRef.current())
-      .catch(() => undefined);
+      .catch((error) => {
+        console.error("post-reset sync failed", error);
+      });
   }, [data.ready, data.syncedDataResetVersion, user?.id]);
 
   useEffect(() => {
