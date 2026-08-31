@@ -1,55 +1,32 @@
-import { router, Stack } from "expo-router";
-import { useRef, useState } from "react";
+import { Stack } from "expo-router";
+import { useRef } from "react";
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    StyleSheet,
-    TextInput,
-    View,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  TextInput,
+  View,
 } from "react-native";
 
 import { toolbarIcons } from "@/src/components/navigation/toolbarIcons";
-import { useNewDebt } from "@/src/features/debts/state/NewDebtProvider";
-import { useCreateMember } from "@/src/features/members/hooks/useCreateMember";
+import { useNewMember } from "@/src/features/members/state/NewMemberProvider";
 import { textStyles, useAppTheme } from "@/src/theme";
 
 export function NewMemberScreen() {
   const theme = useAppTheme();
 
-  const draft = useNewDebt();
-
-  const { createMember, isCreating } = useCreateMember();
+  const draft = useNewMember();
 
   const inputRef = useRef<TextInput>(null);
 
-  const [displayName, setDisplayName] = useState("");
-
-  const normalizedName = displayName.trim();
-
-  const canCreate = normalizedName.length > 0 && !isCreating;
-
-  function cancel() {
-    if (isCreating) {
-      return;
-    }
-
-    router.back();
-  }
-
   async function create() {
-    if (!canCreate) {
+    if (!draft.canCreate) {
       return;
     }
 
     try {
-      const member = await createMember({
-        displayName: normalizedName,
-      });
-
-      draft.setMemberId(member.id);
-
-      router.dismissTo("/(main)/(modals)/debt/new");
+      await draft.create();
     } catch (error) {
       console.error("Failed to create member", error);
 
@@ -66,8 +43,8 @@ export function NewMemberScreen() {
         <Stack.Toolbar.Button
           icon={toolbarIcons.close}
           accessibilityLabel="Cancel new member"
-          disabled={isCreating}
-          onPress={cancel}
+          disabled={draft.isCreating}
+          onPress={draft.cancel}
         />
       </Stack.Toolbar>
 
@@ -75,22 +52,22 @@ export function NewMemberScreen() {
         {Platform.OS === "ios" ? (
           <Stack.Toolbar.Button
             accessibilityLabel={
-              isCreating ? "Creating member" : "Create member"
+              draft.isCreating ? "Creating member" : "Create member"
             }
-            disabled={!canCreate}
+            disabled={!draft.canCreate}
             onPress={() => {
               void create();
             }}
           >
-            {isCreating ? "Creating…" : "Create"}
+            {draft.isCreating ? "Creating…" : "Create"}
           </Stack.Toolbar.Button>
         ) : (
           <Stack.Toolbar.Button
             icon={toolbarIcons.check}
             accessibilityLabel={
-              isCreating ? "Creating member" : "Create member"
+              draft.isCreating ? "Creating member" : "Create member"
             }
-            disabled={!canCreate}
+            disabled={!draft.canCreate}
             onPress={() => {
               void create();
             }}
@@ -111,8 +88,8 @@ export function NewMemberScreen() {
           <TextInput
             ref={inputRef}
             autoFocus
-            value={displayName}
-            onChangeText={setDisplayName}
+            value={draft.displayName}
+            onChangeText={draft.setDisplayName}
             placeholder="Name"
             placeholderTextColor={theme.colors.placeholder}
             selectionColor={theme.colors.controlTint}
@@ -120,7 +97,7 @@ export function NewMemberScreen() {
             autoCorrect={false}
             returnKeyType="done"
             maxLength={80}
-            editable={!isCreating}
+            editable={!draft.isCreating}
             onSubmitEditing={() => {
               void create();
             }}
