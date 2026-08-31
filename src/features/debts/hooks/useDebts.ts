@@ -1,11 +1,12 @@
-import { useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-import { openDatabase } from "@/src/database/openDatabase";
+import { openDatabase } from "@/src/data/sqlite/openDatabase";
 import { useAuth } from "@/src/features/auth/AuthProvider";
 
-import { SqliteDebtRepository } from "../data/SqliteDebtRepository";
-import type { Debt } from "../model/Debt";
+import { subscribeToDataChanges } from "@/src/data/sqlite/dataChanges";
+import { SqliteDebtRepository } from "@/src/features/debts/data/SqliteDebtRepository";
+import type { Debt } from "@/src/features/debts/model/Debt";
+import { useFocusEffect } from "expo-router";
 
 export function useDebts() {
   const auth = useAuth();
@@ -48,6 +49,14 @@ export function useDebts() {
       void refresh();
     }, [refresh]),
   );
+
+  useEffect(() => {
+    return subscribeToDataChanges((resources) => {
+      if (resources.has("debts")) {
+        void refresh();
+      }
+    });
+  }, [refresh]);
 
   return {
     data,

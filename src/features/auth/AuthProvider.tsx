@@ -1,3 +1,7 @@
+import {
+  isSupabaseConfigured,
+  supabase,
+} from "@/src/data/supabase/supabaseClient";
 import type { Session } from "@supabase/supabase-js";
 import type { PropsWithChildren } from "react";
 import {
@@ -9,7 +13,6 @@ import {
   useState,
 } from "react";
 import { AppState, Platform } from "react-native";
-import { isSupabaseConfigured, supabase } from "./data/supabaseAuthClient";
 
 type SignInInput = {
   email: string;

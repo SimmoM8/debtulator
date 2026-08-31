@@ -11,6 +11,7 @@ async function createDatabase(): Promise<SQLiteDatabase> {
   const db = await SQLite.openDatabaseAsync(DATABASE_NAME);
 
   await db.execAsync(`
+    PRAGMA journal_mode = WAL;
     PRAGMA foreign_keys = ON;
   `);
 
