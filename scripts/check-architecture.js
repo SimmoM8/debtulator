@@ -36,8 +36,6 @@ const allowedInternalDependencies = {
 const legacySrcAliases = new Map([
   ['config', 'the owning layer'],
   ['constants', 'src/domain or src/theme'],
-  ['data', 'src/infrastructure or src/application'],
-  ['features', 'src/presentation/features'],
   ['screens', 'src/presentation/screens'],
   ['services', 'src/domain, src/application, src/infrastructure, or src/platform'],
   ['state', 'src/presentation/providers'],
@@ -389,7 +387,7 @@ function checkRouteImport(repositoryPath, imported, target) {
   if (
     target.kind === 'internal' &&
     target.repositoryPath &&
-    /^src\/presentation\/(?:screens|features)(?:\/|$)/.test(target.repositoryPath)
+    /^src\/(?:presentation\/screens|presentation\/features|features)(?:\/|$)/.test(target.repositoryPath)
   ) {
     return null;
   }
@@ -397,7 +395,7 @@ function checkRouteImport(repositoryPath, imported, target) {
     repositoryPath,
     imported,
     'route-boundary',
-    `Non-layout routes may import only Expo Router or src/presentation/{screens,features}; found "${imported.specifier}".`,
+    `Non-layout routes may import only Expo Router or presentation/feature screens; found "${imported.specifier}".`,
     'Keep the route as a thin re-export/redirect and move rendering, state, and SDK usage into presentation.',
   );
 }
