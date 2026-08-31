@@ -51,5 +51,33 @@ export async function createSchema(db: SQLiteDatabase): Promise<void> {
     CREATE INDEX IF NOT EXISTS debts_owner_due_date_idx
       ON debts(owner_user_id, due_date)
       WHERE due_date IS NOT NULL;
+
+    CREATE TABLE IF NOT EXISTS sync_outbox (
+      id TEXT PRIMARY KEY NOT NULL,
+      owner_user_id TEXT NOT NULL,
+      entity_type TEXT NOT NULL
+        CHECK (entity_type IN ('member', 'debt')),
+      entity_id TEXT NOT NULL,
+      operation TEXT NOT NULL
+        CHECK (operation IN ('upsert', 'delete')),
+      payload_json TEXT,
+      created_at TEXT NOT NULL,
+      attempt_count INTEGER NOT NULL DEFAULT 0,
+      last_error TEXT,
+      CHECK (
+        (operation = 'upsert' AND payload_json IS NOT NULL)
+        OR
+        (operation = 'delete' AND payload_json IS NULL)
+      )
+    );
+
+    CREATE INDEX IF NOT EXISTS sync_outbox_owner_created_idx
+      ON sync_outbox(owner_user_id, created_at);
+
+    CREATE TABLE IF NOT EXISTS sync_state (
+      owner_user_id TEXT PRIMARY KEY NOT NULL,
+      last_remote_sequence INTEGER NOT NULL DEFAULT 0
+        CHECK (last_remote_sequence >= 0)
+    );
   `);
 }

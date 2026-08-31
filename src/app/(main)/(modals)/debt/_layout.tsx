@@ -1,14 +1,36 @@
-import { Stack } from "expo-router";
+import { router, Stack } from "expo-router";
 
-import { NewDebtProvider } from "@/src/features/debts/state/NewDebtProvider";
-
+import {
+  NewDebtProvider,
+  useNewDebt,
+} from "@/src/features/debts/state/NewDebtProvider";
+import { NewMemberProvider } from "@/src/features/members/state/NewMemberProvider";
 import { useAppTheme } from "@/src/theme";
 
 export default function DebtModalLayout() {
   return (
     <NewDebtProvider>
-      <DebtModalNavigator />
+      <DebtModalFlow />
     </NewDebtProvider>
+  );
+}
+
+function DebtModalFlow() {
+  const debtDraft = useNewDebt();
+
+  return (
+    <NewMemberProvider
+      onCancel={() => {
+        router.back();
+      }}
+      onCreated={(member) => {
+        debtDraft.setMemberId(member.id);
+
+        router.dismissTo("/(main)/(modals)/debt/new");
+      }}
+    >
+      <DebtModalNavigator />
+    </NewMemberProvider>
   );
 }
 
@@ -41,12 +63,19 @@ function DebtModalNavigator() {
         }}
       />
 
-      {/*       <Stack.Screen
+      <Stack.Screen
         name="select-member"
         options={{
           title: "Select Member",
         }}
-      /> */}
+      />
+
+      <Stack.Screen
+        name="new-member"
+        options={{
+          title: "New Member",
+        }}
+      />
     </Stack>
   );
 }

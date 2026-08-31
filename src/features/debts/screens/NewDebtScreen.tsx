@@ -26,6 +26,7 @@ import { SelectedMemberCard } from "@/src/features/debts/components/SelectedMemb
 import type { DebtDirection } from "@/src/features/debts/model/Debt";
 import { useNewDebt } from "@/src/features/debts/state/NewDebtProvider";
 import { NativeThemeHost, textStyles, useAppTheme } from "@/src/theme";
+import { useMembers } from "../../members/hooks/useMembers";
 
 const DIRECTION_OPTIONS = [
   { value: "you_owe", label: "You owe" },
@@ -42,9 +43,15 @@ const LATEST_ALLOWED_DUE_DATE = new Date(
 export type Currency = "SEK";
 
 export function NewDebtScreen() {
-  const draft = useNewDebt();
-
   const theme = useAppTheme();
+
+  const draft = useNewDebt();
+  const members = useMembers();
+
+  const selectedMember = useMemo(
+    () => members.data.find((member) => member.id === draft.memberId) ?? null,
+    [draft.memberId, members.data],
+  );
 
   const styles = useMemo(() => createStyles(theme.colors), [theme.colors]);
 
@@ -215,7 +222,7 @@ export function NewDebtScreen() {
 
           <View style={styles.memberSection}>
             <SelectedMemberCard
-              memberName={draft.memberId ? draft.memberId : "Select Member"}
+              memberName={selectedMember?.displayName ?? "Select Member"}
               onPress={changeMember}
             />
           </View>

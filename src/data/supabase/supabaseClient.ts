@@ -6,7 +6,7 @@ import {
   type SupabaseClient,
 } from "@supabase/supabase-js";
 
-import { authSessionStorage } from "./sessionStorage";
+import { authSessionStorage } from "@/src/features/auth/data/sessionStorage.native";
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 
@@ -20,11 +20,9 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
   ? createClient(supabaseUrl!, supabaseClientKey!, {
       auth: {
         storage: authSessionStorage,
-
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: false,
-
         lock: processLock,
       },
     })

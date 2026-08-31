@@ -14,14 +14,19 @@ import {
 } from "@/src/features/debts/components/DebtSummaryHeader";
 import { buildDebtsScreenModel } from "@/src/features/debts/model/DebtsScreenModel";
 import { useAppTheme } from "@/src/theme";
+import { useMembers } from "../../members/hooks/useMembers";
 
 export function DebtsScreen() {
   const debts = useDebts();
+  const members = useMembers();
+
   const theme = useAppTheme();
   const [filter, setFilter] = useState<DebtFilter>("all");
 
-  const model = useMemo(() => buildDebtsScreenModel(debts.data), [debts.data]);
-
+  const model = useMemo(
+    () => buildDebtsScreenModel(debts.data, members.data),
+    [debts.data, members.data],
+  );
   const filteredItems = useMemo(() => {
     if (filter === "all") {
       return model.items;

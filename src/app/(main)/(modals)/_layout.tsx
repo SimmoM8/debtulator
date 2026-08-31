@@ -24,6 +24,7 @@ export default function ModalsLayout() {
       }}
     >
       <Stack.Screen name="debt" />
+      <Stack.Screen name="member" />
     </Stack>
   );
 }

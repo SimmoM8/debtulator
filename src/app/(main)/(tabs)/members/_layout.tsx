@@ -3,21 +3,21 @@ import { router, Stack } from "expo-router";
 import { NavHeader } from "@/src/components/layout";
 import { toolbarIcons } from "@/src/components/navigation/toolbarIcons";
 
-export default function DebtsLayout() {
+export default function MembersLayout() {
   return (
     <NavHeader>
       <Stack.Screen
         name="index"
         options={{
-          title: "Debts",
+          title: "Members",
         }}
       >
         <Stack.Toolbar placement="left">
           <Stack.Toolbar.Button
             icon={toolbarIcons.magnifyingglass}
-            accessibilityLabel="Search debts"
+            accessibilityLabel="Search members"
             onPress={() => {
-              // Search debts
+              // Search members
             }}
           />
         </Stack.Toolbar>
@@ -25,16 +25,16 @@ export default function DebtsLayout() {
         <Stack.Toolbar placement="right">
           <Stack.Toolbar.Button
             icon={toolbarIcons.plus}
-            accessibilityLabel="Add debt"
+            accessibilityLabel="Add member"
             onPress={() => {
-              router.push("/(main)/(modals)/debt/select-member");
+              router.push("/(main)/(modals)/member/new");
             }}
           />
 
           <Stack.Toolbar.Menu icon={toolbarIcons.ellipsis}>
             <Stack.Toolbar.MenuAction
               onPress={() => {
-                // Filter debts
+                // More advanced filtering can live here later.
               }}
             >
               Filter
@@ -42,7 +42,7 @@ export default function DebtsLayout() {
 
             <Stack.Toolbar.MenuAction
               onPress={() => {
-                // Sort debts
+                // Sorting later.
               }}
             >
               Sort

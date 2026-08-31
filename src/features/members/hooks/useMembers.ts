@@ -4,14 +4,14 @@ import { openDatabase } from "@/src/data/sqlite/openDatabase";
 import { useAuth } from "@/src/features/auth/AuthProvider";
 
 import { subscribeToDataChanges } from "@/src/data/sqlite/dataChanges";
-import { SqliteDebtRepository } from "@/src/features/debts/data/SqliteDebtRepository";
-import type { Debt } from "@/src/features/debts/model/Debt";
+import { SqliteMemberRepository } from "@/src/features/members/data/SqliteMemberRepository";
+import type { Member } from "@/src/features/members/model/Member";
 import { useFocusEffect } from "expo-router";
 
-export function useDebts() {
+export function useMembers() {
   const auth = useAuth();
 
-  const [data, setData] = useState<Debt[]>([]);
+  const [data, setData] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
@@ -30,14 +30,15 @@ export function useDebts() {
 
     try {
       const database = await openDatabase();
-      const repository = new SqliteDebtRepository(database);
 
-      const debts = await repository.getAllByOwner(ownerUserId);
+      const repository = new SqliteMemberRepository(database);
 
-      setData(debts);
+      const members = await repository.getAllByOwner(ownerUserId);
+
+      setData(members);
     } catch (error) {
       setError(
-        error instanceof Error ? error : new Error("Failed to load debts."),
+        error instanceof Error ? error : new Error("Failed to load members."),
       );
     } finally {
       setLoading(false);
@@ -52,7 +53,7 @@ export function useDebts() {
 
   useEffect(() => {
     return subscribeToDataChanges((resources) => {
-      if (resources.has("debts")) {
+      if (resources.has("members")) {
         void refresh();
       }
     });
