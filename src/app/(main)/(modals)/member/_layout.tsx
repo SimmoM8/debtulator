@@ -2,13 +2,15 @@ import { Stack } from "expo-router";
 
 import { useAppTheme } from "@/src/theme";
 
-export default function ModalsLayout() {
+export default function MemberModalLayout() {
   const theme = useAppTheme();
 
   return (
     <Stack
       screenOptions={{
-        headerShown: false,
+        headerShown: true,
+        headerLargeTitle: false,
+        headerTitleAlign: "center",
 
         headerStyle: {
           backgroundColor: theme.colors.appBackground,
@@ -23,8 +25,12 @@ export default function ModalsLayout() {
         },
       }}
     >
-      <Stack.Screen name="debt" />
-      <Stack.Screen name="member" />
+      <Stack.Screen
+        name="new"
+        options={{
+          title: "New Member",
+        }}
+      />
     </Stack>
   );
 }
