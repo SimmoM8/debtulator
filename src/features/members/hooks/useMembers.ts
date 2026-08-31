@@ -1,11 +1,12 @@
-import { useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-import { openDatabase } from "@/src/database/openDatabase";
+import { openDatabase } from "@/src/data/sqlite/openDatabase";
 import { useAuth } from "@/src/features/auth/AuthProvider";
 
-import { SqliteMemberRepository } from "../data/SqliteMemberRepository";
-import type { Member } from "../model/Member";
+import { subscribeToDataChanges } from "@/src/data/sqlite/dataChanges";
+import { SqliteMemberRepository } from "@/src/features/members/data/SqliteMemberRepository";
+import type { Member } from "@/src/features/members/model/Member";
+import { useFocusEffect } from "expo-router";
 
 export function useMembers() {
   const auth = useAuth();
@@ -49,6 +50,14 @@ export function useMembers() {
       void refresh();
     }, [refresh]),
   );
+
+  useEffect(() => {
+    return subscribeToDataChanges((resources) => {
+      if (resources.has("members")) {
+        void refresh();
+      }
+    });
+  }, [refresh]);
 
   return {
     data,

@@ -1,10 +1,13 @@
 import * as Crypto from "expo-crypto";
 import { useCallback, useState } from "react";
 
-import { openDatabase } from "@/src/database/openDatabase";
+import { openDatabase } from "@/src/data/sqlite/openDatabase";
 import { useAuth } from "@/src/features/auth/AuthProvider";
 
-import { SqliteMemberRepository } from "../data/SqliteMemberRepository";
+import { emitDataChanged } from "@/src/data/sqlite/dataChanges";
+import { SqliteSyncStore } from "@/src/data/sync/SqliteSyncStore";
+import { requestSync } from "@/src/data/sync/syncSignal";
+import { SqliteMemberRepository } from "@/src/features/members/data/SqliteMemberRepository";
 
 type CreateMemberInput = {
   displayName: string;
@@ -32,8 +35,6 @@ export function useCreateMember() {
       try {
         const database = await openDatabase();
 
-        const repository = new SqliteMemberRepository(database);
-
         const now = new Date().toISOString();
 
         const member = {
@@ -44,7 +45,31 @@ export function useCreateMember() {
           updatedAt: now,
         };
 
-        await repository.save(member);
+        await database.withExclusiveTransactionAsync(async (tx) => {
+          const repository = new SqliteMemberRepository(tx);
+
+          const syncRepository = new SqliteSyncStore(tx);
+
+          await repository.save(member);
+
+          await syncRepository.enqueue({
+            id: Crypto.randomUUID(),
+            ownerUserId: member.ownerUserId,
+            entityType: "member",
+            entityId: member.id,
+            operation: "upsert",
+            payload: {
+              id: member.id,
+              owner_user_id: member.ownerUserId,
+              display_name: member.displayName,
+              created_at: member.createdAt,
+              updated_at: member.updatedAt,
+            },
+            createdAt: now,
+          });
+        });
+        emitDataChanged("members");
+        requestSync();
 
         return member;
       } finally {
