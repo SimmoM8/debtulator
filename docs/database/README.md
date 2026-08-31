@@ -1,97 +1,46 @@
-# Debtulator Database Architecture
+# Debtulator Database
 
-## Source of truth
+## Current architecture
 
-Database schema changes are made only through SQL migrations in:
+The database was deliberately rebuilt from a simpler baseline beginning in
+August 2026.
 
-`supabase/migrations/`
+The first version of the rebuilt remote model contains only the core account
+ledger concepts:
 
-The Supabase dashboard must not be used to manually make production schema
-changes that are not represented by a migration.
+- authenticated users
+- profiles
+- members
+- debts
 
-## Core identity model
+Features such as member linking, debt verification, groups, payments,
+settlements, reminders, and collaboration are intentionally excluded from the
+initial schema.
 
-### User
+They will be introduced incrementally when their domain behaviour is actually
+implemented.
 
-A User is an authenticated Debtulator account.
+## Historical schema
 
-The authoritative account identity is:
+The complete database implementation that existed immediately before this
+rebuild is preserved in Git at:
 
-`auth.users.id`
+`pre-database-rebuild`
 
-Application profile information is stored in:
+The old migrations should not be treated as part of the active database
+architecture.
 
-`public.profiles`
+## Design principles
 
-### Personal Member
-
-A Personal Member is a person in one user's personal ledger.
-
-A Personal Member exists independently of whether that person has a Debtulator
-account.
-
-Examples:
-
-- Alice, entered manually by Benjamin
-- Bob, imported from a contact
-- Charlie, who later creates a Debtulator account
-
-A Personal Member may later become linked to a real authenticated User.
-
-Linking must NOT replace the Personal Member.
-
-Instead:
-
-`personal_members.linked_user_id`
-
-changes from `NULL` to the linked user's `auth.users.id`.
-
-The Personal Member's primary key remains unchanged.
-
-All existing debts continue referencing the same Personal Member.
-
-### Important invariant
-
-Member identity and User identity are different concepts.
-
-A debt references a Personal Member.
-
-It does not directly use another authenticated User as its personal-ledger
-identity.
-
-## Sync model
-
-For authenticated users, personal application data should eventually sync to
-the remote database regardless of whether other people involved are linked
-Debtulator users.
-
-Therefore:
-
-Sync != Sharing != Verification
-
-An unlinked Personal Member can have remotely synced debts.
-
-A linked Personal Member can have remotely synced debts.
-
-Verification only applies when a debt is intentionally shared with a linked
-user.
-
-## Linking existing members
-
-If an existing Personal Member later becomes linked:
-
-1. The Personal Member remains the same row.
-2. `linked_user_id` is populated.
-3. Existing debt `member_id` references do not change.
-4. Historical debts are not automatically exposed to the newly linked user.
-5. Sharing/verification is handled separately.
-
-## Naming
-
-`personal_members`
-: Personal ledger people belonging to one user.
-
-`group_members`
-: Participant identities that exist specifically inside a group.
-
-These are separate concepts and must not be conflated.
+- Supabase Auth owns authentication identity.
+- `public.profiles` stores Debtulator account/profile data.
+- Members belong to one account.
+- Debts belong to one account and reference one of that account's members.
+- Local entities use stable UUIDs that can also be used remotely.
+- Local-only members may later become linked to another Debtulator account
+  without changing their identity.
+- Account ownership and collaboration are separate concepts.
+- All account data can eventually sync remotely.
+- Linking does not determine whether an entity is syncable.
+- Verification will later apply only to collaborative records involving linked
+  users.

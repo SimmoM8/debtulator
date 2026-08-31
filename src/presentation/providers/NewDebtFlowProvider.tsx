@@ -1,43 +1,35 @@
 import type { PropsWithChildren } from "react";
 import {
-    createContext,
-    useCallback,
-    useContext,
-    useMemo,
-    useState,
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
 } from "react";
 
-import type { DebtDirection, Member } from "@/src/domain/models";
-import { useAppData } from "@/src/presentation/providers/AppDataProvider";
-import {
-    type NewDebtDirection,
-    useNewDebtDraft,
-} from "@/src/presentation/providers/NewDebtDraftProvider";
+import type { Member } from "@/src/domain/members/Member";
+import { useCoreData } from "@/src/presentation/providers/CoreDataProvider";
+import { useNewDebtDraft } from "@/src/presentation/providers/NewDebtDraftProvider";
 
 type NewDebtFlowContextValue = {
   selectedMember: Member | null;
-
   parsedAmount: number;
-
   canCreate: boolean;
-
   isCreating: boolean;
-
   createDebt: () => Promise<void>;
 };
 
 const NewDebtFlowContext = createContext<NewDebtFlowContextValue | null>(null);
 
 export function NewDebtFlowProvider({ children }: PropsWithChildren) {
-  const data = useAppData();
-
+  const data = useCoreData();
   const draft = useNewDebtDraft();
-
   const [isCreating, setIsCreating] = useState(false);
 
   const selectedMember = useMemo(
-    () => data.members.find((member) => member.id === draft.memberId) ?? null,
-    [data.members, draft.memberId],
+    () =>
+      data.members.data.find((member) => member.id === draft.memberId) ?? null,
+    [data.members.data, draft.memberId],
   );
 
   const parsedAmount = useMemo(() => {
@@ -46,7 +38,6 @@ export function NewDebtFlowProvider({ children }: PropsWithChildren) {
     }
 
     const parsed = Number(draft.amount);
-
     return Number.isFinite(parsed) ? parsed : 0;
   }, [draft.amount]);
 
@@ -71,34 +62,17 @@ export function NewDebtFlowProvider({ children }: PropsWithChildren) {
     try {
       await data.createDebt({
         memberId: selectedMember.id,
-
-        direction: toDomainDirection(draft.direction),
-
+        direction: draft.direction,
         amount: parsedAmount,
-
         currency: draft.currency,
-
         title: draft.title.trim(),
-
         dueDate: draft.hasDueDate ? toDateString(draft.dueDate) : null,
-
-        status: "active",
-
-        visibility: data.settings.defaultDebtVisibility,
-
-        verificationStatus: "local_only",
-
-        groupId: null,
-
-        recurringTemplateId: null,
-
-        tags: [],
       });
     } finally {
       setIsCreating(false);
     }
   }, [
-    data,
+    data.createDebt,
     draft.currency,
     draft.direction,
     draft.dueDate,
@@ -112,13 +86,9 @@ export function NewDebtFlowProvider({ children }: PropsWithChildren) {
   const value = useMemo<NewDebtFlowContextValue>(
     () => ({
       selectedMember,
-
       parsedAmount,
-
       canCreate,
-
       isCreating,
-
       createDebt,
     }),
     [canCreate, createDebt, isCreating, parsedAmount, selectedMember],
@@ -141,15 +111,9 @@ export function useNewDebtFlow() {
   return context;
 }
 
-function toDomainDirection(direction: NewDebtDirection): DebtDirection {
-  return direction === "you_owe" ? "i_owe_them" : "they_owe_me";
-}
-
 function toDateString(date: Date) {
   const year = date.getFullYear();
-
   const month = `${date.getMonth() + 1}`.padStart(2, "0");
-
   const day = `${date.getDate()}`.padStart(2, "0");
 
   return `${year}-${month}-${day}`;
