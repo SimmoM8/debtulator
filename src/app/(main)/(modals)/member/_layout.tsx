@@ -1,8 +1,24 @@
-import { Stack } from "expo-router";
+import { router, Stack } from "expo-router";
 
+import { NewMemberProvider } from "@/src/features/members/state/NewMemberProvider";
 import { useAppTheme } from "@/src/theme";
 
 export default function MemberModalLayout() {
+  return (
+    <NewMemberProvider
+      onCancel={() => {
+        router.dismiss();
+      }}
+      onCreated={() => {
+        router.dismissTo("/(main)/(tabs)/members");
+      }}
+    >
+      <MemberModalNavigator />
+    </NewMemberProvider>
+  );
+}
+
+function MemberModalNavigator() {
   const theme = useAppTheme();
 
   return (
@@ -11,15 +27,11 @@ export default function MemberModalLayout() {
         headerShown: true,
         headerLargeTitle: false,
         headerTitleAlign: "center",
-
         headerStyle: {
           backgroundColor: theme.colors.appBackground,
         },
-
         headerTintColor: theme.colors.text,
-
         headerShadowVisible: false,
-
         contentStyle: {
           backgroundColor: theme.colors.appBackground,
         },
