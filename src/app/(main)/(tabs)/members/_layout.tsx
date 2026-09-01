@@ -34,7 +34,7 @@ export default function MembersLayout() {
           <Stack.Toolbar.Menu icon={toolbarIcons.ellipsis}>
             <Stack.Toolbar.MenuAction
               onPress={() => {
-                // More advanced filtering can live here later.
+                // Filter members
               }}
             >
               Filter
@@ -42,10 +42,29 @@ export default function MembersLayout() {
 
             <Stack.Toolbar.MenuAction
               onPress={() => {
-                // Sorting later.
+                // Sort members
               }}
             >
               Sort
+            </Stack.Toolbar.MenuAction>
+          </Stack.Toolbar.Menu>
+        </Stack.Toolbar>
+      </Stack.Screen>
+
+      <Stack.Screen
+        name="[memberId]"
+        options={{
+          title: "Member",
+        }}
+      >
+        <Stack.Toolbar placement="right">
+          <Stack.Toolbar.Menu icon={toolbarIcons.ellipsis}>
+            <Stack.Toolbar.MenuAction
+              onPress={() => {
+                // Edit member
+              }}
+            >
+              Edit
             </Stack.Toolbar.MenuAction>
           </Stack.Toolbar.Menu>
         </Stack.Toolbar>
