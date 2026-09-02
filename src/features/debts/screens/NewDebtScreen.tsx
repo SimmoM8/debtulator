@@ -1,5 +1,7 @@
 import { Button, Picker, Switch } from "@expo/ui";
+
 import { DateTimePicker } from "@expo/ui/community/datetime-picker";
+
 import {
   DatePickerDialog as AndroidDatePickerDialog,
   Text as AndroidText,
@@ -7,8 +9,16 @@ import {
   DropdownMenu,
   DropdownMenuItem,
 } from "@expo/ui/jetpack-compose";
-import { router, Stack, useFocusEffect } from "expo-router";
-import { useCallback, useMemo, useRef, useState } from "react";
+
+import {
+  router,
+  Stack,
+  useFocusEffect,
+  useLocalSearchParams,
+} from "expo-router";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
 import {
   Alert,
   KeyboardAvoidingView,
@@ -22,15 +32,25 @@ import {
 
 import { SegmentedControl } from "@/src/components/controls";
 import { toolbarIcons } from "@/src/components/navigation/toolbarIcons";
+
 import { SelectedMemberCard } from "@/src/features/debts/components/SelectedMemberCard";
 import type { DebtDirection } from "@/src/features/debts/model/Debt";
 import { useNewDebt } from "@/src/features/debts/state/NewDebtProvider";
+
+import { useMembers } from "@/src/features/members/hooks/useMembers";
+import { formatDate, startOfToday } from "@/src/lib/dates";
+
 import { NativeThemeHost, textStyles, useAppTheme } from "@/src/theme";
-import { useMembers } from "../../members/hooks/useMembers";
 
 const DIRECTION_OPTIONS = [
-  { value: "you_owe", label: "You owe" },
-  { value: "they_owe", label: "They owe" },
+  {
+    value: "you_owe",
+    label: "You owe",
+  },
+  {
+    value: "they_owe",
+    label: "They owe",
+  },
 ] as const satisfies readonly {
   value: DebtDirection;
   label: string;
@@ -46,7 +66,13 @@ export function NewDebtScreen() {
   const theme = useAppTheme();
 
   const draft = useNewDebt();
+  const { setMemberId } = draft;
+
   const members = useMembers();
+
+  const { memberId: initialMemberId } = useLocalSearchParams<{
+    memberId?: string;
+  }>();
 
   const selectedMember = useMemo(
     () => members.data.find((member) => member.id === draft.memberId) ?? null,
@@ -57,11 +83,25 @@ export function NewDebtScreen() {
 
   const titleInputRef = useRef<TextInput>(null);
   const amountInputRef = useRef<TextInput>(null);
+
   const hasFocusedOnceRef = useRef(false);
+  const hasAppliedInitialMemberRef = useRef(false);
 
   const [showAndroidDatePicker, setShowAndroidDatePicker] = useState(false);
 
   const [showAndroidCurrencyMenu, setShowAndroidCurrencyMenu] = useState(false);
+
+  useEffect(() => {
+    if (hasAppliedInitialMemberRef.current) {
+      return;
+    }
+
+    hasAppliedInitialMemberRef.current = true;
+
+    if (typeof initialMemberId === "string" && initialMemberId.length > 0) {
+      setMemberId(initialMemberId);
+    }
+  }, [initialMemberId, setMemberId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -147,7 +187,7 @@ export function NewDebtScreen() {
     }
 
     draft.reset();
-    router.dismissTo("/(main)/(tabs)/debts");
+    router.dismiss();
   }
 
   async function create() {
@@ -160,7 +200,7 @@ export function NewDebtScreen() {
 
       draft.reset();
 
-      router.dismissTo("/(main)/(tabs)/debts");
+      router.dismiss();
     } catch (error) {
       console.error("Failed to create debt", error);
 
@@ -396,20 +436,6 @@ function AndroidCurrencySelector({
       </DropdownMenu>
     </NativeThemeHost>
   );
-}
-
-function startOfToday() {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return today;
-}
-
-function formatDate(date: Date) {
-  return new Intl.DateTimeFormat(undefined, {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(date);
 }
 
 function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {

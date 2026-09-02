@@ -1,9 +1,11 @@
 import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-import { addDebtQuickAction } from "@/src/components/quick-actions";
+import {
+    addDebtQuickAction,
+    QuickActionBar,
+} from "@/src/components/quick-actions";
 
-import { QuickActionBar } from "@/src/components/quick-actions/QuickActionBar";
 import { MemberAvatar } from "@/src/features/members/components/MemberAvatar";
 import type { Member } from "@/src/features/members/model/Member";
 
@@ -22,7 +24,7 @@ export function MemberDetailsHeader({ member }: MemberDetailsHeaderProps) {
         memberId: member.id,
       }),
 
-      // Add more quick actions here if needed
+      // Add additional reusable quick-action adapters here.
     ],
     [member.id],
   );
