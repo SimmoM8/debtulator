@@ -1,6 +1,7 @@
 import { router, Stack } from "expo-router";
 
 import { NewMemberProvider } from "@/src/features/members/state/NewMemberProvider";
+
 import { useAppTheme } from "@/src/theme";
 
 export default function MemberModalLayout() {
@@ -10,7 +11,7 @@ export default function MemberModalLayout() {
         router.dismiss();
       }}
       onCreated={() => {
-        router.dismissTo("/(main)/(tabs)/members");
+        router.dismiss();
       }}
     >
       <MemberModalNavigator />
