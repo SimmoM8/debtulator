@@ -2,7 +2,7 @@ import { SymbolView } from "expo-symbols";
 import type { ComponentProps } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { textStyles, useAppTheme } from "@/src/theme";
+import { componentTokens, spacing, textStyles, useAppTheme } from "@/src/theme";
 
 type SymbolName = ComponentProps<typeof SymbolView>["name"];
 
@@ -10,7 +10,7 @@ export type QuickAction = {
   id: string;
   label: string;
   icon: SymbolName;
-  onPress: () => void;
+  onPress?: () => void;
   disabled?: boolean;
 };
 
@@ -27,14 +27,10 @@ export function QuickActionBar({
 
   const isOnBrand = variant === "onBrand";
 
-  const contentColor = isOnBrand
-    ? theme.colors.onHeroBackground
-    : theme.colors.text;
-
   return (
     <View style={styles.row}>
       {actions.map((action) => {
-        const unavailable = action.disabled || !action.onPress;
+        const unavailable = action.disabled === true || !action.onPress;
 
         return (
           <Pressable
@@ -45,7 +41,9 @@ export function QuickActionBar({
             onPress={action.onPress}
             style={({ pressed }) => [
               styles.action,
+
               action.disabled && styles.disabled,
+
               pressed && !unavailable && styles.pressed,
             ]}
           >
@@ -54,11 +52,11 @@ export function QuickActionBar({
                 styles.button,
                 {
                   backgroundColor: isOnBrand
-                    ? "rgba(255, 255, 255, 0.10)"
+                    ? theme.colors.onBrandSurface
                     : theme.colors.controlContainer,
 
                   borderColor: isOnBrand
-                    ? "rgba(255, 255, 255, 0.16)"
+                    ? theme.colors.onBrandSurfaceBorder
                     : theme.colors.outline,
                 },
               ]}
@@ -70,7 +68,7 @@ export function QuickActionBar({
                     ? theme.colors.onHeroBackground
                     : theme.colors.onControlContainer
                 }
-                size={21}
+                size={componentTokens.quickAction.iconSize}
               />
             </View>
 
@@ -79,7 +77,9 @@ export function QuickActionBar({
               style={[
                 styles.label,
                 {
-                  color: contentColor,
+                  color: isOnBrand
+                    ? theme.colors.onHeroBackground
+                    : theme.colors.text,
                 },
               ]}
             >
@@ -96,7 +96,6 @@ const styles = StyleSheet.create({
   row: {
     width: "100%",
     flexDirection: "row",
-    justifyContent: "space-between",
   },
 
   action: {
@@ -105,17 +104,20 @@ const styles = StyleSheet.create({
   },
 
   button: {
-    width: 50,
-    height: 50,
+    width: componentTokens.quickAction.size,
+    height: componentTokens.quickAction.size,
+
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 25,
+
+    borderRadius: componentTokens.quickAction.size / 2,
+
     borderWidth: StyleSheet.hairlineWidth,
   },
 
   label: {
     ...textStyles.caption,
-    marginTop: 7,
+    marginTop: spacing.sm,
     textAlign: "center",
   },
 
