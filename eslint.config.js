@@ -103,7 +103,6 @@ module.exports = defineConfig([
           group: [
             ...srcPatterns("app"),
             ...srcPatterns("database"),
-            ...srcPatterns("features"),
           ],
           message:
             "Shared components must stay feature-agnostic. Depend only on shared components, theme, lib, and external UI APIs.",
