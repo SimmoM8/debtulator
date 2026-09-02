@@ -1,16 +1,23 @@
-import { toolbarIcons } from "@/src/components/navigation/toolbarIcons";
-import { ListState } from "@/src/components/states/ListState";
-import { useNewDebt } from "@/src/features/debts/state/NewDebtProvider";
-import { useMembers } from "@/src/features/members/hooks/useMembers";
-import { NativeThemeHost, useAppTheme } from "@/src/theme";
 import { List, ListItem } from "@expo/ui";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 
+import { toolbarIcons } from "@/src/components/navigation/toolbarIcons";
+import { ListState } from "@/src/components/states/ListState";
+
+import { useNewDebt } from "@/src/features/debts/state/NewDebtProvider";
+
+import { useMembers } from "@/src/features/members/hooks/useMembers";
+import { openNewMember } from "@/src/features/members/operations/openNewMember";
+
+import { NativeThemeHost, useAppTheme } from "@/src/theme";
+
 export function SelectMemberScreen() {
   const draft = useNewDebt();
+
   const members = useMembers();
+
   const theme = useAppTheme();
 
   const { from } = useLocalSearchParams<{
@@ -73,7 +80,9 @@ export function SelectMemberScreen() {
           icon={toolbarIcons.plus}
           accessibilityLabel="Add member"
           onPress={() => {
-            router.push("/(main)/(modals)/debt/new-member");
+            openNewMember({
+              selectFor: "debt",
+            });
           }}
         />
       </Stack.Toolbar>

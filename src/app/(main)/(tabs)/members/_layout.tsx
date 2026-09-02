@@ -1,7 +1,8 @@
-import { router, Stack } from "expo-router";
+import { Stack } from "expo-router";
 
 import { NavHeader } from "@/src/components/layout";
 import { toolbarIcons } from "@/src/components/navigation/toolbarIcons";
+import { openNewMember } from "@/src/features/members/operations/openNewMember";
 
 export default function MembersLayout() {
   return (
@@ -27,7 +28,7 @@ export default function MembersLayout() {
             icon={toolbarIcons.plus}
             accessibilityLabel="Add member"
             onPress={() => {
-              router.push("/(main)/(modals)/member/new");
+              openNewMember();
             }}
           />
 
