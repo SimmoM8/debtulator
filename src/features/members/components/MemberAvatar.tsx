@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 
-import { useAppTheme } from "@/src/theme";
+import { componentTokens, useAppTheme } from "@/src/theme";
 
 type MemberAvatarProps = {
   displayName: string;
@@ -10,7 +10,7 @@ type MemberAvatarProps = {
 
 export function MemberAvatar({
   displayName,
-  size = 44,
+  size = componentTokens.avatar.listSize,
   variant = "default",
 }: MemberAvatarProps) {
   const theme = useAppTheme();
@@ -27,20 +27,26 @@ export function MemberAvatar({
           borderRadius: size / 2,
 
           backgroundColor: isOnBrand
-            ? "rgba(255, 255, 255, 0.14)"
+            ? theme.colors.onBrandSurface
             : theme.colors.controlContainer,
+
+          borderColor: isOnBrand
+            ? theme.colors.onBrandSurfaceBorder
+            : theme.colors.outline,
         },
       ]}
     >
       <Text
-        style={{
-          color: isOnBrand
-            ? theme.colors.onHeroBackground
-            : theme.colors.onControlContainer,
+        style={[
+          styles.initials,
+          {
+            color: isOnBrand
+              ? theme.colors.onHeroBackground
+              : theme.colors.onControlContainer,
 
-          fontSize: size * 0.38,
-          fontWeight: "500",
-        }}
+            fontSize: size * 0.38,
+          },
+        ]}
       >
         {getInitials(displayName)}
       </Text>
@@ -63,5 +69,10 @@ const styles = StyleSheet.create({
   avatar: {
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+
+  initials: {
+    fontWeight: "500",
   },
 });
