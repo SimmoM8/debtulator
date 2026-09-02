@@ -1,13 +1,22 @@
+import { router } from "expo-router";
+
 export type OpenNewDebtInput = {
   memberId?: string;
-  groupId?: string;
 };
 
 export function openNewDebt(input: OpenNewDebtInput = {}): void {
-  void input;
+  const memberId = input.memberId?.trim();
 
-  /*
-   * TODO:
-   * Open the reusable new-debt flow using the supplied context.
-   */
+  if (memberId) {
+    router.push({
+      pathname: "/(main)/(modals)/debt/new",
+      params: {
+        memberId,
+      },
+    });
+
+    return;
+  }
+
+  router.push("/(main)/(modals)/debt/select-member");
 }

@@ -1,6 +1,6 @@
 import {
-    openNewDebt,
-    type OpenNewDebtInput,
+  openNewDebt,
+  type OpenNewDebtInput,
 } from "@/src/features/debts/operations/openNewDebt";
 
 import type { QuickAction } from "../QuickAction";
