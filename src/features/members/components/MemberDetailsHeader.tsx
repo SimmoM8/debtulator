@@ -1,10 +1,9 @@
+import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-import {
-    QuickActionBar,
-    type QuickAction,
-} from "@/src/components/actions/QuickActionBar";
+import { addDebtQuickAction } from "@/src/components/quickActions/actions";
 
+import { QuickActionBar } from "@/src/components/quickActions/QuickActionBar";
 import { MemberAvatar } from "@/src/features/members/components/MemberAvatar";
 import type { Member } from "@/src/features/members/model/Member";
 
@@ -14,54 +13,19 @@ type MemberDetailsHeaderProps = {
   member: Member;
 };
 
-const QUICK_ACTIONS = [
-  {
-    id: "add-debt",
-
-    label: "Add debt",
-
-    icon: {
-      ios: "plus",
-      android: "add",
-    },
-  },
-
-  {
-    id: "settle-up",
-
-    label: "Settle up",
-
-    icon: {
-      ios: "arrow.left.arrow.right",
-      android: "swap_horiz",
-    },
-  },
-
-  {
-    id: "pay",
-
-    label: "Pay",
-
-    icon: {
-      ios: "creditcard.fill",
-      android: "payments",
-    },
-  },
-
-  {
-    id: "remind",
-
-    label: "Remind",
-
-    icon: {
-      ios: "bell.fill",
-      android: "notifications",
-    },
-  },
-] as const satisfies readonly QuickAction[];
-
 export function MemberDetailsHeader({ member }: MemberDetailsHeaderProps) {
   const theme = useAppTheme();
+
+  const QUICK_ACTIONS = useMemo(
+    () => [
+      addDebtQuickAction({
+        memberId: member.id,
+      }),
+
+      // Add more quick actions here if needed
+    ],
+    [member.id],
+  );
 
   return (
     <View style={styles.container}>
