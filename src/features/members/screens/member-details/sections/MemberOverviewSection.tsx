@@ -4,9 +4,9 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { BalanceSummaryCard } from "@/src/components/cards/BalanceSummaryCard";
 import {
-    GroupedList,
-    GroupedListRow,
-    GroupedListSection,
+  GroupedList,
+  GroupedListRow,
+  GroupedListSection,
 } from "@/src/components/lists/GroupedList";
 import type { DebtBalanceSummary } from "@/src/features/debts/model/DebtBalanceSummary";
 import type { Member } from "@/src/features/members/model/Member";
@@ -51,7 +51,7 @@ export function MemberOverviewSection({
 
       <View style={styles.info}>
         <GroupedList>
-          <GroupedListSection title="Member info">
+          <GroupedListSection>
             <GroupedListRow
               icon={DISPLAY_NAME_ICON}
               label="Display name"
@@ -60,7 +60,7 @@ export function MemberOverviewSection({
             />
           </GroupedListSection>
 
-          <GroupedListSection title="Linked identity">
+          <GroupedListSection>
             <GroupedListRow
               icon={LINK_ICON}
               label="Not linked"
