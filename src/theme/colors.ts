@@ -17,17 +17,11 @@ const nativeColors =
   Platform.OS === "ios"
     ? {
         background: PlatformColor("systemBackground"),
-
         secondaryBackground: PlatformColor("secondarySystemBackground"),
-
         text: PlatformColor("label"),
-
         secondaryText: PlatformColor("secondaryLabel"),
-
         placeholder: PlatformColor("placeholderText"),
-
         separator: PlatformColor("separator"),
-
         tint: PlatformColor("systemBlue"),
       }
     : {
@@ -50,27 +44,16 @@ export const colors = {
   native: {
     ...nativeColors,
   },
-
   brand: brand.colors,
-
   appBackground: nativeColors.secondaryBackground,
-
   mainBackground: brand.colors.primary,
-
   contentBackground: nativeColors.background,
-
   navHeaderBackground: brand.colors.primary,
-
   tabBarBackground: nativeColors.secondaryBackground,
-
   onLightBackground: nativeColors.text,
-
   onDarkBackground: "#FFFFFF",
-
   nativeControlTint: brand.colors.primary,
-
   heroBackground: brand.colors.primary,
-
   transparent: "transparent",
 };
 
