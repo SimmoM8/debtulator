@@ -8,7 +8,7 @@ import { SegmentedControl } from "@/src/components/controls";
 import { SolidScreen } from "@/src/components/layout";
 
 import { useDebts } from "@/src/features/debts/hooks/useDebts";
-import { buildDebtBalanceSummary } from "@/src/features/debts/model/DebtBalanceSummary";
+import { buildDebtsScreenModel } from "@/src/features/debts/model/DebtsScreenModel";
 
 import { MemberDetailsHeader } from "@/src/features/members/components/MemberDetailsHeader";
 import { useMember } from "@/src/features/members/hooks/useMember";
@@ -47,9 +47,13 @@ export function MemberDetailsScreen() {
     return debts.data.filter((debt) => debt.memberId === memberId);
   }, [debts.data, memberId]);
 
-  const balance = useMemo(
-    () => buildDebtBalanceSummary(memberDebts),
-    [memberDebts],
+  const memberDebtsModel = useMemo(
+    () =>
+      buildDebtsScreenModel(
+        memberDebts,
+        member.data ? [member.data] : [],
+      ),
+    [member.data, memberDebts],
   );
 
   return (
@@ -75,10 +79,21 @@ export function MemberDetailsScreen() {
             </View>
 
             {section === "overview" ? (
-              <MemberOverviewSection member={member.data} balance={balance} />
+              <MemberOverviewSection
+                member={member.data}
+                balance={memberDebtsModel}
+              />
             ) : null}
 
-            {section === "debts" ? <MemberDebtsSection /> : null}
+            {section === "debts" ? (
+              <MemberDebtsSection
+                memberName={member.data.displayName}
+                items={memberDebtsModel.items}
+                loading={debts.loading}
+                error={debts.error?.message ?? null}
+                onRetry={debts.refresh}
+              />
+            ) : null}
 
             {section === "activity" ? <MemberActivitySection /> : null}
           </>
