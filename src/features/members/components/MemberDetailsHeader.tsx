@@ -13,6 +13,7 @@ import {
   QuickActionBar,
 } from "@/src/components/quick-actions";
 import { MemberAvatar } from "@/src/features/members/components/MemberAvatar";
+import { MemberLinkBadge } from "@/src/features/members/components/MemberLinkBadge";
 import type { Member } from "@/src/features/members/model/Member";
 import { componentTokens, spacing, textStyles, useAppTheme } from "@/src/theme";
 
@@ -93,6 +94,15 @@ export function MemberDetailsHeader({
     ],
   }));
 
+  const linkBadgeStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      collapseProgress.value,
+      [0, 0.35],
+      [1, 0],
+      Extrapolation.CLAMP,
+    ),
+  }));
+
   const compactIdentityStyle = useAnimatedStyle(() => ({
     opacity: interpolate(
       collapseProgress.value,
@@ -147,6 +157,10 @@ export function MemberDetailsHeader({
             size={componentTokens.avatar.heroSize}
             variant="onBrand"
           />
+
+          <Animated.View style={[styles.linkBadge, linkBadgeStyle]}>
+            <MemberLinkBadge />
+          </Animated.View>
         </Animated.View>
 
         <Animated.View
@@ -240,6 +254,11 @@ const styles = StyleSheet.create({
     width: componentTokens.avatar.heroSize,
     height: componentTokens.avatar.heroSize,
     transformOrigin: "top left",
+  },
+  linkBadge: {
+    position: "absolute",
+    right: -2,
+    bottom: -2,
   },
   expandedIdentity: {
     position: "absolute",

@@ -44,6 +44,13 @@ function MemberModalNavigator() {
           title: "New Member",
         }}
       />
+
+      <Stack.Screen
+        name="link"
+        options={{
+          title: "Link Member",
+        }}
+      />
     </Stack>
   );
 }
