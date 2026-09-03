@@ -6,6 +6,14 @@ export {
     type AppThemePreference
 } from "./AppThemeProvider";
 
+export {
+    getContentSeparatorStyle,
+    getContentSurfaceAppearance,
+    getContentSurfaceStyle,
+    type ContentSurfaceAppearance,
+    type ContentSurfaceVariant
+} from "./contentSurface";
+
 export { nativeTheme } from "./nativeTheme";
 export { NativeThemeHost } from "./NativeThemeHost";
 
