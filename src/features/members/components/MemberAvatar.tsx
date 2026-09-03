@@ -1,6 +1,6 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Avatar } from "@/src/components/avatars/Avatar";
 
-import { componentTokens, useAppTheme } from "@/src/theme";
+import { componentTokens } from "@/src/theme";
 
 type MemberAvatarProps = {
   displayName: string;
@@ -13,44 +13,8 @@ export function MemberAvatar({
   size = componentTokens.avatar.listSize,
   variant = "default",
 }: MemberAvatarProps) {
-  const theme = useAppTheme();
-
-  const isOnBrand = variant === "onBrand";
-
   return (
-    <View
-      style={[
-        styles.avatar,
-        {
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-
-          backgroundColor: isOnBrand
-            ? theme.colors.onBrandSurface
-            : theme.colors.controlContainer,
-
-          borderColor: isOnBrand
-            ? theme.colors.onBrandSurfaceBorder
-            : theme.colors.outline,
-        },
-      ]}
-    >
-      <Text
-        style={[
-          styles.initials,
-          {
-            color: isOnBrand
-              ? theme.colors.onHeroBackground
-              : theme.colors.onControlContainer,
-
-            fontSize: size * 0.38,
-          },
-        ]}
-      >
-        {getInitials(displayName)}
-      </Text>
-    </View>
+    <Avatar initials={getInitials(displayName)} size={size} variant={variant} />
   );
 }
 
@@ -64,15 +28,3 @@ function getInitials(displayName: string): string {
 
   return initials || "?";
 }
-
-const styles = StyleSheet.create({
-  avatar: {
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-
-  initials: {
-    fontWeight: "500",
-  },
-});
