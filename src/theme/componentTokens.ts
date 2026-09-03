@@ -6,14 +6,14 @@ export const componentTokens = {
   },
 
   quickAction: {
-    size: 50,
-    iconSize: 21,
+    size: 44,
+    iconSize: 19,
   },
 
   avatar: {
     listSize: 44,
-    heroSize: 88,
-
+    heroSize: 80,
+    summarySize: 40,
     initialsScale: 0.38,
     iconScale: 0.42,
   },

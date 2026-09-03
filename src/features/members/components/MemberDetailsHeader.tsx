@@ -2,8 +2,8 @@ import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import {
-    addDebtQuickAction,
-    QuickActionBar,
+  addDebtQuickAction,
+  QuickActionBar,
 } from "@/src/components/quick-actions";
 
 import { MemberAvatar } from "@/src/features/members/components/MemberAvatar";
@@ -20,6 +20,15 @@ export function MemberDetailsHeader({ member }: MemberDetailsHeaderProps) {
 
   const QUICK_ACTIONS = useMemo(
     () => [
+      addDebtQuickAction({
+        memberId: member.id,
+      }),
+      addDebtQuickAction({
+        memberId: member.id,
+      }),
+      addDebtQuickAction({
+        memberId: member.id,
+      }),
       addDebtQuickAction({
         memberId: member.id,
       }),
@@ -70,30 +79,24 @@ const styles = StyleSheet.create({
   container: {
     width: "100%",
     alignItems: "center",
-
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
+    paddingTop: spacing.md,
   },
 
   name: {
     ...textStyles.title,
-
-    marginTop: spacing.md,
-
+    marginTop: spacing.sm,
     textAlign: "center",
   },
 
   status: {
     ...textStyles.caption,
-
     marginTop: spacing.xs,
-
     textAlign: "center",
   },
 
   actions: {
     width: "100%",
-
     marginTop: spacing.lg,
   },
 });
