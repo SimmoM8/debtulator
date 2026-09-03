@@ -1,7 +1,7 @@
 import { brand } from "./brand";
 
 export const componentTokens = {
-  card: {
+  surface: {
     radius: brand.radius.large,
   },
 

@@ -1,8 +1,10 @@
 import { Stack, useLocalSearchParams } from "expo-router";
-import { useMemo } from "react";
+
+import { useMemo, useState } from "react";
+
 import { StyleSheet, View } from "react-native";
 
-import { BalanceSummaryCard } from "@/src/components/cards/BalanceSummaryCard";
+import { SegmentedControl } from "@/src/components/controls";
 import { SolidScreen } from "@/src/components/layout";
 
 import { useDebts } from "@/src/features/debts/hooks/useDebts";
@@ -10,6 +12,17 @@ import { buildDebtBalanceSummary } from "@/src/features/debts/model/DebtBalanceS
 
 import { MemberDetailsHeader } from "@/src/features/members/components/MemberDetailsHeader";
 import { useMember } from "@/src/features/members/hooks/useMember";
+
+import {
+  MEMBER_DETAILS_SECTIONS,
+  type MemberDetailsSection,
+} from "@/src/features/members/screens/member-details/memberDetailsSections";
+
+import {
+  MemberActivitySection,
+  MemberDebtsSection,
+  MemberOverviewSection,
+} from "@/src/features/members/screens/member-details/sections";
 
 import { spacing } from "@/src/theme";
 
@@ -23,6 +36,8 @@ export function MemberDetailsScreen() {
   const member = useMember(memberId);
 
   const debts = useDebts();
+
+  const [section, setSection] = useState<MemberDetailsSection>("overview");
 
   const memberDebts = useMemo(() => {
     if (!memberId) {
@@ -50,15 +65,22 @@ export function MemberDetailsScreen() {
           <>
             <MemberDetailsHeader member={member.data} />
 
-            <View style={styles.content}>
-              <BalanceSummaryCard
-                youOwe={balance.youOwe}
-                theyOwe={balance.theyOwe}
-                youOweCount={balance.youOweCount}
-                theyOweCount={balance.theyOweCount}
-                netBalance={balance.netBalance}
+            <View style={styles.sectionControl}>
+              <SegmentedControl
+                value={section}
+                options={MEMBER_DETAILS_SECTIONS}
+                onChange={setSection}
+                variant="onBrand"
               />
             </View>
+
+            {section === "overview" ? (
+              <MemberOverviewSection member={member.data} balance={balance} />
+            ) : null}
+
+            {section === "debts" ? <MemberDebtsSection /> : null}
+
+            {section === "activity" ? <MemberActivitySection /> : null}
           </>
         ) : null}
       </SolidScreen>
@@ -67,7 +89,9 @@ export function MemberDetailsScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: {
+  sectionControl: {
+    width: "100%",
+
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
   },
