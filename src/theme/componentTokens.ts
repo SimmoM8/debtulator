@@ -13,5 +13,8 @@ export const componentTokens = {
   avatar: {
     listSize: 44,
     heroSize: 88,
+
+    initialsScale: 0.38,
+    iconScale: 0.42,
   },
 } as const;

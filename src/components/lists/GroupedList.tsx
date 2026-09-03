@@ -1,44 +1,24 @@
-import { Column, Icon, Row, Spacer, Text } from "@expo/ui";
-
-import {
-    Children,
-    type ComponentProps,
-    type PropsWithChildren,
-    type ReactNode,
-} from "react";
-
-import { StyleSheet } from "react-native";
+import { SymbolView } from "expo-symbols";
+import type { ComponentProps, PropsWithChildren, ReactNode } from "react";
+import { Children } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
     getContentSeparatorStyle,
     getContentSurfaceAppearance,
     getContentSurfaceStyle,
-    NativeThemeHost,
     spacing,
     textStyles,
     useAppTheme,
     type ContentSurfaceVariant,
 } from "@/src/theme";
 
-type NativeIconName = ComponentProps<typeof Icon>["name"];
+type NativeIconName = ComponentProps<typeof SymbolView>["name"];
 
 type GroupedListProps = PropsWithChildren;
 
 export function GroupedList({ children }: GroupedListProps) {
-  return (
-    <NativeThemeHost
-      colorScheme="dark"
-      matchContents={{
-        vertical: true,
-        horizontal: false,
-      }}
-      style={styles.host}
-    >
-      <Column spacing={spacing.lg} style={styles.list}>
-        {children}
-      </Column>
-    </NativeThemeHost>
-  );
+  return <View style={styles.list}>{children}</View>;
 }
 
 type GroupedListSectionProps = PropsWithChildren<{
@@ -52,37 +32,35 @@ export function GroupedListSection({
   children,
 }: GroupedListSectionProps) {
   const theme = useAppTheme();
-
   const rows = Children.toArray(children);
-
   const appearance = getContentSurfaceAppearance(theme.colors, variant);
 
   return (
-    <Column spacing={spacing.sm} style={styles.section}>
+    <View style={styles.section}>
       {title ? (
         <Text
-          style={styles.sectionTitle}
-          textStyle={{
-            ...textStyles.caption,
-            color: appearance.mutedContentColor,
-          }}
+          style={[
+            styles.sectionTitle,
+            {
+              color: appearance.mutedContentColor,
+            },
+          ]}
         >
           {title}
         </Text>
       ) : null}
 
-      <Column style={getContentSurfaceStyle(theme.colors, variant)}>
+      <View style={getContentSurfaceStyle(theme.colors, variant)}>
         {rows.map((row, index) => (
-          <Column key={index}>
+          <View key={index}>
             {index > 0 ? (
-              <Row style={getContentSeparatorStyle(theme.colors, variant)} />
+              <View style={getContentSeparatorStyle(theme.colors, variant)} />
             ) : null}
-
             {row}
-          </Column>
+          </View>
         ))}
-      </Column>
-    </Column>
+      </View>
+    </View>
   );
 }
 
@@ -91,6 +69,7 @@ type GroupedListRowProps = {
   label: string;
   value?: string;
   trailing?: ReactNode;
+  trailingIcon?: NativeIconName;
   onPress?: () => void;
   variant?: ContentSurfaceVariant;
 };
@@ -100,75 +79,110 @@ export function GroupedListRow({
   label,
   value,
   trailing,
+  trailingIcon,
   onPress,
   variant = "onBrand",
 }: GroupedListRowProps) {
   const theme = useAppTheme();
-
   const appearance = getContentSurfaceAppearance(theme.colors, variant);
 
-  return (
-    <Row
-      alignment="center"
-      spacing={spacing.sm}
-      onPress={onPress}
-      style={styles.row}
-    >
+  const content = (
+    <>
       {icon ? (
-        <Icon
+        <SymbolView
           name={icon}
           size={textStyles.body.fontSize}
-          color={appearance.contentColor}
+          tintColor={appearance.contentColor}
         />
       ) : null}
 
       <Text
-        textStyle={{
-          ...textStyles.body,
-          color: appearance.contentColor,
-        }}
+        numberOfLines={1}
+        style={[
+          styles.label,
+          {
+            color: appearance.contentColor,
+          },
+        ]}
       >
         {label}
       </Text>
 
-      <Spacer flexible />
+      <View style={styles.spacer} />
 
       {value ? (
         <Text
-          textStyle={{
-            ...textStyles.caption,
-            color: appearance.mutedContentColor,
-          }}
+          numberOfLines={1}
+          style={[
+            styles.value,
+            {
+              color: appearance.mutedContentColor,
+            },
+          ]}
         >
           {value}
         </Text>
       ) : null}
 
       {trailing}
-    </Row>
+
+      {trailingIcon ? (
+        <SymbolView
+          name={trailingIcon}
+          size={textStyles.body.fontSize}
+          tintColor={appearance.mutedContentColor}
+        />
+      ) : null}
+    </>
   );
+
+  if (onPress) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        onPress={onPress}
+        style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+      >
+        {content}
+      </Pressable>
+    );
+  }
+
+  return <View style={styles.row}>{content}</View>;
 }
 
 const styles = StyleSheet.create({
-  host: {
-    width: "100%",
-  },
-
   list: {
     width: "100%",
+    gap: spacing.lg,
   },
-
   section: {
     width: "100%",
+    gap: spacing.sm,
   },
-
   sectionTitle: {
+    ...textStyles.caption,
     paddingHorizontal: spacing.xs,
   },
-
   row: {
     width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
+  },
+  label: {
+    ...textStyles.body,
+  },
+  value: {
+    ...textStyles.caption,
+    flexShrink: 1,
+  },
+  spacer: {
+    flex: 1,
+  },
+  pressed: {
+    opacity: 0.6,
   },
 });

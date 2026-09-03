@@ -1,39 +1,37 @@
-import LinkIcon from "@expo/material-symbols/link.xml";
-import PersonIcon from "@expo/material-symbols/person.xml";
-
-import { Button, Icon, Text } from "@expo/ui";
-
-import { StyleSheet, View } from "react-native";
+import { SymbolView } from "expo-symbols";
+import type { ComponentProps } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { BalanceSummaryCard } from "@/src/components/cards/BalanceSummaryCard";
-
 import {
     GroupedList,
     GroupedListRow,
     GroupedListSection,
 } from "@/src/components/lists/GroupedList";
-
 import type { DebtBalanceSummary } from "@/src/features/debts/model/DebtBalanceSummary";
-
 import type { Member } from "@/src/features/members/model/Member";
-
 import { openLinkMember } from "@/src/features/members/operations/openLinkMember";
-
 import { spacing, textStyles, useAppTheme } from "@/src/theme";
 
-const DISPLAY_NAME_ICON = Icon.select({
-  ios: "person",
-  android: PersonIcon,
-});
+type SymbolName = ComponentProps<typeof SymbolView>["name"];
 
-const LINK_ICON = Icon.select({
+const DISPLAY_NAME_ICON: SymbolName = {
+  ios: "person",
+  android: "person",
+};
+
+const LINK_ICON: SymbolName = {
   ios: "link",
-  android: LinkIcon,
-});
+  android: "link",
+};
+
+const DISPLAY_NAME_CHEVRON: SymbolName = {
+  ios: "chevron.right",
+  android: "chevron_right",
+};
 
 type MemberOverviewSectionProps = {
   member: Member;
-
   balance: DebtBalanceSummary;
 };
 
@@ -46,11 +44,9 @@ export function MemberOverviewSection({
   return (
     <View style={styles.section}>
       <BalanceSummaryCard
-        youOwe={balance.youOwe}
-        theyOwe={balance.theyOwe}
-        youOweCount={balance.youOweCount}
-        theyOweCount={balance.theyOweCount}
+        memberName={member.displayName}
         netBalance={balance.netBalance}
+        debtCount={balance.youOweCount + balance.theyOweCount}
       />
 
       <View style={styles.info}>
@@ -60,6 +56,7 @@ export function MemberOverviewSection({
               icon={DISPLAY_NAME_ICON}
               label="Display name"
               value={member.displayName}
+              trailingIcon={DISPLAY_NAME_CHEVRON}
             />
           </GroupedListSection>
 
@@ -68,23 +65,21 @@ export function MemberOverviewSection({
               icon={LINK_ICON}
               label="Not linked"
               trailing={
-                <Button
-                  variant="text"
+                <Pressable
+                  accessibilityRole="button"
                   onPress={() => {
-                    openLinkMember({
-                      memberId: member.id,
-                    });
+                    openLinkMember({ memberId: member.id });
                   }}
                 >
                   <Text
-                    textStyle={{
-                      ...textStyles.caption,
-                      color: theme.colors.controlTint,
-                    }}
+                    style={[
+                      styles.linkAction,
+                      { color: theme.colors.controlTint },
+                    ]}
                   >
                     Link member
                   </Text>
-                </Button>
+                </Pressable>
               }
             />
           </GroupedListSection>
@@ -97,13 +92,15 @@ export function MemberOverviewSection({
 const styles = StyleSheet.create({
   section: {
     width: "100%",
-
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.xl,
   },
-
   info: {
     marginTop: spacing.lg,
+  },
+  linkAction: {
+    ...textStyles.caption,
+    fontWeight: textStyles.headline.fontWeight,
   },
 });
