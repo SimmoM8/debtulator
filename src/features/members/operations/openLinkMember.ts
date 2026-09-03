@@ -1,12 +1,20 @@
+import { router } from "expo-router";
+
 export type OpenLinkMemberInput = {
   memberId: string;
 };
 
 export function openLinkMember(input: OpenLinkMemberInput): void {
-  void input;
+  const memberId = input.memberId.trim();
 
-  /*
-   * TODO:
-   * Open the reusable member-linking flow.
-   */
+  if (!memberId) {
+    return;
+  }
+
+  router.push({
+    pathname: "/(main)/(modals)/member/link",
+    params: {
+      memberId,
+    },
+  });
 }
