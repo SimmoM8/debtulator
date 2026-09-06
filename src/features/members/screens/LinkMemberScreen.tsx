@@ -56,7 +56,6 @@ export function LinkMemberScreen() {
           <Stack.SearchBar
             placeholder="Search by ID, phone or email"
             placement="integrated"
-            allowToolbarIntegration
             hideNavigationBar={false}
             hideWhenScrolling={false}
             obscureBackground={false}
