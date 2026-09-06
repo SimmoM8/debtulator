@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
@@ -18,20 +19,24 @@ export type MemberSearchResultItem = {
 type MemberSearchResultsListProps = {
   items: readonly MemberSearchResultItem[];
   emptyState: ListStateMessage;
+  header?: ReactNode;
   onPressItem?: (id: string) => void;
 };
 
 export function MemberSearchResultsList({
   items,
   emptyState,
+  header,
   onPressItem,
 }: MemberSearchResultsListProps) {
   const theme = useAppTheme();
 
   return (
     <FlatList
+      style={styles.list}
       data={items}
       keyExtractor={(item) => item.id}
+      contentInsetAdjustmentBehavior="automatic"
       keyboardDismissMode="on-drag"
       keyboardShouldPersistTaps="handled"
       contentContainerStyle={[
@@ -48,14 +53,17 @@ export function MemberSearchResultsList({
           ]}
         />
       )}
+      ListHeaderComponent={header ? <>{header}</> : null}
       ListEmptyComponent={
-        <ListState
-          loading={false}
-          error={null}
-          totalCount={0}
-          visibleCount={0}
-          emptyState={emptyState}
-        />
+        <View style={styles.emptyState}>
+          <ListState
+            loading={false}
+            error={null}
+            totalCount={0}
+            visibleCount={0}
+            emptyState={emptyState}
+          />
+        </View>
       }
       renderItem={({ item }) => (
         <Pressable
@@ -103,12 +111,20 @@ export function MemberSearchResultsList({
 }
 
 const styles = StyleSheet.create({
+  list: {
+    flex: 1,
+  },
+
   content: {
     paddingVertical: spacing.sm,
   },
 
   emptyContent: {
     flexGrow: 1,
+  },
+
+  emptyState: {
+    flex: 1,
     justifyContent: "center",
   },
 
