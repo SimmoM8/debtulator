@@ -23,12 +23,14 @@ const COMPACT_IDENTITY_HEIGHT =
 
 type MemberDetailsHeaderProps = {
   member: Member;
+  linked?: boolean;
   compact: boolean;
   collapseProgress: SharedValue<number>;
 };
 
 export function MemberDetailsHeader({
   member,
+  linked = false,
   compact,
   collapseProgress,
 }: MemberDetailsHeaderProps) {
@@ -158,9 +160,11 @@ export function MemberDetailsHeader({
             variant="onBrand"
           />
 
-          <Animated.View style={[styles.linkBadge, linkBadgeStyle]}>
-            <MemberLinkBadge />
-          </Animated.View>
+          {linked ? (
+            <Animated.View style={[styles.linkBadge, linkBadgeStyle]}>
+              <MemberLinkBadge />
+            </Animated.View>
+          ) : null}
         </Animated.View>
 
         <Animated.View
@@ -187,7 +191,7 @@ export function MemberDetailsHeader({
               },
             ]}
           >
-            Unlinked Member
+            {linked ? "Linked Member" : "Unlinked Member"}
           </Text>
         </Animated.View>
 
@@ -217,7 +221,7 @@ export function MemberDetailsHeader({
               },
             ]}
           >
-            Unlinked Member
+            {linked ? "Linked Member" : "Unlinked Member"}
           </Text>
         </Animated.View>
       </Animated.View>
