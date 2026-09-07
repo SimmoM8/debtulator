@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: debtulator-backend
+
+server:
+  port: ${PORT:8080}
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+  endpoint:
+    health:
+      show-details: never
