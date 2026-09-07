@@ -2,6 +2,12 @@ spring:
   application:
     name: debtulator-backend
 
+  web:
+    error:
+      include-message: never
+      include-binding-errors: never
+      include-stacktrace: never
+
 server:
   port: ${PORT:8080}
   shutdown: graceful
