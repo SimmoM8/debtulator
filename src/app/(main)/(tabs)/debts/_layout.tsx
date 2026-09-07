@@ -1,7 +1,8 @@
-import { router, Stack } from "expo-router";
+import { Stack } from "expo-router";
 
 import { NavHeader } from "@/src/components/layout";
 import { toolbarIcons } from "@/src/components/navigation/toolbarIcons";
+import { openNewDebt } from "@/src/features/debts/operations/openNewDebt";
 
 export default function DebtsLayout() {
   return (
@@ -27,7 +28,7 @@ export default function DebtsLayout() {
             icon={toolbarIcons.plus}
             accessibilityLabel="Add debt"
             onPress={() => {
-              router.push("/(main)/(modals)/debt/select-member");
+              openNewDebt();
             }}
           />
 

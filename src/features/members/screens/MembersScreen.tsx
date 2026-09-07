@@ -3,17 +3,18 @@ import { StyleSheet, View } from "react-native";
 
 import { SplitBackgroundScreen } from "@/src/components/layout";
 import {
-    ListState,
-    type ListStateMessage,
+  ListState,
+  type ListStateMessage,
 } from "@/src/components/states/ListState";
 import {
-    MemberSummaryHeader,
-    type MemberFilter,
+  MemberSummaryHeader,
+  type MemberFilter,
 } from "@/src/features/members/components/MemberSummaryHeader";
 import { MembersList } from "@/src/features/members/components/MembersList";
 import { useMembers } from "@/src/features/members/hooks/useMembers";
 import { buildMembersScreenModel } from "@/src/features/members/model/MembersScreenModel";
 import { useAppTheme } from "@/src/theme";
+import { router } from "expo-router";
 
 export function MembersScreen() {
   const members = useMembers();
@@ -65,7 +66,17 @@ export function MembersScreen() {
         ]}
       >
         {showList ? (
-          <MembersList items={filteredItems} />
+          <MembersList
+            items={filteredItems}
+            onPressItem={(memberId) => {
+              router.push({
+                pathname: "/(main)/(tabs)/members/[memberId]",
+                params: {
+                  memberId,
+                },
+              });
+            }}
+          />
         ) : (
           <ListState
             loading={members.loading}

@@ -6,7 +6,13 @@ import {
   View,
 } from "react-native";
 
-import { spacing, textStyles, useAppTheme } from "@/src/theme";
+import {
+  getContentSurfaceAppearance,
+  spacing,
+  textStyles,
+  useAppTheme,
+  type ContentSurfaceVariant,
+} from "@/src/theme";
 
 export type ListStateMessage = {
   title: string;
@@ -23,6 +29,7 @@ type ListStateProps = {
   noResultsState?: ListStateMessage;
   errorState?: ListStateMessage;
   onRetry?: () => void | Promise<void>;
+  variant?: ContentSurfaceVariant;
 };
 
 export function ListState({
@@ -40,6 +47,7 @@ export function ListState({
     message: "Something went wrong while loading this data.",
   },
   onRetry,
+  variant = "default",
 }: ListStateProps) {
   if (loading) {
     return (
@@ -47,6 +55,7 @@ export function ListState({
         title={loadingState.title}
         message={loadingState.message}
         loading
+        variant={variant}
       />
     );
   }
@@ -58,6 +67,7 @@ export function ListState({
         message={errorState.message}
         actionLabel={onRetry ? "Try Again" : undefined}
         onAction={onRetry}
+        variant={variant}
       />
     );
   }
@@ -67,6 +77,7 @@ export function ListState({
       <ListStateMessageView
         title={emptyState.title}
         message={emptyState.message}
+        variant={variant}
       />
     );
   }
@@ -76,6 +87,7 @@ export function ListState({
       <ListStateMessageView
         title={noResultsState.title}
         message={noResultsState.message}
+        variant={variant}
       />
     );
   }
@@ -89,6 +101,7 @@ type ListStateMessageViewProps = {
   loading?: boolean;
   actionLabel?: string;
   onAction?: () => void | Promise<void>;
+  variant: ContentSurfaceVariant;
 };
 
 function ListStateMessageView({
@@ -97,15 +110,21 @@ function ListStateMessageView({
   loading = false,
   actionLabel,
   onAction,
+  variant,
 }: ListStateMessageViewProps) {
   const theme = useAppTheme();
+  const appearance = getContentSurfaceAppearance(theme.colors, variant);
 
   return (
     <View style={styles.container}>
       {loading ? (
         <ActivityIndicator
           style={styles.activityIndicator}
-          color={theme.colors.controlTint}
+          color={
+            variant === "onBrand"
+              ? appearance.contentColor
+              : theme.colors.controlTint
+          }
         />
       ) : null}
 
@@ -113,7 +132,7 @@ function ListStateMessageView({
         style={[
           styles.title,
           {
-            color: theme.colors.text,
+            color: appearance.contentColor,
           },
         ]}
       >
@@ -125,7 +144,7 @@ function ListStateMessageView({
           style={[
             styles.message,
             {
-              color: theme.colors.secondaryText,
+              color: appearance.mutedContentColor,
             },
           ]}
         >

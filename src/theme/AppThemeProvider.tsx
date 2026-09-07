@@ -32,6 +32,10 @@ export type AppThemeColors = {
   heroBackground: string;
   onHeroBackground: string;
 
+  onBrandSurface: string;
+  onBrandSurfaceBorder: string;
+  onBrandMuted: string;
+
   tabBarBackground: string;
 
   positive: string;
@@ -132,6 +136,10 @@ function createAndroidThemeColors(scheme: AppColorScheme): AppThemeColors {
     heroBackground: brand.colors.primary,
     onHeroBackground: "#FFFFFF",
 
+    onBrandSurface: withOpacity("#FFFFFF", 0.1),
+    onBrandSurfaceBorder: withOpacity("#FFFFFF", 0.16),
+    onBrandMuted: withOpacity("#FFFFFF", 0.72),
+
     tabBarBackground: material.surfaceContainerLow,
 
     positive: brand.colors.positive,
@@ -166,6 +174,10 @@ function createAppleThemeColors(scheme: AppColorScheme): AppThemeColors {
       heroBackground: brand.colors.primary,
       onHeroBackground: "#FFFFFF",
 
+      onBrandSurface: withOpacity("#FFFFFF", 0.1),
+      onBrandSurfaceBorder: withOpacity("#FFFFFF", 0.16),
+      onBrandMuted: withOpacity("#FFFFFF", 0.72),
+
       tabBarBackground: "#1C1C1E",
 
       positive: brand.colors.positive,
@@ -197,6 +209,10 @@ function createAppleThemeColors(scheme: AppColorScheme): AppThemeColors {
     mainBackground: brand.colors.primary,
     heroBackground: brand.colors.primary,
     onHeroBackground: "#FFFFFF",
+
+    onBrandSurface: withOpacity("#FFFFFF", 0.1),
+    onBrandSurfaceBorder: withOpacity("#FFFFFF", 0.16),
+    onBrandMuted: withOpacity("#FFFFFF", 0.72),
 
     tabBarBackground: "#F2F2F7",
 

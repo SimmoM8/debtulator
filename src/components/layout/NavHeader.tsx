@@ -1,7 +1,5 @@
 import { Stack } from "expo-router";
-
 import type { PropsWithChildren } from "react";
-
 import { Platform } from "react-native";
 
 import { useAppTheme } from "@/src/theme";

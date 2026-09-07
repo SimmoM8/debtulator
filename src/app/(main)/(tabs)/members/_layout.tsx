@@ -1,7 +1,8 @@
-import { router, Stack } from "expo-router";
+import { Stack } from "expo-router";
 
 import { NavHeader } from "@/src/components/layout";
 import { toolbarIcons } from "@/src/components/navigation/toolbarIcons";
+import { openNewMember } from "@/src/features/members/operations/openNewMember";
 
 export default function MembersLayout() {
   return (
@@ -27,14 +28,14 @@ export default function MembersLayout() {
             icon={toolbarIcons.plus}
             accessibilityLabel="Add member"
             onPress={() => {
-              router.push("/(main)/(modals)/member/new");
+              openNewMember();
             }}
           />
 
           <Stack.Toolbar.Menu icon={toolbarIcons.ellipsis}>
             <Stack.Toolbar.MenuAction
               onPress={() => {
-                // More advanced filtering can live here later.
+                // Filter members
               }}
             >
               Filter
@@ -42,10 +43,29 @@ export default function MembersLayout() {
 
             <Stack.Toolbar.MenuAction
               onPress={() => {
-                // Sorting later.
+                // Sort members
               }}
             >
               Sort
+            </Stack.Toolbar.MenuAction>
+          </Stack.Toolbar.Menu>
+        </Stack.Toolbar>
+      </Stack.Screen>
+
+      <Stack.Screen
+        name="[memberId]"
+        options={{
+          title: "Member",
+        }}
+      >
+        <Stack.Toolbar placement="right">
+          <Stack.Toolbar.Menu icon={toolbarIcons.ellipsis}>
+            <Stack.Toolbar.MenuAction
+              onPress={() => {
+                // Edit member
+              }}
+            >
+              Edit
             </Stack.Toolbar.MenuAction>
           </Stack.Toolbar.Menu>
         </Stack.Toolbar>
