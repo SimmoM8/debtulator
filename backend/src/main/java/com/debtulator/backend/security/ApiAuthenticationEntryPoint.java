@@ -2,6 +2,7 @@ package com.debtulator.backend.security;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
@@ -15,15 +16,12 @@ import java.io.IOException;
 import java.net.URI;
 
 @Component
+@RequiredArgsConstructor
 public class ApiAuthenticationEntryPoint implements AuthenticationEntryPoint {
 
     private final ObjectMapper objectMapper;
     private final BearerTokenAuthenticationEntryPoint delegate =
             new BearerTokenAuthenticationEntryPoint();
-
-    public ApiAuthenticationEntryPoint(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
-    }
 
     @Override
     public void commence(
@@ -37,12 +35,10 @@ public class ApiAuthenticationEntryPoint implements AuthenticationEntryPoint {
                 HttpStatus.UNAUTHORIZED,
                 "Authentication is required."
         );
-
         problem.setTitle("Unauthorized");
         problem.setInstance(URI.create(request.getRequestURI()));
 
         response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
-
         objectMapper.writeValue(response.getOutputStream(), problem);
     }
 }

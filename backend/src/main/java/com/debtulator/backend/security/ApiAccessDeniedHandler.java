@@ -2,6 +2,7 @@ package com.debtulator.backend.security;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
@@ -15,15 +16,12 @@ import java.io.IOException;
 import java.net.URI;
 
 @Component
+@RequiredArgsConstructor
 public class ApiAccessDeniedHandler implements AccessDeniedHandler {
 
     private final ObjectMapper objectMapper;
     private final BearerTokenAccessDeniedHandler delegate =
             new BearerTokenAccessDeniedHandler();
-
-    public ApiAccessDeniedHandler(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
-    }
 
     @Override
     public void handle(
@@ -37,12 +35,10 @@ public class ApiAccessDeniedHandler implements AccessDeniedHandler {
                 HttpStatus.FORBIDDEN,
                 "You do not have permission to perform this operation."
         );
-
         problem.setTitle("Forbidden");
         problem.setInstance(URI.create(request.getRequestURI()));
 
         response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
-
         objectMapper.writeValue(response.getOutputStream(), problem);
     }
 }
