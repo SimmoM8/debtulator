@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#30205c">
+  <meta name="color-scheme" content="light dark">
+  <title>Debtulator Blueprint</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="Debtulator User Stories">
+        <span class="brand-mark" aria-hidden="true">D</span>
+        <span class="brand-copy">
+          <strong>Debtulator</strong>
+          <small>Blueprint</small>
+        </span>
+      </a>
+
+      <div class="topbar-right">
+        <div class="source-state" id="sourceState">
+          <span class="source-dot" id="sourceDot"></span>
+          <span id="sourceText">Reading docs/USER_STORIES.md</span>
+        </div>
+
+        <button class="icon-button topbar-icon" id="themeButton" type="button" aria-label="Toggle colour theme" title="Toggle colour theme">
+          <svg class="theme-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path></svg>
+          <svg class="theme-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"></path></svg>
+        </button>
+
+        <button class="ghost-button topbar-button" id="reloadButton" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.35 5.65"></path><path d="M20 4v7h-7"></path></svg>
+          Refresh
+        </button>
+        <button class="light-button topbar-button" id="openFileButton" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7.5h6l2 2h10V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7.5Z"></path><path d="M3 7.5V5a2 2 0 0 1 2-2h4l2 2h5"></path></svg>
+          Open file
+        </button>
+        <input id="fileInput" type="file" accept=".md,text/markdown,text/plain" hidden>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div class="hero-inner">
+        <div class="hero-copy">
+          <span class="eyebrow">Product requirements</span>
+          <h1>Debtulator Blueprint</h1>
+          <p>A live product-requirements workspace for <code>docs/USER_STORIES.md</code>, organised around implementation progress.</p>
+        </div>
+        <div class="hero-sync">
+          <span class="sync-label">Source monitoring</span>
+          <strong id="monitorLabel">Auto-refresh enabled</strong>
+          <span id="lastChecked">Checking for changes…</span>
+        </div>
+      </div>
+    </section>
+
+    <main class="content">
+      <section class="status-overview" aria-label="Implementation overview">
+        <button class="overview-card total" type="button" data-overview-filter="all">
+          <span class="overview-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h13M7 12h13M7 19h13M3.5 5h.01M3.5 12h.01M3.5 19h.01"></path></svg>
+          </span>
+          <span class="overview-copy"><small>Total stories</small><strong id="totalStat">—</strong></span>
+        </button>
+        <button class="overview-card complete" type="button" data-overview-filter="fully">
+          <span class="overview-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="m8 12 2.6 2.6L16.5 9"></path></svg>
+          </span>
+          <span class="overview-copy"><small>Fully implemented</small><strong id="fullyStat">—</strong></span>
+          <span class="overview-code">FI</span>
+        </button>
+        <button class="overview-card partial" type="button" data-overview-filter="partly">
+          <span class="overview-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+          </span>
+          <span class="overview-copy"><small>Partly implemented</small><strong id="partlyStat">—</strong></span>
+          <span class="overview-code">PI</span>
+        </button>
+        <button class="overview-card pending" type="button" data-overview-filter="not">
+          <span class="overview-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M8.5 12h7"></path></svg>
+          </span>
+          <span class="overview-copy"><small>Not implemented</small><strong id="notStat">—</strong></span>
+        </button>
+      </section>
+
+      <section class="workspace">
+        <div class="workspace-toolbar">
+          <button class="filter-mobile-button secondary-button" id="mobileFiltersButton" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"></path></svg>
+            Filters
+            <span class="active-filter-count hidden" id="mobileFilterCount">0</span>
+          </button>
+
+          <div class="search-control">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+            <input id="searchInput" type="search" autocomplete="off" placeholder="Search stories, IDs, criteria, feature areas…" aria-label="Search user stories">
+            <kbd>/</kbd>
+          </div>
+
+          <label class="sort-control">
+            <span>Sort</span>
+            <select id="sortSelect" aria-label="Sort stories">
+              <option value="document">Document order</option>
+              <option value="implementation">Implementation status</option>
+              <option value="priority">Priority</option>
+              <option value="id">Story ID</option>
+              <option value="title">Title A–Z</option>
+              <option value="area">Feature area</option>
+              <option value="criteria">Most acceptance criteria</option>
+            </select>
+          </label>
+
+          <div class="view-toggle" role="group" aria-label="Choose story layout">
+            <button class="active" id="gridViewButton" type="button" title="Grid view" aria-label="Grid view">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1"></rect><rect x="14" y="4" width="6" height="6" rx="1"></rect><rect x="4" y="14" width="6" height="6" rx="1"></rect><rect x="14" y="14" width="6" height="6" rx="1"></rect></svg>
+            </button>
+            <button id="listViewButton" type="button" title="List view" aria-label="List view">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"></path></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="workspace-body">
+          <div class="sidebar-backdrop" id="sidebarBackdrop" hidden></div>
+          <aside class="filters-sidebar" id="filtersSidebar" aria-label="Story filters">
+            <div class="sidebar-mobile-head">
+              <strong>Filters</strong>
+              <button class="icon-button" id="closeFiltersButton" type="button" aria-label="Close filters">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"></path></svg>
+              </button>
+            </div>
+
+            <div class="filter-heading">
+              <div>
+                <span class="sidebar-eyebrow">Filter stories</span>
+                <h2>Implementation</h2>
+              </div>
+              <button class="text-button" id="clearAllButton" type="button">Clear all</button>
+            </div>
+
+            <div class="primary-status-filters" id="implementationFilters"></div>
+
+            <div class="filter-divider"></div>
+
+            <section class="filter-section" data-section="priority">
+              <button class="filter-section-title" type="button" aria-expanded="true">
+                <span>Priority</span>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"></path></svg>
+              </button>
+              <div class="filter-options" id="priorityFilters"></div>
+            </section>
+
+            <section class="filter-section" data-section="actor">
+              <button class="filter-section-title" type="button" aria-expanded="true">
+                <span>Actor</span>
+                <span class="section-count" id="actorDefinitionCount">7 defined</span>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"></path></svg>
+              </button>
+              <div class="filter-options" id="actorFilters"></div>
+            </section>
+
+            <section class="filter-section" data-section="area">
+              <button class="filter-section-title" type="button" aria-expanded="true">
+                <span>Feature area</span>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"></path></svg>
+              </button>
+              <div class="filter-options filter-options-scroll" id="areaFilters"></div>
+            </section>
+
+            <div class="filter-divider"></div>
+
+            <label class="toggle-row">
+              <span>
+                <strong>Auto-refresh source</strong>
+                <small>Re-read the Markdown when it changes.</small>
+              </span>
+              <input id="autoRefreshToggle" type="checkbox" checked>
+              <span class="switch" aria-hidden="true"></span>
+            </label>
+          </aside>
+
+          <section class="results-panel">
+            <div class="results-header">
+              <div>
+                <strong id="resultsCount">0 stories</strong>
+                <span id="resultsDescription">from USER_STORIES.md</span>
+              </div>
+              <div class="active-filter-chips" id="activeFilterChips"></div>
+            </div>
+
+            <div class="content-state" id="contentState">
+              <div class="spinner" aria-hidden="true"></div>
+              <h2>Reading user stories</h2>
+              <p>Loading <code>docs/USER_STORIES.md</code>…</p>
+            </div>
+
+            <div class="stories-grid" id="storiesGrid" hidden></div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
+  <aside class="story-drawer" id="storyDrawer" aria-hidden="true" aria-label="User story details">
+    <div class="drawer-head">
+      <div>
+        <span id="drawerKicker">User story</span>
+        <h2 id="drawerTitle">Story details</h2>
+      </div>
+      <button class="icon-button" id="closeDrawerButton" type="button" aria-label="Close details">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"></path></svg>
+      </button>
+    </div>
+    <div class="drawer-content" id="drawerContent"></div>
+    <div class="drawer-actions">
+      <button class="secondary-button" id="copyStoryButton" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3"></path></svg>
+        Copy story
+      </button>
+      <button class="primary-button" id="copyLinkButton" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.07.07l2-2A5 5 0 0 0 12 4l-1.15 1.15"></path><path d="M14 11a5 5 0 0 0-7.07-.07l-2 2A5 5 0 0 0 12 20l1.15-1.15"></path></svg>
+        Copy link
+      </button>
+    </div>
+  </aside>
+
+  <div class="drop-overlay" id="dropOverlay" aria-hidden="true">
+    <div>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"></path><path d="M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"></path></svg>
+      <strong>Drop USER_STORIES.md</strong>
+      <span>Load this Markdown file into the viewer</span>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <template id="storyTemplate">
+    <article class="story-card">
+      <div class="story-accent"></div>
+      <div class="story-topline">
+        <span class="implementation-badge"></span>
+        <span class="priority-badge"></span>
+        <span class="story-id"></span>
+        <button class="story-open-button" type="button" aria-label="Open story details">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
+        </button>
+      </div>
+      <div class="story-main">
+        <span class="story-area"></span>
+        <h3></h3>
+        <p class="story-statement"></p>
+      </div>
+      <div class="story-footer">
+        <span class="story-actor"></span>
+        <span class="criteria-count"></span>
+      </div>
+    </article>
+  </template>
+
+  <script src="./app.js"></script>
+</body>
+</html>
