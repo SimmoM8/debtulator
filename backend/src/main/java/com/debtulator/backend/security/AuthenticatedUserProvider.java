@@ -9,8 +9,6 @@ import java.util.UUID;
 public class AuthenticatedUserProvider {
 
     public AuthenticatedUser from(Jwt jwt) {
-        return new AuthenticatedUser(
-                UUID.fromString(jwt.getSubject())
-        );
+        return new AuthenticatedUser(UUID.fromString(jwt.getSubject()));
     }
 }

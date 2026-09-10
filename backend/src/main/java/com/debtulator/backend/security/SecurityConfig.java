@@ -58,16 +58,13 @@ public class SecurityConfig {
                 .withJwkSetUri(properties.jwkSetUri())
                 .build();
 
-        var defaultValidators =
-                JwtValidators.createDefaultWithIssuer(properties.issuer());
-
+        var defaultValidators = JwtValidators.createDefaultWithIssuer(properties.issuer());
         var validators = new DelegatingOAuth2TokenValidator<Jwt>(
                 defaultValidators,
                 audienceValidator
         );
 
         decoder.setJwtValidator(validators);
-
         return decoder;
     }
 }

@@ -24,7 +24,6 @@ public class SupabaseAudienceValidator implements OAuth2TokenValidator<Jwt> {
                 "The token audience is invalid.",
                 null
         );
-
         return OAuth2TokenValidatorResult.failure(error);
     }
 }

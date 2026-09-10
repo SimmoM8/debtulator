@@ -2,7 +2,5 @@ package com.debtulator.backend.security;
 
 import java.util.UUID;
 
-public record AuthenticatedUser(
-        UUID id
-) {
+public record AuthenticatedUser(UUID id) {
 }
