@@ -1,5 +1,6 @@
 package com.debtulator.backend.security;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
@@ -7,13 +8,10 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class SupabaseAudienceValidator implements OAuth2TokenValidator<Jwt> {
 
     private final JwtProperties properties;
-
-    public SupabaseAudienceValidator(JwtProperties properties) {
-        this.properties = properties;
-    }
 
     @Override
     public OAuth2TokenValidatorResult validate(Jwt jwt) {
