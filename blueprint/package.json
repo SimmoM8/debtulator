@@ -1,0 +1,17 @@
+{
+  "name": "@debtulator/blueprint",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Debtulator Blueprint \u2014 dynamic browser for the Debtulator user-story product requirements.",
+  "type": "commonjs",
+  "files": [
+    "index.html",
+    "styles.css",
+    "app.js",
+    "README.md"
+  ],
+  "debtulator": {
+    "displayName": "Debtulator Blueprint",
+    "source": "../docs/USER_STORIES.md"
+  }
+}
