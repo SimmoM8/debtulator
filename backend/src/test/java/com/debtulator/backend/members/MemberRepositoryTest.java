@@ -32,41 +32,22 @@ class MemberRepositoryTest {
     @BeforeEach
     void setUp() {
         ownerUserId = UUID.randomUUID();
-
-        jdbcTemplate.update(
-                "insert into auth.users (id) values (?)",
-                ownerUserId
-        );
+        jdbcTemplate.update("insert into auth.users (id) values (?)", ownerUserId);
     }
 
     @Test
     void findsMembersByOwnerOrderedByDisplayName() {
         Instant now = Instant.now();
 
-        memberRepository.save(
-                new Member(
-                        UUID.randomUUID(),
-                        ownerUserId,
-                        "Zoe",
-                        null,
-                        now,
-                        now
-                )
-        );
-
-        memberRepository.save(
-                new Member(
-                        UUID.randomUUID(),
-                        ownerUserId,
-                        "Alice",
-                        null,
-                        now,
-                        now
-                )
-        );
+        memberRepository.save(new Member(
+                UUID.randomUUID(), ownerUserId, "Zoe", now, now
+        ));
+        memberRepository.save(new Member(
+                UUID.randomUUID(), ownerUserId, "Alice", now, now
+        ));
 
         List<Member> members =
-                memberRepository.findAllByOwnerUserIdOrderByDisplayNameAsc(
+                memberRepository.findAllByOwnerUserIdAndDeletedAtIsNullOrderByDisplayNameAsc(
                         ownerUserId
                 );
 
@@ -80,52 +61,33 @@ class MemberRepositoryTest {
         UUID memberId = UUID.randomUUID();
         Instant now = Instant.now();
 
-        memberRepository.save(
-                new Member(
-                        memberId,
-                        ownerUserId,
-                        "Benjamin",
-                        null,
-                        now,
-                        now
-                )
-        );
+        memberRepository.save(new Member(
+                memberId, ownerUserId, "Benjamin", now, now
+        ));
 
         Optional<Member> result =
-                memberRepository.findByIdAndOwnerUserId(
+                memberRepository.findByIdAndOwnerUserIdAndDeletedAtIsNull(
                         memberId,
                         ownerUserId
                 );
 
         assertThat(result).isPresent();
-        assertThat(result.orElseThrow().getDisplayName())
-                .isEqualTo("Benjamin");
+        assertThat(result.orElseThrow().getDisplayName()).isEqualTo("Benjamin");
     }
 
     @Test
     void doesNotReturnMemberOwnedByAnotherUser() {
-        UUID otherUserId = UUID.randomUUID();
+        UUID otherOwnerUserId = UUID.randomUUID();
         UUID memberId = UUID.randomUUID();
         Instant now = Instant.now();
 
-        jdbcTemplate.update(
-                "insert into auth.users (id) values (?)",
-                otherUserId
-        );
-
-        memberRepository.save(
-                new Member(
-                        memberId,
-                        otherUserId,
-                        "Other member",
-                        null,
-                        now,
-                        now
-                )
-        );
+        jdbcTemplate.update("insert into auth.users (id) values (?)", otherOwnerUserId);
+        memberRepository.save(new Member(
+                memberId, otherOwnerUserId, "Other member", now, now
+        ));
 
         Optional<Member> result =
-                memberRepository.findByIdAndOwnerUserId(
+                memberRepository.findByIdAndOwnerUserIdAndDeletedAtIsNull(
                         memberId,
                         ownerUserId
                 );
@@ -138,24 +100,17 @@ class MemberRepositoryTest {
         UUID linkedUserId = UUID.randomUUID();
         Instant now = Instant.now();
 
-        jdbcTemplate.update(
-                "insert into auth.users (id) values (?)",
-                linkedUserId
-        );
+        jdbcTemplate.update("insert into auth.users (id) values (?)", linkedUserId);
 
-        memberRepository.save(
-                new Member(
-                        UUID.randomUUID(),
-                        ownerUserId,
-                        "Linked member",
-                        linkedUserId,
-                        now,
-                        now
-                )
+        Member member = new Member(
+                UUID.randomUUID(), ownerUserId, "Linked member", now, now
         );
+        memberRepository.saveAndFlush(member);
+        member.linkToUser(linkedUserId, now.plusSeconds(1));
+        memberRepository.flush();
 
         boolean exists =
-                memberRepository.existsByOwnerUserIdAndLinkedUserId(
+                memberRepository.existsByOwnerUserIdAndLinkedUserIdAndDeletedAtIsNull(
                         ownerUserId,
                         linkedUserId
                 );
@@ -169,33 +124,54 @@ class MemberRepositoryTest {
         UUID linkedUserId = UUID.randomUUID();
         Instant now = Instant.now();
 
-        jdbcTemplate.update(
-                "insert into auth.users (id) values (?)",
-                otherOwnerUserId
-        );
+        jdbcTemplate.update("insert into auth.users (id) values (?)", otherOwnerUserId);
+        jdbcTemplate.update("insert into auth.users (id) values (?)", linkedUserId);
 
-        jdbcTemplate.update(
-                "insert into auth.users (id) values (?)",
-                linkedUserId
+        Member member = new Member(
+                UUID.randomUUID(), otherOwnerUserId, "Linked member", now, now
         );
-
-        memberRepository.save(
-                new Member(
-                        UUID.randomUUID(),
-                        otherOwnerUserId,
-                        "Linked member",
-                        linkedUserId,
-                        now,
-                        now
-                )
-        );
+        memberRepository.saveAndFlush(member);
+        member.linkToUser(linkedUserId, now.plusSeconds(1));
+        memberRepository.flush();
 
         boolean exists =
-                memberRepository.existsByOwnerUserIdAndLinkedUserId(
+                memberRepository.existsByOwnerUserIdAndLinkedUserIdAndDeletedAtIsNull(
                         ownerUserId,
                         linkedUserId
                 );
 
         assertThat(exists).isFalse();
+    }
+
+    @Test
+    void excludesSoftDeletedMembersFromNormalQueries() {
+        Instant now = Instant.now();
+        Member member = memberRepository.saveAndFlush(new Member(
+                UUID.randomUUID(), ownerUserId, "Benjamin", now, now
+        ));
+
+        member.delete(now.plusSeconds(1));
+        memberRepository.flush();
+
+        assertThat(
+                memberRepository.findByIdAndOwnerUserIdAndDeletedAtIsNull(
+                        member.getId(), ownerUserId
+                )
+        ).isEmpty();
+    }
+
+    @Test
+    void incrementsVersionWhenMemberChanges() {
+        Instant now = Instant.now();
+        Member member = memberRepository.saveAndFlush(new Member(
+                UUID.randomUUID(), ownerUserId, "Benjamin", now, now
+        ));
+
+        assertThat(member.getVersion()).isZero();
+
+        member.rename("Ben", now.plusSeconds(10));
+        memberRepository.flush();
+
+        assertThat(member.getVersion()).isEqualTo(1L);
     }
 }
