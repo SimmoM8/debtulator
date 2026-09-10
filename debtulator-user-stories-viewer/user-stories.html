@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#30205c">
+  <title>Debtulator · User Stories</title>
+  <link rel="stylesheet" href="./user-stories.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="Debtulator User Stories home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" role="img">
+            <path d="M8.2 7.2h8.1c5.3 0 9.1 3.4 9.1 8.7s-3.8 8.9-9.1 8.9H8.2V7.2Zm7.7 13.1c2.8 0 4.7-1.6 4.7-4.4 0-2.7-1.9-4.2-4.7-4.2h-3v8.6h3Z"/>
+          </svg>
+        </span>
+        <span>
+          <strong>Debtulator</strong>
+          <small>User stories</small>
+        </span>
+      </a>
+
+      <div class="topbar-actions">
+        <span class="source-pill" id="sourcePill" title="Markdown source">
+          <span class="status-dot" id="sourceDot"></span>
+          <span id="sourceLabel">Loading USER_STORIES.md</span>
+        </span>
+
+        <button class="icon-button" id="themeButton" type="button" aria-label="Toggle theme" title="Toggle theme">
+          <svg class="sun-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+          </svg>
+          <svg class="moon-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"></path>
+          </svg>
+        </button>
+
+        <button class="secondary-button compact" id="reloadButton" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7"></path></svg>
+          Reload
+        </button>
+
+        <button class="primary-button compact" id="openFileButton" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7.5h6l2 2h10v9.5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7.5Z"></path><path d="M3 7.5V5a2 2 0 0 1 2-2h4l2 2h5"></path></svg>
+          Open file
+        </button>
+        <input id="fileInput" type="file" accept=".md,text/markdown,text/plain" hidden>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-inner">
+          <div class="hero-copy">
+            <span class="eyebrow">Product requirements</span>
+            <h1>User stories, without the markdown noise.</h1>
+            <p>Browse, filter and inspect the product behaviour defined in <code>docs/USER_STORIES.md</code>.</p>
+          </div>
+
+          <div class="hero-meta">
+            <div class="hero-meta-item">
+              <span class="meta-label">Source</span>
+              <strong>docs/USER_STORIES.md</strong>
+            </div>
+            <div class="hero-meta-item">
+              <span class="meta-label">Last loaded</span>
+              <strong id="loadedTime">—</strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="workspace">
+        <div class="stats-grid" id="statsGrid" aria-label="Story summary">
+          <article class="stat-card">
+            <div class="stat-icon all" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M7 4h10M7 9h10M7 14h7M5 4h.01M5 9h.01M5 14h.01"></path></svg>
+            </div>
+            <div><span>Total stories</span><strong id="totalStat">—</strong></div>
+          </article>
+          <article class="stat-card">
+            <div class="stat-icon p0" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 3 3.5 7.7v8.6L12 21l8.5-4.7V7.7L12 3Z"></path><path d="m9.5 12 1.7 1.7 3.6-4"></path></svg>
+            </div>
+            <div><span>P0 · Must have</span><strong id="p0Stat">—</strong></div>
+          </article>
+          <article class="stat-card">
+            <div class="stat-icon p1" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 3 3.5 7.7v8.6L12 21l8.5-4.7V7.7L12 3Z"></path><path d="M12 8v5M12 16h.01"></path></svg>
+            </div>
+            <div><span>P1 · Important</span><strong id="p1Stat">—</strong></div>
+          </article>
+          <article class="stat-card">
+            <div class="stat-icon future" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 6V3m0 18v-3M6 12H3m18 0h-3M7.76 7.76 5.64 5.64m12.72 12.72-2.12-2.12M16.24 7.76l2.12-2.12M5.64 18.36l2.12-2.12"></path><circle cx="12" cy="12" r="4"></circle></svg>
+            </div>
+            <div><span>Future</span><strong id="futureStat">—</strong></div>
+          </article>
+        </div>
+
+        <section class="browser-panel">
+          <div class="browser-toolbar">
+            <div class="search-wrap">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+              <input id="searchInput" type="search" autocomplete="off" placeholder="Search stories, criteria, actors…" aria-label="Search user stories">
+              <kbd>/</kbd>
+            </div>
+
+            <div class="toolbar-buttons">
+              <button class="secondary-button filter-toggle" id="filtersToggle" type="button" aria-expanded="false">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"></path></svg>
+                Filters
+                <span class="filter-count hidden" id="filterCount">0</span>
+              </button>
+
+              <label class="select-control sort-control">
+                <span class="sr-only">Sort stories</span>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h8M8 18h4M4 5v14M2 17l2 2 2-2"></path></svg>
+                <select id="sortSelect" aria-label="Sort stories">
+                  <option value="source">Document order</option>
+                  <option value="priority">Priority</option>
+                  <option value="title">Title A–Z</option>
+                  <option value="category">Category</option>
+                  <option value="criteria">Most criteria</option>
+                </select>
+              </label>
+
+              <div class="view-toggle" role="group" aria-label="Story view">
+                <button id="gridViewButton" class="active" type="button" aria-label="Grid view" title="Grid view">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1"></rect><rect x="14" y="4" width="6" height="6" rx="1"></rect><rect x="4" y="14" width="6" height="6" rx="1"></rect><rect x="14" y="14" width="6" height="6" rx="1"></rect></svg>
+                </button>
+                <button id="listViewButton" type="button" aria-label="List view" title="List view">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"></path></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="filters-panel" id="filtersPanel" hidden>
+            <div class="filter-group">
+              <span class="filter-label">Priority</span>
+              <div class="chip-row" id="priorityChips">
+                <button class="filter-chip active" data-priority="all" type="button">All</button>
+                <button class="filter-chip" data-priority="P0" type="button"><span class="chip-dot p0"></span>P0</button>
+                <button class="filter-chip" data-priority="P1" type="button"><span class="chip-dot p1"></span>P1</button>
+                <button class="filter-chip" data-priority="P2" type="button"><span class="chip-dot p2"></span>P2</button>
+                <button class="filter-chip" data-priority="Future" type="button"><span class="chip-dot future"></span>Future</button>
+                <button class="filter-chip" data-priority="Unspecified" type="button"><span class="chip-dot neutral"></span>Unspecified</button>
+              </div>
+            </div>
+
+            <div class="filter-selects">
+              <label>
+                <span>Category</span>
+                <select id="categorySelect"><option value="">All categories</option></select>
+              </label>
+              <label>
+                <span>Actor</span>
+                <select id="actorSelect"><option value="">All actors</option></select>
+              </label>
+              <label>
+                <span>Status</span>
+                <select id="statusSelect"><option value="">All statuses</option></select>
+              </label>
+            </div>
+
+            <button class="text-button" id="clearFiltersButton" type="button">Clear filters</button>
+          </div>
+
+          <div class="results-bar">
+            <div>
+              <strong id="resultsCount">0 stories</strong>
+              <span id="resultsContext">from USER_STORIES.md</span>
+            </div>
+            <button class="text-button" id="expandAllButton" type="button">Expand summaries</button>
+          </div>
+
+          <div id="contentState" class="content-state loading-state">
+            <div class="spinner" aria-hidden="true"></div>
+            <h2>Loading user stories</h2>
+            <p>Reading <code>docs/USER_STORIES.md</code>…</p>
+          </div>
+
+          <div class="stories-grid" id="storiesGrid" hidden></div>
+        </section>
+      </section>
+    </main>
+
+    <footer>
+      <span>Debtulator product requirements viewer</span>
+      <span>Press <kbd>/</kbd> to search · <kbd>Esc</kbd> to close details</span>
+    </footer>
+  </div>
+
+  <div class="drop-overlay" id="dropOverlay" aria-hidden="true">
+    <div>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"></path><path d="M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"></path></svg>
+      <strong>Drop USER_STORIES.md here</strong>
+      <span>Release to load the markdown file</span>
+    </div>
+  </div>
+
+  <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
+  <aside class="story-drawer" id="storyDrawer" aria-hidden="true" aria-label="Story details">
+    <div class="drawer-header">
+      <div>
+        <span class="drawer-kicker" id="drawerKicker">User story</span>
+        <h2 id="drawerTitle">Story details</h2>
+      </div>
+      <button class="icon-button" id="closeDrawerButton" type="button" aria-label="Close story details">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"></path></svg>
+      </button>
+    </div>
+    <div class="drawer-body" id="drawerBody"></div>
+    <div class="drawer-footer">
+      <button class="secondary-button" id="copyStoryButton" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3"></path></svg>
+        Copy story
+      </button>
+      <button class="primary-button" id="copyLinkButton" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.07.07l2-2a5 5 0 0 0-7.07-7.07l-1.15 1.15"></path><path d="M14 11a5 5 0 0 0-7.07-.07l-2 2A5 5 0 0 0 12 20l1.15-1.15"></path></svg>
+        Copy link
+      </button>
+    </div>
+  </aside>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <template id="storyCardTemplate">
+    <article class="story-card">
+      <div class="story-card-top">
+        <div class="badge-row">
+          <span class="priority-badge"></span>
+          <span class="story-id"></span>
+        </div>
+        <button class="card-menu-button" type="button" aria-label="Open story">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
+        </button>
+      </div>
+      <div class="story-card-content">
+        <span class="story-category"></span>
+        <h3></h3>
+        <p class="story-statement"></p>
+      </div>
+      <div class="story-card-footer">
+        <div class="story-meta-line">
+          <span class="actor-label"></span>
+          <span class="criteria-count"></span>
+        </div>
+        <button class="summary-toggle text-button" type="button">Show summary</button>
+        <div class="story-summary" hidden></div>
+      </div>
+    </article>
+  </template>
+
+  <script src="./user-stories.js"></script>
+</body>
+</html>
