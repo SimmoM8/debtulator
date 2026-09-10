@@ -4,6 +4,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -35,18 +36,23 @@ public class Member {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
+
     public Member(
             UUID id,
             UUID ownerUserId,
             String displayName,
-            UUID linkedUserId,
             Instant createdAt,
             Instant updatedAt
     ) {
         this.id = id;
         this.ownerUserId = ownerUserId;
         this.displayName = displayName;
-        this.linkedUserId = linkedUserId;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -64,5 +70,10 @@ public class Member {
     public void unlink(Instant updatedAt) {
         this.linkedUserId = null;
         this.updatedAt = updatedAt;
+    }
+
+    public void delete(Instant deletedAt) {
+        this.deletedAt = deletedAt;
+        this.updatedAt = deletedAt;
     }
 }

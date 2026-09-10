@@ -1,4 +1,4 @@
-package com.debtulator.backend.members;
+package com.debtulator.backend.debts;
 
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Pageable;
@@ -11,38 +11,36 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-public interface MemberRepository extends JpaRepository<Member, UUID> {
+public interface DebtRepository extends JpaRepository<Debt, UUID> {
 
-    List<Member> findAllByOwnerUserIdAndDeletedAtIsNullOrderByDisplayNameAsc(UUID ownerUserId);
-
-    Optional<Member> findByIdAndOwnerUserIdAndDeletedAtIsNull(
+    Optional<Debt> findByIdAndOwnerUserIdAndDeletedAtIsNull(
             UUID id,
             UUID ownerUserId
     );
 
-    boolean existsByOwnerUserIdAndLinkedUserIdAndDeletedAtIsNull(
+    boolean existsByOwnerUserIdAndMemberIdAndDeletedAtIsNull(
             UUID ownerUserId,
-            UUID linkedUserId
+            UUID memberId
     );
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
-            select member
-            from Member member
-            where member.id = :id
-              and member.ownerUserId = :ownerUserId
+            select debt
+            from Debt debt
+            where debt.id = :id
+              and debt.ownerUserId = :ownerUserId
             """)
-    Optional<Member> findForUpdate(
+    Optional<Debt> findForUpdate(
             @Param("id") UUID id,
             @Param("ownerUserId") UUID ownerUserId
     );
 
-    List<Member> findByOwnerUserIdAndDeletedAtIsNullOrderByIdAsc(
+    List<Debt> findByOwnerUserIdAndDeletedAtIsNullOrderByIdAsc(
             UUID ownerUserId,
             Pageable pageable
     );
 
-    List<Member> findByOwnerUserIdAndDeletedAtIsNullAndIdGreaterThanOrderByIdAsc(
+    List<Debt> findByOwnerUserIdAndDeletedAtIsNullAndIdGreaterThanOrderByIdAsc(
             UUID ownerUserId,
             UUID id,
             Pageable pageable
