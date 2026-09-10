@@ -1,0 +1,8 @@
+package com.debtulator.backend.security;
+
+import java.util.UUID;
+
+public record AuthenticatedUser(
+        UUID id
+) {
+}

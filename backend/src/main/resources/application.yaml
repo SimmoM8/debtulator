@@ -4,7 +4,13 @@ spring:
 
   datasource:
     url: ${DATABASE_URL}
-    driver-class-name: org.postgresql.Driver
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
 
   jpa:
     hibernate:
@@ -39,3 +45,10 @@ management:
   endpoint:
     health:
       show-details: never
+
+debtulator:
+  security:
+    jwt:
+      issuer: ${SUPABASE_JWT_ISSUER}
+      jwk-set-uri: ${SUPABASE_JWKS_URI}
+      audience: ${SUPABASE_JWT_AUDIENCE:authenticated}

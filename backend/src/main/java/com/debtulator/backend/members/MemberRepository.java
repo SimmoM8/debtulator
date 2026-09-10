@@ -10,7 +10,10 @@ public interface MemberRepository extends JpaRepository<Member, UUID> {
 
     List<Member> findAllByOwnerUserIdOrderByDisplayNameAsc(UUID ownerUserId);
 
-    Optional<Member> findByIdAndOwnerUserId(UUID id, UUID ownerUserId);
+    Optional<Member> findByIdAndOwnerUserId(
+            UUID id,
+            UUID ownerUserId
+    );
 
     boolean existsByOwnerUserIdAndLinkedUserId(
             UUID ownerUserId,
