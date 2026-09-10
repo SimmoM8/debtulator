@@ -1,0 +1,6 @@
+debtulator:
+  security:
+    jwt:
+      issuer: http://localhost/test-issuer
+      jwk-set-uri: http://localhost/test-jwks
+      audience: authenticated
