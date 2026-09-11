@@ -18,3 +18,4 @@ public interface SyncChangeRepository extends JpaRepository<SyncChange, Long> {
     @Query("select coalesce(max(syncChange.sequence), 0L) from SyncChange syncChange")
     long findCurrentCursor();
 }
+

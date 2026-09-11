@@ -10,3 +10,4 @@ public record SyncChangeCommand(
         Map<String, Object> payload
 ) {
 }
+

@@ -22,3 +22,4 @@ public class SyncMetadata {
     @Column(name = "retained_from_sequence", nullable = false)
     private long retainedFromSequence;
 }
+

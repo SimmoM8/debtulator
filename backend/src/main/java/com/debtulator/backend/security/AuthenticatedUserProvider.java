@@ -12,3 +12,4 @@ public class AuthenticatedUserProvider {
         return new AuthenticatedUser(UUID.fromString(jwt.getSubject()));
     }
 }
+

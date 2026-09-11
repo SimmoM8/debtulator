@@ -58,3 +58,4 @@ public class SyncChange {
         this.changedAt = changedAt;
     }
 }
+

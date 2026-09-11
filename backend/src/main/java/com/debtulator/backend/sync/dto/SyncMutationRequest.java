@@ -16,3 +16,4 @@ public record SyncMutationRequest(
         Map<String, Object> payload
 ) {
 }
+

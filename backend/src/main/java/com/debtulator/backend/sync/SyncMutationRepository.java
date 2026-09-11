@@ -6,3 +6,4 @@ import java.util.UUID;
 
 public interface SyncMutationRepository extends JpaRepository<SyncMutation, UUID> {
 }
+

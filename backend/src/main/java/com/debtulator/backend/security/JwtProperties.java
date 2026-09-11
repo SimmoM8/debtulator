@@ -12,3 +12,4 @@ public record JwtProperties(
         @NotBlank String audience
 ) {
 }
+

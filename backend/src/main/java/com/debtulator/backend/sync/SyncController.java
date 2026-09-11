@@ -66,3 +66,4 @@ public class SyncController {
         return syncService.bootstrap(userId, entityType, afterId, limit);
     }
 }
+

@@ -48,3 +48,4 @@ public interface MemberRepository extends JpaRepository<Member, UUID> {
             Pageable pageable
     );
 }
+

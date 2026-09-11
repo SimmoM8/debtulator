@@ -6,3 +6,4 @@ public class InvalidSyncRequestException extends RuntimeException {
         super(message);
     }
 }
+

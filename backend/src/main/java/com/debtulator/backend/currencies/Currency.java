@@ -26,3 +26,4 @@ public class Currency {
     @Column(name = "decimal_places", nullable = false)
     private short decimalPlaces;
 }
+

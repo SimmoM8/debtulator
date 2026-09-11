@@ -16,3 +16,4 @@ public enum SyncErrorCode {
     CURRENCY_NOT_SUPPORTED,
     TEMPORARY_FAILURE
 }
+
