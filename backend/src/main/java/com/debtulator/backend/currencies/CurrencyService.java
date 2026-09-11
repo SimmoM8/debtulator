@@ -11,11 +11,14 @@ import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(
+        readOnly = true,
+        noRollbackFor = CurrencyServiceException.class
+)
 public class CurrencyService {
 
     private final CurrencyRepository currencyRepository;
 
-    @Transactional(readOnly = true)
     public List<Currency> getEnabledCurrencies() {
         List<Currency> currencies =
                 currencyRepository.findAllByEnabledTrueOrderByDisplayOrderAscCodeAsc();
@@ -24,7 +27,6 @@ public class CurrencyService {
         return currencies;
     }
 
-    @Transactional(readOnly = true)
     public Currency require(String code) {
         String normalizedCode = normalizeCode(code);
 
@@ -39,7 +41,6 @@ public class CurrencyService {
         return currency;
     }
 
-    @Transactional(readOnly = true)
     public Currency requireEnabled(String code) {
         Currency currency = require(code);
 
