@@ -1,25 +1,18 @@
 package com.debtulator.backend.sync;
 
-import java.util.List;
-
 public record SyncHandlerResult(
         SyncMutationStatus status,
         Long version,
         SyncErrorCode errorCode,
-        String message,
-        List<SyncChangeCommand> changes
+        String message
 ) {
 
-    public static SyncHandlerResult applied(
-            Long version,
-            List<SyncChangeCommand> changes
-    ) {
+    public static SyncHandlerResult applied(Long version) {
         return new SyncHandlerResult(
                 SyncMutationStatus.APPLIED,
                 version,
                 null,
-                null,
-                changes
+                null
         );
     }
 
@@ -32,8 +25,7 @@ public record SyncHandlerResult(
                 SyncMutationStatus.CONFLICT,
                 serverVersion,
                 errorCode,
-                message,
-                List.of()
+                message
         );
     }
 
@@ -45,9 +37,7 @@ public record SyncHandlerResult(
                 SyncMutationStatus.REJECTED,
                 null,
                 errorCode,
-                message,
-                List.of()
+                message
         );
     }
 }
-

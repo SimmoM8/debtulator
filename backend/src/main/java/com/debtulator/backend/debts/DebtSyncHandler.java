@@ -1,15 +1,11 @@
 package com.debtulator.backend.debts;
 
-import com.debtulator.backend.currencies.CurrencyRepository;
-import com.debtulator.backend.members.MemberRepository;
 import com.debtulator.backend.sync.SyncBootstrapBatch;
-import com.debtulator.backend.sync.SyncChangeCommand;
 import com.debtulator.backend.sync.SyncEntityHandler;
 import com.debtulator.backend.sync.SyncEntityType;
 import com.debtulator.backend.sync.SyncErrorCode;
 import com.debtulator.backend.sync.SyncHandlerResult;
 import com.debtulator.backend.sync.SyncMutationCommand;
-import com.debtulator.backend.sync.SyncOperation;
 import com.debtulator.backend.sync.SyncPayloads;
 import com.debtulator.backend.sync.dto.SyncBootstrapItem;
 import lombok.RequiredArgsConstructor;
@@ -17,11 +13,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
-import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -49,16 +43,9 @@ public class DebtSyncHandler implements SyncEntityHandler {
             "dueDate"
     );
 
-    private static final Set<String> DIRECTIONS = Set.of(
-            "you_owe",
-            "they_owe"
-    );
-
+    private final DebtService debtService;
     private final DebtRepository debtRepository;
-    private final MemberRepository memberRepository;
-    private final CurrencyRepository currencyRepository;
     private final DebtMapper debtMapper;
-    private final Clock clock;
 
     @Override
     public SyncEntityType entityType() {
@@ -70,10 +57,14 @@ public class DebtSyncHandler implements SyncEntityHandler {
             UUID ownerUserId,
             SyncMutationCommand mutation
     ) {
-        return switch (mutation.operation()) {
-            case UPSERT -> upsert(ownerUserId, mutation);
-            case DELETE -> delete(ownerUserId, mutation);
-        };
+        try {
+            return switch (mutation.operation()) {
+                case UPSERT -> upsert(ownerUserId, mutation);
+                case DELETE -> delete(ownerUserId, mutation);
+            };
+        } catch (DebtServiceException exception) {
+            return mapException(exception);
+        }
     }
 
     @Override
@@ -86,14 +77,14 @@ public class DebtSyncHandler implements SyncEntityHandler {
 
         List<Debt> rows = afterId == null
                 ? debtRepository.findByOwnerUserIdAndDeletedAtIsNullOrderByIdAsc(
-                ownerUserId,
-                pageable
-        )
+                        ownerUserId,
+                        pageable
+                )
                 : debtRepository.findByOwnerUserIdAndDeletedAtIsNullAndIdGreaterThanOrderByIdAsc(
-                ownerUserId,
-                afterId,
-                pageable
-        );
+                        ownerUserId,
+                        afterId,
+                        pageable
+                );
 
         boolean hasMore = rows.size() > limit;
         List<Debt> page = hasMore
@@ -123,9 +114,9 @@ public class DebtSyncHandler implements SyncEntityHandler {
             UUID ownerUserId,
             SyncMutationCommand mutation
     ) {
-        try {
-            Map<String, Object> payload = mutation.payload();
+        Map<String, Object> payload = mutation.payload();
 
+        try {
             SyncPayloads.requireOnlyKeys(
                     payload,
                     mutation.baseVersion() == null
@@ -133,129 +124,47 @@ public class DebtSyncHandler implements SyncEntityHandler {
                             : UPDATE_FIELDS
             );
 
-            UUID memberId = SyncPayloads.requireUuid(
-                    payload,
-                    "memberId"
-            );
-
-            String direction = SyncPayloads.requireString(
-                    payload,
-                    "direction"
-            );
-
-            BigDecimal amount = SyncPayloads.requireDecimalString(
-                    payload,
-                    "amount"
-            );
-
-            String currency = SyncPayloads
-                    .requireString(payload, "currency")
-                    .toUpperCase(Locale.ROOT);
-
-            String title = SyncPayloads.requireString(
-                    payload,
-                    "title"
-            );
-
-            LocalDate dueDate = SyncPayloads.optionalLocalDate(
-                    payload,
-                    "dueDate"
-            );
-
-            SyncHandlerResult validation = validateValues(
-                    ownerUserId,
-                    memberId,
-                    direction,
-                    amount,
-                    currency,
-                    title
-            );
-
-            if (validation != null) {
-                return validation;
-            }
-
-            Instant now = Instant.now(clock);
+            UUID memberId = SyncPayloads.requireUuid(payload, "memberId");
+            String direction = SyncPayloads.requireString(payload, "direction");
+            BigDecimal amount = SyncPayloads.requireDecimalString(payload, "amount");
+            String currency = SyncPayloads.requireString(payload, "currency");
+            String title = SyncPayloads.requireString(payload, "title");
+            LocalDate dueDate = SyncPayloads.optionalLocalDate(payload, "dueDate");
 
             if (mutation.baseVersion() == null) {
-                if (debtRepository.existsById(mutation.entityId())) {
-                    return SyncHandlerResult.conflict(
-                            null,
-                            SyncErrorCode.ENTITY_ALREADY_EXISTS,
-                            "The debt already exists."
-                    );
-                }
-
                 Instant createdAt = SyncPayloads.requireInstant(
                         payload,
                         "createdAt"
                 );
 
-                Debt debt = new Debt(
-                        mutation.entityId(),
+                Debt debt = debtService.create(
                         ownerUserId,
+                        mutation.entityId(),
                         memberId,
                         direction,
                         amount,
                         currency,
                         title,
                         dueDate,
-                        createdAt,
-                        now
+                        createdAt
                 );
 
-                debtRepository.saveAndFlush(debt);
-
-                return SyncHandlerResult.applied(
-                        debt.getVersion(),
-                        List.of(upsertChange(debt))
-                );
+                return SyncHandlerResult.applied(debt.getVersion());
             }
 
-            Debt debt = debtRepository
-                    .findForUpdate(mutation.entityId(), ownerUserId)
-                    .orElse(null);
-
-            if (debt == null) {
-                return SyncHandlerResult.conflict(
-                        null,
-                        SyncErrorCode.ENTITY_NOT_FOUND,
-                        "The debt no longer exists."
-                );
-            }
-
-            if (debt.getDeletedAt() != null) {
-                return SyncHandlerResult.conflict(
-                        debt.getVersion(),
-                        SyncErrorCode.ENTITY_DELETED,
-                        "The debt has been deleted."
-                );
-            }
-
-            if (!debt.getVersion().equals(mutation.baseVersion())) {
-                return SyncHandlerResult.conflict(
-                        debt.getVersion(),
-                        SyncErrorCode.VERSION_CONFLICT,
-                        "The debt has changed since this device last synchronized."
-                );
-            }
-
-            debt.update(
+            Debt debt = debtService.update(
+                    ownerUserId,
+                    mutation.entityId(),
+                    mutation.baseVersion(),
                     memberId,
                     direction,
                     amount,
                     currency,
                     title,
-                    dueDate,
-                    now
+                    dueDate
             );
 
-            debtRepository.flush();
-
-            return SyncHandlerResult.applied(
-                    debt.getVersion(),
-                    List.of(upsertChange(debt))
-            );
+            return SyncHandlerResult.applied(debt.getVersion());
         } catch (IllegalArgumentException exception) {
             return SyncHandlerResult.rejected(
                     SyncErrorCode.INVALID_PAYLOAD,
@@ -275,108 +184,50 @@ public class DebtSyncHandler implements SyncEntityHandler {
             );
         }
 
-        Debt debt = debtRepository
-                .findForUpdate(mutation.entityId(), ownerUserId)
-                .orElse(null);
+        Long version = debtService.delete(
+                ownerUserId,
+                mutation.entityId(),
+                mutation.baseVersion()
+        );
 
-        if (debt == null) {
-            return SyncHandlerResult.applied(
-                    null,
-                    List.of()
+        return SyncHandlerResult.applied(version);
+    }
+
+    private SyncHandlerResult mapException(DebtServiceException exception) {
+        return switch (exception.getReason()) {
+            case ALREADY_EXISTS -> SyncHandlerResult.conflict(
+                    exception.getCurrentVersion(),
+                    SyncErrorCode.ENTITY_ALREADY_EXISTS,
+                    exception.getMessage()
             );
-        }
-
-        if (debt.getDeletedAt() != null) {
-            return SyncHandlerResult.applied(
-                    debt.getVersion(),
-                    List.of()
+            case NOT_FOUND -> SyncHandlerResult.conflict(
+                    exception.getCurrentVersion(),
+                    SyncErrorCode.ENTITY_NOT_FOUND,
+                    exception.getMessage()
             );
-        }
-
-        if (!debt.getVersion().equals(mutation.baseVersion())) {
-            return SyncHandlerResult.conflict(
-                    debt.getVersion(),
+            case DELETED -> SyncHandlerResult.conflict(
+                    exception.getCurrentVersion(),
+                    SyncErrorCode.ENTITY_DELETED,
+                    exception.getMessage()
+            );
+            case VERSION_CONFLICT -> SyncHandlerResult.conflict(
+                    exception.getCurrentVersion(),
                     SyncErrorCode.VERSION_CONFLICT,
-                    "The debt has changed since this device last synchronized."
+                    exception.getMessage()
             );
-        }
-
-        Instant now = Instant.now(clock);
-
-        debt.delete(now);
-        debtRepository.flush();
-
-        return SyncHandlerResult.applied(
-                debt.getVersion(),
-                List.of(new SyncChangeCommand(
-                        SyncEntityType.DEBT,
-                        debt.getId(),
-                        SyncOperation.DELETE,
-                        null
-                ))
-        );
-    }
-
-    private SyncHandlerResult validateValues(
-            UUID ownerUserId,
-            UUID memberId,
-            String direction,
-            BigDecimal amount,
-            String currency,
-            String title
-    ) {
-        if (!DIRECTIONS.contains(direction)) {
-            return SyncHandlerResult.rejected(
-                    SyncErrorCode.INVALID_PAYLOAD,
-                    "direction must be 'you_owe' or 'they_owe'."
-            );
-        }
-
-        if (amount.signum() <= 0
-                || amount.precision() > 19
-                || Math.max(0, amount.stripTrailingZeros().scale()) > 2) {
-            return SyncHandlerResult.rejected(
-                    SyncErrorCode.INVALID_PAYLOAD,
-                    "amount must be positive with at most 19 digits and 2 decimal places."
-            );
-        }
-
-        if (title.codePointCount(0, title.length()) > 120) {
-            return SyncHandlerResult.rejected(
-                    SyncErrorCode.INVALID_PAYLOAD,
-                    "title must not exceed 120 characters."
-            );
-        }
-
-        if (memberRepository
-                .findByIdAndOwnerUserIdAndDeletedAtIsNull(
-                        memberId,
-                        ownerUserId
-                )
-                .isEmpty()) {
-            return SyncHandlerResult.rejected(
+            case MEMBER_NOT_FOUND -> SyncHandlerResult.rejected(
                     SyncErrorCode.MEMBER_NOT_FOUND,
-                    "The selected member does not exist."
+                    exception.getMessage()
             );
-        }
-
-        if (!currencyRepository.existsById(currency)) {
-            return SyncHandlerResult.rejected(
+            case CURRENCY_NOT_SUPPORTED -> SyncHandlerResult.rejected(
                     SyncErrorCode.CURRENCY_NOT_SUPPORTED,
-                    "The selected currency is not supported."
+                    exception.getMessage()
             );
-        }
-
-        return null;
-    }
-
-    private SyncChangeCommand upsertChange(Debt debt) {
-        return new SyncChangeCommand(
-                SyncEntityType.DEBT,
-                debt.getId(),
-                SyncOperation.UPSERT,
-                debtMapper.toSyncPayload(debt)
-        );
+            case INVALID_DIRECTION, INVALID_AMOUNT, INVALID_TITLE ->
+                    SyncHandlerResult.rejected(
+                            SyncErrorCode.INVALID_PAYLOAD,
+                            exception.getMessage()
+                    );
+        };
     }
 }
-

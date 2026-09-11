@@ -1,21 +1,17 @@
 package com.debtulator.backend.members;
 
-import com.debtulator.backend.debts.DebtRepository;
 import com.debtulator.backend.sync.SyncBootstrapBatch;
-import com.debtulator.backend.sync.SyncChangeCommand;
 import com.debtulator.backend.sync.SyncEntityHandler;
 import com.debtulator.backend.sync.SyncEntityType;
 import com.debtulator.backend.sync.SyncErrorCode;
 import com.debtulator.backend.sync.SyncHandlerResult;
 import com.debtulator.backend.sync.SyncMutationCommand;
-import com.debtulator.backend.sync.SyncOperation;
 import com.debtulator.backend.sync.SyncPayloads;
 import com.debtulator.backend.sync.dto.SyncBootstrapItem;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
-import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -35,10 +31,9 @@ public class MemberSyncHandler implements SyncEntityHandler {
             "displayName"
     );
 
+    private final MemberService memberService;
     private final MemberRepository memberRepository;
-    private final DebtRepository debtRepository;
     private final MemberMapper memberMapper;
-    private final Clock clock;
 
     @Override
     public SyncEntityType entityType() {
@@ -50,10 +45,14 @@ public class MemberSyncHandler implements SyncEntityHandler {
             UUID ownerUserId,
             SyncMutationCommand mutation
     ) {
-        return switch (mutation.operation()) {
-            case UPSERT -> upsert(ownerUserId, mutation);
-            case DELETE -> delete(ownerUserId, mutation);
-        };
+        try {
+            return switch (mutation.operation()) {
+                case UPSERT -> upsert(ownerUserId, mutation);
+                case DELETE -> delete(ownerUserId, mutation);
+            };
+        } catch (MemberServiceException exception) {
+            return mapException(exception);
+        }
     }
 
     @Override
@@ -66,14 +65,14 @@ public class MemberSyncHandler implements SyncEntityHandler {
 
         List<Member> rows = afterId == null
                 ? memberRepository.findByOwnerUserIdAndDeletedAtIsNullOrderByIdAsc(
-                ownerUserId,
-                pageable
-        )
+                        ownerUserId,
+                        pageable
+                )
                 : memberRepository.findByOwnerUserIdAndDeletedAtIsNullAndIdGreaterThanOrderByIdAsc(
-                ownerUserId,
-                afterId,
-                pageable
-        );
+                        ownerUserId,
+                        afterId,
+                        pageable
+                );
 
         boolean hasMore = rows.size() > limit;
         List<Member> page = hasMore
@@ -103,9 +102,9 @@ public class MemberSyncHandler implements SyncEntityHandler {
             UUID ownerUserId,
             SyncMutationCommand mutation
     ) {
-        try {
-            Map<String, Object> payload = mutation.payload();
+        Map<String, Object> payload = mutation.payload();
 
+        try {
             SyncPayloads.requireOnlyKeys(
                     payload,
                     mutation.baseVersion() == null
@@ -113,85 +112,35 @@ public class MemberSyncHandler implements SyncEntityHandler {
                             : UPDATE_FIELDS
             );
 
-            String displayName = SyncPayloads
-                    .requireString(payload, "displayName")
-                    .trim();
-
-            if (displayName.isEmpty()
-                    || displayName.codePointCount(0, displayName.length()) > 120) {
-                return SyncHandlerResult.rejected(
-                        SyncErrorCode.INVALID_PAYLOAD,
-                        "displayName must contain between 1 and 120 characters."
-                );
-            }
-
-            Instant now = Instant.now(clock);
+            String displayName = SyncPayloads.requireString(
+                    payload,
+                    "displayName"
+            );
 
             if (mutation.baseVersion() == null) {
-                if (memberRepository.existsById(mutation.entityId())) {
-                    return SyncHandlerResult.conflict(
-                            null,
-                            SyncErrorCode.ENTITY_ALREADY_EXISTS,
-                            "The member already exists."
-                    );
-                }
-
                 Instant createdAt = SyncPayloads.requireInstant(
                         payload,
                         "createdAt"
                 );
 
-                Member member = new Member(
-                        mutation.entityId(),
+                Member member = memberService.create(
                         ownerUserId,
+                        mutation.entityId(),
                         displayName,
-                        createdAt,
-                        now
+                        createdAt
                 );
 
-                memberRepository.saveAndFlush(member);
-
-                return SyncHandlerResult.applied(
-                        member.getVersion(),
-                        List.of(upsertChange(member))
-                );
+                return SyncHandlerResult.applied(member.getVersion());
             }
 
-            Member member = memberRepository
-                    .findForUpdate(mutation.entityId(), ownerUserId)
-                    .orElse(null);
-
-            if (member == null) {
-                return SyncHandlerResult.conflict(
-                        null,
-                        SyncErrorCode.ENTITY_NOT_FOUND,
-                        "The member no longer exists."
-                );
-            }
-
-            if (member.getDeletedAt() != null) {
-                return SyncHandlerResult.conflict(
-                        member.getVersion(),
-                        SyncErrorCode.ENTITY_DELETED,
-                        "The member has been deleted."
-                );
-            }
-
-            if (!member.getVersion().equals(mutation.baseVersion())) {
-                return SyncHandlerResult.conflict(
-                        member.getVersion(),
-                        SyncErrorCode.VERSION_CONFLICT,
-                        "The member has changed since this device last synchronized."
-                );
-            }
-
-            member.rename(displayName, now);
-            memberRepository.flush();
-
-            return SyncHandlerResult.applied(
-                    member.getVersion(),
-                    List.of(upsertChange(member))
+            Member member = memberService.rename(
+                    ownerUserId,
+                    mutation.entityId(),
+                    mutation.baseVersion(),
+                    displayName
             );
+
+            return SyncHandlerResult.applied(member.getVersion());
         } catch (IllegalArgumentException exception) {
             return SyncHandlerResult.rejected(
                     SyncErrorCode.INVALID_PAYLOAD,
@@ -211,72 +160,49 @@ public class MemberSyncHandler implements SyncEntityHandler {
             );
         }
 
-        Member member = memberRepository
-                .findForUpdate(mutation.entityId(), ownerUserId)
-                .orElse(null);
-
-        if (member == null) {
-            return SyncHandlerResult.applied(
-                    null,
-                    List.of()
-            );
-        }
-
-        if (member.getDeletedAt() != null) {
-            return SyncHandlerResult.applied(
-                    member.getVersion(),
-                    List.of()
-            );
-        }
-
-        if (!member.getVersion().equals(mutation.baseVersion())) {
-            return SyncHandlerResult.conflict(
-                    member.getVersion(),
-                    SyncErrorCode.VERSION_CONFLICT,
-                    "The member has changed since this device last synchronized."
-            );
-        }
-
-        if (member.getLinkedUserId() != null) {
-            return SyncHandlerResult.rejected(
-                    SyncErrorCode.MEMBER_LINKED,
-                    "A linked member cannot be removed through personal ledger sync."
-            );
-        }
-
-        if (debtRepository.existsByOwnerUserIdAndMemberIdAndDeletedAtIsNull(
+        Long version = memberService.delete(
                 ownerUserId,
-                member.getId()
-        )) {
-            return SyncHandlerResult.rejected(
-                    SyncErrorCode.MEMBER_IN_USE,
-                    "The member has active debts and cannot be removed."
-            );
-        }
-
-        Instant now = Instant.now(clock);
-
-        member.delete(now);
-        memberRepository.flush();
-
-        return SyncHandlerResult.applied(
-                member.getVersion(),
-                List.of(new SyncChangeCommand(
-                        SyncEntityType.MEMBER,
-                        member.getId(),
-                        SyncOperation.DELETE,
-                        null
-                ))
+                mutation.entityId(),
+                mutation.baseVersion()
         );
+
+        return SyncHandlerResult.applied(version);
     }
 
-    private SyncChangeCommand upsertChange(Member member) {
-        return new SyncChangeCommand(
-                SyncEntityType.MEMBER,
-                member.getId(),
-                SyncOperation.UPSERT,
-                memberMapper.toSyncPayload(member)
-        );
+    private SyncHandlerResult mapException(MemberServiceException exception) {
+        return switch (exception.getReason()) {
+            case ALREADY_EXISTS -> SyncHandlerResult.conflict(
+                    exception.getCurrentVersion(),
+                    SyncErrorCode.ENTITY_ALREADY_EXISTS,
+                    exception.getMessage()
+            );
+            case NOT_FOUND -> SyncHandlerResult.conflict(
+                    exception.getCurrentVersion(),
+                    SyncErrorCode.ENTITY_NOT_FOUND,
+                    exception.getMessage()
+            );
+            case DELETED -> SyncHandlerResult.conflict(
+                    exception.getCurrentVersion(),
+                    SyncErrorCode.ENTITY_DELETED,
+                    exception.getMessage()
+            );
+            case VERSION_CONFLICT -> SyncHandlerResult.conflict(
+                    exception.getCurrentVersion(),
+                    SyncErrorCode.VERSION_CONFLICT,
+                    exception.getMessage()
+            );
+            case INVALID_DISPLAY_NAME -> SyncHandlerResult.rejected(
+                    SyncErrorCode.INVALID_PAYLOAD,
+                    exception.getMessage()
+            );
+            case LINKED -> SyncHandlerResult.rejected(
+                    SyncErrorCode.MEMBER_LINKED,
+                    exception.getMessage()
+            );
+            case IN_USE -> SyncHandlerResult.rejected(
+                    SyncErrorCode.MEMBER_IN_USE,
+                    exception.getMessage()
+            );
+        };
     }
 }
-
