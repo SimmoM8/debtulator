@@ -34,7 +34,14 @@ public class SecurityConfig {
                                         "/actuator/health/**",
                                         "/v3/api-docs/**",
                                         "/swagger-ui/**",
-                                        "/swagger-ui.html"
+                                        "/swagger-ui.html",
+                                        "/api/v1/auth/register",
+                                        "/api/v1/auth/sign-in",
+                                        "/api/v1/auth/refresh",
+                                        "/api/v1/auth/email/confirm",
+                                        "/api/v1/auth/email/resend",
+                                        "/api/v1/auth/password/recovery",
+                                        "/api/v1/auth/password/reset"
                                 )
                                 .permitAll()
                                 .anyRequest()
@@ -68,3 +75,4 @@ public class SecurityConfig {
         return decoder;
     }
 }
+
