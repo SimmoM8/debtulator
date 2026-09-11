@@ -25,5 +25,10 @@ public class Currency {
 
     @Column(name = "decimal_places", nullable = false)
     private short decimalPlaces;
-}
 
+    @Column(nullable = false)
+    private boolean enabled;
+
+    @Column(name = "display_order", nullable = false)
+    private int displayOrder;
+}

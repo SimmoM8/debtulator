@@ -38,6 +38,7 @@ class ProfileServiceIntegrationTest {
         jdbcTemplate.update("delete from public.debts");
         jdbcTemplate.update("delete from public.members");
         jdbcTemplate.update("delete from auth.users");
+        jdbcTemplate.update("update public.currencies set enabled = true");
 
         userId = UUID.randomUUID();
         jdbcTemplate.update(
@@ -114,6 +115,42 @@ class ProfileServiceIntegrationTest {
                                         ProfileServiceException.Reason.CURRENCY_NOT_SUPPORTED
                                 )
                 );
+    }
+
+    @Test
+    void disabledCurrencyCannotBeNewlySelectedAsBaseCurrency() {
+        jdbcTemplate.update(
+                "update public.currencies set enabled = false where code = 'USD'"
+        );
+
+        assertThatThrownBy(() ->
+                profileService.update(userId, "Benjamin", "USD")
+        )
+                .isInstanceOfSatisfying(
+                        ProfileServiceException.class,
+                        exception -> assertThat(exception.getReason())
+                                .isEqualTo(
+                                        ProfileServiceException.Reason.CURRENCY_NOT_SUPPORTED
+                                )
+                );
+    }
+
+    @Test
+    void currentBaseCurrencyRemainsUsableAfterItIsDisabled() {
+        profileService.update(userId, "Benjamin", "USD");
+
+        jdbcTemplate.update(
+                "update public.currencies set enabled = false where code = 'USD'"
+        );
+
+        Profile updated = profileService.update(
+                userId,
+                "Benjamin Simmons",
+                "USD"
+        );
+
+        assertThat(updated.getDisplayName()).isEqualTo("Benjamin Simmons");
+        assertThat(updated.getBaseCurrency()).isEqualTo("USD");
     }
 
     @Test

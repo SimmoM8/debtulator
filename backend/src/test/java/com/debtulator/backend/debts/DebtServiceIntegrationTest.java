@@ -46,6 +46,7 @@ class DebtServiceIntegrationTest {
         jdbcTemplate.update("delete from public.debts");
         jdbcTemplate.update("delete from public.members");
         jdbcTemplate.update("delete from auth.users");
+        jdbcTemplate.update("update public.currencies set enabled = true");
 
         ownerUserId = UUID.randomUUID();
         memberId = UUID.randomUUID();
@@ -159,7 +160,7 @@ class DebtServiceIntegrationTest {
                 UUID.randomUUID(),
                 memberId,
                 "they_owe",
-                new BigDecimal("100000000000000000.00"),
+                new BigDecimal("1000000000000000000000000000000"),
                 "SEK",
                 "Too large",
                 null,
@@ -174,6 +175,132 @@ class DebtServiceIntegrationTest {
                 );
 
         assertThat(syncChangeRepository.count()).isZero();
+    }
+
+    @Test
+    void rejectsTooManyFractionDigitsForSelectedCurrency() {
+        assertThatThrownBy(() -> debtService.create(
+                ownerUserId,
+                UUID.randomUUID(),
+                memberId,
+                "they_owe",
+                new BigDecimal("10.001"),
+                "SEK",
+                "Too precise",
+                null,
+                Instant.now()
+        ))
+                .isInstanceOfSatisfying(
+                        DebtServiceException.class,
+                        exception -> assertThat(exception.getReason())
+                                .isEqualTo(
+                                        DebtServiceException.Reason.INVALID_AMOUNT
+                                )
+                );
+
+        assertThat(syncChangeRepository.count()).isZero();
+    }
+
+    @Test
+    void disabledCurrencyCannotBeSelectedForNewDebt() {
+        jdbcTemplate.update(
+                "update public.currencies set enabled = false where code = 'USD'"
+        );
+
+        assertThatThrownBy(() -> debtService.create(
+                ownerUserId,
+                UUID.randomUUID(),
+                memberId,
+                "they_owe",
+                new BigDecimal("10.00"),
+                "USD",
+                "Disabled currency",
+                null,
+                Instant.now()
+        ))
+                .isInstanceOfSatisfying(
+                        DebtServiceException.class,
+                        exception -> assertThat(exception.getReason())
+                                .isEqualTo(
+                                        DebtServiceException.Reason.CURRENCY_NOT_SUPPORTED
+                                )
+                );
+    }
+
+    @Test
+    void existingDebtCanStillBeEditedWhenItsCurrencyIsDisabled() {
+        UUID debtId = UUID.randomUUID();
+
+        Debt created = debtService.create(
+                ownerUserId,
+                debtId,
+                memberId,
+                "they_owe",
+                new BigDecimal("10.00"),
+                "USD",
+                "Existing debt",
+                null,
+                Instant.now()
+        );
+
+        jdbcTemplate.update(
+                "update public.currencies set enabled = false where code = 'USD'"
+        );
+
+        Debt updated = debtService.update(
+                ownerUserId,
+                debtId,
+                created.getVersion(),
+                memberId,
+                "they_owe",
+                new BigDecimal("12.00"),
+                "USD",
+                "Still editable",
+                null
+        );
+
+        assertThat(updated.getCurrency()).isEqualTo("USD");
+        assertThat(updated.getAmount()).isEqualByComparingTo("12.00");
+    }
+
+    @Test
+    void disabledCurrencyCannotReplaceExistingDebtCurrency() {
+        UUID debtId = UUID.randomUUID();
+
+        Debt created = debtService.create(
+                ownerUserId,
+                debtId,
+                memberId,
+                "they_owe",
+                new BigDecimal("10.00"),
+                "SEK",
+                "Existing debt",
+                null,
+                Instant.now()
+        );
+
+        jdbcTemplate.update(
+                "update public.currencies set enabled = false where code = 'USD'"
+        );
+
+        assertThatThrownBy(() -> debtService.update(
+                ownerUserId,
+                debtId,
+                created.getVersion(),
+                memberId,
+                "they_owe",
+                new BigDecimal("10.00"),
+                "USD",
+                "Invalid currency change",
+                null
+        ))
+                .isInstanceOfSatisfying(
+                        DebtServiceException.class,
+                        exception -> assertThat(exception.getReason())
+                                .isEqualTo(
+                                        DebtServiceException.Reason.CURRENCY_NOT_SUPPORTED
+                                )
+                );
     }
 
     @Test

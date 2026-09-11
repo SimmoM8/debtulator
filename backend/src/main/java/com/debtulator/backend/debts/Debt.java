@@ -32,7 +32,7 @@ public class Debt {
     @Column(nullable = false)
     private String direction;
 
-    @Column(nullable = false, precision = 19, scale = 2)
+    @Column(nullable = false, precision = 38, scale = 8)
     private BigDecimal amount;
 
     @Column(nullable = false)
@@ -104,4 +104,3 @@ public class Debt {
         this.updatedAt = deletedAt;
     }
 }
-
