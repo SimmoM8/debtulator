@@ -225,16 +225,16 @@ public class AuthService {
     }
 
     private boolean isAlreadySignedOut(SupabaseAuthException exception) {
-        return "session_not_found".equals(exception.errorCode())
-                || "session_expired".equals(exception.errorCode())
-                || "user_not_found".equals(exception.errorCode());
+        return "session_not_found".equals(exception.getErrorCode())
+                || "session_expired".equals(exception.getErrorCode())
+                || "user_not_found".equals(exception.getErrorCode());
     }
 
     private AuthOperationException mapException(
             SupabaseAuthException exception,
             AuthOperation operation
     ) {
-        if (exception.statusCode() == 429) {
+        if (exception.getStatusCode() == 429) {
             return new AuthOperationException(
                     HttpStatus.TOO_MANY_REQUESTS,
                     "AUTH_RATE_LIMITED",
@@ -242,7 +242,7 @@ public class AuthService {
             );
         }
 
-        if (exception.statusCode() >= 500 || exception.statusCode() == 0) {
+        if (exception.getStatusCode() >= 500 || exception.getStatusCode() == 0) {
             return new AuthOperationException(
                     HttpStatus.SERVICE_UNAVAILABLE,
                     "AUTH_PROVIDER_UNAVAILABLE",
@@ -250,7 +250,7 @@ public class AuthService {
             );
         }
 
-        String providerCode = exception.errorCode();
+        String providerCode = exception.getErrorCode();
         if ("captcha_failed".equals(providerCode)) {
             return new AuthOperationException(
                     HttpStatus.BAD_REQUEST,

@@ -97,7 +97,7 @@ public class AuthController {
     @PostMapping("/sign-out")
     public ResponseEntity<Void> signOut(@AuthenticationPrincipal Jwt jwt) {
         authService.signOut(jwt.getTokenValue());
-        return noStore(ResponseEntity.noContent()).build();
+        return noStore(ResponseEntity.status(HttpStatus.NO_CONTENT)).build();
     }
 
     @PostMapping("/password/recovery")
@@ -117,7 +117,7 @@ public class AuthController {
             HttpServletRequest httpRequest
     ) {
         authService.resetPassword(request, httpRequest.getRemoteAddr());
-        return noStore(ResponseEntity.noContent()).build();
+        return noStore(ResponseEntity.status(HttpStatus.NO_CONTENT)).build();
     }
 
     @PostMapping("/password/reauthenticate")
@@ -134,7 +134,7 @@ public class AuthController {
             @Valid @RequestBody ChangePasswordRequest request
     ) {
         authService.changePassword(jwt.getTokenValue(), request);
-        return noStore(ResponseEntity.noContent()).build();
+        return noStore(ResponseEntity.status(HttpStatus.NO_CONTENT)).build();
     }
 
     @GetMapping("/me")
@@ -144,7 +144,7 @@ public class AuthController {
         );
     }
 
-    private <T extends ResponseEntity.HeadersBuilder<T>> T noStore(T builder) {
+    private ResponseEntity.BodyBuilder noStore(ResponseEntity.BodyBuilder builder) {
         return builder
                 .cacheControl(CacheControl.noStore())
                 .header("Pragma", "no-cache");
