@@ -1,8 +1,8 @@
-package com.debtulator.backend.discovery;
+package com.debtulator.backend.userdiscovery;
 
-import com.debtulator.backend.discovery.dto.UserDiscoveryResponse;
-import com.debtulator.backend.security.AuthenticatedUserProvider;
-import lombok.RequiredArgsConstructor;
+import java.util.List;
+import java.util.UUID;
+
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -12,11 +12,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-import java.util.UUID;
+import com.debtulator.backend.security.AuthenticatedUserProvider;
+import com.debtulator.backend.userdiscovery.dto.UserDiscoveryResponse;
+
+import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/v1/discovery")
+@RequestMapping("/api/v1/user-discovery")
 @RequiredArgsConstructor
 public class UserDiscoveryController {
 
@@ -26,8 +28,7 @@ public class UserDiscoveryController {
     @GetMapping("/users")
     public ResponseEntity<List<UserDiscoveryResponse>> searchUsers(
             @AuthenticationPrincipal Jwt jwt,
-            @RequestParam String query
-    ) {
+            @RequestParam String query) {
         UUID userId = authenticatedUserProvider.from(jwt).id();
 
         return ResponseEntity

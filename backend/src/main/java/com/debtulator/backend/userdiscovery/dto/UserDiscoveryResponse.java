@@ -1,4 +1,4 @@
-package com.debtulator.backend.discovery.dto;
+package com.debtulator.backend.userdiscovery.dto;
 
 import java.util.UUID;
 
