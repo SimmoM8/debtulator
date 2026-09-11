@@ -1,6 +1,7 @@
 package com.debtulator.backend.auth.supabase;
 
 import com.debtulator.backend.auth.SupabaseAuthProperties;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -17,6 +18,9 @@ import java.util.function.Consumer;
 
 @Component
 public class SupabaseAuthClient implements SupabaseAuthGateway {
+
+    private static final ParameterizedTypeReference<Map<String, Object>> MAP_RESPONSE_TYPE =
+            new ParameterizedTypeReference<>() { };
 
     private final SupabaseAuthProperties properties;
     private final ObjectMapper objectMapper;
@@ -58,7 +62,7 @@ public class SupabaseAuthClient implements SupabaseAuthGateway {
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(body)
                 .retrieve()
-                .body(Map.class));
+                .body(MAP_RESPONSE_TYPE));
 
         return parseAuthResult(response);
     }
@@ -85,7 +89,7 @@ public class SupabaseAuthClient implements SupabaseAuthGateway {
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(body)
                 .retrieve()
-                .body(Map.class));
+                .body(MAP_RESPONSE_TYPE));
 
         return parseAuthResult(response);
     }
@@ -102,7 +106,7 @@ public class SupabaseAuthClient implements SupabaseAuthGateway {
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(Map.of("refresh_token", refreshToken))
                 .retrieve()
-                .body(Map.class));
+                .body(MAP_RESPONSE_TYPE));
 
         return parseAuthResult(response);
     }
@@ -123,7 +127,7 @@ public class SupabaseAuthClient implements SupabaseAuthGateway {
                         "type", type
                 ))
                 .retrieve()
-                .body(Map.class));
+                .body(MAP_RESPONSE_TYPE));
 
         return parseAuthResult(response);
     }
@@ -198,7 +202,7 @@ public class SupabaseAuthClient implements SupabaseAuthGateway {
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(body)
                 .retrieve()
-                .body(Map.class));
+                .body(MAP_RESPONSE_TYPE));
 
         return parseUser(response);
     }
@@ -233,7 +237,7 @@ public class SupabaseAuthClient implements SupabaseAuthGateway {
                 .uri("/user")
                 .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
                 .retrieve()
-                .body(Map.class));
+                .body(MAP_RESPONSE_TYPE));
 
         return parseUser(response);
     }
@@ -326,12 +330,19 @@ public class SupabaseAuthClient implements SupabaseAuthGateway {
                 : null;
     }
 
-    @SuppressWarnings("unchecked")
     private Map<String, Object> asMap(Object value) {
         if (!(value instanceof Map<?, ?> map)) {
             throw invalidProviderResponse();
         }
-        return (Map<String, Object>) map;
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        for (Map.Entry<?, ?> entry : map.entrySet()) {
+            if (!(entry.getKey() instanceof String key)) {
+                throw invalidProviderResponse();
+            }
+            result.put(key, entry.getValue());
+        }
+        return result;
     }
 
     private SupabaseAuthException invalidProviderResponse() {
@@ -377,14 +388,16 @@ public class SupabaseAuthClient implements SupabaseAuthGateway {
         String message = "Supabase Auth rejected the request.";
 
         try {
-            Map<?, ?> body = objectMapper.readValue(
+            Object parsedBody = objectMapper.readValue(
                     exception.getResponseBodyAsString(),
-                    Map.class
+                    Object.class
             );
-            errorCode = firstText(body.get("error_code"), body.get("code"));
-            String providerMessage = firstText(body.get("msg"), body.get("message"));
-            if (providerMessage != null) {
-                message = providerMessage;
+            if (parsedBody instanceof Map<?, ?> body) {
+                errorCode = firstText(body.get("error_code"), body.get("code"));
+                String providerMessage = firstText(body.get("msg"), body.get("message"));
+                if (providerMessage != null) {
+                    message = providerMessage;
+                }
             }
         } catch (RuntimeException ignored) {
             // Some upstream 5xx responses are intentionally not JSON.
