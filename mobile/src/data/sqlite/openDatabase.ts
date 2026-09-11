@@ -1,7 +1,7 @@
 import type { SQLiteDatabase } from "expo-sqlite";
 import * as SQLite from "expo-sqlite";
 
-import { createSchema } from "./createSchema";
+import { migrateDatabase } from "./migrateDatabase";
 
 const DATABASE_NAME = "debtulator.db";
 
@@ -15,7 +15,7 @@ async function createDatabase(): Promise<SQLiteDatabase> {
     PRAGMA foreign_keys = ON;
   `);
 
-  await createSchema(db);
+  await migrateDatabase(db);
 
   return db;
 }

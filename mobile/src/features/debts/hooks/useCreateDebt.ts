@@ -1,13 +1,18 @@
+import * as Crypto from "expo-crypto";
+import { useCallback, useState } from "react";
+
 import { emitDataChanged } from "@/src/data/sqlite/dataChanges";
 import { openDatabase } from "@/src/data/sqlite/openDatabase";
 import { SqliteSyncStore } from "@/src/data/sync/SqliteSyncStore";
 import { requestSync } from "@/src/data/sync/syncSignal";
 import { useAuth } from "@/src/features/auth/AuthProvider";
 import { SqliteDebtRepository } from "@/src/features/debts/data/SqliteDebtRepository";
-import type { DebtDirection } from "@/src/features/debts/model/Debt";
+import type {
+  Debt,
+  DebtDirection,
+} from "@/src/features/debts/model/Debt";
+import { debtToCreateSyncPayload } from "@/src/features/debts/utils/debtMapper";
 import { toDateString } from "@/src/lib/dates";
-import * as Crypto from "expo-crypto";
-import { useCallback, useState } from "react";
 
 type CreateDebtInput = {
   direction: DebtDirection;
@@ -38,7 +43,7 @@ export function useCreateDebt() {
         const db = await openDatabase();
         const now = new Date().toISOString();
 
-        const debt = {
+        const debt: Debt = {
           id: Crypto.randomUUID(),
           ownerUserId: auth.session.user.id,
           memberId: input.memberId,
@@ -49,33 +54,23 @@ export function useCreateDebt() {
           dueDate: input.dueDate ? toDateString(input.dueDate) : null,
           createdAt: now,
           updatedAt: now,
+          version: null,
         };
 
         await db.withExclusiveTransactionAsync(async (tx) => {
           const repository = new SqliteDebtRepository(tx);
-
-          const syncRepository = new SqliteSyncStore(tx);
+          const syncStore = new SqliteSyncStore(tx);
 
           await repository.save(debt);
 
-          await syncRepository.enqueue({
+          await syncStore.enqueue({
             id: Crypto.randomUUID(),
             ownerUserId: debt.ownerUserId,
             entityType: "debt",
             entityId: debt.id,
             operation: "upsert",
-            payload: {
-              id: debt.id,
-              owner_user_id: debt.ownerUserId,
-              member_id: debt.memberId,
-              direction: debt.direction,
-              amount: debt.amount,
-              currency: debt.currency,
-              title: debt.title,
-              due_date: debt.dueDate,
-              created_at: debt.createdAt,
-              updated_at: debt.updatedAt,
-            },
+            baseVersion: null,
+            payload: debtToCreateSyncPayload(debt),
             createdAt: now,
           });
         });

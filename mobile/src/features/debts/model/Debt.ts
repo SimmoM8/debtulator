@@ -13,4 +13,5 @@ export type Debt = {
   dueDate: string | null;
   createdAt: string;
   updatedAt: string;
+  version: number | null;
 };

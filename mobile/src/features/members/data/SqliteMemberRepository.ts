@@ -1,6 +1,7 @@
 import type { SQLiteDatabase } from "expo-sqlite";
 
 import type { Member } from "../model/Member";
+import { mapMemberRow } from "../utils/memberMapper";
 import type { MemberRepository } from "./MemberRepository";
 import type { MemberSqlRow } from "./MemberSqlRow";
 
@@ -14,8 +15,10 @@ export class SqliteMemberRepository implements MemberRepository {
           id,
           owner_user_id,
           display_name,
+          linked_user_id,
           created_at,
-          updated_at
+          updated_at,
+          version
         FROM members
         WHERE owner_user_id = ?
         ORDER BY display_name COLLATE NOCASE ASC
@@ -33,8 +36,10 @@ export class SqliteMemberRepository implements MemberRepository {
           id,
           owner_user_id,
           display_name,
+          linked_user_id,
           created_at,
-          updated_at
+          updated_at,
+          version
         FROM members
         WHERE owner_user_id = ?
           AND id = ?
@@ -53,14 +58,18 @@ export class SqliteMemberRepository implements MemberRepository {
           id,
           owner_user_id,
           display_name,
+          linked_user_id,
           created_at,
-          updated_at
+          updated_at,
+          version
         )
-        VALUES (?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
 
         ON CONFLICT(id) DO UPDATE SET
           display_name = excluded.display_name,
-          updated_at = excluded.updated_at
+          linked_user_id = excluded.linked_user_id,
+          updated_at = excluded.updated_at,
+          version = excluded.version
 
         WHERE members.owner_user_id = excluded.owner_user_id
       `,
@@ -68,8 +77,10 @@ export class SqliteMemberRepository implements MemberRepository {
         member.id,
         member.ownerUserId,
         member.displayName,
+        member.linkedUserId,
         member.createdAt,
         member.updatedAt,
+        member.version,
       ],
     );
 
@@ -102,14 +113,4 @@ export class SqliteMemberRepository implements MemberRepository {
       [ownerUserId, memberId],
     );
   }
-}
-
-function mapMemberRow(row: MemberSqlRow): Member {
-  return {
-    id: row.id,
-    ownerUserId: row.owner_user_id,
-    displayName: row.display_name,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
 }

@@ -1,13 +1,14 @@
 import * as Crypto from "expo-crypto";
 import { useCallback, useState } from "react";
 
-import { openDatabase } from "@/src/data/sqlite/openDatabase";
-import { useAuth } from "@/src/features/auth/AuthProvider";
-
 import { emitDataChanged } from "@/src/data/sqlite/dataChanges";
+import { openDatabase } from "@/src/data/sqlite/openDatabase";
 import { SqliteSyncStore } from "@/src/data/sync/SqliteSyncStore";
 import { requestSync } from "@/src/data/sync/syncSignal";
+import { useAuth } from "@/src/features/auth/AuthProvider";
 import { SqliteMemberRepository } from "@/src/features/members/data/SqliteMemberRepository";
+import type { Member } from "@/src/features/members/model/Member";
+import { memberToCreateSyncPayload } from "@/src/features/members/utils/memberMapper";
 
 type CreateMemberInput = {
   displayName: string;
@@ -15,7 +16,6 @@ type CreateMemberInput = {
 
 export function useCreateMember() {
   const auth = useAuth();
-
   const [isCreating, setIsCreating] = useState(false);
 
   const createMember = useCallback(
@@ -34,40 +34,36 @@ export function useCreateMember() {
 
       try {
         const database = await openDatabase();
-
         const now = new Date().toISOString();
 
-        const member = {
+        const member: Member = {
           id: Crypto.randomUUID(),
           ownerUserId: auth.session.user.id,
           displayName: normalizedName,
+          linkedUserId: null,
           createdAt: now,
           updatedAt: now,
+          version: null,
         };
 
         await database.withExclusiveTransactionAsync(async (tx) => {
           const repository = new SqliteMemberRepository(tx);
-
-          const syncRepository = new SqliteSyncStore(tx);
+          const syncStore = new SqliteSyncStore(tx);
 
           await repository.save(member);
 
-          await syncRepository.enqueue({
+          await syncStore.enqueue({
             id: Crypto.randomUUID(),
             ownerUserId: member.ownerUserId,
             entityType: "member",
             entityId: member.id,
             operation: "upsert",
-            payload: {
-              id: member.id,
-              owner_user_id: member.ownerUserId,
-              display_name: member.displayName,
-              created_at: member.createdAt,
-              updated_at: member.updatedAt,
-            },
+            baseVersion: null,
+            payload: memberToCreateSyncPayload(member),
             createdAt: now,
           });
         });
+
         emitDataChanged("members");
         requestSync();
 
