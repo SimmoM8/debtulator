@@ -5,6 +5,11 @@ export const componentTokens = {
     radius: brand.radius.large,
   },
 
+  button: {
+    height: 52,
+    radius: brand.radius.medium,
+  },
+
   quickAction: {
     size: 44,
     iconSize: 19,

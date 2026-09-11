@@ -192,6 +192,8 @@ PODS:
     - ExpoModulesCore
   - ExpoGlassEffect (56.0.4):
     - ExpoModulesCore
+  - ExpoImage (56.0.12):
+    - ExpoModulesCore
   - ExpoImagePicker (56.0.25):
     - ExpoModulesCore
   - ExpoKeepAwake (56.0.3):
@@ -2389,6 +2391,7 @@ DEPENDENCIES:
   - ExpoFileSystem (from `../node_modules/expo-file-system/ios/ExpoFileSystem.podspec`)
   - ExpoFont (from `../node_modules/expo-font/ios/ExpoFont.podspec`)
   - ExpoGlassEffect (from `../node_modules/expo-glass-effect/ios`)
+  - ExpoImage (from `../node_modules/expo-image/ios/ExpoImage.podspec`)
   - ExpoImagePicker (from `../node_modules/expo-image-picker/ios`)
   - ExpoKeepAwake (from `../node_modules/expo-keep-awake/ios`)
   - ExpoLinearGradient (from `../node_modules/expo-linear-gradient/ios`)
@@ -2520,6 +2523,8 @@ EXTERNAL SOURCES:
     :podspec: "../node_modules/expo-font/ios/ExpoFont.podspec"
   ExpoGlassEffect:
     :path: "../node_modules/expo-glass-effect/ios"
+  ExpoImage:
+    :podspec: "../node_modules/expo-image/ios/ExpoImage.podspec"
   ExpoImagePicker:
     :path: "../node_modules/expo-image-picker/ios"
   ExpoKeepAwake:
@@ -2734,12 +2739,13 @@ SPEC CHECKSUMS:
   ExpoFileSystem: 06e017fa5765ba13dd9667a2b038fbd483fa557e
   ExpoFont: fac52e4d28848a270f198ec8d7bfa45dde9752c6
   ExpoGlassEffect: d810f0fc327071aa61d129ec2ec5618b60d18707
+  ExpoImage: ddb17371899929767ae626457830bf5a65a2356f
   ExpoImagePicker: 448fb311180b60bfa629e97bc1c93a3903f53270
   ExpoKeepAwake: edf05a0a5cdeddbb9fe705b49243ec6aef9cfded
   ExpoLinearGradient: debd4f2a2d56b857517588f61707168c8f0b4ff0
   ExpoLinking: 47b760fde29cffcb43bb8f831b829fb2fcf2e382
   ExpoLogBox: c611a5bdbeaa4110d3c9a6494039b4e8d2c9a4ea
-  ExpoModulesCore: 7ecc51a1be5a511b245be1c06c13f4ff2087cc1c
+  ExpoModulesCore: 850d01fb420299737fce93e9f5a7a0b0a5164dcd
   ExpoModulesJSI: 5b92bd8a2ceb114384fc4ba25d5bc5957a2cf504
   ExpoModulesWorklets: 1e20a68af34ab23770b9fff55d6663b9b0b18493
   ExpoModulesWorkletsAdapter: 4b0975da7bbf5abfc65ac802dc3c13674584a932
@@ -2752,7 +2758,7 @@ SPEC CHECKSUMS:
   ExpoWebBrowser: dd117d9074af5d90cbd2258dda54bfb2a23dade4
   EXUpdatesInterface: 211042a76ef49beec0de793aa4439de3164c4fd4
   FBLazyVector: 24e62c765683b8d89006a88a2c8f5cf019f0074d
-  hermes-engine: b936559e8bb6cc141c523337c40a389af666aa76
+  hermes-engine: 3a2f98f7f7867896d3d1e6744179817c57d20c54
   RCTDeprecation: a4c521821fab57cbb125b36effe84d897d0dfa12
   RCTRequired: 9f3a7e5645d4bc3f551593de7550bb66ab6e42bc
   RCTSwiftUI: 239ed2eb9e73de5a6f518810630f0c95e01c8702
@@ -2761,7 +2767,7 @@ SPEC CHECKSUMS:
   React: e2dc35338068bbd299c66f043ae0d7f25de8499e
   React-callinvoker: 28b25d21b124c26cebaea713ba7d801b9351dc48
   React-Core: f90d375d3bab515ad00df30605ce1bf02e6db12f
-  React-Core-prebuilt: 20c2d499e5cce7d5a74ce642370bf3f71407f072
+  React-Core-prebuilt: 428eb4f5c7f3125c3e154425d4ad63f741e807ff
   React-CoreModules: da4f80202ef954bdfb926ca4c9ac5f685900aa5c
   React-cxxreact: 1d1d2a28a5f10e4e2e7cf2bfd54dc9c92c68c672
   React-debug: 92944dc4d89f56d640e75498266cbde557a48189
@@ -2824,7 +2830,7 @@ SPEC CHECKSUMS:
   ReactAppDependencyProvider: a54c0c9b976766e1b6d5e2bb4d1ad0d15913e9e1
   ReactCodegen: 9af5798e943781fd2318dab7b60f25337388047c
   ReactCommon: 3ec2a55999d296af90c24beb66c8a77dc660d3ef
-  ReactNativeDependencies: bd868ee838992b6ee4dee757387bf7b1c3f4e581
+  ReactNativeDependencies: 1c39607f6f3d3a36ef34a29c407a87168a4fc091
   RNCAsyncStorage: 0f84413588571e74ef9cff6e3b669346e3abf9cb
   RNCMaskedView: 48989935d9665d97d87fa7e44f486b4d22cd5b9f
   RNGestureHandler: acf7db8499c11193d9b4b6b1cc1439ff4f01a693
