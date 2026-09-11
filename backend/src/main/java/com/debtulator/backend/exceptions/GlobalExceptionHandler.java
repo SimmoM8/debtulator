@@ -1,8 +1,9 @@
 package com.debtulator.backend.exceptions;
 
+import com.debtulator.backend.agreements.AgreementException;
 import com.debtulator.backend.memberlinking.MemberLinkingException;
-import com.debtulator.backend.userdiscovery.UserDiscoveryException;
 import com.debtulator.backend.profiles.ProfileServiceException;
+import com.debtulator.backend.userdiscovery.UserDiscoveryException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
@@ -44,6 +45,7 @@ public class GlobalExceptionHandler {
                             : "Invalid value."
             );
         }
+
         problem.setProperty("errors", errors);
         return problem;
     }
@@ -84,13 +86,12 @@ public class GlobalExceptionHandler {
     ) {
         HttpStatus status = switch (exception.getReason()) {
             case NOT_FOUND -> HttpStatus.NOT_FOUND;
-            case INVALID_DISPLAY_NAME, CURRENCY_NOT_SUPPORTED ->
-                    HttpStatus.BAD_REQUEST;
+            case INVALID_NAME, CURRENCY_NOT_SUPPORTED -> HttpStatus.BAD_REQUEST;
         };
 
         String code = switch (exception.getReason()) {
             case NOT_FOUND -> "PROFILE_NOT_FOUND";
-            case INVALID_DISPLAY_NAME -> "PROFILE_INVALID_DISPLAY_NAME";
+            case INVALID_NAME -> "PROFILE_INVALID_NAME";
             case CURRENCY_NOT_SUPPORTED -> "PROFILE_CURRENCY_NOT_SUPPORTED";
         };
 
@@ -128,7 +129,6 @@ public class GlobalExceptionHandler {
         problem.setProperty("code", code);
 
         ResponseEntity.BodyBuilder response = ResponseEntity.status(status);
-
         if (exception.getRetryAfterSeconds() != null) {
             problem.setProperty(
                     "retryAfterSeconds",
@@ -145,7 +145,6 @@ public class GlobalExceptionHandler {
                 .header(HttpHeaders.PRAGMA, "no-cache")
                 .body(problem);
     }
-
 
     @ExceptionHandler(MemberLinkingException.class)
     public ResponseEntity<ProblemDetail> handleMemberLinking(
@@ -165,8 +164,10 @@ public class GlobalExceptionHandler {
                  TARGET_PROFILE_INCOMPLETE,
                  TARGET_NOT_ACCEPTING_REQUESTS,
                  MEMBER_ALREADY_LINKED,
+                 MEMBER_ALREADY_PENDING,
                  RELATIONSHIP_ALREADY_EXISTS,
                  REQUEST_ALREADY_PENDING,
+                 REQUEST_ID_REUSED,
                  REQUEST_NOT_PENDING -> HttpStatus.CONFLICT;
         };
 
@@ -183,10 +184,12 @@ public class GlobalExceptionHandler {
                     "MEMBER_LINK_INVALID_NAME_SELECTION";
             case MEMBER_NOT_AVAILABLE -> "MEMBER_LINK_MEMBER_NOT_AVAILABLE";
             case MEMBER_ALREADY_LINKED -> "MEMBER_LINK_MEMBER_ALREADY_LINKED";
+            case MEMBER_ALREADY_PENDING -> "MEMBER_LINK_MEMBER_ALREADY_PENDING";
             case RELATIONSHIP_ALREADY_EXISTS ->
                     "MEMBER_LINK_RELATIONSHIP_ALREADY_EXISTS";
             case REQUEST_ALREADY_PENDING ->
                     "MEMBER_LINK_REQUEST_ALREADY_PENDING";
+            case REQUEST_ID_REUSED -> "MEMBER_LINK_REQUEST_ID_REUSED";
             case REQUEST_NOT_FOUND -> "MEMBER_LINK_REQUEST_NOT_FOUND";
             case REQUEST_NOT_PENDING -> "MEMBER_LINK_REQUEST_NOT_PENDING";
             case LINK_NOT_FOUND -> "MEMBER_LINK_NOT_FOUND";
@@ -197,6 +200,40 @@ public class GlobalExceptionHandler {
                 exception.getMessage()
         );
         problem.setTitle("Member linking request failed");
+        problem.setInstance(URI.create(request.getRequestURI()));
+        problem.setProperty("code", code);
+
+        return ResponseEntity
+                .status(status)
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .header(HttpHeaders.PRAGMA, "no-cache")
+                .body(problem);
+    }
+
+    @ExceptionHandler(AgreementException.class)
+    public ResponseEntity<ProblemDetail> handleAgreement(
+            AgreementException exception,
+            HttpServletRequest request
+    ) {
+        HttpStatus status = switch (exception.getReason()) {
+            case REQUEST_NOT_FOUND -> HttpStatus.NOT_FOUND;
+            case REQUEST_NOT_PENDING,
+                 STALE_PROPOSAL,
+                 RELATIONSHIP_ENDED -> HttpStatus.CONFLICT;
+        };
+
+        String code = switch (exception.getReason()) {
+            case REQUEST_NOT_FOUND -> "AGREEMENT_REQUEST_NOT_FOUND";
+            case REQUEST_NOT_PENDING -> "AGREEMENT_REQUEST_NOT_PENDING";
+            case STALE_PROPOSAL -> "AGREEMENT_STALE_PROPOSAL";
+            case RELATIONSHIP_ENDED -> "AGREEMENT_RELATIONSHIP_ENDED";
+        };
+
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                status,
+                exception.getMessage()
+        );
+        problem.setTitle("Agreement request failed");
         problem.setInstance(URI.create(request.getRequestURI()));
         problem.setProperty("code", code);
 

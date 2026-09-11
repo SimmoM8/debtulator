@@ -4,9 +4,7 @@ import lombok.Getter;
 
 @Getter
 public class MemberLinkingException extends RuntimeException {
-
     private final Reason reason;
-
     public MemberLinkingException(Reason reason, String message) {
         super(message);
         this.reason = reason;
@@ -21,8 +19,10 @@ public class MemberLinkingException extends RuntimeException {
         INVALID_NAME_SELECTION,
         MEMBER_NOT_AVAILABLE,
         MEMBER_ALREADY_LINKED,
+        MEMBER_ALREADY_PENDING,
         RELATIONSHIP_ALREADY_EXISTS,
         REQUEST_ALREADY_PENDING,
+        REQUEST_ID_REUSED,
         REQUEST_NOT_FOUND,
         REQUEST_NOT_PENDING,
         LINK_NOT_FOUND

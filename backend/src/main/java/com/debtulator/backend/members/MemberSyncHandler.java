@@ -1,12 +1,6 @@
 package com.debtulator.backend.members;
 
-import com.debtulator.backend.sync.SyncBootstrapBatch;
-import com.debtulator.backend.sync.SyncEntityHandler;
-import com.debtulator.backend.sync.SyncEntityType;
-import com.debtulator.backend.sync.SyncErrorCode;
-import com.debtulator.backend.sync.SyncHandlerResult;
-import com.debtulator.backend.sync.SyncMutationCommand;
-import com.debtulator.backend.sync.SyncPayloads;
+import com.debtulator.backend.sync.*;
 import com.debtulator.backend.sync.dto.SyncBootstrapItem;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -21,30 +15,18 @@ import java.util.UUID;
 @Component
 @RequiredArgsConstructor
 public class MemberSyncHandler implements SyncEntityHandler {
-
-    private static final Set<String> CREATE_FIELDS = Set.of(
-            "displayName",
-            "createdAt"
-    );
-
-    private static final Set<String> UPDATE_FIELDS = Set.of(
-            "displayName"
-    );
+    private static final Set<String> CREATE_FIELDS = Set.of("displayName", "createdAt");
+    private static final Set<String> UPDATE_FIELDS = Set.of("displayName");
 
     private final MemberService memberService;
     private final MemberRepository memberRepository;
     private final MemberMapper memberMapper;
 
     @Override
-    public SyncEntityType entityType() {
-        return SyncEntityType.MEMBER;
-    }
+    public SyncEntityType entityType() { return SyncEntityType.MEMBER; }
 
     @Override
-    public SyncHandlerResult applyMutation(
-            UUID ownerUserId,
-            SyncMutationCommand mutation
-    ) {
+    public SyncHandlerResult applyMutation(UUID ownerUserId, SyncMutationCommand mutation) {
         try {
             return switch (mutation.operation()) {
                 case UPSERT -> upsert(ownerUserId, mutation);
@@ -56,29 +38,16 @@ public class MemberSyncHandler implements SyncEntityHandler {
     }
 
     @Override
-    public SyncBootstrapBatch bootstrap(
-            UUID ownerUserId,
-            UUID afterId,
-            int limit
-    ) {
+    public SyncBootstrapBatch bootstrap(UUID ownerUserId, UUID afterId, int limit) {
         var pageable = PageRequest.of(0, limit + 1);
-
         List<Member> rows = afterId == null
-                ? memberRepository.findByOwnerUserIdAndDeletedAtIsNullOrderByIdAsc(
-                        ownerUserId,
-                        pageable
-                )
+                ? memberRepository.findByOwnerUserIdAndDeletedAtIsNullOrderByIdAsc(ownerUserId, pageable)
                 : memberRepository.findByOwnerUserIdAndDeletedAtIsNullAndIdGreaterThanOrderByIdAsc(
-                        ownerUserId,
-                        afterId,
-                        pageable
+                        ownerUserId, afterId, pageable
                 );
 
         boolean hasMore = rows.size() > limit;
-        List<Member> page = hasMore
-                ? rows.subList(0, limit)
-                : rows;
-
+        List<Member> page = hasMore ? rows.subList(0, limit) : rows;
         List<SyncBootstrapItem> items = page.stream()
                 .map(member -> new SyncBootstrapItem(
                         member.getId(),
@@ -86,50 +55,26 @@ public class MemberSyncHandler implements SyncEntityHandler {
                         memberMapper.toSyncPayload(member)
                 ))
                 .toList();
-
-        UUID nextAfterId = items.isEmpty()
-                ? null
-                : items.getLast().entityId();
-
-        return new SyncBootstrapBatch(
-                items,
-                nextAfterId,
-                hasMore
-        );
+        UUID nextAfterId = items.isEmpty() ? null : items.getLast().entityId();
+        return new SyncBootstrapBatch(items, nextAfterId, hasMore);
     }
 
-    private SyncHandlerResult upsert(
-            UUID ownerUserId,
-            SyncMutationCommand mutation
-    ) {
+    private SyncHandlerResult upsert(UUID ownerUserId, SyncMutationCommand mutation) {
         Map<String, Object> payload = mutation.payload();
-
         try {
             SyncPayloads.requireOnlyKeys(
                     payload,
-                    mutation.baseVersion() == null
-                            ? CREATE_FIELDS
-                            : UPDATE_FIELDS
+                    mutation.baseVersion() == null ? CREATE_FIELDS : UPDATE_FIELDS
             );
-
-            String displayName = SyncPayloads.requireString(
-                    payload,
-                    "displayName"
-            );
-
+            String displayName = SyncPayloads.requireString(payload, "displayName");
             if (mutation.baseVersion() == null) {
-                Instant createdAt = SyncPayloads.requireInstant(
-                        payload,
-                        "createdAt"
-                );
-
+                Instant createdAt = SyncPayloads.requireInstant(payload, "createdAt");
                 Member member = memberService.create(
                         ownerUserId,
                         mutation.entityId(),
                         displayName,
                         createdAt
                 );
-
                 return SyncHandlerResult.applied(member.getVersion());
             }
 
@@ -139,7 +84,6 @@ public class MemberSyncHandler implements SyncEntityHandler {
                     mutation.baseVersion(),
                     displayName
             );
-
             return SyncHandlerResult.applied(member.getVersion());
         } catch (IllegalArgumentException exception) {
             return SyncHandlerResult.rejected(
@@ -149,23 +93,18 @@ public class MemberSyncHandler implements SyncEntityHandler {
         }
     }
 
-    private SyncHandlerResult delete(
-            UUID ownerUserId,
-            SyncMutationCommand mutation
-    ) {
+    private SyncHandlerResult delete(UUID ownerUserId, SyncMutationCommand mutation) {
         if (mutation.baseVersion() == null) {
             return SyncHandlerResult.rejected(
                     SyncErrorCode.BASE_VERSION_REQUIRED,
                     "Deleting an existing member requires baseVersion."
             );
         }
-
         Long version = memberService.delete(
                 ownerUserId,
                 mutation.entityId(),
                 mutation.baseVersion()
         );
-
         return SyncHandlerResult.applied(version);
     }
 
@@ -197,6 +136,10 @@ public class MemberSyncHandler implements SyncEntityHandler {
             );
             case LINKED -> SyncHandlerResult.rejected(
                     SyncErrorCode.MEMBER_LINKED,
+                    exception.getMessage()
+            );
+            case LINK_PENDING -> SyncHandlerResult.rejected(
+                    SyncErrorCode.MEMBER_LINK_PENDING,
                     exception.getMessage()
             );
             case IN_USE -> SyncHandlerResult.rejected(

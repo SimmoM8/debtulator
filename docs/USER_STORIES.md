@@ -648,7 +648,7 @@ Common filters should include:
 
 - The target user must be clearly identifiable.
 - Linking must not occur silently without appropriate confirmation.
-- The linking user may keep the existing member display name or replace it with the target user's full name associated with their account before the request is sent.
+- The linking user may keep the existing member display name or replace it with the target user's account name before the request is sent.
 - Existing records must not be duplicated merely because the member becomes linked.
 - Existing member history remains private to its owning user after linking unless a later explicit reconcile/merge workflow is used.
 - Any records becoming visible to another user must follow explicit product rules.
@@ -683,7 +683,7 @@ Search and discoverability must respect privacy settings and anti-enumeration pr
 
 - Starting this flow creates a normal unlinked member immediately for the initiating user.
 - The new member remains usable privately while the link request is pending.
-- The initiating user can use the target user's full name associated with their account as the member display name or enter a custom display name.
+- The initiating user can use the target user's account name as the member display name or enter a custom display name.
 - The member does not become linked until the target user explicitly accepts.
 - If the request is rejected or cancelled, the created member remains as a normal unlinked member unless the owner later removes it through ordinary member rules.
 
@@ -732,8 +732,8 @@ Search and discoverability must respect privacy settings and anti-enumeration pr
 ### Acceptance criteria
 
 - The recipient can select an existing unlinked member representing the requester or create a new member as part of acceptance.
-- When creating a new member, the recipient can use the requester's full name associated with their account or enter a custom display name.
-- When selecting an existing member, the recipient can keep its current display name or replace it with the requester's full name associated with their account.
+- When creating a new member, the recipient can use the requester's account name or enter a custom display name.
+- When selecting an existing member, the recipient can keep its current display name or replace it with the requester's account name.
 - Acceptance links both users' member records atomically.
 - Rejection does not delete or rewrite the requester's private member or history.
 
@@ -827,6 +827,14 @@ A debt should support, where applicable:
 
 Amounts must use safe monetary handling and must not rely on imprecise floating-point assumptions.
 
+For a linked member:
+
+- the creator's private debt is recorded immediately and remains usable without waiting for the other user;
+- the current private debt state is `pending` until the linked user explicitly accepts it;
+- acceptance makes that proposed state mutually `agreed`;
+- rejection marks the proposed state as rejected without rolling back or deleting the creator's private debt; and
+- further private edits supersede the previous pending proposal rather than blocking the creator.
+
 ---
 
 ## DEBT-004 — View debt details
@@ -854,7 +862,10 @@ Amounts must use safe monetary handling and must not rely on imprecise floating-
 ### Acceptance criteria
 
 - Significant changes should be represented clearly in history where appropriate.
-- Collaborative debt changes may require the other participant's approval depending on the change.
+- Changes involving a linked member require the other linked user to accept the proposed state before it is considered mutually agreed.
+- The initiating user's private edit is applied immediately and must not be blocked by pending approval.
+- A newer private edit supersedes any older pending proposal for that debt.
+- Rejection must not roll back or erase the initiating user's private edit.
 - Editing must not silently rewrite financial history in a misleading way.
 
 ---
@@ -1099,7 +1110,7 @@ The feature must not assume the item is literally a bill. It may represent any r
 
 **Actor:** Authenticated User  
 **Priority:** P1  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** to view requests requiring my attention,  
@@ -1123,7 +1134,7 @@ Possible request types include:
 
 **Actor:** Authenticated User  
 **Priority:** P1  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** to accept a valid request,  
@@ -1141,7 +1152,7 @@ Possible request types include:
 
 **Actor:** Authenticated User  
 **Priority:** P1  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** to reject a request,  
@@ -1159,7 +1170,7 @@ Possible request types include:
 
 **Actor:** Authenticated User  
 **Priority:** P1  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** to see requests I have sent,  
@@ -1176,7 +1187,7 @@ Possible request types include:
 
 **Actor:** Authenticated User  
 **Priority:** P1  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** to cancel an applicable pending request I created,  

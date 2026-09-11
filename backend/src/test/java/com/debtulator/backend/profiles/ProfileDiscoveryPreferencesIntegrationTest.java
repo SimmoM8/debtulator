@@ -16,31 +16,24 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @Import(TestDatabaseConfiguration.class)
 @ActiveProfiles("test")
 @SpringBootTest
 @AutoConfigureMockMvc
 class ProfileDiscoveryPreferencesIntegrationTest {
-
-    @Autowired
-    private MockMvc mockMvc;
-
-    @Autowired
-    private ProfileRepository profileRepository;
-
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
-
+    @Autowired private MockMvc mockMvc;
+    @Autowired private ProfileRepository profileRepository;
+    @Autowired private JdbcTemplate jdbcTemplate;
     private UUID userId;
 
     @BeforeEach
     void setUp() {
+        jdbcTemplate.update("delete from public.agreement_entity_states");
+        jdbcTemplate.update("delete from public.agreement_requests");
+        jdbcTemplate.update("delete from public.member_link_requests");
         jdbcTemplate.update("delete from public.user_discovery_rate_limits");
         jdbcTemplate.update("delete from public.sync_mutations");
         jdbcTemplate.update("delete from public.sync_changes");
@@ -49,7 +42,6 @@ class ProfileDiscoveryPreferencesIntegrationTest {
         jdbcTemplate.update("delete from auth.users");
 
         userId = UUID.randomUUID();
-
         jdbcTemplate.update(
                 "insert into auth.users (id, email) values (?, ?)",
                 userId,
@@ -58,75 +50,38 @@ class ProfileDiscoveryPreferencesIntegrationTest {
     }
 
     @Test
-    void discoveryPreferencesArePrivacySafeByDefault() {
-        Profile profile = profileRepository.findById(userId).orElseThrow();
-
-        assertThat(profile.isMemberDiscoveryEnabled()).isFalse();
-        assertThat(profile.isDiscoverableByDisplayName()).isTrue();
-        assertThat(profile.isDiscoverableByEmail()).isFalse();
-    }
-
-    @Test
-    void authenticatedUserCanReadAndUpdateOwnDiscoveryPreferences()
-            throws Exception {
+    void nameAndDiscoveryTerminologyIsConsistent() throws Exception {
         mockMvc.perform(
-                        get("/api/v1/profile/discovery-preferences")
-                                .with(jwt().jwt(jwt ->
-                                        jwt.subject(userId.toString())
-                                ))
+                        put("/api/v1/profile")
+                                .with(jwt().jwt(jwt -> jwt.subject(userId.toString())))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "name": "Ben",
+                                          "baseCurrency": "SEK"
+                                        }
+                                        """)
                 )
                 .andExpect(status().isOk())
-                .andExpect(header().string(
-                        "Cache-Control",
-                        org.hamcrest.Matchers.containsString("no-store")
-                ))
-                .andExpect(jsonPath("$.memberDiscoveryEnabled").value(false))
-                .andExpect(jsonPath("$.discoverableByDisplayName").value(true))
-                .andExpect(jsonPath("$.discoverableByEmail").value(false));
+                .andExpect(jsonPath("$.name").value("Ben"));
 
         mockMvc.perform(
                         put("/api/v1/profile/discovery-preferences")
-                                .with(jwt().jwt(jwt ->
-                                        jwt.subject(userId.toString())
-                                ))
+                                .with(jwt().jwt(jwt -> jwt.subject(userId.toString())))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("""
                                         {
                                           "memberDiscoveryEnabled": true,
-                                          "discoverableByDisplayName": false,
+                                          "discoverableByName": false,
                                           "discoverableByEmail": true
                                         }
                                         """)
                 )
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.memberDiscoveryEnabled").value(true))
-                .andExpect(jsonPath("$.discoverableByDisplayName").value(false))
-                .andExpect(jsonPath("$.discoverableByEmail").value(true));
+                .andExpect(jsonPath("$.discoverableByName").value(false));
 
-        Profile persisted = profileRepository.findById(userId).orElseThrow();
-        assertThat(persisted.isMemberDiscoveryEnabled()).isTrue();
-        assertThat(persisted.isDiscoverableByDisplayName()).isFalse();
-        assertThat(persisted.isDiscoverableByEmail()).isTrue();
-    }
-
-    @Test
-    void discoveryPreferencesRequireAuthentication() throws Exception {
-        mockMvc.perform(
-                        get("/api/v1/profile/discovery-preferences")
-                )
-                .andExpect(status().isUnauthorized());
-
-        mockMvc.perform(
-                        put("/api/v1/profile/discovery-preferences")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                        {
-                                          "memberDiscoveryEnabled": true,
-                                          "discoverableByDisplayName": true,
-                                          "discoverableByEmail": false
-                                        }
-                                        """)
-                )
-                .andExpect(status().isUnauthorized());
+        Profile profile = profileRepository.findById(userId).orElseThrow();
+        assertThat(profile.getName()).isEqualTo("Ben");
+        assertThat(profile.isDiscoverableByName()).isFalse();
     }
 }

@@ -4,7 +4,6 @@ import lombok.Getter;
 
 @Getter
 public class ProfileServiceException extends RuntimeException {
-
     private final Reason reason;
 
     public ProfileServiceException(Reason reason, String message) {
@@ -14,7 +13,7 @@ public class ProfileServiceException extends RuntimeException {
 
     public enum Reason {
         NOT_FOUND,
-        INVALID_DISPLAY_NAME,
+        INVALID_NAME,
         CURRENCY_NOT_SUPPORTED
     }
 }

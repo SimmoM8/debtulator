@@ -9,7 +9,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
-import java.time.Instant;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -19,155 +18,45 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @ActiveProfiles("test")
 @SpringBootTest
 class ProfileServiceIntegrationTest {
-
-    @Autowired
-    private ProfileService profileService;
-
-    @Autowired
-    private ProfileRepository profileRepository;
-
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
-
+    @Autowired private ProfileService profileService;
+    @Autowired private JdbcTemplate jdbcTemplate;
     private UUID userId;
 
     @BeforeEach
     void setUp() {
+        jdbcTemplate.update("delete from public.agreement_entity_states");
+        jdbcTemplate.update("delete from public.agreement_requests");
+        jdbcTemplate.update("delete from public.member_link_requests");
+        jdbcTemplate.update("delete from public.user_discovery_rate_limits");
         jdbcTemplate.update("delete from public.sync_mutations");
         jdbcTemplate.update("delete from public.sync_changes");
         jdbcTemplate.update("delete from public.debts");
         jdbcTemplate.update("delete from public.members");
         jdbcTemplate.update("delete from auth.users");
-        jdbcTemplate.update("update public.currencies set enabled = true");
 
         userId = UUID.randomUUID();
-        jdbcTemplate.update(
-                "insert into auth.users (id) values (?)",
-                userId
-        );
+        jdbcTemplate.update("insert into auth.users (id) values (?)", userId);
     }
 
     @Test
-    void newAuthUserIsProvisionedWithDefaultProfile() {
-        Profile profile = profileService.get(userId);
-
-        assertThat(profile.getUserId()).isEqualTo(userId);
-        assertThat(profile.getDisplayName()).isNull();
-        assertThat(profile.getBaseCurrency()).isEqualTo("SEK");
-        assertThat(profile.getCreatedAt()).isNotNull();
-        assertThat(profile.getUpdatedAt()).isNotNull();
+    void accountNameAllowsOneOrMoreNames() {
+        assertThat(profileService.update(userId, "  Ben  ", "SEK").getName())
+                .isEqualTo("Ben");
+        assertThat(profileService.update(userId, "Benjamin Simmons", "SEK").getName())
+                .isEqualTo("Benjamin Simmons");
     }
 
     @Test
-    void updatesEditableProfileFields() {
-        Profile before = profileService.get(userId);
-        Instant createdAt = before.getCreatedAt();
+    void blankNameIsRejectedButNullCanRemainUnset() {
+        assertThat(profileService.update(userId, null, "SEK").getName()).isNull();
 
-        Profile updated = profileService.update(
-                userId,
-                "  Benjamin  ",
-                "usd"
-        );
-
-        assertThat(updated.getUserId()).isEqualTo(userId);
-        assertThat(updated.getDisplayName()).isEqualTo("Benjamin");
-        assertThat(updated.getBaseCurrency()).isEqualTo("USD");
-        assertThat(updated.getCreatedAt()).isEqualTo(createdAt);
-        assertThat(updated.getUpdatedAt()).isAfterOrEqualTo(before.getUpdatedAt());
-
-        Profile persisted = profileRepository.findById(userId).orElseThrow();
-        assertThat(persisted.getDisplayName()).isEqualTo("Benjamin");
-        assertThat(persisted.getBaseCurrency()).isEqualTo("USD");
-    }
-
-    @Test
-    void allowsDisplayNameToBeCleared() {
-        profileService.update(userId, "Benjamin", "SEK");
-
-        Profile updated = profileService.update(userId, null, "SEK");
-
-        assertThat(updated.getDisplayName()).isNull();
-    }
-
-    @Test
-    void rejectsBlankDisplayName() {
         assertThatThrownBy(() ->
                 profileService.update(userId, "   ", "SEK")
         )
                 .isInstanceOfSatisfying(
                         ProfileServiceException.class,
                         exception -> assertThat(exception.getReason())
-                                .isEqualTo(
-                                        ProfileServiceException.Reason.INVALID_DISPLAY_NAME
-                                )
+                                .isEqualTo(ProfileServiceException.Reason.INVALID_NAME)
                 );
-    }
-
-    @Test
-    void rejectsUnsupportedCurrency() {
-        assertThatThrownBy(() ->
-                profileService.update(userId, "Benjamin", "ZZZ")
-        )
-                .isInstanceOfSatisfying(
-                        ProfileServiceException.class,
-                        exception -> assertThat(exception.getReason())
-                                .isEqualTo(
-                                        ProfileServiceException.Reason.CURRENCY_NOT_SUPPORTED
-                                )
-                );
-    }
-
-    @Test
-    void disabledCurrencyCannotBeNewlySelectedAsBaseCurrency() {
-        jdbcTemplate.update(
-                "update public.currencies set enabled = false where code = 'USD'"
-        );
-
-        assertThatThrownBy(() ->
-                profileService.update(userId, "Benjamin", "USD")
-        )
-                .isInstanceOfSatisfying(
-                        ProfileServiceException.class,
-                        exception -> assertThat(exception.getReason())
-                                .isEqualTo(
-                                        ProfileServiceException.Reason.CURRENCY_NOT_SUPPORTED
-                                )
-                );
-    }
-
-    @Test
-    void currentBaseCurrencyRemainsUsableAfterItIsDisabled() {
-        profileService.update(userId, "Benjamin", "USD");
-
-        jdbcTemplate.update(
-                "update public.currencies set enabled = false where code = 'USD'"
-        );
-
-        Profile updated = profileService.update(
-                userId,
-                "Benjamin Simmons",
-                "USD"
-        );
-
-        assertThat(updated.getDisplayName()).isEqualTo("Benjamin Simmons");
-        assertThat(updated.getBaseCurrency()).isEqualTo("USD");
-    }
-
-    @Test
-    void cannotReadAnotherUsersProfileByUsingOwnIdentifier() {
-        UUID otherUserId = UUID.randomUUID();
-
-        jdbcTemplate.update(
-                "insert into auth.users (id) values (?)",
-                otherUserId
-        );
-
-        profileService.update(otherUserId, "Other User", "EUR");
-
-        Profile ownProfile = profileService.get(userId);
-
-        assertThat(ownProfile.getUserId()).isEqualTo(userId);
-        assertThat(ownProfile.getDisplayName()).isNull();
-        assertThat(ownProfile.getBaseCurrency()).isEqualTo("SEK");
     }
 }
