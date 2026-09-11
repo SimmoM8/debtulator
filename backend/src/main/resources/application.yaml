@@ -33,7 +33,7 @@ spring:
       include-stacktrace: never
 
 server:
-  port: ${PORT:8080}
+  port: ${PORT:8787}
   shutdown: graceful
 
 management:

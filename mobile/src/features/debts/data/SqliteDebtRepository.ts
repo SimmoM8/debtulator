@@ -1,6 +1,8 @@
+import type { SQLiteDatabase } from "expo-sqlite";
+
 import type { Debt } from "@/src/features/debts/model/Debt";
 import { mapDebtRow } from "@/src/features/debts/utils/debtMapper";
-import type { SQLiteDatabase } from "expo-sqlite";
+
 import type { DebtRepository } from "./DebtRepository";
 import type { DebtSqlRow } from "./DebtSqlRow";
 
@@ -20,7 +22,8 @@ export class SqliteDebtRepository implements DebtRepository {
           title,
           due_date,
           created_at,
-          updated_at
+          updated_at,
+          version
         FROM debts
         WHERE owner_user_id = ?
         ORDER BY created_at DESC
@@ -44,7 +47,8 @@ export class SqliteDebtRepository implements DebtRepository {
           title,
           due_date,
           created_at,
-          updated_at
+          updated_at,
+          version
         FROM debts
         WHERE owner_user_id = ?
           AND id = ?
@@ -69,9 +73,10 @@ export class SqliteDebtRepository implements DebtRepository {
           title,
           due_date,
           created_at,
-          updated_at
+          updated_at,
+          version
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 
         ON CONFLICT(id) DO UPDATE SET
           member_id = excluded.member_id,
@@ -80,7 +85,8 @@ export class SqliteDebtRepository implements DebtRepository {
           currency = excluded.currency,
           title = excluded.title,
           due_date = excluded.due_date,
-          updated_at = excluded.updated_at
+          updated_at = excluded.updated_at,
+          version = excluded.version
 
         WHERE debts.owner_user_id = excluded.owner_user_id
       `,
@@ -95,6 +101,7 @@ export class SqliteDebtRepository implements DebtRepository {
         debt.dueDate,
         debt.createdAt,
         debt.updatedAt,
+        debt.version,
       ],
     );
 

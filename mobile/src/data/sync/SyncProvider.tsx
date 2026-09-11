@@ -5,9 +5,12 @@ import { AppState } from "react-native";
 import { openDatabase } from "@/src/data/sqlite/openDatabase";
 import { supabase } from "@/src/data/supabase/supabaseClient";
 
-import { SupabaseSyncGateway } from "./SupabaseSyncGateway";
-import { SyncEngine } from "./SyncEngine";
+import { BackendSyncGateway } from "./BackendSyncGateway";
+import { SyncBlockedError, SyncEngine } from "./SyncEngine";
 import { subscribeToSyncRequests } from "./syncSignal";
+
+const SYNC_INTERVAL_MS = 60_000;
+const backendApiUrl = process.env.EXPO_PUBLIC_API_URL?.trim() ?? "";
 
 type SyncProviderProps = PropsWithChildren<{
   ownerUserId: string;
@@ -15,23 +18,24 @@ type SyncProviderProps = PropsWithChildren<{
 
 export function SyncProvider({ ownerUserId, children }: SyncProviderProps) {
   const runSync = useCallback(async () => {
-    if (!supabase) {
+    if (!supabase || !backendApiUrl) {
       return;
     }
 
     try {
       const db = await openDatabase();
-
-      const remote = new SupabaseSyncGateway(supabase);
-
-      const engine = getSyncEngine(db, remote);
+      const engine = getSyncEngine(db, ownerUserId);
 
       await engine.sync(ownerUserId);
     } catch (error) {
+      if (error instanceof SyncBlockedError) {
+        console.warn("Sync requires attention", error.message);
+        return;
+      }
+
       /*
-       * Sync failure must not make locally stored data unusable.
-       *
-       * Failed outbox mutations remain queued for the next attempt.
+       * Remote failure must never make locally stored data unusable.
+       * Pending mutations remain durable in SQLite for a later retry.
        */
       console.warn("Sync failed", error);
     }
@@ -58,47 +62,61 @@ export function SyncProvider({ ownerUserId, children }: SyncProviderProps) {
   }, [runSync]);
 
   useEffect(() => {
-    const client = supabase;
-    if (!client) {
-      return;
-    }
-
-    const channel = client
-      .channel(`sync:${ownerUserId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "sync_changes",
-          filter: `owner_user_id=eq.${ownerUserId}`,
-        },
-        () => {
-          void runSync();
-        },
-      )
-      .subscribe();
+    const interval = setInterval(() => {
+      if (AppState.currentState === "active") {
+        void runSync();
+      }
+    }, SYNC_INTERVAL_MS);
 
     return () => {
-      void client.removeChannel(channel);
+      clearInterval(interval);
     };
-  }, [ownerUserId, runSync]);
+  }, [runSync]);
 
   return children;
 }
 
 let syncEngine: {
   db: Awaited<ReturnType<typeof openDatabase>>;
+  ownerUserId: string;
   engine: SyncEngine;
 } | null = null;
 
 function getSyncEngine(
   db: Awaited<ReturnType<typeof openDatabase>>,
-  remote: SupabaseSyncGateway,
-) {
-  if (!syncEngine || syncEngine.db !== db) {
+  ownerUserId: string,
+): SyncEngine {
+  if (
+    !syncEngine ||
+    syncEngine.db !== db ||
+    syncEngine.ownerUserId !== ownerUserId
+  ) {
+    const remote = new BackendSyncGateway(
+      backendApiUrl,
+      async () => {
+        if (!supabase) {
+          throw new Error("Supabase Auth is not configured.");
+        }
+
+        const { data, error } = await supabase.auth.getSession();
+
+        if (error) {
+          throw error;
+        }
+
+        const accessToken = data.session?.access_token;
+
+        if (!accessToken) {
+          throw new Error("No authenticated access token is available.");
+        }
+
+        return accessToken;
+      },
+    );
+
     syncEngine = {
       db,
+      ownerUserId,
       engine: new SyncEngine(db, remote),
     };
   }
