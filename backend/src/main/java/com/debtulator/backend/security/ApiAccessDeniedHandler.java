@@ -42,3 +42,4 @@ public class ApiAccessDeniedHandler implements AccessDeniedHandler {
         objectMapper.writeValue(response.getOutputStream(), problem);
     }
 }
+

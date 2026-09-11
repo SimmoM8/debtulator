@@ -43,3 +43,4 @@ public class SyncEntityHandlerRegistry {
         return List.of(SyncEntityType.values());
     }
 }
+

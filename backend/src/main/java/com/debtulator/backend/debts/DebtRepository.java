@@ -46,3 +46,4 @@ public interface DebtRepository extends JpaRepository<Debt, UUID> {
             Pageable pageable
     );
 }
+

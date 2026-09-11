@@ -18,3 +18,4 @@ public class TestDatabaseConfiguration {
                 .withInitScript("test-auth-schema.sql");
     }
 }
+

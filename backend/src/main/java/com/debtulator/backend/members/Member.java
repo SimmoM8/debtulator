@@ -77,3 +77,4 @@ public class Member {
         this.updatedAt = deletedAt;
     }
 }
+

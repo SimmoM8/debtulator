@@ -9,3 +9,4 @@ public record SyncBootstrapItem(
         Map<String, Object> payload
 ) {
 }
+

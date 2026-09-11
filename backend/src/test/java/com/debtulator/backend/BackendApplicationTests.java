@@ -15,3 +15,4 @@ class BackendApplicationTests {
     void contextLoads() {
     }
 }
+

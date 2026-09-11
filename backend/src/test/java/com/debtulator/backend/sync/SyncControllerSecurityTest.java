@@ -45,3 +45,4 @@ class SyncControllerSecurityTest {
                 .andExpect(jsonPath("$.entityTypes[1]").value("debt"));
     }
 }
+

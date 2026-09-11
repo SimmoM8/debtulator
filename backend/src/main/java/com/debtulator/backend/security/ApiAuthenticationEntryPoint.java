@@ -42,3 +42,4 @@ public class ApiAuthenticationEntryPoint implements AuthenticationEntryPoint {
         objectMapper.writeValue(response.getOutputStream(), problem);
     }
 }
+

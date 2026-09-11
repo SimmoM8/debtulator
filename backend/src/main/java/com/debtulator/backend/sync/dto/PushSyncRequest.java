@@ -14,3 +14,4 @@ public record PushSyncRequest(
         List<@NotNull @Valid SyncMutationRequest> mutations
 ) {
 }
+

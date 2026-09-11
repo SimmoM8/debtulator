@@ -12,3 +12,4 @@ public class SyncCursorExpiredException extends RuntimeException {
         this.minimumCursor = minimumCursor;
     }
 }
+

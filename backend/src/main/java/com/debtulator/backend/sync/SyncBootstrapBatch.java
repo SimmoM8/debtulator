@@ -11,3 +11,4 @@ public record SyncBootstrapBatch(
         boolean hasMore
 ) {
 }
+

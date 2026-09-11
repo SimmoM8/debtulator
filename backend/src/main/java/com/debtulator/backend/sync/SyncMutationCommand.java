@@ -12,3 +12,4 @@ public record SyncMutationCommand(
         Map<String, Object> payload
 ) {
 }
+

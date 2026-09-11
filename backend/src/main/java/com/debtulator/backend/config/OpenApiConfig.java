@@ -31,3 +31,4 @@ public class OpenApiConfig {
                 .addSecurityItem(new SecurityRequirement().addList(BEARER_AUTH));
     }
 }
+

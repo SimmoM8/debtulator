@@ -84,3 +84,4 @@ public class SyncMutation {
         this.processedAt = processedAt;
     }
 }
+

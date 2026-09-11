@@ -175,3 +175,4 @@ class MemberRepositoryTest {
         assertThat(member.getVersion()).isEqualTo(1L);
     }
 }
+
