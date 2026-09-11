@@ -17,7 +17,6 @@ public class SyncMutationProcessor {
 
     private final SyncMutationRepository syncMutationRepository;
     private final SyncEntityHandlerRegistry handlerRegistry;
-    private final SyncChangeWriter syncChangeWriter;
     private final SyncRequestHasher requestHasher;
     private final Clock clock;
 
@@ -87,10 +86,6 @@ public class SyncMutationProcessor {
                     .applyMutation(ownerUserId, command);
         }
 
-        if (!result.changes().isEmpty()) {
-            syncChangeWriter.record(ownerUserId, result.changes());
-        }
-
         syncMutationRepository.save(
                 new SyncMutation(
                         ownerUserId,
@@ -112,14 +107,16 @@ public class SyncMutationProcessor {
             );
         }
 
-        if (command.operation() == SyncOperation.UPSERT && command.payload() == null) {
+        if (command.operation() == SyncOperation.UPSERT
+                && command.payload() == null) {
             return SyncHandlerResult.rejected(
                     SyncErrorCode.INVALID_PAYLOAD,
                     "Upsert mutations require a payload."
             );
         }
 
-        if (command.operation() == SyncOperation.DELETE && command.payload() != null) {
+        if (command.operation() == SyncOperation.DELETE
+                && command.payload() != null) {
             return SyncHandlerResult.rejected(
                     SyncErrorCode.INVALID_PAYLOAD,
                     "Delete mutations must not include a payload."
@@ -129,4 +126,3 @@ public class SyncMutationProcessor {
         return null;
     }
 }
-
