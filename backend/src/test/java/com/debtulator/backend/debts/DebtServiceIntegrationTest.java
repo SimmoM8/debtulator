@@ -91,7 +91,7 @@ class DebtServiceIntegrationTest {
         assertThat(changes.getFirst().getEntityType()).isEqualTo("debt");
         assertThat(changes.getFirst().getOperation()).isEqualTo("upsert");
         assertThat(changes.getFirst().getPayload().get("amount"))
-                .isEqualTo("25.50");
+                .isEqualTo("25.5");
     }
 
     @Test

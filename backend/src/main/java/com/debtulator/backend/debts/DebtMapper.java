@@ -15,7 +15,10 @@ public class DebtMapper {
         payload.put("ownerUserId", debt.getOwnerUserId().toString());
         payload.put("memberId", debt.getMemberId().toString());
         payload.put("direction", debt.getDirection());
-        payload.put("amount", debt.getAmount().toPlainString());
+        payload.put(
+                "amount",
+                debt.getAmount().stripTrailingZeros().toPlainString()
+        );
         payload.put("currency", debt.getCurrency());
         payload.put("title", debt.getTitle());
         payload.put(
@@ -31,4 +34,3 @@ public class DebtMapper {
         return payload;
     }
 }
-

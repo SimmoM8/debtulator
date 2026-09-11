@@ -194,7 +194,7 @@ class SyncServiceIntegrationTest {
         assertThat(members.items()).hasSize(1);
         assertThat(debts.items()).hasSize(1);
         assertThat(debts.items().getFirst().payload().get("amount"))
-                .isEqualTo("25.50");
+                .isEqualTo("25.5");
     }
 
 
@@ -464,4 +464,3 @@ class SyncServiceIntegrationTest {
         );
     }
 }
-
