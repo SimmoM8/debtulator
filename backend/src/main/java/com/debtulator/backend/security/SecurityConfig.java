@@ -8,6 +8,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
@@ -63,9 +64,12 @@ public class SecurityConfig {
     ) {
         NimbusJwtDecoder decoder = NimbusJwtDecoder
                 .withJwkSetUri(properties.jwkSetUri())
+                .jwsAlgorithm(SignatureAlgorithm.ES256)
                 .build();
 
-        var defaultValidators = JwtValidators.createDefaultWithIssuer(properties.issuer());
+        var defaultValidators =
+                JwtValidators.createDefaultWithIssuer(properties.issuer());
+
         var validators = new DelegatingOAuth2TokenValidator<Jwt>(
                 defaultValidators,
                 audienceValidator
@@ -75,4 +79,3 @@ public class SecurityConfig {
         return decoder;
     }
 }
-

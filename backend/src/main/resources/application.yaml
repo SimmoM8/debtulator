@@ -32,6 +32,12 @@ spring:
       include-binding-errors: never
       include-stacktrace: never
 
+  logging:
+    level:
+      org.springframework.security: DEBUG
+      org.springframework.security.oauth2: DEBUG
+      com.debtulator.backend.security.ApiAuthenticationEntryPoint: DEBUG
+
 server:
   port: ${PORT:8787}
   shutdown: graceful
@@ -60,4 +66,3 @@ debtulator:
       issuer: ${SUPABASE_JWT_ISSUER}
       jwk-set-uri: ${SUPABASE_JWKS_URI}
       audience: ${SUPABASE_JWT_AUDIENCE:authenticated}
-
