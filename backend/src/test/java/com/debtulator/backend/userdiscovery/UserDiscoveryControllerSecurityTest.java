@@ -1,4 +1,4 @@
-package com.debtulator.backend.discovery;
+package com.debtulator.backend.userdiscovery;
 
 import com.debtulator.backend.config.TestDatabaseConfiguration;
 import com.debtulator.backend.profiles.ProfileService;
@@ -67,7 +67,7 @@ class UserDiscoveryControllerSecurityTest {
     @Test
     void discoveryRequiresAuthentication() throws Exception {
         mockMvc.perform(
-                        get("/api/v1/discovery/users")
+                        get("/api/v1/user-discovery/users")
                                 .queryParam("query", "Benjamin")
                 )
                 .andExpect(status().isUnauthorized());
@@ -77,7 +77,7 @@ class UserDiscoveryControllerSecurityTest {
     void authenticatedDisplayNameSearchReturnsMinimalNoStoreResponse()
             throws Exception {
         mockMvc.perform(
-                        get("/api/v1/discovery/users")
+                        get("/api/v1/user-discovery/users")
                                 .queryParam("query", "ben")
                                 .with(jwt().jwt(jwt ->
                                         jwt.subject(requesterUserId.toString())
@@ -99,7 +99,7 @@ class UserDiscoveryControllerSecurityTest {
     void exactEmailSearchReturnsOnlyTheEmailAlreadySuppliedByRequester()
             throws Exception {
         mockMvc.perform(
-                        get("/api/v1/discovery/users")
+                        get("/api/v1/user-discovery/users")
                                 .queryParam("query", "BEN@example.com")
                                 .with(jwt().jwt(jwt ->
                                         jwt.subject(requesterUserId.toString())
@@ -115,7 +115,7 @@ class UserDiscoveryControllerSecurityTest {
     void invalidDisplayNameQueryReturnsStableProblemCode()
             throws Exception {
         mockMvc.perform(
-                        get("/api/v1/discovery/users")
+                        get("/api/v1/user-discovery/users")
                                 .queryParam("query", "be")
                                 .with(jwt().jwt(jwt ->
                                         jwt.subject(requesterUserId.toString())
