@@ -57,6 +57,21 @@ public class GlobalExceptionHandler {
         return problem;
     }
 
+    @ExceptionHandler(AuthOperationException.class)
+    public ProblemDetail handleAuthOperation(
+            AuthOperationException exception,
+            HttpServletRequest request
+    ) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                exception.getStatus(),
+                exception.getMessage()
+        );
+        problem.setTitle("Authentication request failed");
+        problem.setInstance(URI.create(request.getRequestURI()));
+        problem.setProperty("code", exception.getCode());
+        return problem;
+    }
+
     @ExceptionHandler(InvalidSyncRequestException.class)
     public ProblemDetail handleInvalidSyncRequest(
             InvalidSyncRequestException exception,
@@ -106,3 +121,4 @@ public class GlobalExceptionHandler {
         return problem;
     }
 }
+

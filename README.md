@@ -29,7 +29,7 @@ EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
 APP_ENV=development
 ```
 
-The legacy `EXPO_PUBLIC_SUPABASE_ANON_KEY` remains a compatibility fallback.
+The legacy `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` remains a compatibility fallback.
 Do not commit service-role keys or production secrets. The mobile client may
 only use a publishable/legacy anon key, with RLS enabled for every exposed
 table and storage bucket.

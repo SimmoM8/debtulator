@@ -2,8 +2,8 @@
 
 > **Document status:** Product requirements baseline  
 > **Purpose:** Define user-facing behaviour and product scope for Debtulator in a way that can guide product design, architecture, implementation, testing, and release planning.  
-> **Last updated:** 2026-09-10  
-> **Implementation baseline:** All stories currently unimplemented; no `[FI]` or `[PI]` markers are assigned.
+> **Last updated:** 2026-09-11  
+> **Implementation baseline:** Backend authentication work has partially implemented 7 stories; no story is yet fully implemented.
 
 ---
 
@@ -172,7 +172,7 @@ A story must not be marked `[FI]` merely because a screen, route, database table
 
 Implementation status is evaluated per complete user story, not per individual technical component. A story with only some acceptance criteria satisfied should be `[PI]`, not `[FI]`.
 
-**Current baseline:** no story in this document is marked `[FI]` or `[PI]`. All stories are therefore currently treated as **not implemented**.
+**Current baseline:** 7 stories are marked `[PI]` for meaningful backend authentication/account-security implementation. No story is marked `[FI]`; full user-facing completion still requires the corresponding mobile UI, secure client session handling, and production Supabase/email configuration.
 
 
 ## 4.10 Current Actor Coverage
@@ -200,7 +200,7 @@ The distribution is intentionally uneven. Most functionality is owned by the **A
 
 **Actor:** Visitor  
 **Priority:** P0  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As a** **Visitor**,
 **I want** to create a Debtulator account,  
@@ -220,7 +220,7 @@ The distribution is intentionally uneven. Most functionality is owned by the **A
 
 **Actor:** Visitor  
 **Priority:** P0  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As a** **Visitor**,
 **I want** to securely sign in,  
@@ -275,7 +275,7 @@ The distribution is intentionally uneven. Most functionality is owned by the **A
 
 **Actor:** Visitor  
 **Priority:** P0  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As a** **Visitor**,
 **I want** a secure password-recovery process,  
@@ -294,7 +294,7 @@ The distribution is intentionally uneven. Most functionality is owned by the **A
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** to sign out,  
@@ -331,7 +331,7 @@ The onboarding must be skippable.
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** to view my account information,  
@@ -367,7 +367,7 @@ The onboarding must be skippable.
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** to change my password,  
@@ -1861,7 +1861,7 @@ The product should target applicable modern accessibility guidance, including WC
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** sensitive account actions to require appropriate re-authentication or verification,  
