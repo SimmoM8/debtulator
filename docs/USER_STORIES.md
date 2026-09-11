@@ -3,7 +3,7 @@
 > **Document status:** Product requirements baseline  
 > **Purpose:** Define user-facing behaviour and product scope for Debtulator in a way that can guide product design, architecture, implementation, testing, and release planning.  
 > **Last updated:** 2026-09-11  
-> **Implementation baseline:** Backend and frontend audits confirm meaningful implementation work across 35 stories; all remain partly implemented pending the remaining end-to-end, user-facing, integration, testing, and production requirements.
+> **Implementation baseline:** Backend audit confirms meaningful implementation work across 26 stories; all remain partly implemented pending the remaining user-facing, client-side, integration, and production requirements.
 
 ---
 
@@ -172,7 +172,7 @@ A story must not be marked `[FI]` merely because a screen, route, database table
 
 Implementation status is evaluated per complete user story, not per individual technical component. A story with only some acceptance criteria satisfied should be `[PI]`, not `[FI]`.
 
-**Current baseline:** 35 stories are marked `[PI]` after auditing both the current backend and mobile frontend. The frontend audit added meaningful partial implementation for member details and filtering, the initial member-linking flow, debt filtering, offline local use, durable offline changes, consistent list filtering, and accessibility fundamentals. No story is marked `[FI]`; full completion still requires each story's complete end-to-end behaviour and relevant acceptance criteria.
+**Current baseline:** 26 stories are marked `[PI]` after auditing the current backend across authentication, profile management, members, debts, synchronisation, multi-currency handling, and data-integrity protections. No story is marked `[FI]`; the next frontend audit may confirm additional partial implementation, while full completion still requires each story's complete user-facing behaviour and relevant acceptance criteria.
 
 
 ## 4.10 Current Actor Coverage
@@ -410,7 +410,7 @@ The onboarding must be skippable.
 
 **Actor:** Authenticated User  
 **Priority:** P1  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** to manage relevant privacy and discoverability settings,  
@@ -535,7 +535,8 @@ Activity may include:
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:** [PI]
+**Implementation status:**
+
 **As an** **Authenticated User**,
 **I want** to view a member's details and financial relationship with me,  
 **so that** I can understand our debts and repayment history.
@@ -586,7 +587,8 @@ The view may include:
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:** [PI]
+**Implementation status:**
+
 **As an** **Authenticated User**,
 **I want** to search, sort, and filter my members,  
 **so that** I can quickly find the person I need.
@@ -626,7 +628,8 @@ Common filters should include:
 
 **Actor:** Authenticated User  
 **Priority:** P1  
-**Implementation status:** [PI]
+**Implementation status:**
+
 **As an** **Authenticated User**,
 **I want** to link an existing unlinked member to a real Debtulator user,  
 **so that** our shared records can become collaborative.
@@ -644,7 +647,7 @@ Common filters should include:
 
 **Actor:** Authenticated User  
 **Priority:** P1  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** to search for other users using allowed identifiers,  
@@ -750,7 +753,8 @@ Search and discoverability must respect privacy settings and anti-enumeration pr
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:** [PI]
+**Implementation status:**
+
 **As an** **Authenticated User**,
 **I want** to search, sort, and filter debts,  
 **so that** I can find relevant records quickly.
@@ -1609,7 +1613,8 @@ Potential formats may include:
 
 **Actor:** Authenticated User  
 **Priority:** P1  
-**Implementation status:** [PI]
+**Implementation status:**
+
 **As an** **Authenticated User**,
 **I want** filters to behave predictably across lists,  
 **so that** I can navigate large datasets efficiently.
@@ -1636,7 +1641,8 @@ These stories define **user-visible expectations**, not a specific implementatio
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:** [PI]
+**Implementation status:**
+
 **As an** **Authenticated User**,
 **I want** previously available core debt and member information to remain usable when connectivity is temporarily unavailable,  
 **so that** Debtulator does not become useless because of a poor connection.
@@ -1647,7 +1653,8 @@ These stories define **user-visible expectations**, not a specific implementatio
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:** [PI]
+**Implementation status:**
+
 **As an** **Authenticated User**,
 **I want** supported changes to be saved locally and synchronised when possible,  
 **so that** I can keep working without losing data.
@@ -1742,7 +1749,8 @@ This does not mean every UI edit must expose a technical audit log. It means the
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:** [PI]
+**Implementation status:**
+
 **As an** **Authenticated User**,
 **I want** core Debtulator workflows to be accessible,  
 **so that** I can manage debts independently.
@@ -1767,7 +1775,8 @@ The product should target applicable modern accessibility guidance, including WC
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:** [PI]
+**Implementation status:**
+
 **As an** **Authenticated User**,
 **I want** financial states to be communicated through more than colour,  
 **so that** I can understand the interface accurately.
@@ -1840,7 +1849,7 @@ The product should target applicable modern accessibility guidance, including WC
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:**
+**Implementation status:** [FI]
 
 **As an** **Authenticated User**,
 **I want** account discovery to avoid exposing unnecessary information,  

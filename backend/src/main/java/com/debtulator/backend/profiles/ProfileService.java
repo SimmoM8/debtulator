@@ -35,12 +35,7 @@ public class ProfileService {
             String displayName,
             String baseCurrency
     ) {
-        Profile profile = profileRepository
-                .findForUpdate(userId)
-                .orElseThrow(() -> new ProfileServiceException(
-                        ProfileServiceException.Reason.NOT_FOUND,
-                        "The profile does not exist."
-                ));
+        Profile profile = requireForUpdate(userId);
 
         String normalizedDisplayName = normalizeDisplayName(displayName);
         Currency currency = requireCurrencyForUpdate(
@@ -55,8 +50,36 @@ public class ProfileService {
         );
 
         profileRepository.flush();
-
         return profile;
+    }
+
+    @Transactional
+    public Profile updateDiscoveryPreferences(
+            UUID userId,
+            boolean memberDiscoveryEnabled,
+            boolean discoverableByDisplayName,
+            boolean discoverableByEmail
+    ) {
+        Profile profile = requireForUpdate(userId);
+
+        profile.updateDiscoveryPreferences(
+                memberDiscoveryEnabled,
+                discoverableByDisplayName,
+                discoverableByEmail,
+                Instant.now(clock)
+        );
+
+        profileRepository.flush();
+        return profile;
+    }
+
+    private Profile requireForUpdate(UUID userId) {
+        return profileRepository
+                .findForUpdate(userId)
+                .orElseThrow(() -> new ProfileServiceException(
+                        ProfileServiceException.Reason.NOT_FOUND,
+                        "The profile does not exist."
+                ));
     }
 
     private String normalizeDisplayName(String displayName) {

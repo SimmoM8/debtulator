@@ -1,10 +1,13 @@
 package com.debtulator.backend.exceptions;
 
+import com.debtulator.backend.discovery.UserDiscoveryException;
 import com.debtulator.backend.profiles.ProfileServiceException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -98,6 +101,48 @@ public class GlobalExceptionHandler {
         problem.setInstance(URI.create(request.getRequestURI()));
         problem.setProperty("code", code);
         return problem;
+    }
+
+    @ExceptionHandler(UserDiscoveryException.class)
+    public ResponseEntity<ProblemDetail> handleUserDiscovery(
+            UserDiscoveryException exception,
+            HttpServletRequest request
+    ) {
+        HttpStatus status = switch (exception.getReason()) {
+            case INVALID_QUERY -> HttpStatus.BAD_REQUEST;
+            case RATE_LIMITED -> HttpStatus.TOO_MANY_REQUESTS;
+        };
+
+        String code = switch (exception.getReason()) {
+            case INVALID_QUERY -> "USER_DISCOVERY_INVALID_QUERY";
+            case RATE_LIMITED -> "USER_DISCOVERY_RATE_LIMITED";
+        };
+
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                status,
+                exception.getMessage()
+        );
+        problem.setTitle("User discovery request failed");
+        problem.setInstance(URI.create(request.getRequestURI()));
+        problem.setProperty("code", code);
+
+        ResponseEntity.BodyBuilder response = ResponseEntity.status(status);
+
+        if (exception.getRetryAfterSeconds() != null) {
+            problem.setProperty(
+                    "retryAfterSeconds",
+                    exception.getRetryAfterSeconds()
+            );
+            response.header(
+                    HttpHeaders.RETRY_AFTER,
+                    Long.toString(exception.getRetryAfterSeconds())
+            );
+        }
+
+        return response
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .header(HttpHeaders.PRAGMA, "no-cache")
+                .body(problem);
     }
 
     @ExceptionHandler(InvalidSyncRequestException.class)

@@ -60,7 +60,8 @@ public class SecurityConfig {
     @Bean
     public NimbusJwtDecoder jwtDecoder(
             JwtProperties properties,
-            SupabaseAudienceValidator audienceValidator
+            SupabaseAudienceValidator audienceValidator,
+            UuidSubjectValidator uuidSubjectValidator
     ) {
         NimbusJwtDecoder decoder = NimbusJwtDecoder
                 .withJwkSetUri(properties.jwkSetUri())
@@ -72,7 +73,8 @@ public class SecurityConfig {
 
         var validators = new DelegatingOAuth2TokenValidator<Jwt>(
                 defaultValidators,
-                audienceValidator
+                audienceValidator,
+                uuidSubjectValidator
         );
 
         decoder.setJwtValidator(validators);
