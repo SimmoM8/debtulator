@@ -1,27 +1,13 @@
 package com.debtulator.backend.memberlinking;
 
-import com.debtulator.backend.memberlinking.dto.AcceptMemberLinkRequest;
-import com.debtulator.backend.memberlinking.dto.CreateMemberLinkRequest;
-import com.debtulator.backend.memberlinking.dto.MemberLinkRequestResponse;
-import com.debtulator.backend.memberlinking.dto.MemberLinkingPreferencesResponse;
-import com.debtulator.backend.memberlinking.dto.UpdateMemberLinkingPreferencesRequest;
+import com.debtulator.backend.memberlinking.dto.*;
 import com.debtulator.backend.security.AuthenticatedUserProvider;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.CacheControl;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-
+import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,30 +15,17 @@ import java.util.UUID;
 @RequestMapping("/api/v1/member-linking")
 @RequiredArgsConstructor
 public class MemberLinkingController {
-
     private final MemberLinkingService memberLinkingService;
     private final AuthenticatedUserProvider authenticatedUserProvider;
 
     @GetMapping("/requests/incoming")
-    public ResponseEntity<List<MemberLinkRequestResponse>> getIncomingRequests(
-            @AuthenticationPrincipal Jwt jwt
-    ) {
-        UUID userId = userId(jwt);
-
-        return noStore(ResponseEntity.ok()).body(
-                memberLinkingService.getIncomingRequests(userId)
-        );
+    public ResponseEntity<List<MemberLinkRequestResponse>> getIncomingRequests(@AuthenticationPrincipal Jwt jwt) {
+        return noStore(ResponseEntity.ok()).body(memberLinkingService.getIncomingRequests(userId(jwt)));
     }
 
     @GetMapping("/requests/outgoing")
-    public ResponseEntity<List<MemberLinkRequestResponse>> getOutgoingRequests(
-            @AuthenticationPrincipal Jwt jwt
-    ) {
-        UUID userId = userId(jwt);
-
-        return noStore(ResponseEntity.ok()).body(
-                memberLinkingService.getOutgoingRequests(userId)
-        );
+    public ResponseEntity<List<MemberLinkRequestResponse>> getOutgoingRequests(@AuthenticationPrincipal Jwt jwt) {
+        return noStore(ResponseEntity.ok()).body(memberLinkingService.getOutgoingRequests(userId(jwt)));
     }
 
     @PostMapping("/requests")
@@ -60,20 +33,15 @@ public class MemberLinkingController {
             @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody CreateMemberLinkRequest request
     ) {
-        UUID userId = userId(jwt);
-
-        MemberLinkRequestResponse response =
-                memberLinkingService.createRequest(
-                        userId,
-                        request.targetUserId(),
-                        request.memberId(),
-                        request.displayName(),
-                        request.useTargetFullName()
-                );
-
-        return noStore(
-                ResponseEntity.status(HttpStatus.CREATED)
-        ).body(response);
+        var response = memberLinkingService.createRequest(
+                userId(jwt),
+                request.requestId(),
+                request.targetUserId(),
+                request.memberId(),
+                request.displayName(),
+                request.useTargetName()
+        );
+        return noStore(ResponseEntity.status(HttpStatus.CREATED)).body(response);
     }
 
     @PostMapping("/requests/{requestId}/accept")
@@ -82,17 +50,13 @@ public class MemberLinkingController {
             @PathVariable UUID requestId,
             @Valid @RequestBody AcceptMemberLinkRequest request
     ) {
-        UUID userId = userId(jwt);
-
-        return noStore(ResponseEntity.ok()).body(
-                memberLinkingService.acceptRequest(
-                        userId,
-                        requestId,
-                        request.memberId(),
-                        request.displayName(),
-                        request.useRequesterFullName()
-                )
-        );
+        return noStore(ResponseEntity.ok()).body(memberLinkingService.acceptRequest(
+                userId(jwt),
+                requestId,
+                request.memberId(),
+                request.displayName(),
+                request.useRequesterName()
+        ));
     }
 
     @PostMapping("/requests/{requestId}/reject")
@@ -100,14 +64,7 @@ public class MemberLinkingController {
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable UUID requestId
     ) {
-        UUID userId = userId(jwt);
-
-        return noStore(ResponseEntity.ok()).body(
-                memberLinkingService.rejectRequest(
-                        userId,
-                        requestId
-                )
-        );
+        return noStore(ResponseEntity.ok()).body(memberLinkingService.rejectRequest(userId(jwt), requestId));
     }
 
     @DeleteMapping("/requests/{requestId}")
@@ -115,44 +72,19 @@ public class MemberLinkingController {
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable UUID requestId
     ) {
-        UUID userId = userId(jwt);
-
-        memberLinkingService.cancelRequest(
-                userId,
-                requestId
-        );
-
-        return noStore(
-                ResponseEntity.status(HttpStatus.NO_CONTENT)
-        ).build();
+        memberLinkingService.cancelRequest(userId(jwt), requestId);
+        return noStore(ResponseEntity.status(org.springframework.http.HttpStatus.NO_CONTENT)).build();
     }
 
-    @DeleteMapping("/links/{memberId}")
-    public ResponseEntity<Void> unlink(
-            @AuthenticationPrincipal Jwt jwt,
-            @PathVariable UUID memberId
-    ) {
-        UUID userId = userId(jwt);
-
-        memberLinkingService.unlink(
-                userId,
-                memberId
-        );
-
-        return noStore(
-                ResponseEntity.status(HttpStatus.NO_CONTENT)
-        ).build();
+    @DeleteMapping("/links/{linkId}")
+    public ResponseEntity<Void> unlink(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID linkId) {
+        memberLinkingService.unlink(userId(jwt), linkId);
+        return noStore(ResponseEntity.status(org.springframework.http.HttpStatus.NO_CONTENT)).build();
     }
 
     @GetMapping("/preferences")
-    public ResponseEntity<MemberLinkingPreferencesResponse> getPreferences(
-            @AuthenticationPrincipal Jwt jwt
-    ) {
-        UUID userId = userId(jwt);
-
-        return noStore(ResponseEntity.ok()).body(
-                memberLinkingService.getPreferences(userId)
-        );
+    public ResponseEntity<MemberLinkingPreferencesResponse> getPreferences(@AuthenticationPrincipal Jwt jwt) {
+        return noStore(ResponseEntity.ok()).body(memberLinkingService.getPreferences(userId(jwt)));
     }
 
     @PutMapping("/preferences")
@@ -160,25 +92,13 @@ public class MemberLinkingController {
             @AuthenticationPrincipal Jwt jwt,
             @RequestBody UpdateMemberLinkingPreferencesRequest request
     ) {
-        UUID userId = userId(jwt);
-
-        return noStore(ResponseEntity.ok()).body(
-                memberLinkingService.updatePreferences(
-                        userId,
-                        request.incomingMemberLinkRequestsEnabled()
-                )
-        );
+        return noStore(ResponseEntity.ok()).body(memberLinkingService.updatePreferences(
+                userId(jwt), request.incomingMemberLinkRequestsEnabled()
+        ));
     }
 
-    private UUID userId(Jwt jwt) {
-        return authenticatedUserProvider.from(jwt).id();
-    }
-
-    private ResponseEntity.BodyBuilder noStore(
-            ResponseEntity.BodyBuilder builder
-    ) {
-        return builder
-                .cacheControl(CacheControl.noStore())
-                .header("Pragma", "no-cache");
+    private UUID userId(Jwt jwt) { return authenticatedUserProvider.from(jwt).id(); }
+    private ResponseEntity.BodyBuilder noStore(ResponseEntity.BodyBuilder builder) {
+        return builder.cacheControl(CacheControl.noStore()).header("Pragma", "no-cache");
     }
 }

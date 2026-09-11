@@ -11,11 +11,7 @@ import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
@@ -23,20 +19,14 @@ import java.util.UUID;
 @RequestMapping("/api/v1/profile")
 @RequiredArgsConstructor
 public class ProfileController {
-
     private final ProfileService profileService;
     private final ProfileMapper profileMapper;
     private final AuthenticatedUserProvider authenticatedUserProvider;
 
     @GetMapping
-    public ResponseEntity<ProfileResponse> getProfile(
-            @AuthenticationPrincipal Jwt jwt
-    ) {
+    public ResponseEntity<ProfileResponse> getProfile(@AuthenticationPrincipal Jwt jwt) {
         UUID userId = authenticatedUserProvider.from(jwt).id();
-
-        return noStore(ResponseEntity.ok()).body(
-                profileMapper.toResponse(profileService.get(userId))
-        );
+        return noStore(ResponseEntity.ok()).body(profileMapper.toResponse(profileService.get(userId)));
     }
 
     @PutMapping
@@ -45,28 +35,15 @@ public class ProfileController {
             @Valid @RequestBody UpdateProfileRequest request
     ) {
         UUID userId = authenticatedUserProvider.from(jwt).id();
-
-        Profile profile = profileService.update(
-                userId,
-                request.displayName(),
-                request.baseCurrency()
-        );
-
-        return noStore(ResponseEntity.ok()).body(
-                profileMapper.toResponse(profile)
-        );
+        Profile profile = profileService.update(userId, request.name(), request.baseCurrency());
+        return noStore(ResponseEntity.ok()).body(profileMapper.toResponse(profile));
     }
 
     @GetMapping("/discovery-preferences")
-    public ResponseEntity<DiscoveryPreferencesResponse> getDiscoveryPreferences(
-            @AuthenticationPrincipal Jwt jwt
-    ) {
+    public ResponseEntity<DiscoveryPreferencesResponse> getDiscoveryPreferences(@AuthenticationPrincipal Jwt jwt) {
         UUID userId = authenticatedUserProvider.from(jwt).id();
-
         return noStore(ResponseEntity.ok()).body(
-                profileMapper.toDiscoveryPreferencesResponse(
-                        profileService.get(userId)
-                )
+                profileMapper.toDiscoveryPreferencesResponse(profileService.get(userId))
         );
     }
 
@@ -76,24 +53,16 @@ public class ProfileController {
             @RequestBody UpdateDiscoveryPreferencesRequest request
     ) {
         UUID userId = authenticatedUserProvider.from(jwt).id();
-
         Profile profile = profileService.updateDiscoveryPreferences(
                 userId,
                 request.memberDiscoveryEnabled(),
-                request.discoverableByDisplayName(),
+                request.discoverableByName(),
                 request.discoverableByEmail()
         );
-
-        return noStore(ResponseEntity.ok()).body(
-                profileMapper.toDiscoveryPreferencesResponse(profile)
-        );
+        return noStore(ResponseEntity.ok()).body(profileMapper.toDiscoveryPreferencesResponse(profile));
     }
 
-    private ResponseEntity.BodyBuilder noStore(
-            ResponseEntity.BodyBuilder builder
-    ) {
-        return builder
-                .cacheControl(CacheControl.noStore())
-                .header("Pragma", "no-cache");
+    private ResponseEntity.BodyBuilder noStore(ResponseEntity.BodyBuilder builder) {
+        return builder.cacheControl(CacheControl.noStore()).header("Pragma", "no-cache");
     }
 }

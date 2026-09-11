@@ -8,10 +8,9 @@ public record MemberLinkRequestResponse(
         String direction,
         String status,
         UUID userId,
-        String displayName,
+        String name,
         UUID memberId,
         Instant createdAt,
         Instant resolvedAt,
         Instant unlinkedAt
-) {
-}
+) {}

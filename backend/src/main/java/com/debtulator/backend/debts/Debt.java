@@ -19,43 +19,18 @@ import java.util.UUID;
 @Table(name = "debts", schema = "public")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Debt {
-
-    @Id
-    private UUID id;
-
-    @Column(name = "owner_user_id", nullable = false)
-    private UUID ownerUserId;
-
-    @Column(name = "member_id", nullable = false)
-    private UUID memberId;
-
-    @Column(nullable = false)
-    private String direction;
-
-    @Column(nullable = false, precision = 38, scale = 8)
-    private BigDecimal amount;
-
-    @Column(nullable = false)
-    private String currency;
-
-    @Column(nullable = false, length = 120)
-    private String title;
-
-    @Column(name = "due_date")
-    private LocalDate dueDate;
-
-    @Column(name = "created_at", nullable = false)
-    private Instant createdAt;
-
-    @Column(name = "updated_at", nullable = false)
-    private Instant updatedAt;
-
-    @Column(name = "deleted_at")
-    private Instant deletedAt;
-
-    @Version
-    @Column(name = "version", nullable = false)
-    private Long version;
+    @Id private UUID id;
+    @Column(name = "owner_user_id", nullable = false) private UUID ownerUserId;
+    @Column(name = "member_id", nullable = false) private UUID memberId;
+    @Column(nullable = false) private String direction;
+    @Column(nullable = false, precision = 38, scale = 8) private BigDecimal amount;
+    @Column(nullable = false) private String currency;
+    @Column(nullable = false, length = 120) private String title;
+    @Column(name = "due_date") private LocalDate dueDate;
+    @Column(name = "created_at", nullable = false) private Instant createdAt;
+    @Column(name = "updated_at", nullable = false) private Instant updatedAt;
+    @Column(name = "deleted_at") private Instant deletedAt;
+    @Version @Column(name = "version", nullable = false) private Long version;
 
     public Debt(
             UUID id,

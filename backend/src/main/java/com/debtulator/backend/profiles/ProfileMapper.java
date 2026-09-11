@@ -6,23 +6,20 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class ProfileMapper {
-
     public ProfileResponse toResponse(Profile profile) {
         return new ProfileResponse(
                 profile.getUserId(),
-                profile.getDisplayName(),
+                profile.getName(),
                 profile.getBaseCurrency(),
                 profile.getCreatedAt(),
                 profile.getUpdatedAt()
         );
     }
 
-    public DiscoveryPreferencesResponse toDiscoveryPreferencesResponse(
-            Profile profile
-    ) {
+    public DiscoveryPreferencesResponse toDiscoveryPreferencesResponse(Profile profile) {
         return new DiscoveryPreferencesResponse(
                 profile.isMemberDiscoveryEnabled(),
-                profile.isDiscoverableByDisplayName(),
+                profile.isDiscoverableByName(),
                 profile.isDiscoverableByEmail()
         );
     }

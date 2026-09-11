@@ -1,5 +1,6 @@
 package com.debtulator.backend.memberlinking;
 
+import com.debtulator.backend.agreements.AgreementService;
 import com.debtulator.backend.memberlinking.dto.MemberLinkRequestResponse;
 import com.debtulator.backend.memberlinking.dto.MemberLinkingPreferencesResponse;
 import com.debtulator.backend.members.Member;
@@ -23,83 +24,61 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class MemberLinkingService {
-
     private static final int MAX_PENDING_REQUESTS = 50;
 
     private final MemberLinkRequestRepository requestRepository;
     private final MemberService memberService;
     private final ProfileService profileService;
     private final MemberLinkingMapper memberLinkingMapper;
+    private final AgreementService agreementService;
     private final JdbcTemplate jdbcTemplate;
     private final Clock clock;
 
     @Transactional(readOnly = true)
-    public List<MemberLinkRequestResponse> getIncomingRequests(
-            UUID userId
-    ) {
-        return requestRepository
-                .findPendingIncoming(
-                        userId,
-                        PageRequest.of(0, MAX_PENDING_REQUESTS)
-                )
-                .stream()
-                .map(request ->
-                        memberLinkingMapper.toResponse(request, userId)
-                )
-                .toList();
+    public List<MemberLinkRequestResponse> getIncomingRequests(UUID userId) {
+        return requestRepository.findPendingIncoming(userId, PageRequest.of(0, MAX_PENDING_REQUESTS))
+                .stream().map(request -> memberLinkingMapper.toResponse(request, userId)).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<MemberLinkRequestResponse> getOutgoingRequests(
-            UUID userId
-    ) {
-        return requestRepository
-                .findPendingOutgoing(
-                        userId,
-                        PageRequest.of(0, MAX_PENDING_REQUESTS)
-                )
-                .stream()
-                .map(request ->
-                        memberLinkingMapper.toResponse(request, userId)
-                )
-                .toList();
+    public List<MemberLinkRequestResponse> getOutgoingRequests(UUID userId) {
+        return requestRepository.findPendingOutgoing(userId, PageRequest.of(0, MAX_PENDING_REQUESTS))
+                .stream().map(request -> memberLinkingMapper.toResponse(request, userId)).toList();
     }
 
     @Transactional(readOnly = true)
-    public MemberLinkingPreferencesResponse getPreferences(
-            UUID userId
-    ) {
+    public MemberLinkingPreferencesResponse getPreferences(UUID userId) {
         Profile profile = profileService.get(userId);
-
-        return new MemberLinkingPreferencesResponse(
-                profile.isIncomingMemberLinkRequestsEnabled()
-        );
+        return new MemberLinkingPreferencesResponse(profile.isIncomingMemberLinkRequestsEnabled());
     }
 
     @Transactional
-    public MemberLinkingPreferencesResponse updatePreferences(
-            UUID userId,
-            boolean incomingMemberLinkRequestsEnabled
-    ) {
-        Profile profile =
-                profileService.updateIncomingMemberLinkRequestsEnabled(
-                        userId,
-                        incomingMemberLinkRequestsEnabled
-                );
-
-        return new MemberLinkingPreferencesResponse(
-                profile.isIncomingMemberLinkRequestsEnabled()
-        );
+    public MemberLinkingPreferencesResponse updatePreferences(UUID userId, boolean enabled) {
+        Profile profile = profileService.updateIncomingMemberLinkRequestsEnabled(userId, enabled);
+        return new MemberLinkingPreferencesResponse(profile.isIncomingMemberLinkRequestsEnabled());
     }
 
     @Transactional
     public MemberLinkRequestResponse createRequest(
             UUID requesterUserId,
+            UUID requestId,
             UUID targetUserId,
             UUID requesterMemberId,
             String requestedDisplayName,
-            boolean useTargetFullName
+            boolean useTargetName
     ) {
+        MemberLinkRequest existingById = requestRepository.findById(requestId).orElse(null);
+        if (existingById != null) {
+            if (existingById.getRequesterUserId().equals(requesterUserId)
+                    && existingById.getTargetUserId().equals(targetUserId)) {
+                return memberLinkingMapper.toResponse(existingById, requesterUserId);
+            }
+            throw new MemberLinkingException(
+                    MemberLinkingException.Reason.REQUEST_ID_REUSED,
+                    "requestId has already been used for a different member-link request."
+            );
+        }
+
         if (requesterUserId.equals(targetUserId)) {
             throw new MemberLinkingException(
                     MemberLinkingException.Reason.SELF_LINK,
@@ -107,17 +86,14 @@ public class MemberLinkingService {
             );
         }
 
-        Profile requesterProfile =
-                requireRequesterProfile(requesterUserId);
-        Profile targetProfile =
-                requireTargetProfile(targetUserId);
-
-        String requesterProfileName = requireProfileName(
+        Profile requesterProfile = requireRequesterProfile(requesterUserId);
+        Profile targetProfile = requireTargetProfile(targetUserId);
+        String requesterName = requireName(
                 requesterProfile,
                 MemberLinkingException.Reason.REQUESTER_PROFILE_INCOMPLETE,
                 "Complete your profile before sending member-link requests."
         );
-        String targetProfileName = requireProfileName(
+        String targetName = requireName(
                 targetProfile,
                 MemberLinkingException.Reason.TARGET_PROFILE_INCOMPLETE,
                 "The selected user cannot currently be linked."
@@ -131,16 +107,9 @@ public class MemberLinkingService {
         }
 
         lockUserPair(requesterUserId, targetUserId);
+        ensureNoExistingRelationship(requesterUserId, targetUserId);
 
-        ensureNoExistingRelationship(
-                requesterUserId,
-                targetUserId
-        );
-
-        if (requestRepository.existsPendingBetweenUsers(
-                requesterUserId,
-                targetUserId
-        )) {
+        if (requestRepository.findPendingBetweenUsers(requesterUserId, targetUserId).isPresent()) {
             throw new MemberLinkingException(
                     MemberLinkingException.Reason.REQUEST_ALREADY_PENDING,
                     "A member-link request is already pending between these users."
@@ -151,16 +120,26 @@ public class MemberLinkingService {
                 requesterUserId,
                 requesterMemberId,
                 requestedDisplayName,
-                useTargetFullName,
-                targetProfileName
+                useTargetName,
+                targetName
         );
 
+        if (requestRepository.existsPendingForRequesterMember(
+                requesterUserId,
+                requesterMember.getId()
+        )) {
+            throw new MemberLinkingException(
+                    MemberLinkingException.Reason.MEMBER_ALREADY_PENDING,
+                    "The selected member is already used by another pending link request."
+            );
+        }
+
         MemberLinkRequest request = new MemberLinkRequest(
-                UUID.randomUUID(),
+                requestId,
                 requesterUserId,
                 targetUserId,
-                requesterProfileName,
-                targetProfileName,
+                requesterName,
+                targetName,
                 requesterMember.getId(),
                 Instant.now(clock)
         );
@@ -170,14 +149,11 @@ public class MemberLinkingService {
         } catch (DataIntegrityViolationException exception) {
             throw new MemberLinkingException(
                     MemberLinkingException.Reason.REQUEST_ALREADY_PENDING,
-                    "A member-link request is already pending between these users."
+                    "A conflicting member-link request is already pending."
             );
         }
 
-        return memberLinkingMapper.toResponse(
-                request,
-                requesterUserId
-        );
+        return memberLinkingMapper.toResponse(request, requesterUserId);
     }
 
     @Transactional
@@ -186,28 +162,23 @@ public class MemberLinkingService {
             UUID requestId,
             UUID targetMemberId,
             String requestedDisplayName,
-            boolean useRequesterFullName
+            boolean useRequesterName
     ) {
-        MemberLinkRequest request = requestRepository
-                .findForTargetUpdate(requestId, targetUserId)
+        MemberLinkRequest request = requestRepository.findForTargetUpdate(requestId, targetUserId)
                 .orElseThrow(() -> new MemberLinkingException(
                         MemberLinkingException.Reason.REQUEST_NOT_FOUND,
                         "The member-link request does not exist."
                 ));
 
+        if (request.isAccepted()) {
+            return memberLinkingMapper.toResponse(request, targetUserId);
+        }
         requirePending(request);
 
-        lockUserPair(
-                request.getRequesterUserId(),
-                request.getTargetUserId()
-        );
+        lockUserPair(request.getRequesterUserId(), request.getTargetUserId());
+        ensureNoExistingRelationship(request.getRequesterUserId(), request.getTargetUserId());
 
-        ensureNoExistingRelationship(
-                request.getRequesterUserId(),
-                request.getTargetUserId()
-        );
-
-        String requesterProfileName = requireProfileName(
+        String currentRequesterName = requireName(
                 requireRequesterProfile(request.getRequesterUserId()),
                 MemberLinkingException.Reason.REQUESTER_PROFILE_INCOMPLETE,
                 "The requester profile is no longer complete."
@@ -224,83 +195,66 @@ public class MemberLinkingService {
                 request,
                 targetMemberId,
                 requestedDisplayName,
-                useRequesterFullName,
-                requesterProfileName
+                useRequesterName,
+                currentRequesterName
         );
 
-        request.accept(
-                requesterMember.getId(),
-                targetMember.getId(),
-                Instant.now(clock)
-        );
+        request.accept(targetMember.getId(), Instant.now(clock));
         requestRepository.flush();
-
-        return memberLinkingMapper.toResponse(
-                request,
-                targetUserId
-        );
+        return memberLinkingMapper.toResponse(request, targetUserId);
     }
 
     @Transactional
-    public MemberLinkRequestResponse rejectRequest(
-            UUID targetUserId,
-            UUID requestId
-    ) {
-        MemberLinkRequest request = requestRepository
-                .findForTargetUpdate(requestId, targetUserId)
+    public MemberLinkRequestResponse rejectRequest(UUID targetUserId, UUID requestId) {
+        MemberLinkRequest request = requestRepository.findForTargetUpdate(requestId, targetUserId)
                 .orElseThrow(() -> new MemberLinkingException(
                         MemberLinkingException.Reason.REQUEST_NOT_FOUND,
                         "The member-link request does not exist."
                 ));
 
+        if (request.isRejected()) {
+            return memberLinkingMapper.toResponse(request, targetUserId);
+        }
         requirePending(request);
-
         request.reject(Instant.now(clock));
         requestRepository.flush();
-
-        return memberLinkingMapper.toResponse(
-                request,
-                targetUserId
-        );
+        return memberLinkingMapper.toResponse(request, targetUserId);
     }
 
     @Transactional
-    public void cancelRequest(
-            UUID requesterUserId,
-            UUID requestId
-    ) {
-        MemberLinkRequest request = requestRepository
-                .findForRequesterUpdate(requestId, requesterUserId)
+    public void cancelRequest(UUID requesterUserId, UUID requestId) {
+        MemberLinkRequest request = requestRepository.findForRequesterUpdate(requestId, requesterUserId)
                 .orElseThrow(() -> new MemberLinkingException(
                         MemberLinkingException.Reason.REQUEST_NOT_FOUND,
                         "The member-link request does not exist."
                 ));
-
+        if (request.isCancelled()) return;
         requirePending(request);
-
         request.cancel(Instant.now(clock));
         requestRepository.flush();
     }
 
     @Transactional
-    public void unlink(
-            UUID userId,
-            UUID memberId
-    ) {
+    public void unlink(UUID userId, UUID linkId) {
         MemberLinkRequest request = requestRepository
-                .findActiveForMemberUpdate(userId, memberId)
+                .findLinkForParticipantUpdate(linkId, userId)
                 .orElseThrow(() -> new MemberLinkingException(
                         MemberLinkingException.Reason.LINK_NOT_FOUND,
-                        "The member does not have an active Debtulator link."
+                        "The member link does not exist."
                 ));
 
+        if (request.isUnlinked()) return;
+
         if (!request.isAccepted()) {
-            throw new IllegalStateException(
-                    "The active member-link record is inconsistent."
+            throw new MemberLinkingException(
+                    MemberLinkingException.Reason.LINK_NOT_FOUND,
+                    "The member link is not active."
             );
         }
 
-        lockUserPair(
+        lockUserPair(request.getRequesterUserId(), request.getTargetUserId());
+
+        agreementService.cancelPendingBetweenUsers(
                 request.getRequesterUserId(),
                 request.getTargetUserId()
         );
@@ -324,17 +278,16 @@ public class MemberLinkingService {
             UUID requesterUserId,
             UUID requesterMemberId,
             String requestedDisplayName,
-            boolean useTargetFullName,
-            String targetProfileName
+            boolean useTargetName,
+            String targetName
     ) {
         if (requesterMemberId == null) {
             String displayName = resolveNewMemberDisplayName(
                     requestedDisplayName,
-                    useTargetFullName,
-                    targetProfileName,
-                    "Provide a display name or choose the target user's profile name."
+                    useTargetName,
+                    targetName,
+                    "Provide a display name or choose the target user's name."
             );
-
             try {
                 return memberService.create(
                         requesterUserId,
@@ -343,10 +296,7 @@ public class MemberLinkingService {
                         Instant.now(clock)
                 );
             } catch (MemberServiceException exception) {
-                throw mapMemberException(
-                        exception,
-                        "The new member could not be created."
-                );
+                throw mapMemberException(exception, "The new member could not be created.");
             }
         }
 
@@ -357,26 +307,13 @@ public class MemberLinkingService {
             );
         }
 
-        Member member = requireAvailableMember(
-                requesterUserId,
-                requesterMemberId
-        );
-
-        if (!useTargetFullName) {
-            return member;
-        }
+        Member member = requireAvailableMember(requesterUserId, requesterMemberId);
+        if (!useTargetName) return member;
 
         try {
-            return memberService.renameForLinking(
-                    requesterUserId,
-                    requesterMemberId,
-                    targetProfileName
-            );
+            return memberService.renameForLinking(requesterUserId, requesterMemberId, targetName);
         } catch (MemberServiceException exception) {
-            throw mapMemberException(
-                    exception,
-                    "The selected member could not be renamed for linking."
-            );
+            throw mapMemberException(exception, "The selected member could not be renamed for linking.");
         }
     }
 
@@ -384,17 +321,16 @@ public class MemberLinkingService {
             MemberLinkRequest request,
             UUID targetMemberId,
             String requestedDisplayName,
-            boolean useRequesterFullName,
-            String requesterProfileName
+            boolean useRequesterName,
+            String requesterName
     ) {
         if (targetMemberId == null) {
             String displayName = resolveNewMemberDisplayName(
                     requestedDisplayName,
-                    useRequesterFullName,
-                    requesterProfileName,
-                    "Provide a display name or choose the requester's profile name."
+                    useRequesterName,
+                    requesterName,
+                    "Provide a display name or choose the requester's name."
             );
-
             return createLinkedMember(
                     request.getTargetUserId(),
                     displayName,
@@ -409,32 +345,38 @@ public class MemberLinkingService {
             );
         }
 
-        String replacementDisplayName = useRequesterFullName
-                ? requesterProfileName
-                : null;
+        if (requestRepository.existsPendingForRequesterMember(
+                request.getTargetUserId(),
+                targetMemberId
+        )) {
+            throw new MemberLinkingException(
+                    MemberLinkingException.Reason.MEMBER_ALREADY_PENDING,
+                    "The selected member is already used by another pending link request."
+            );
+        }
 
         return linkExistingMember(
                 request.getTargetUserId(),
                 targetMemberId,
                 request.getRequesterUserId(),
-                replacementDisplayName
+                useRequesterName ? requesterName : null
         );
     }
 
     private String resolveNewMemberDisplayName(
             String requestedDisplayName,
-            boolean useProfileName,
-            String profileName,
+            boolean useName,
+            String accountName,
             String missingNameMessage
     ) {
-        if (useProfileName) {
+        if (useName) {
             if (hasText(requestedDisplayName)) {
                 throw new MemberLinkingException(
                         MemberLinkingException.Reason.INVALID_NAME_SELECTION,
-                        "Choose either the profile name or a custom display name, not both."
+                        "Choose either the account name or a custom display name, not both."
                 );
             }
-            return profileName;
+            return accountName;
         }
 
         if (!hasText(requestedDisplayName)) {
@@ -443,26 +385,13 @@ public class MemberLinkingService {
                     missingNameMessage
             );
         }
-
         return requestedDisplayName.trim();
     }
 
-    private void ensureNoExistingRelationship(
-            UUID firstUserId,
-            UUID secondUserId
-    ) {
-        if (requestRepository.existsActiveBetweenUsers(
-                firstUserId,
-                secondUserId
-        )
-                || memberService.hasActiveLink(
-                        firstUserId,
-                        secondUserId
-                )
-                || memberService.hasActiveLink(
-                        secondUserId,
-                        firstUserId
-                )) {
+    private void ensureNoExistingRelationship(UUID firstUserId, UUID secondUserId) {
+        if (requestRepository.existsActiveBetweenUsers(firstUserId, secondUserId)
+                || memberService.hasActiveLink(firstUserId, secondUserId)
+                || memberService.hasActiveLink(secondUserId, firstUserId)) {
             throw new MemberLinkingException(
                     MemberLinkingException.Reason.RELATIONSHIP_ALREADY_EXISTS,
                     "These users are already linked."
@@ -470,20 +399,11 @@ public class MemberLinkingService {
         }
     }
 
-    private Member requireAvailableMember(
-            UUID ownerUserId,
-            UUID memberId
-    ) {
+    private Member requireAvailableMember(UUID ownerUserId, UUID memberId) {
         try {
-            return memberService.requireAvailableForLinking(
-                    ownerUserId,
-                    memberId
-            );
+            return memberService.requireAvailableForLinking(ownerUserId, memberId);
         } catch (MemberServiceException exception) {
-            throw mapMemberException(
-                    exception,
-                    "The selected member is not available for linking."
-            );
+            throw mapMemberException(exception, "The selected member is not available for linking.");
         }
     }
 
@@ -501,18 +421,11 @@ public class MemberLinkingService {
                     replacementDisplayName
             );
         } catch (MemberServiceException exception) {
-            throw mapMemberException(
-                    exception,
-                    "The selected member is no longer available for linking."
-            );
+            throw mapMemberException(exception, "The selected member is no longer available for linking.");
         }
     }
 
-    private Member createLinkedMember(
-            UUID ownerUserId,
-            String displayName,
-            UUID linkedUserId
-    ) {
+    private Member createLinkedMember(UUID ownerUserId, String displayName, UUID linkedUserId) {
         try {
             return memberService.createLinked(
                     ownerUserId,
@@ -521,10 +434,7 @@ public class MemberLinkingService {
                     linkedUserId
             );
         } catch (MemberServiceException exception) {
-            throw mapMemberException(
-                    exception,
-                    "A linked member could not be created."
-            );
+            throw mapMemberException(exception, "A linked member could not be created.");
         }
     }
 
@@ -532,22 +442,24 @@ public class MemberLinkingService {
             MemberServiceException exception,
             String fallbackMessage
     ) {
-        if (exception.getReason()
-                == MemberServiceException.Reason.LINKED) {
+        if (exception.getReason() == MemberServiceException.Reason.LINKED) {
             return new MemberLinkingException(
                     MemberLinkingException.Reason.MEMBER_ALREADY_LINKED,
                     "The selected member is already linked."
             );
         }
-
-        if (exception.getReason()
-                == MemberServiceException.Reason.INVALID_DISPLAY_NAME) {
+        if (exception.getReason() == MemberServiceException.Reason.LINK_PENDING) {
+            return new MemberLinkingException(
+                    MemberLinkingException.Reason.MEMBER_ALREADY_PENDING,
+                    "The selected member is already used by a pending link request."
+            );
+        }
+        if (exception.getReason() == MemberServiceException.Reason.INVALID_DISPLAY_NAME) {
             return new MemberLinkingException(
                     MemberLinkingException.Reason.INVALID_NAME_SELECTION,
                     exception.getMessage()
             );
         }
-
         return new MemberLinkingException(
                 MemberLinkingException.Reason.MEMBER_NOT_AVAILABLE,
                 fallbackMessage
@@ -576,21 +488,10 @@ public class MemberLinkingService {
         }
     }
 
-    private String requireProfileName(
-            Profile profile,
-            MemberLinkingException.Reason reason,
-            String message
-    ) {
-        String displayName = profile.getDisplayName();
-
-        if (!hasText(displayName)) {
-            throw new MemberLinkingException(
-                    reason,
-                    message
-            );
-        }
-
-        return displayName.trim();
+    private String requireName(Profile profile, MemberLinkingException.Reason reason, String message) {
+        String name = profile.getName();
+        if (!hasText(name)) throw new MemberLinkingException(reason, message);
+        return name.trim();
     }
 
     private void requirePending(MemberLinkRequest request) {
@@ -602,16 +503,10 @@ public class MemberLinkingService {
         }
     }
 
-    private void lockUserPair(
-            UUID firstUserId,
-            UUID secondUserId
-    ) {
+    private void lockUserPair(UUID firstUserId, UUID secondUserId) {
         String first = firstUserId.toString();
         String second = secondUserId.toString();
-        String pairKey = first.compareTo(second) <= 0
-                ? first + ":" + second
-                : second + ":" + first;
-
+        String pairKey = first.compareTo(second) <= 0 ? first + ":" + second : second + ":" + first;
         jdbcTemplate.query(
                 "select pg_advisory_xact_lock(hashtextextended(?, 0))",
                 statement -> statement.setString(1, pairKey),
