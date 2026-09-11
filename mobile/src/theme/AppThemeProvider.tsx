@@ -23,6 +23,7 @@ export type AppThemeColors = {
   outline: string;
 
   controlTint: string;
+  onControlTint: string;
   controlContainer: string;
   onControlContainer: string;
   controlSurface: string;
@@ -126,6 +127,7 @@ function createAndroidThemeColors(scheme: AppColorScheme): AppThemeColors {
     outline: material.outlineVariant,
 
     controlTint: material.primary,
+    onControlTint: material.onPrimary,
     controlContainer: material.primaryContainer,
     onControlContainer: material.onPrimaryContainer,
 
@@ -164,6 +166,7 @@ function createAppleThemeColors(scheme: AppColorScheme): AppThemeColors {
       outline: "rgba(84, 84, 88, 0.60)",
 
       controlTint: brand.colors.secondary,
+      onControlTint: brand.colors.primary,
       controlContainer: "#4A3B70",
       onControlContainer: "#FFFFFF",
 
@@ -200,6 +203,7 @@ function createAppleThemeColors(scheme: AppColorScheme): AppThemeColors {
     outline: "rgba(60, 60, 67, 0.29)",
 
     controlTint: brand.colors.primary,
+    onControlTint: "#FFFFFF",
     controlContainer: brand.colors.secondary,
     onControlContainer: brand.colors.primary,
 

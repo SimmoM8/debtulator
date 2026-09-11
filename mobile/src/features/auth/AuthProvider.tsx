@@ -19,11 +19,26 @@ type SignInInput = {
   password: string;
 };
 
+type SignUpInput = {
+  email: string;
+  password: string;
+};
+
+type SignUpResult = {
+  emailVerificationRequired: boolean;
+};
+
+type PasswordRecoveryInput = {
+  email: string;
+};
+
 type AuthContextValue = {
   configured: boolean;
   loading: boolean;
   session: Session | null;
   signIn: (input: SignInInput) => Promise<void>;
+  signUp: (input: SignUpInput) => Promise<SignUpResult>;
+  requestPasswordReset: (input: PasswordRecoveryInput) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -75,15 +90,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
       }
 
       setSession(nextSession);
-
       setLoading(false);
     });
 
-    /*
-     * On native platforms, Supabase token refreshing should follow the
-     * application lifecycle. There is no need for a separate abstraction
-     * until another part of the application actually needs this behaviour.
-     */
     const appStateSubscription =
       Platform.OS !== "web"
         ? AppState.addEventListener("change", (state) => {
@@ -107,7 +116,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
       active = false;
 
       authSubscription.unsubscribe();
-
       appStateSubscription?.remove();
 
       if (Platform.OS !== "web") {
@@ -131,10 +139,46 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   }, []);
 
+  const signUp = useCallback(
+    async ({ email, password }: SignUpInput): Promise<SignUpResult> => {
+      if (!supabase) {
+        throw new Error("Supabase is not configured.");
+      }
+
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      return {
+        emailVerificationRequired: data.session === null,
+      };
+    },
+    [],
+  );
+
+  const requestPasswordReset = useCallback(
+    async ({ email }: PasswordRecoveryInput) => {
+      if (!supabase) {
+        throw new Error("Supabase is not configured.");
+      }
+
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
+
+      if (error) {
+        throw error;
+      }
+    },
+    [],
+  );
+
   const signOut = useCallback(async () => {
     if (!supabase) {
       setSession(null);
-
       return;
     }
 
@@ -151,9 +195,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
       loading,
       session,
       signIn,
+      signUp,
+      requestPasswordReset,
       signOut,
     }),
-    [loading, session, signIn, signOut],
+    [
+      loading,
+      session,
+      signIn,
+      signUp,
+      requestPasswordReset,
+      signOut,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
