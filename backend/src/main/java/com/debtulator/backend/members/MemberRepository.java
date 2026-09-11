@@ -13,11 +13,18 @@ import java.util.UUID;
 
 public interface MemberRepository extends JpaRepository<Member, UUID> {
 
-    List<Member> findAllByOwnerUserIdAndDeletedAtIsNullOrderByDisplayNameAsc(UUID ownerUserId);
+    List<Member> findAllByOwnerUserIdAndDeletedAtIsNullOrderByDisplayNameAsc(
+            UUID ownerUserId
+    );
 
     Optional<Member> findByIdAndOwnerUserIdAndDeletedAtIsNull(
             UUID id,
             UUID ownerUserId
+    );
+
+    Optional<Member> findByOwnerUserIdAndLinkedUserIdAndDeletedAtIsNull(
+            UUID ownerUserId,
+            UUID linkedUserId
     );
 
     boolean existsByOwnerUserIdAndLinkedUserIdAndDeletedAtIsNull(
@@ -48,4 +55,3 @@ public interface MemberRepository extends JpaRepository<Member, UUID> {
             Pageable pageable
     );
 }
-

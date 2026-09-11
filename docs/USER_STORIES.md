@@ -107,6 +107,15 @@ A Debtulator user viewed in the context of an established linked-member relation
 
 This actor is used when the requirement specifically concerns the rights, protections, shared records, reminders, auditability, or collaboration of a person who is already linked.
 
+### Linked-pair agreement rule
+
+- Activity created by one user may always be recorded and shown immediately in that user's private ledger.
+- An action, debt, edit, repayment, event, or other record involving a linked pair is not considered mutually agreed merely because one user created or changed it.
+- Where a record is intended to become collaborative or mutually acknowledged, the other linked user must explicitly validate or accept the proposal.
+- Pending approval must not prevent the initiating user from continuing to use or edit their own private ledger.
+- The UI must clearly distinguish private-only state, pending approval state, rejected/disputed state where applicable, and mutually agreed state.
+- A rejected collaborative proposal must not silently erase or rewrite the initiating user's private ledger history.
+
 ## 4.5 Group or Event Participant
 
 A Debtulator user participating in a shared group or event without exercising management authority for the action being described.
@@ -617,7 +626,8 @@ Common filters should include:
 - An unlinked member is not presented to other users as a verified Debtulator user.
 - Private notes or metadata added by the creating user are not automatically exposed to the represented person or other users.
 - Creating an unlinked member does not by itself send messages, invitations, or notifications to the represented person.
-- If the member is later linked to a real Debtulator user, historical records are shared only according to an explicit product rule and must not become visible silently.
+- If the member is later linked to a real Debtulator user, existing historical records remain private to the owning user for the current product version and must not become visible silently.
+- A future explicit reconcile/merge workflow may allow users to compare or reconcile historical records without changing this default privacy rule.
 - The system must avoid collecting unnecessary personal information about an unlinked person.
 
 ---
@@ -628,7 +638,7 @@ Common filters should include:
 
 **Actor:** Authenticated User  
 **Priority:** P1  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** to link an existing unlinked member to a real Debtulator user,  
@@ -638,7 +648,9 @@ Common filters should include:
 
 - The target user must be clearly identifiable.
 - Linking must not occur silently without appropriate confirmation.
+- The linking user may keep the existing member display name or replace it with the target user's full name associated with their account before the request is sent.
 - Existing records must not be duplicated merely because the member becomes linked.
+- Existing member history remains private to its owning user after linking unless a later explicit reconcile/merge workflow is used.
 - Any records becoming visible to another user must follow explicit product rules.
 
 ---
@@ -661,11 +673,19 @@ Search and discoverability must respect privacy settings and anti-enumeration pr
 
 **Actor:** Authenticated User  
 **Priority:** P1  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** to find a Debtulator user and add them directly as a linked member,  
-**so that** I do not need to create an unlinked member first and link them later.
+**so that** I do not need to create an unlinked member first and then separately start the linking workflow.
+
+### Acceptance criteria
+
+- Starting this flow creates a normal unlinked member immediately for the initiating user.
+- The new member remains usable privately while the link request is pending.
+- The initiating user can use the target user's full name associated with their account as the member display name or enter a custom display name.
+- The member does not become linked until the target user explicitly accepts.
+- If the request is rejected or cancelled, the created member remains as a normal unlinked member unless the owner later removes it through ordinary member rules.
 
 ---
 
@@ -703,11 +723,19 @@ Search and discoverability must respect privacy settings and anti-enumeration pr
 
 **Actor:** Authenticated User  
 **Priority:** P1  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** to accept or reject a request to link with another user,  
 **so that** I control who becomes connected to me.
+
+### Acceptance criteria
+
+- The recipient can select an existing unlinked member representing the requester or create a new member as part of acceptance.
+- When creating a new member, the recipient can use the requester's full name associated with their account or enter a custom display name.
+- When selecting an existing member, the recipient can keep its current display name or replace it with the requester's full name associated with their account.
+- Acceptance links both users' member records atomically.
+- Rejection does not delete or rewrite the requester's private member or history.
 
 ---
 
@@ -715,7 +743,7 @@ Search and discoverability must respect privacy settings and anti-enumeration pr
 
 **Actor:** Linked Member  
 **Priority:** P1  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As a** **Linked Member**,
 **I want** to unlink another user when appropriate,  
@@ -1099,7 +1127,13 @@ Possible request types include:
 
 **As an** **Authenticated User**,
 **I want** to accept a valid request,  
-**so that** the proposed change can take effect.
+**so that** the proposed change can become mutually agreed.
+
+### Acceptance criteria
+
+- Acceptance changes the applicable collaborative proposal from pending to agreed.
+- The initiating user's private record may already exist before acceptance.
+- Acceptance must not require the initiator to wait before recording or viewing their own private activity.
 
 ---
 
@@ -1113,6 +1147,12 @@ Possible request types include:
 **I want** to reject a request,  
 **so that** I remain in control of collaborative records affecting me.
 
+### Acceptance criteria
+
+- Rejection prevents the proposal from becoming mutually agreed.
+- Rejection must not silently delete or rewrite the initiating user's private ledger record.
+- The initiating user must be able to see that the proposed collaborative state was rejected where applicable.
+
 ---
 
 ## REQUEST-004 — View outgoing requests
@@ -1124,6 +1164,11 @@ Possible request types include:
 **As an** **Authenticated User**,
 **I want** to see requests I have sent,  
 **so that** I know which actions are still pending.
+
+### Acceptance criteria
+
+- Pending collaborative activity must be visibly distinguishable from mutually agreed activity.
+- The user must still be able to view and work with their own private record while approval is pending.
 
 ---
 

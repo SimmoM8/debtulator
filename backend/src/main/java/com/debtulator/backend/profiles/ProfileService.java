@@ -73,6 +73,22 @@ public class ProfileService {
         return profile;
     }
 
+    @Transactional
+    public Profile updateIncomingMemberLinkRequestsEnabled(
+            UUID userId,
+            boolean enabled
+    ) {
+        Profile profile = requireForUpdate(userId);
+
+        profile.updateIncomingMemberLinkRequestsEnabled(
+                enabled,
+                Instant.now(clock)
+        );
+
+        profileRepository.flush();
+        return profile;
+    }
+
     private Profile requireForUpdate(UUID userId) {
         return profileRepository
                 .findForUpdate(userId)
