@@ -1,6 +1,5 @@
 import { useDebts } from "@/src/features/debts/hooks/useDebts";
 import { useMemo, useState } from "react";
-import { StyleSheet, View } from "react-native";
 
 import { SplitBackgroundScreen } from "@/src/components/layout";
 import {
@@ -13,14 +12,12 @@ import {
   type DebtFilter,
 } from "@/src/features/debts/components/DebtSummaryHeader";
 import { buildDebtsScreenModel } from "@/src/features/debts/model/DebtsScreenModel";
-import { useAppTheme } from "@/src/theme";
 import { useMembers } from "../../members/hooks/useMembers";
 
 export function DebtsScreen() {
   const debts = useDebts();
   const members = useMembers();
 
-  const theme = useAppTheme();
   const [filter, setFilter] = useState<DebtFilter>("all");
 
   const model = useMemo(
@@ -56,39 +53,30 @@ export function DebtsScreen() {
         />
       }
     >
-      <View
-        style={[
-          styles.content,
-          {
-            backgroundColor: theme.colors.appBackground,
-          },
-        ]}
-      >
-        {showList ? (
-          <DebtsList items={filteredItems} />
-        ) : (
-          <ListState
-            loading={debts.loading}
-            error={debts.error?.message ?? null}
-            totalCount={model.items.length}
-            visibleCount={filteredItems.length}
-            loadingState={{
-              title: "Loading debts…",
-              message: "Your debts are being loaded.",
-            }}
-            emptyState={{
-              title: "No debts yet",
-              message: "Create your first debt to get started.",
-            }}
-            noResultsState={getDebtNoResultsState(filter)}
-            errorState={{
-              title: "Couldn’t load debts",
-              message: "Your debts couldn’t be loaded. Try again.",
-            }}
-            onRetry={debts.refresh}
-          />
-        )}
-      </View>
+      {showList ? (
+        <DebtsList items={filteredItems} />
+      ) : (
+        <ListState
+          loading={debts.loading}
+          error={debts.error?.message ?? null}
+          totalCount={model.items.length}
+          visibleCount={filteredItems.length}
+          loadingState={{
+            title: "Loading debts…",
+            message: "Your debts are being loaded.",
+          }}
+          emptyState={{
+            title: "No debts yet",
+            message: "Create your first debt to get started.",
+          }}
+          noResultsState={getDebtNoResultsState(filter)}
+          errorState={{
+            title: "Couldn’t load debts",
+            message: "Your debts couldn’t be loaded. Try again.",
+          }}
+          onRetry={debts.refresh}
+        />
+      )}
     </SplitBackgroundScreen>
   );
 }
@@ -117,12 +105,3 @@ function getDebtNoResultsState(filter: DebtFilter): ListStateMessage {
       };
   }
 }
-
-const styles = StyleSheet.create({
-  content: {
-    minHeight: "100%",
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    overflow: "hidden",
-  },
-});

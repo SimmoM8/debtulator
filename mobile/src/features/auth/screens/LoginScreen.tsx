@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { Avatar } from "@/src/components/avatars/Avatar";
 import { useAuth } from "@/src/features/auth/AuthProvider";
 import {
   componentTokens,
@@ -141,21 +142,7 @@ export function LoginScreen() {
 
           <View style={styles.heroContent}>
             <View style={styles.relationship}>
-              <View
-                style={[
-                  styles.person,
-                  {
-                    backgroundColor: theme.colors.onBrandSurface,
-                    borderColor: theme.colors.onBrandSurfaceBorder,
-                  },
-                ]}
-              >
-                <SymbolView
-                  name={PERSON_ICON}
-                  size={24}
-                  tintColor={theme.colors.onHeroBackground}
-                />
-              </View>
+              <Avatar icon={PERSON_ICON} size={56} variant="onBrand" />
 
               <View
                 style={[
@@ -173,21 +160,7 @@ export function LoginScreen() {
                 />
               </View>
 
-              <View
-                style={[
-                  styles.person,
-                  {
-                    backgroundColor: theme.colors.onBrandSurface,
-                    borderColor: theme.colors.onBrandSurfaceBorder,
-                  },
-                ]}
-              >
-                <SymbolView
-                  name={PERSON_ICON}
-                  size={24}
-                  tintColor={theme.colors.onHeroBackground}
-                />
-              </View>
+              <Avatar icon={PERSON_ICON} size={56} variant="onBrand" />
             </View>
 
             <Text
@@ -507,15 +480,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
-  },
-
-  person: {
-    width: 56,
-    height: 56,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 28,
-    borderWidth: StyleSheet.hairlineWidth,
   },
 
   relationshipLink: {
