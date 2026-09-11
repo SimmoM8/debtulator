@@ -93,7 +93,7 @@ class AgreementServiceIntegrationTest {
         assertThat(incoming).hasSize(1);
         assertThat(incoming.getFirst().action()).isEqualTo("create");
         assertThat(incoming.getFirst().payload())
-                .containsEntry("amount", "100.00");
+                .containsEntry("amount", "100");
 
         Long privateVersionBeforeApproval = debt.getVersion();
 
@@ -197,7 +197,7 @@ class AgreementServiceIntegrationTest {
         assertThat(currentIncoming.getFirst().id())
                 .isNotEqualTo(firstRequestId);
         assertThat(currentIncoming.getFirst().payload())
-                .containsEntry("amount", "11.00");
+                .containsEntry("amount", "11");
 
         String oldStatus = jdbcTemplate.queryForObject(
                 "select status from public.agreement_requests where id = ?",
