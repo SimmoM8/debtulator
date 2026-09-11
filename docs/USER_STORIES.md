@@ -3,7 +3,7 @@
 > **Document status:** Product requirements baseline  
 > **Purpose:** Define user-facing behaviour and product scope for Debtulator in a way that can guide product design, architecture, implementation, testing, and release planning.  
 > **Last updated:** 2026-09-11  
-> **Implementation baseline:** Backend authentication work has partially implemented 7 stories; no story is yet fully implemented.
+> **Implementation baseline:** Backend and frontend audits confirm meaningful implementation work across 35 stories; all remain partly implemented pending the remaining end-to-end, user-facing, integration, testing, and production requirements.
 
 ---
 
@@ -172,7 +172,7 @@ A story must not be marked `[FI]` merely because a screen, route, database table
 
 Implementation status is evaluated per complete user story, not per individual technical component. A story with only some acceptance criteria satisfied should be `[PI]`, not `[FI]`.
 
-**Current baseline:** 7 stories are marked `[PI]` for meaningful backend authentication/account-security implementation. No story is marked `[FI]`; full user-facing completion still requires the corresponding mobile UI, secure client session handling, and production Supabase/email configuration.
+**Current baseline:** 35 stories are marked `[PI]` after auditing both the current backend and mobile frontend. The frontend audit added meaningful partial implementation for member details and filtering, the initial member-linking flow, debt filtering, offline local use, durable offline changes, consistent list filtering, and accessibility fundamentals. No story is marked `[FI]`; full completion still requires each story's complete end-to-end behaviour and relevant acceptance criteria.
 
 
 ## 4.10 Current Actor Coverage
@@ -343,7 +343,7 @@ The onboarding must be skippable.
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** to update editable profile information,  
@@ -505,7 +505,7 @@ Activity may include:
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** to view my saved members,  
@@ -523,7 +523,7 @@ Activity may include:
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** to create a member without requiring them to have a Debtulator account,  
@@ -535,8 +535,7 @@ Activity may include:
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:**
-
+**Implementation status:** [PI]
 **As an** **Authenticated User**,
 **I want** to view a member's details and financial relationship with me,  
 **so that** I can understand our debts and repayment history.
@@ -558,7 +557,7 @@ The view may include:
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** to edit an unlinked member's details,  
@@ -570,7 +569,7 @@ The view may include:
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** to remove an unneeded member when doing so is safe,  
@@ -587,8 +586,7 @@ The view may include:
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:**
-
+**Implementation status:** [PI]
 **As an** **Authenticated User**,
 **I want** to search, sort, and filter my members,  
 **so that** I can quickly find the person I need.
@@ -605,7 +603,7 @@ Common filters should include:
 
 **Actor:** Unlinked Member  
 **Priority:** P0  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Unlinked Member**,
 **I want** records about me to remain a private representation within the creating user's ledger unless an explicit linking or invitation workflow occurs,  
@@ -628,8 +626,7 @@ Common filters should include:
 
 **Actor:** Authenticated User  
 **Priority:** P1  
-**Implementation status:**
-
+**Implementation status:** [PI]
 **As an** **Authenticated User**,
 **I want** to link an existing unlinked member to a real Debtulator user,  
 **so that** our shared records can become collaborative.
@@ -741,7 +738,7 @@ Search and discoverability must respect privacy settings and anti-enumeration pr
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** to view my debts,  
@@ -753,8 +750,7 @@ Search and discoverability must respect privacy settings and anti-enumeration pr
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:**
-
+**Implementation status:** [PI]
 **As an** **Authenticated User**,
 **I want** to search, sort, and filter debts,  
 **so that** I can find relevant records quickly.
@@ -778,7 +774,7 @@ Possible filters include:
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** to create a debt with a member,  
@@ -805,7 +801,7 @@ Amounts must use safe monetary handling and must not rely on imprecise floating-
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** to view the complete details of a debt,  
@@ -817,7 +813,7 @@ Amounts must use safe monetary handling and must not rely on imprecise floating-
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** to edit a debt,  
@@ -835,7 +831,7 @@ Amounts must use safe monetary handling and must not rely on imprecise floating-
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** an appropriate way to remove or cancel incorrect debts,  
@@ -1613,8 +1609,7 @@ Potential formats may include:
 
 **Actor:** Authenticated User  
 **Priority:** P1  
-**Implementation status:**
-
+**Implementation status:** [PI]
 **As an** **Authenticated User**,
 **I want** filters to behave predictably across lists,  
 **so that** I can navigate large datasets efficiently.
@@ -1641,8 +1636,7 @@ These stories define **user-visible expectations**, not a specific implementatio
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:**
-
+**Implementation status:** [PI]
 **As an** **Authenticated User**,
 **I want** previously available core debt and member information to remain usable when connectivity is temporarily unavailable,  
 **so that** Debtulator does not become useless because of a poor connection.
@@ -1653,8 +1647,7 @@ These stories define **user-visible expectations**, not a specific implementatio
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:**
-
+**Implementation status:** [PI]
 **As an** **Authenticated User**,
 **I want** supported changes to be saved locally and synchronised when possible,  
 **so that** I can keep working without losing data.
@@ -1665,7 +1658,7 @@ These stories define **user-visible expectations**, not a specific implementatio
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** my account-backed Debtulator records to synchronise across my devices,  
@@ -1677,7 +1670,7 @@ These stories define **user-visible expectations**, not a specific implementatio
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** concurrent or conflicting updates to be handled predictably,  
@@ -1695,7 +1688,7 @@ These stories define **user-visible expectations**, not a specific implementatio
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** to know when an important change has not synchronised successfully,  
@@ -1749,8 +1742,7 @@ This does not mean every UI edit must expose a technical audit log. It means the
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:**
-
+**Implementation status:** [PI]
 **As an** **Authenticated User**,
 **I want** core Debtulator workflows to be accessible,  
 **so that** I can manage debts independently.
@@ -1775,8 +1767,7 @@ The product should target applicable modern accessibility guidance, including WC
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:**
-
+**Implementation status:** [PI]
 **As an** **Authenticated User**,
 **I want** financial states to be communicated through more than colour,  
 **so that** I can understand the interface accurately.
@@ -1799,7 +1790,7 @@ The product should target applicable modern accessibility guidance, including WC
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** debts to retain their actual currency,  
@@ -2044,7 +2035,7 @@ Debtulator should not promise technically impossible precision for events such a
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** amounts and balances to remain mathematically accurate,  
@@ -2056,7 +2047,7 @@ Debtulator should not promise technically impossible precision for events such a
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** Debtulator to reject impossible or malformed financial records,  
@@ -2068,7 +2059,7 @@ Debtulator should not promise technically impossible precision for events such a
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** deleting or unlinking entities to avoid corrupting related financial history,  
@@ -2080,7 +2071,7 @@ Debtulator should not promise technically impossible precision for events such a
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** retries caused by poor connectivity to avoid creating duplicate debts, payments, requests, or other financial operations,  
