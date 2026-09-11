@@ -1,29 +1,19 @@
+import { Image } from "expo-image";
 import { router } from "expo-router";
 import { SymbolView } from "expo-symbols";
-import {
-  StyleSheet,
-  Text,
-  View,
-  useWindowDimensions,
-} from "react-native";
+import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Avatar } from "@/src/components/avatars/Avatar";
 import { AppButton } from "@/src/components/controls";
 import { SplitBackgroundScreen } from "@/src/components/layout";
 import { spacing, textStyles, useAppTheme } from "@/src/theme";
 
-const PERSON_ICON = {
-  ios: "person.fill",
-  android: "person",
+const BRAND_ICON = {
+  ios: "circle.grid.2x2.fill",
+  android: "account_balance_wallet",
 } as const;
 
-const RELATIONSHIP_ICON = {
-  ios: "arrow.left.arrow.right",
-  android: "swap_horiz",
-} as const;
-
-const ACTION_PANEL_HEIGHT = 184;
+const ACTION_PANEL_HEIGHT = 176;
 
 export function WelcomeScreen() {
   const theme = useAppTheme();
@@ -32,92 +22,78 @@ export function WelcomeScreen() {
 
   const heroMinHeight = Math.max(
     height - ACTION_PANEL_HEIGHT - insets.bottom,
-    420,
+    440,
   );
 
   return (
     <SplitBackgroundScreen
+      includeHeaderInset={false}
       hero={
         <View
           style={[
             styles.hero,
             {
               minHeight: heroMinHeight,
-              paddingTop: insets.top + spacing.lg,
             },
           ]}
         >
-          <View style={styles.brand}>
-            <SymbolView
-              name={RELATIONSHIP_ICON}
-              size={22}
-              tintColor={theme.colors.onHeroBackground}
-            />
-
-            <Text
-              style={[
-                styles.brandName,
-                {
-                  color: theme.colors.onHeroBackground,
-                },
-              ]}
-            >
-              Debtulator
-            </Text>
-          </View>
-
-          <View style={styles.feature}>
-            <View style={styles.relationship}>
-              <Avatar
-                icon={PERSON_ICON}
-                size={64}
-                variant="onBrand"
+          <View
+            style={[
+              styles.heroContent,
+              {
+                paddingTop: insets.top + spacing.lg,
+              },
+            ]}
+          >
+            <View style={styles.brand}>
+              <SymbolView
+                name={BRAND_ICON}
+                size={24}
+                tintColor={theme.colors.onHeroBackground}
               />
 
-              <View
+              <Text
                 style={[
-                  styles.relationshipLink,
+                  styles.brandName,
                   {
-                    backgroundColor: theme.colors.onBrandSurface,
-                    borderColor: theme.colors.onBrandSurfaceBorder,
+                    color: theme.colors.onHeroBackground,
                   },
                 ]}
               >
-                <SymbolView
-                  name={RELATIONSHIP_ICON}
-                  size={22}
-                  tintColor={theme.colors.onHeroBackground}
-                />
-              </View>
-
-              <Avatar
-                icon={PERSON_ICON}
-                size={64}
-                variant="onBrand"
-              />
+                Debtulator
+              </Text>
             </View>
 
-            <Text
-              style={[
-                styles.title,
-                {
-                  color: theme.colors.onHeroBackground,
-                },
-              ]}
-            >
-              Less confusion.{"\n"}More freedom.
-            </Text>
+            <View style={styles.copy}>
+              <Text
+                style={[
+                  styles.title,
+                  {
+                    color: theme.colors.onHeroBackground,
+                  },
+                ]}
+              >
+                Less confusion.{"\n"}More freedom.
+              </Text>
 
-            <Text
-              style={[
-                styles.subtitle,
-                {
-                  color: theme.colors.onBrandMuted,
-                },
-              ]}
-            >
-              Keep shared money simple.
-            </Text>
+              <Text
+                style={[
+                  styles.subtitle,
+                  {
+                    color: theme.colors.onBrandMuted,
+                  },
+                ]}
+              >
+                Track debts, split costs, and focus on what really matters.
+              </Text>
+            </View>
+
+            <Image
+              source={require("@/assets/images/debtulator_valley_connection_HD.png")}
+              contentFit="cover"
+              contentPosition="bottom"
+              style={styles.feature}
+            />
           </View>
         </View>
       }
@@ -147,59 +123,56 @@ export function WelcomeScreen() {
 const styles = StyleSheet.create({
   hero: {
     width: "100%",
+  },
+
+  heroContent: {
+    flex: 1,
     alignItems: "center",
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xl,
   },
 
   brand: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
   },
 
   brandName: {
     ...textStyles.headline,
   },
 
-  feature: {
-    flex: 1,
+  copy: {
+    width: "100%",
+    maxWidth: 420,
     alignItems: "center",
-    justifyContent: "center",
-    paddingBottom: spacing.lg,
-  },
-
-  relationship: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-
-  relationshipLink: {
-    width: 44,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 22,
+    marginTop: spacing.xl,
+    paddingHorizontal: spacing.lg,
   },
 
   title: {
     ...textStyles.largeTitle,
-    marginTop: spacing.xl,
     textAlign: "center",
   },
 
   subtitle: {
     ...textStyles.body,
-    marginTop: spacing.sm,
+    maxWidth: 340,
+    marginTop: spacing.md,
     textAlign: "center",
+    lineHeight: 24,
+  },
+
+  feature: {
+    flex: 1,
+    width: "100%",
+    marginTop: spacing.lg,
   },
 
   actions: {
     width: "100%",
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.lg,
   },
 
   actionsContent: {

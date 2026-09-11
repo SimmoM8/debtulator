@@ -1,11 +1,6 @@
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-} from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text } from "react-native";
 
-import { spacing, textStyles, useAppTheme } from "@/src/theme";
+import { componentTokens, spacing, textStyles, useAppTheme } from "@/src/theme";
 
 export type AppButtonVariant = "primary" | "secondary";
 
@@ -81,12 +76,12 @@ export function AppButton({
 const styles = StyleSheet.create({
   button: {
     width: "100%",
-    minHeight: 52,
+    minHeight: componentTokens.button.height,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: spacing.lg,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 16,
+    borderRadius: componentTokens.button.radius,
   },
 
   label: {

@@ -18,9 +18,14 @@ import { componentTokens, useAppTheme } from "@/src/theme";
 
 type ScreenProps = PropsWithChildren<{
   hero: ReactNode;
+  includeHeaderInset?: boolean;
 }>;
 
-export function SplitBackgroundScreen({ hero, children }: ScreenProps) {
+export function SplitBackgroundScreen({
+  hero,
+  children,
+  includeHeaderInset,
+}: ScreenProps) {
   const theme = useAppTheme();
 
   const isIos = Platform.OS === "ios";
@@ -105,7 +110,6 @@ export function SplitBackgroundScreen({ hero, children }: ScreenProps) {
     <View
       style={[
         styles.root,
-
         {
           backgroundColor: theme.colors.mainBackground,
         },
@@ -114,90 +118,92 @@ export function SplitBackgroundScreen({ hero, children }: ScreenProps) {
       <View
         style={[
           styles.hero,
-
           {
-            paddingTop: navHeaderHeight,
+            paddingTop: includeHeaderInset ? navHeaderHeight : 0,
           },
         ]}
         onLayout={(event) => {
-          setHeroHeight(event.nativeEvent.layout.height);
+          const nextHeroHeight = event.nativeEvent.layout.height;
+
+          if (nextHeroHeight === heroHeight) {
+            return;
+          }
+
+          scrollY.setValue(-nextHeroHeight);
+          setHeroHeight(nextHeroHeight);
         }}
       >
         {hero}
       </View>
 
-      {heroHeight > 0 && (
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            styles.contentBackground,
+      {heroHeight > 0 ? (
+        <>
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.contentBackground,
+              {
+                top: heroHeight,
+                backgroundColor: theme.colors.appBackground,
+                transform: [
+                  {
+                    translateY: scrollY.interpolate({
+                      inputRange: [-heroHeight, 0],
+                      outputRange: [0, -heroHeight],
+                      extrapolateLeft: "extend",
+                      extrapolateRight: "extend",
+                    }),
+                  },
+                ],
+              },
+            ]}
+          />
 
-            {
+          <Animated.ScrollView
+            style={styles.scrollLayer}
+            pointerEvents="box-none"
+            contentInsetAdjustmentBehavior="never"
+            contentInset={{
               top: heroHeight,
-
-              backgroundColor: theme.colors.appBackground,
-
-              transform: [
+              bottom: insets.bottom,
+            }}
+            scrollIndicatorInsets={{
+              bottom: insets.bottom,
+            }}
+            contentOffset={{
+              x: 0,
+              y: -heroHeight,
+            }}
+            scrollEventThrottle={16}
+            onScroll={Animated.event(
+              [
                 {
-                  translateY: scrollY.interpolate({
-                    inputRange: [-heroHeight, 0],
-
-                    outputRange: [0, -heroHeight],
-
-                    extrapolateLeft: "extend",
-
-                    extrapolateRight: "extend",
-                  }),
+                  nativeEvent: {
+                    contentOffset: {
+                      y: scrollY,
+                    },
+                  },
                 },
               ],
-            },
-          ]}
-        />
-      )}
-
-      <Animated.ScrollView
-        style={styles.scrollLayer}
-        pointerEvents="box-none"
-        contentInsetAdjustmentBehavior="never"
-        contentInset={{
-          top: heroHeight,
-          bottom: insets.bottom,
-        }}
-        scrollIndicatorInsets={{
-          bottom: insets.bottom,
-        }}
-        contentOffset={{
-          x: 0,
-          y: -heroHeight,
-        }}
-        scrollEventThrottle={16}
-        onScroll={Animated.event(
-          [
-            {
-              nativeEvent: {
-                contentOffset: {
-                  y: scrollY,
-                },
+              {
+                useNativeDriver: true,
               },
-            },
-          ],
-          {
-            useNativeDriver: true,
-          },
-        )}
-      >
-        <View
-          style={[
-            styles.content,
-            {
-              minHeight: Math.max(screenHeight - heroHeight, 0),
-              backgroundColor: theme.colors.appBackground,
-            },
-          ]}
-        >
-          {children}
-        </View>
-      </Animated.ScrollView>
+            )}
+          >
+            <View
+              style={[
+                styles.content,
+                {
+                  minHeight: Math.max(screenHeight - heroHeight, 0),
+                  backgroundColor: theme.colors.appBackground,
+                },
+              ]}
+            >
+              {children}
+            </View>
+          </Animated.ScrollView>
+        </>
+      ) : null}
     </View>
   );
 }
