@@ -1,13 +1,14 @@
 package com.debtulator.backend.profiles;
 
-import com.debtulator.backend.currencies.CurrencyRepository;
+import com.debtulator.backend.currencies.Currency;
+import com.debtulator.backend.currencies.CurrencyService;
+import com.debtulator.backend.currencies.CurrencyServiceException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.util.Locale;
 import java.util.UUID;
 
 @Service
@@ -15,7 +16,7 @@ import java.util.UUID;
 public class ProfileService {
 
     private final ProfileRepository profileRepository;
-    private final CurrencyRepository currencyRepository;
+    private final CurrencyService currencyService;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -42,18 +43,14 @@ public class ProfileService {
                 ));
 
         String normalizedDisplayName = normalizeDisplayName(displayName);
-        String normalizedCurrency = normalizeCurrency(baseCurrency);
-
-        if (!currencyRepository.existsById(normalizedCurrency)) {
-            throw new ProfileServiceException(
-                    ProfileServiceException.Reason.CURRENCY_NOT_SUPPORTED,
-                    "The selected base currency is not supported."
-            );
-        }
+        Currency currency = requireCurrencyForUpdate(
+                profile.getBaseCurrency(),
+                baseCurrency
+        );
 
         profile.update(
                 normalizedDisplayName,
-                normalizedCurrency,
+                currency.getCode(),
                 Instant.now(clock)
         );
 
@@ -86,9 +83,27 @@ public class ProfileService {
         return normalized;
     }
 
-    private String normalizeCurrency(String baseCurrency) {
-        return baseCurrency == null
-                ? ""
-                : baseCurrency.trim().toUpperCase(Locale.ROOT);
+    private Currency requireCurrencyForUpdate(
+            String currentCode,
+            String requestedCode
+    ) {
+        try {
+            Currency currency = currencyService.require(requestedCode);
+
+            if (!currency.getCode().equals(currentCode)
+                    && !currency.isEnabled()) {
+                throw new CurrencyServiceException(
+                        CurrencyServiceException.Reason.DISABLED,
+                        "The selected base currency is disabled."
+                );
+            }
+
+            return currency;
+        } catch (CurrencyServiceException exception) {
+            throw new ProfileServiceException(
+                    ProfileServiceException.Reason.CURRENCY_NOT_SUPPORTED,
+                    "The selected base currency is not supported."
+            );
+        }
     }
 }

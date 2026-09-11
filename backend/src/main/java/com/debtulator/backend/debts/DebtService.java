@@ -1,6 +1,8 @@
 package com.debtulator.backend.debts;
 
-import com.debtulator.backend.currencies.CurrencyRepository;
+import com.debtulator.backend.currencies.Currency;
+import com.debtulator.backend.currencies.CurrencyService;
+import com.debtulator.backend.currencies.CurrencyServiceException;
 import com.debtulator.backend.members.MemberRepository;
 import com.debtulator.backend.sync.SyncChangeCommand;
 import com.debtulator.backend.sync.SyncChangeWriter;
@@ -15,7 +17,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 
@@ -24,6 +25,8 @@ import java.util.UUID;
 @Transactional(noRollbackFor = DebtServiceException.class)
 public class DebtService {
 
+    private static final int AMOUNT_MAX_INTEGER_DIGITS = 30;
+
     private static final Set<String> DIRECTIONS = Set.of(
             "you_owe",
             "they_owe"
@@ -31,7 +34,7 @@ public class DebtService {
 
     private final DebtRepository debtRepository;
     private final MemberRepository memberRepository;
-    private final CurrencyRepository currencyRepository;
+    private final CurrencyService currencyService;
     private final DebtMapper debtMapper;
     private final SyncChangeWriter syncChangeWriter;
     private final Clock clock;
@@ -47,7 +50,7 @@ public class DebtService {
             LocalDate dueDate,
             Instant createdAt
     ) {
-        String normalizedCurrency = validateAndNormalize(
+        Currency selectedCurrency = validateForCreate(
                 ownerUserId,
                 memberId,
                 direction,
@@ -71,7 +74,7 @@ public class DebtService {
                 memberId,
                 direction,
                 amount,
-                normalizedCurrency,
+                selectedCurrency.getCode(),
                 title,
                 dueDate,
                 createdAt,
@@ -95,15 +98,6 @@ public class DebtService {
             String title,
             LocalDate dueDate
     ) {
-        String normalizedCurrency = validateAndNormalize(
-                ownerUserId,
-                memberId,
-                direction,
-                amount,
-                currency,
-                title
-        );
-
         Debt debt = requireExisting(ownerUserId, debtId);
 
         if (!debt.getVersion().equals(expectedVersion)) {
@@ -114,11 +108,21 @@ public class DebtService {
             );
         }
 
+        Currency selectedCurrency = validateForUpdate(
+                ownerUserId,
+                debt,
+                memberId,
+                direction,
+                amount,
+                currency,
+                title
+        );
+
         debt.update(
                 memberId,
                 direction,
                 amount,
-                normalizedCurrency,
+                selectedCurrency.getCode(),
                 title,
                 dueDate,
                 Instant.now(clock)
@@ -192,12 +196,63 @@ public class DebtService {
         return debt;
     }
 
-    private String validateAndNormalize(
+    private Currency validateForCreate(
             UUID ownerUserId,
             UUID memberId,
             String direction,
             BigDecimal amount,
-            String currency,
+            String currencyCode,
+            String title
+    ) {
+        Currency currency = requireEnabledCurrency(currencyCode);
+        validateValues(
+                ownerUserId,
+                memberId,
+                direction,
+                amount,
+                currency,
+                title
+        );
+        return currency;
+    }
+
+    private Currency validateForUpdate(
+            UUID ownerUserId,
+            Debt debt,
+            UUID memberId,
+            String direction,
+            BigDecimal amount,
+            String currencyCode,
+            String title
+    ) {
+        Currency currency = requireCurrency(currencyCode);
+
+        if (!currency.getCode().equals(debt.getCurrency())
+                && !currency.isEnabled()) {
+            throw new DebtServiceException(
+                    DebtServiceException.Reason.CURRENCY_NOT_SUPPORTED,
+                    null,
+                    "The selected currency is not supported."
+            );
+        }
+
+        validateValues(
+                ownerUserId,
+                memberId,
+                direction,
+                amount,
+                currency,
+                title
+        );
+        return currency;
+    }
+
+    private void validateValues(
+            UUID ownerUserId,
+            UUID memberId,
+            String direction,
+            BigDecimal amount,
+            Currency currency,
             String title
     ) {
         if (!DIRECTIONS.contains(direction)) {
@@ -208,11 +263,17 @@ public class DebtService {
             );
         }
 
-        if (!isValidAmount(amount)) {
+        if (!isValidAmount(amount, currency.getDecimalPlaces())) {
             throw new DebtServiceException(
                     DebtServiceException.Reason.INVALID_AMOUNT,
                     null,
-                    "amount must be positive, have at most 17 integer digits, and at most 2 decimal places."
+                    "amount must be positive, have at most "
+                            + AMOUNT_MAX_INTEGER_DIGITS
+                            + " integer digits, and at most "
+                            + currency.getDecimalPlaces()
+                            + " decimal places for "
+                            + currency.getCode()
+                            + "."
             );
         }
 
@@ -236,23 +297,36 @@ public class DebtService {
                     "The selected member does not exist."
             );
         }
+    }
 
-        String normalizedCurrency = currency == null
-                ? ""
-                : currency.trim().toUpperCase(Locale.ROOT);
-
-        if (!currencyRepository.existsById(normalizedCurrency)) {
+    private Currency requireCurrency(String code) {
+        try {
+            return currencyService.require(code);
+        } catch (CurrencyServiceException exception) {
             throw new DebtServiceException(
                     DebtServiceException.Reason.CURRENCY_NOT_SUPPORTED,
                     null,
                     "The selected currency is not supported."
             );
         }
-
-        return normalizedCurrency;
     }
 
-    private boolean isValidAmount(BigDecimal amount) {
+    private Currency requireEnabledCurrency(String code) {
+        try {
+            return currencyService.requireEnabled(code);
+        } catch (CurrencyServiceException exception) {
+            throw new DebtServiceException(
+                    DebtServiceException.Reason.CURRENCY_NOT_SUPPORTED,
+                    null,
+                    "The selected currency is not supported."
+            );
+        }
+    }
+
+    private boolean isValidAmount(
+            BigDecimal amount,
+            int allowedDecimalPlaces
+    ) {
         if (amount == null || amount.signum() <= 0) {
             return false;
         }
@@ -264,7 +338,8 @@ public class DebtService {
                 0
         );
 
-        return scale <= 2 && integerDigits <= 17;
+        return scale <= allowedDecimalPlaces
+                && integerDigits <= AMOUNT_MAX_INTEGER_DIGITS;
     }
 
     private void recordUpsert(UUID ownerUserId, Debt debt) {
