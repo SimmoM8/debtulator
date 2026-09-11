@@ -9,6 +9,7 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,6 +17,7 @@ import {
 } from "react-native";
 
 import { AppButton } from "@/src/components/controls";
+import { toolbarIcons } from "@/src/components/navigation/toolbarIcons";
 import { useAuth } from "@/src/features/auth/AuthProvider";
 import {
   NativeThemeHost,
@@ -29,29 +31,40 @@ const FIELD_MODIFIERS = [
   controlSize("large"),
 ];
 
-export function ForgotPasswordScreen() {
+export function SignInScreen() {
   const theme = useAppTheme();
   const auth = useAuth();
 
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const canSubmit =
     auth.configured &&
     email.trim().length > 0 &&
+    password.length > 0 &&
     !submitting;
 
-  async function sendResetLink() {
+  async function signIn() {
     if (submitting) {
       return;
     }
 
     const normalizedEmail = email.trim();
 
+    if (!normalizedEmail) {
+      setError("Enter your email address.");
+      return;
+    }
+
     if (!isValidEmail(normalizedEmail)) {
       setError("Enter a valid email address.");
+      return;
+    }
+
+    if (!password) {
+      setError("Enter your password.");
       return;
     }
 
@@ -65,66 +78,29 @@ export function ForgotPasswordScreen() {
     setError(null);
 
     try {
-      await auth.requestPasswordReset({
+      await auth.signIn({
         email: normalizedEmail,
+        password,
       });
-
-      setSent(true);
     } catch (error) {
-      setError(getRecoveryErrorMessage(error));
+      setError(getLoginErrorMessage(error));
     } finally {
       setSubmitting(false);
     }
   }
 
-  if (sent) {
-    return (
-      <View
-        style={[
-          styles.confirmation,
-          {
-            backgroundColor: theme.colors.appBackground,
-          },
-        ]}
-      >
-        <Text
-          style={[
-            styles.heading,
-            {
-              color: theme.colors.text,
-            },
-          ]}
-        >
-          Check your email
-        </Text>
-
-        <Text
-          style={[
-            styles.message,
-            {
-              color: theme.colors.secondaryText,
-            },
-          ]}
-        >
-          If an account exists for that email, a password reset link has been
-          sent.
-        </Text>
-
-        <View style={styles.confirmationAction}>
-          <AppButton
-            label="Back to sign in"
-            onPress={() => {
-              router.back();
-            }}
-          />
-        </View>
-      </View>
-    );
-  }
-
   return (
     <>
-      <Stack.Screen.BackButton displayMode="minimal" />
+      <Stack.Toolbar placement="left">
+        <Stack.Toolbar.Button
+          icon={toolbarIcons.close}
+          accessibilityLabel="Close sign in"
+          disabled={submitting}
+          onPress={() => {
+            router.dismiss();
+          }}
+        />
+      </Stack.Toolbar>
 
       <KeyboardAvoidingView
         style={[
@@ -148,7 +124,7 @@ export function ForgotPasswordScreen() {
               },
             ]}
           >
-            Reset your password
+            Welcome back
           </Text>
 
           <Text
@@ -159,7 +135,7 @@ export function ForgotPasswordScreen() {
               },
             ]}
           >
-            Enter your email and we’ll send you a reset link.
+            Sign in to continue to Debtulator.
           </Text>
 
           <View style={styles.form}>
@@ -185,7 +161,6 @@ export function ForgotPasswordScreen() {
                   autoCorrect={false}
                   autoComplete="email"
                   keyboardType="email-address"
-                  returnKeyType="send"
                   editable={!submitting}
                   modifiers={FIELD_MODIFIERS}
                   style={styles.nativeInput}
@@ -193,12 +168,83 @@ export function ForgotPasswordScreen() {
                     setEmail(value);
                     setError(null);
                   }}
-                  onSubmitEditing={() => {
-                    void sendResetLink();
-                  }}
                 />
               </NativeThemeHost>
             </View>
+
+            <View style={styles.field}>
+              <Text
+                style={[
+                  styles.label,
+                  {
+                    color: theme.colors.text,
+                  },
+                ]}
+              >
+                Password
+              </Text>
+
+              <NativeThemeHost
+                matchContents={{ vertical: true }}
+                style={styles.nativeHost}
+              >
+                <TextInput
+                  placeholder="Password"
+                  secureTextEntry
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="current-password"
+                  returnKeyType="go"
+                  editable={!submitting}
+                  modifiers={FIELD_MODIFIERS}
+                  style={styles.nativeInput}
+                  onChangeText={(value) => {
+                    setPassword(value);
+                    setError(null);
+                  }}
+                  onSubmitEditing={() => {
+                    void signIn();
+                  }}
+                />
+              </NativeThemeHost>
+
+              <Pressable
+                accessibilityRole="button"
+                disabled={submitting}
+                onPress={() => {
+                  router.push("/(auth)/(modals)/forgot-password");
+                }}
+                style={({ pressed }) => [
+                  styles.forgotPassword,
+                  pressed && styles.textActionPressed,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.forgotPasswordText,
+                    {
+                      color: theme.colors.controlTint,
+                    },
+                  ]}
+                >
+                  Forgot password?
+                </Text>
+              </Pressable>
+            </View>
+
+            {!auth.configured && !error ? (
+              <Text
+                accessibilityRole="alert"
+                style={[
+                  styles.error,
+                  {
+                    color: theme.colors.negative,
+                  },
+                ]}
+              >
+                Authentication is not available in this build.
+              </Text>
+            ) : null}
 
             {error ? (
               <Text
@@ -216,11 +262,11 @@ export function ForgotPasswordScreen() {
             ) : null}
 
             <AppButton
-              label="Send reset link"
+              label="Sign in"
               loading={submitting}
               disabled={!canSubmit}
               onPress={() => {
-                void sendResetLink();
+                void signIn();
               }}
             />
           </View>
@@ -234,9 +280,9 @@ function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
-function getRecoveryErrorMessage(error: unknown): string {
+function getLoginErrorMessage(error: unknown): string {
   if (typeof error !== "object" || error === null) {
-    return "Unable to send a reset link right now. Please try again.";
+    return "Unable to sign in right now. Please try again.";
   }
 
   const candidate = error as {
@@ -254,10 +300,24 @@ function getRecoveryErrorMessage(error: unknown): string {
       : "";
 
   if (
+    code === "invalid_credentials" ||
+    code === "auth_invalid_credentials" ||
+    message.includes("invalid login credentials") ||
+    message.includes("invalid credentials")
+  ) {
+    return "Incorrect email or password.";
+  }
+
+  if (code === "email_not_confirmed" || code === "auth_email_not_confirmed") {
+    return "Confirm your email address before signing in.";
+  }
+
+  if (
     candidate.status === 429 ||
+    code === "auth_rate_limited" ||
     code.includes("rate_limit")
   ) {
-    return "Too many attempts. Try again in a little while.";
+    return "Too many sign-in attempts. Try again in a little while.";
   }
 
   if (
@@ -268,7 +328,7 @@ function getRecoveryErrorMessage(error: unknown): string {
     return "Couldn’t reach Debtulator. Check your connection and try again.";
   }
 
-  return "Unable to send a reset link right now. Please try again.";
+  return "Unable to sign in right now. Please try again.";
 }
 
 const styles = StyleSheet.create({
@@ -282,16 +342,6 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
   },
 
-  confirmation: {
-    flex: 1,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-  },
-
-  confirmationAction: {
-    marginTop: spacing.xl,
-  },
-
   heading: {
     ...textStyles.title,
   },
@@ -299,7 +349,6 @@ const styles = StyleSheet.create({
   message: {
     ...textStyles.body,
     marginTop: spacing.sm,
-    lineHeight: 24,
   },
 
   form: {
@@ -321,6 +370,20 @@ const styles = StyleSheet.create({
 
   nativeInput: {
     width: "100%",
+  },
+
+  forgotPassword: {
+    alignSelf: "flex-end",
+    paddingVertical: spacing.xs,
+  },
+
+  forgotPasswordText: {
+    ...textStyles.caption,
+    fontWeight: textStyles.headline.fontWeight,
+  },
+
+  textActionPressed: {
+    opacity: 0.6,
   },
 
   error: {
