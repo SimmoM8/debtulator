@@ -36,6 +36,9 @@ public class Profile {
     @Column(name = "discoverable_by_email", nullable = false)
     private boolean discoverableByEmail;
 
+    @Column(name = "incoming_member_link_requests_enabled", nullable = false)
+    private boolean incomingMemberLinkRequestsEnabled;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -61,6 +64,14 @@ public class Profile {
         this.memberDiscoveryEnabled = memberDiscoveryEnabled;
         this.discoverableByDisplayName = discoverableByDisplayName;
         this.discoverableByEmail = discoverableByEmail;
+        this.updatedAt = updatedAt;
+    }
+
+    public void updateIncomingMemberLinkRequestsEnabled(
+            boolean enabled,
+            Instant updatedAt
+    ) {
+        this.incomingMemberLinkRequestsEnabled = enabled;
         this.updatedAt = updatedAt;
     }
 }

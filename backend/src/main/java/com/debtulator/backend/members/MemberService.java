@@ -141,6 +141,183 @@ public class MemberService {
         return member.getVersion();
     }
 
+    public Member requireAvailableForLinking(
+            UUID ownerUserId,
+            UUID memberId
+    ) {
+        Member member = requireExisting(ownerUserId, memberId);
+
+        if (member.getLinkedUserId() != null) {
+            throw new MemberServiceException(
+                    MemberServiceException.Reason.LINKED,
+                    member.getVersion(),
+                    "The member is already linked to a Debtulator user."
+            );
+        }
+
+        return member;
+    }
+
+    public boolean hasActiveLink(
+            UUID ownerUserId,
+            UUID linkedUserId
+    ) {
+        return memberRepository
+                .existsByOwnerUserIdAndLinkedUserIdAndDeletedAtIsNull(
+                        ownerUserId,
+                        linkedUserId
+                );
+    }
+
+    public Member renameForLinking(
+            UUID ownerUserId,
+            UUID memberId,
+            String displayName
+    ) {
+        String normalizedName = normalizeDisplayName(displayName);
+        Member member = requireAvailableForLinking(
+                ownerUserId,
+                memberId
+        );
+
+        member.rename(
+                normalizedName,
+                Instant.now(clock)
+        );
+
+        memberRepository.flush();
+        recordUpsert(ownerUserId, member);
+
+        return member;
+    }
+
+    public Member linkExisting(
+            UUID ownerUserId,
+            UUID memberId,
+            UUID linkedUserId
+    ) {
+        return linkExisting(
+                ownerUserId,
+                memberId,
+                linkedUserId,
+                null
+        );
+    }
+
+    public Member linkExisting(
+            UUID ownerUserId,
+            UUID memberId,
+            UUID linkedUserId,
+            String replacementDisplayName
+    ) {
+        validateLinkUsers(ownerUserId, linkedUserId);
+
+        Member member = requireAvailableForLinking(
+                ownerUserId,
+                memberId
+        );
+
+        if (hasActiveLink(ownerUserId, linkedUserId)) {
+            throw new MemberServiceException(
+                    MemberServiceException.Reason.LINKED,
+                    member.getVersion(),
+                    "A member is already linked to that Debtulator user."
+            );
+        }
+
+        Instant now = Instant.now(clock);
+
+        if (replacementDisplayName != null) {
+            member.rename(
+                    normalizeDisplayName(replacementDisplayName),
+                    now
+            );
+        }
+
+        member.linkToUser(
+                linkedUserId,
+                now
+        );
+
+        memberRepository.flush();
+        recordUpsert(ownerUserId, member);
+
+        return member;
+    }
+
+    public Member createLinked(
+            UUID ownerUserId,
+            UUID memberId,
+            String displayName,
+            UUID linkedUserId
+    ) {
+        validateLinkUsers(ownerUserId, linkedUserId);
+
+        String normalizedName = normalizeDisplayName(displayName);
+
+        if (memberRepository.existsById(memberId)) {
+            throw new MemberServiceException(
+                    MemberServiceException.Reason.ALREADY_EXISTS,
+                    null,
+                    "The member already exists."
+            );
+        }
+
+        if (hasActiveLink(ownerUserId, linkedUserId)) {
+            throw new MemberServiceException(
+                    MemberServiceException.Reason.LINKED,
+                    null,
+                    "A member is already linked to that Debtulator user."
+            );
+        }
+
+        Instant now = Instant.now(clock);
+        Member member = new Member(
+                memberId,
+                ownerUserId,
+                normalizedName,
+                now,
+                now
+        );
+        member.linkToUser(linkedUserId, now);
+
+        memberRepository.saveAndFlush(member);
+        recordUpsert(ownerUserId, member);
+
+        return member;
+    }
+
+    public Member unlinkLinked(
+            UUID ownerUserId,
+            UUID memberId,
+            UUID expectedLinkedUserId
+    ) {
+        Member member = requireExisting(ownerUserId, memberId);
+
+        if (!expectedLinkedUserId.equals(member.getLinkedUserId())) {
+            throw new IllegalStateException(
+                    "Member link state is inconsistent with the active relationship."
+            );
+        }
+
+        member.unlink(Instant.now(clock));
+        memberRepository.flush();
+        recordUpsert(ownerUserId, member);
+
+        return member;
+    }
+
+    private void validateLinkUsers(
+            UUID ownerUserId,
+            UUID linkedUserId
+    ) {
+        if (ownerUserId.equals(linkedUserId)) {
+            throw new IllegalArgumentException(
+                    "A member cannot be linked to its owner."
+            );
+        }
+    }
+
     private Member requireExisting(UUID ownerUserId, UUID memberId) {
         Member member = memberRepository
                 .findForUpdate(memberId, ownerUserId)
