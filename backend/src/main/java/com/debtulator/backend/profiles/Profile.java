@@ -27,6 +27,15 @@ public class Profile {
     @Column(name = "base_currency", nullable = false)
     private String baseCurrency;
 
+    @Column(name = "member_discovery_enabled", nullable = false)
+    private boolean memberDiscoveryEnabled;
+
+    @Column(name = "discoverable_by_display_name", nullable = false)
+    private boolean discoverableByDisplayName;
+
+    @Column(name = "discoverable_by_email", nullable = false)
+    private boolean discoverableByEmail;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -40,6 +49,18 @@ public class Profile {
     ) {
         this.displayName = displayName;
         this.baseCurrency = baseCurrency;
+        this.updatedAt = updatedAt;
+    }
+
+    public void updateDiscoveryPreferences(
+            boolean memberDiscoveryEnabled,
+            boolean discoverableByDisplayName,
+            boolean discoverableByEmail,
+            Instant updatedAt
+    ) {
+        this.memberDiscoveryEnabled = memberDiscoveryEnabled;
+        this.discoverableByDisplayName = discoverableByDisplayName;
+        this.discoverableByEmail = discoverableByEmail;
         this.updatedAt = updatedAt;
     }
 }
