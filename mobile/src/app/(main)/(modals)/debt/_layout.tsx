@@ -1,11 +1,11 @@
 import { router, Stack } from "expo-router";
 
+import { SolidNavHeader } from "@/src/components/layout/SolidNavHeader";
 import {
   NewDebtProvider,
   useNewDebt,
 } from "@/src/features/debts/state/NewDebtProvider";
 import { NewMemberProvider } from "@/src/features/members/state/NewMemberProvider";
-import { useAppTheme } from "@/src/theme";
 
 export default function DebtModalLayout() {
   return (
@@ -35,24 +35,8 @@ function DebtModalFlow() {
 }
 
 function DebtModalNavigator() {
-  const theme = useAppTheme();
-
   return (
-    <Stack
-      screenOptions={{
-        headerShown: true,
-        headerLargeTitle: false,
-        headerTitleAlign: "center",
-        headerStyle: {
-          backgroundColor: theme.colors.appBackground,
-        },
-        headerTintColor: theme.colors.text,
-        headerShadowVisible: false,
-        contentStyle: {
-          backgroundColor: theme.colors.appBackground,
-        },
-      }}
-    >
+    <SolidNavHeader>
       <Stack.Screen
         name="new"
         options={{
@@ -76,6 +60,6 @@ function DebtModalNavigator() {
           title: "New Member",
         }}
       />
-    </Stack>
+    </SolidNavHeader>
   );
 }

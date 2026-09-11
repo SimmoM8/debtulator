@@ -1,25 +1,9 @@
+import { SolidNavHeader } from "@/src/components/layout/SolidNavHeader";
 import { Stack } from "expo-router";
 
-import { useAppTheme } from "@/src/theme";
-
 export default function AuthLayout() {
-  const theme = useAppTheme();
-
   return (
-    <Stack
-      screenOptions={{
-        headerLargeTitle: false,
-        headerTitleAlign: "center",
-        headerStyle: {
-          backgroundColor: theme.colors.appBackground,
-        },
-        headerTintColor: theme.colors.text,
-        headerShadowVisible: false,
-        contentStyle: {
-          backgroundColor: theme.colors.appBackground,
-        },
-      }}
-    >
+    <SolidNavHeader>
       <Stack.Screen
         name="index"
         options={{
@@ -47,6 +31,6 @@ export default function AuthLayout() {
           title: "Reset Password",
         }}
       />
-    </Stack>
+    </SolidNavHeader>
   );
 }

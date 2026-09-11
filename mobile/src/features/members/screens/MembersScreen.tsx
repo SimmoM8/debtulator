@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { StyleSheet, View } from "react-native";
 
 import { SplitBackgroundScreen } from "@/src/components/layout";
 import {
@@ -13,13 +12,10 @@ import {
 import { MembersList } from "@/src/features/members/components/MembersList";
 import { useMembers } from "@/src/features/members/hooks/useMembers";
 import { buildMembersScreenModel } from "@/src/features/members/model/MembersScreenModel";
-import { useAppTheme } from "@/src/theme";
 import { router } from "expo-router";
 
 export function MembersScreen() {
   const members = useMembers();
-
-  const theme = useAppTheme();
 
   const [filter, setFilter] = useState<MemberFilter>("all");
 
@@ -57,49 +53,40 @@ export function MembersScreen() {
         />
       }
     >
-      <View
-        style={[
-          styles.content,
-          {
-            backgroundColor: theme.colors.appBackground,
-          },
-        ]}
-      >
-        {showList ? (
-          <MembersList
-            items={filteredItems}
-            onPressItem={(memberId) => {
-              router.push({
-                pathname: "/(main)/(tabs)/members/[memberId]",
-                params: {
-                  memberId,
-                },
-              });
-            }}
-          />
-        ) : (
-          <ListState
-            loading={members.loading}
-            error={members.error?.message ?? null}
-            totalCount={model.totalCount}
-            visibleCount={filteredItems.length}
-            loadingState={{
-              title: "Loading members…",
-              message: "Your members are being loaded.",
-            }}
-            emptyState={{
-              title: "No members yet",
-              message: "Add your first member to get started.",
-            }}
-            noResultsState={getMemberNoResultsState(filter)}
-            errorState={{
-              title: "Couldn’t load members",
-              message: "Your members couldn’t be loaded. Try again.",
-            }}
-            onRetry={members.refresh}
-          />
-        )}
-      </View>
+      {showList ? (
+        <MembersList
+          items={filteredItems}
+          onPressItem={(memberId) => {
+            router.push({
+              pathname: "/(main)/(tabs)/members/[memberId]",
+              params: {
+                memberId,
+              },
+            });
+          }}
+        />
+      ) : (
+        <ListState
+          loading={members.loading}
+          error={members.error?.message ?? null}
+          totalCount={model.totalCount}
+          visibleCount={filteredItems.length}
+          loadingState={{
+            title: "Loading members…",
+            message: "Your members are being loaded.",
+          }}
+          emptyState={{
+            title: "No members yet",
+            message: "Add your first member to get started.",
+          }}
+          noResultsState={getMemberNoResultsState(filter)}
+          errorState={{
+            title: "Couldn’t load members",
+            message: "Your members couldn’t be loaded. Try again.",
+          }}
+          onRetry={members.refresh}
+        />
+      )}
     </SplitBackgroundScreen>
   );
 }
@@ -125,12 +112,3 @@ function getMemberNoResultsState(filter: MemberFilter): ListStateMessage {
       };
   }
 }
-
-const styles = StyleSheet.create({
-  content: {
-    minHeight: "100%",
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    overflow: "hidden",
-  },
-});

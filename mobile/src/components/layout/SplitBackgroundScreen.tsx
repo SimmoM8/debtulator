@@ -14,7 +14,7 @@ import {
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { useAppTheme } from "@/src/theme";
+import { componentTokens, useAppTheme } from "@/src/theme";
 
 type ScreenProps = PropsWithChildren<{
   hero: ReactNode;
@@ -86,11 +86,10 @@ export function SplitBackgroundScreen({ hero, children }: ScreenProps) {
 
           <View
             style={[
+              styles.content,
               styles.androidContent,
-
               {
                 minHeight: Math.max(screenHeight - heroHeight, 0),
-
                 backgroundColor: theme.colors.appBackground,
               },
             ]}
@@ -162,7 +161,6 @@ export function SplitBackgroundScreen({ hero, children }: ScreenProps) {
         contentInsetAdjustmentBehavior="never"
         contentInset={{
           top: heroHeight,
-
           bottom: insets.bottom,
         }}
         scrollIndicatorInsets={{
@@ -170,7 +168,6 @@ export function SplitBackgroundScreen({ hero, children }: ScreenProps) {
         }}
         contentOffset={{
           x: 0,
-
           y: -heroHeight,
         }}
         scrollEventThrottle={16}
@@ -189,7 +186,17 @@ export function SplitBackgroundScreen({ hero, children }: ScreenProps) {
           },
         )}
       >
-        {children}
+        <View
+          style={[
+            styles.content,
+            {
+              minHeight: Math.max(screenHeight - heroHeight, 0),
+              backgroundColor: theme.colors.appBackground,
+            },
+          ]}
+        >
+          {children}
+        </View>
       </Animated.ScrollView>
     </View>
   );
@@ -213,6 +220,13 @@ const styles = StyleSheet.create({
     width: "100%",
   },
 
+  content: {
+    width: "100%",
+    borderTopLeftRadius: componentTokens.surface.radius,
+    borderTopRightRadius: componentTokens.surface.radius,
+    overflow: "hidden",
+  },
+
   androidContent: {
     zIndex: 1,
   },
@@ -224,9 +238,8 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: -1000,
 
-    borderTopLeftRadius: 28,
-
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: componentTokens.surface.radius,
+    borderTopRightRadius: componentTokens.surface.radius,
 
     zIndex: 2,
   },

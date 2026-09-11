@@ -2,7 +2,7 @@ import { router, Stack } from "expo-router";
 
 import { NewMemberProvider } from "@/src/features/members/state/NewMemberProvider";
 
-import { useAppTheme } from "@/src/theme";
+import { SolidNavHeader } from "@/src/components/layout/SolidNavHeader";
 
 export default function MemberModalLayout() {
   return (
@@ -20,24 +20,8 @@ export default function MemberModalLayout() {
 }
 
 function MemberModalNavigator() {
-  const theme = useAppTheme();
-
   return (
-    <Stack
-      screenOptions={{
-        headerShown: true,
-        headerLargeTitle: false,
-        headerTitleAlign: "center",
-        headerStyle: {
-          backgroundColor: theme.colors.appBackground,
-        },
-        headerTintColor: theme.colors.text,
-        headerShadowVisible: false,
-        contentStyle: {
-          backgroundColor: theme.colors.appBackground,
-        },
-      }}
-    >
+    <SolidNavHeader>
       <Stack.Screen
         name="new"
         options={{
@@ -51,6 +35,6 @@ function MemberModalNavigator() {
           title: "Link Member",
         }}
       />
-    </Stack>
+    </SolidNavHeader>
   );
 }
