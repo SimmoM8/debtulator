@@ -1,5 +1,6 @@
 package com.debtulator.backend.exceptions;
 
+import com.debtulator.backend.profiles.ProfileServiceException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -72,6 +73,33 @@ public class GlobalExceptionHandler {
         return problem;
     }
 
+    @ExceptionHandler(ProfileServiceException.class)
+    public ProblemDetail handleProfileService(
+            ProfileServiceException exception,
+            HttpServletRequest request
+    ) {
+        HttpStatus status = switch (exception.getReason()) {
+            case NOT_FOUND -> HttpStatus.NOT_FOUND;
+            case INVALID_DISPLAY_NAME, CURRENCY_NOT_SUPPORTED ->
+                    HttpStatus.BAD_REQUEST;
+        };
+
+        String code = switch (exception.getReason()) {
+            case NOT_FOUND -> "PROFILE_NOT_FOUND";
+            case INVALID_DISPLAY_NAME -> "PROFILE_INVALID_DISPLAY_NAME";
+            case CURRENCY_NOT_SUPPORTED -> "PROFILE_CURRENCY_NOT_SUPPORTED";
+        };
+
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                status,
+                exception.getMessage()
+        );
+        problem.setTitle("Profile request failed");
+        problem.setInstance(URI.create(request.getRequestURI()));
+        problem.setProperty("code", code);
+        return problem;
+    }
+
     @ExceptionHandler(InvalidSyncRequestException.class)
     public ProblemDetail handleInvalidSyncRequest(
             InvalidSyncRequestException exception,
@@ -97,7 +125,10 @@ public class GlobalExceptionHandler {
         );
         problem.setTitle("Sync cursor expired");
         problem.setInstance(URI.create(request.getRequestURI()));
-        problem.setProperty("minimumCursor", Long.toString(exception.getMinimumCursor()));
+        problem.setProperty(
+                "minimumCursor",
+                Long.toString(exception.getMinimumCursor())
+        );
         return problem;
     }
 
@@ -121,4 +152,3 @@ public class GlobalExceptionHandler {
         return problem;
     }
 }
-
