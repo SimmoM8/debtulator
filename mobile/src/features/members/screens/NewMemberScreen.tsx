@@ -5,19 +5,18 @@ import {
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
-  TextInput,
+  type TextInput,
   View,
 } from "react-native";
 
+import { AppTextInput } from "@/src/components/controls";
 import { toolbarIcons } from "@/src/components/navigation/toolbarIcons";
 import { useNewMember } from "@/src/features/members/state/NewMemberProvider";
-import { textStyles, useAppTheme } from "@/src/theme";
+import { spacing, useAppTheme } from "@/src/theme";
 
 export function NewMemberScreen() {
   const theme = useAppTheme();
-
   const draft = useNewMember();
-
   const inputRef = useRef<TextInput>(null);
 
   async function create() {
@@ -85,14 +84,12 @@ export function NewMemberScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <View style={styles.content}>
-          <TextInput
+          <AppTextInput
             ref={inputRef}
             autoFocus
             value={draft.displayName}
             onChangeText={draft.setDisplayName}
             placeholder="Name"
-            placeholderTextColor={theme.colors.placeholder}
-            selectionColor={theme.colors.controlTint}
             autoCapitalize="words"
             autoCorrect={false}
             returnKeyType="done"
@@ -101,14 +98,6 @@ export function NewMemberScreen() {
             onSubmitEditing={() => {
               void create();
             }}
-            style={[
-              styles.input,
-              {
-                color: theme.colors.text,
-                backgroundColor: theme.colors.surfaceContainer,
-                borderColor: theme.colors.outline,
-              },
-            ]}
           />
         </View>
       </KeyboardAvoidingView>
@@ -122,15 +111,7 @@ const styles = StyleSheet.create({
   },
 
   content: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-  },
-
-  input: {
-    minHeight: 52,
-    paddingHorizontal: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 14,
-    ...textStyles.body,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
   },
 });

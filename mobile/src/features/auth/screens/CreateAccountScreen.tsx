@@ -1,11 +1,6 @@
-import { TextInput } from "@expo/ui";
-import {
-  controlSize,
-  textFieldStyle,
-} from "@expo/ui/swift-ui/modifiers";
-import { router, Stack } from "expo-router";
-import type { ReactNode } from "react";
-import { useState } from "react";
+import { Image } from "expo-image";
+import { router } from "expo-router";
+import { useRef, useState } from "react";
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -13,27 +8,19 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 
-import { AppButton } from "@/src/components/controls";
-import { toolbarIcons } from "@/src/components/navigation/toolbarIcons";
+import { AppButton, AppTextInput } from "@/src/components/controls";
 import { useAuth } from "@/src/features/auth/AuthProvider";
-import {
-  NativeThemeHost,
-  spacing,
-  textStyles,
-  useAppTheme,
-} from "@/src/theme";
-
-const FIELD_MODIFIERS = [
-  textFieldStyle("roundedBorder"),
-  controlSize("large"),
-];
+import { spacing, textStyles, useAppTheme } from "@/src/theme";
 
 export function CreateAccountScreen() {
   const theme = useAppTheme();
   const auth = useAuth();
+  const passwordInputRef = useRef<TextInput>(null);
+  const confirmPasswordInputRef = useRef<TextInput>(null);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -98,247 +85,229 @@ export function CreateAccountScreen() {
 
   if (verificationSent) {
     return (
-      <>
-        <Stack.Toolbar placement="left">
-          <Stack.Toolbar.Button
-            icon={toolbarIcons.close}
-            accessibilityLabel="Close create account"
-            onPress={() => {
-              router.dismiss();
-            }}
-          />
-        </Stack.Toolbar>
+      <ScrollView
+        style={{
+          backgroundColor: theme.colors.appBackground,
+        }}
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={styles.confirmation}
+      >
+        <Image
+          source={require("@/assets/images/debtulator_stone_flow_4096.png")}
+          contentFit="contain"
+          style={styles.confirmationFeature}
+        />
 
-        <View
+        <Text
           style={[
-            styles.confirmation,
+            styles.confirmationTitle,
             {
-              backgroundColor: theme.colors.appBackground,
+              color: theme.colors.text,
             },
           ]}
         >
-          <Text
-            style={[
-              styles.heading,
-              {
-                color: theme.colors.text,
-              },
-            ]}
-          >
-            Check your email
-          </Text>
+          Check your email
+        </Text>
 
-          <Text
-            style={[
-              styles.message,
-              {
-                color: theme.colors.secondaryText,
-              },
-            ]}
-          >
-            We sent a confirmation link to {email.trim()}.
-          </Text>
+        <Text
+          style={[
+            styles.confirmationMessage,
+            {
+              color: theme.colors.secondaryText,
+            },
+          ]}
+        >
+          We sent a confirmation link to {email.trim()}.
+        </Text>
 
-          <View style={styles.confirmationAction}>
-            <AppButton
-              label="Done"
-              onPress={() => {
-                router.dismiss();
-              }}
-            />
-          </View>
+        <View style={styles.confirmationAction}>
+          <AppButton
+            label="Done"
+            onPress={() => {
+              router.back();
+            }}
+          />
         </View>
-      </>
+      </ScrollView>
     );
   }
 
   return (
-    <>
-      <Stack.Toolbar placement="left">
-        <Stack.Toolbar.Button
-          icon={toolbarIcons.close}
-          accessibilityLabel="Close create account"
-          disabled={submitting}
-          onPress={() => {
-            router.dismiss();
-          }}
-        />
-      </Stack.Toolbar>
-
-      <KeyboardAvoidingView
-        style={[
-          styles.root,
-          {
-            backgroundColor: theme.colors.appBackground,
-          },
-        ]}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+    <KeyboardAvoidingView
+      style={[
+        styles.root,
+        {
+          backgroundColor: theme.colors.appBackground,
+        },
+      ]}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
+      <ScrollView
+        style={styles.scrollView}
+        contentInsetAdjustmentBehavior="automatic"
+        automaticallyAdjustKeyboardInsets
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.content}
       >
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          contentInsetAdjustmentBehavior="automatic"
-          contentContainerStyle={styles.content}
+        <Image
+          source={require("@/assets/images/debtulator_stone_flow_4096.png")}
+          contentFit="contain"
+          contentPosition="center"
+          style={styles.feature}
+        />
+
+        <Text
+          style={[
+            styles.message,
+            {
+              color: theme.colors.secondaryText,
+            },
+          ]}
         >
-          <Text
-            style={[
-              styles.heading,
-              {
-                color: theme.colors.text,
-              },
-            ]}
-          >
-            Create your account
-          </Text>
+          Create an account to keep shared money clear and organised.
+        </Text>
 
-          <Text
-            style={[
-              styles.message,
-              {
-                color: theme.colors.secondaryText,
-              },
-            ]}
-          >
-            Start keeping shared money clear and organised.
-          </Text>
+        <View style={styles.form}>
+          <View style={styles.field}>
+            <Text
+              style={[
+                styles.label,
+                {
+                  color: theme.colors.text,
+                },
+              ]}
+            >
+              Email
+            </Text>
 
-          <View style={styles.form}>
-            <AuthField label="Email">
-              <NativeThemeHost
-                matchContents={{ vertical: true }}
-                style={styles.nativeHost}
-              >
-                <TextInput
-                  placeholder="you@example.com"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  autoComplete="email"
-                  keyboardType="email-address"
-                  editable={!submitting}
-                  modifiers={FIELD_MODIFIERS}
-                  style={styles.nativeInput}
-                  onChangeText={(value) => {
-                    setEmail(value);
-                    setError(null);
-                  }}
-                />
-              </NativeThemeHost>
-            </AuthField>
+            <AppTextInput
+              value={email}
+              placeholder="you@example.com"
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="email"
+              textContentType="emailAddress"
+              keyboardType="email-address"
+              returnKeyType="next"
+              blurOnSubmit={false}
+              editable={!submitting}
+              onChangeText={(value) => {
+                setEmail(value);
+                setError(null);
+              }}
+              onSubmitEditing={() => {
+                passwordInputRef.current?.focus();
+              }}
+            />
+          </View>
 
-            <AuthField label="Password">
-              <NativeThemeHost
-                matchContents={{ vertical: true }}
-                style={styles.nativeHost}
-              >
-                <TextInput
-                  placeholder="At least 8 characters"
-                  secureTextEntry
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  autoComplete="new-password"
-                  editable={!submitting}
-                  modifiers={FIELD_MODIFIERS}
-                  style={styles.nativeInput}
-                  onChangeText={(value) => {
-                    setPassword(value);
-                    setError(null);
-                  }}
-                />
-              </NativeThemeHost>
-            </AuthField>
+          <View style={styles.field}>
+            <Text
+              style={[
+                styles.label,
+                {
+                  color: theme.colors.text,
+                },
+              ]}
+            >
+              Password
+            </Text>
 
-            <AuthField label="Confirm password">
-              <NativeThemeHost
-                matchContents={{ vertical: true }}
-                style={styles.nativeHost}
-              >
-                <TextInput
-                  placeholder="Confirm password"
-                  secureTextEntry
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  autoComplete="new-password"
-                  returnKeyType="done"
-                  editable={!submitting}
-                  modifiers={FIELD_MODIFIERS}
-                  style={styles.nativeInput}
-                  onChangeText={(value) => {
-                    setConfirmPassword(value);
-                    setError(null);
-                  }}
-                  onSubmitEditing={() => {
-                    void createAccount();
-                  }}
-                />
-              </NativeThemeHost>
-            </AuthField>
+            <AppTextInput
+              ref={passwordInputRef}
+              value={password}
+              placeholder="At least 8 characters"
+              secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="new-password"
+              textContentType="newPassword"
+              returnKeyType="next"
+              blurOnSubmit={false}
+              editable={!submitting}
+              onChangeText={(value) => {
+                setPassword(value);
+                setError(null);
+              }}
+              onSubmitEditing={() => {
+                confirmPasswordInputRef.current?.focus();
+              }}
+            />
+          </View>
 
-            {!auth.configured && !error ? (
-              <Text
-                accessibilityRole="alert"
-                style={[
-                  styles.error,
-                  {
-                    color: theme.colors.negative,
-                  },
-                ]}
-              >
-                Authentication is not available in this build.
-              </Text>
-            ) : null}
+          <View style={styles.field}>
+            <Text
+              style={[
+                styles.label,
+                {
+                  color: theme.colors.text,
+                },
+              ]}
+            >
+              Confirm password
+            </Text>
 
-            {error ? (
-              <Text
-                accessibilityRole="alert"
-                accessibilityLiveRegion="polite"
-                style={[
-                  styles.error,
-                  {
-                    color: theme.colors.negative,
-                  },
-                ]}
-              >
-                {error}
-              </Text>
-            ) : null}
-
-            <AppButton
-              label="Create account"
-              loading={submitting}
-              disabled={!canSubmit}
-              onPress={() => {
+            <AppTextInput
+              ref={confirmPasswordInputRef}
+              value={confirmPassword}
+              placeholder="Confirm password"
+              secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="new-password"
+              textContentType="newPassword"
+              returnKeyType="done"
+              editable={!submitting}
+              onChangeText={(value) => {
+                setConfirmPassword(value);
+                setError(null);
+              }}
+              onSubmitEditing={() => {
                 void createAccount();
               }}
             />
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </>
-  );
-}
 
-type AuthFieldProps = {
-  label: string;
-  children: ReactNode;
-};
+          {!auth.configured && !error ? (
+            <Text
+              accessibilityRole="alert"
+              style={[
+                styles.error,
+                {
+                  color: theme.colors.negative,
+                },
+              ]}
+            >
+              Authentication is not available in this build.
+            </Text>
+          ) : null}
 
-function AuthField({ label, children }: AuthFieldProps) {
-  const theme = useAppTheme();
+          {error ? (
+            <Text
+              accessibilityRole="alert"
+              accessibilityLiveRegion="polite"
+              style={[
+                styles.error,
+                {
+                  color: theme.colors.negative,
+                },
+              ]}
+            >
+              {error}
+            </Text>
+          ) : null}
 
-  return (
-    <View style={styles.field}>
-      <Text
-        style={[
-          styles.label,
-          {
-            color: theme.colors.text,
-          },
-        ]}
-      >
-        {label}
-      </Text>
-
-      {children}
-    </View>
+          <AppButton
+            label="Create account"
+            loading={submitting}
+            disabled={!canSubmit}
+            onPress={() => {
+              void createAccount();
+            }}
+          />
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -373,17 +342,11 @@ function getCreateAccountErrorMessage(error: unknown): string {
     return "An account already uses those credentials.";
   }
 
-  if (
-    code.includes("password") ||
-    message.includes("password")
-  ) {
+  if (code.includes("password") || message.includes("password")) {
     return "Choose a stronger password and try again.";
   }
 
-  if (
-    candidate.status === 429 ||
-    code.includes("rate_limit")
-  ) {
+  if (candidate.status === 429 || code.includes("rate_limit")) {
     return "Too many attempts. Try again in a little while.";
   }
 
@@ -403,55 +366,76 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
+  scrollView: {
+    flex: 1,
+  },
+
   content: {
+    flexGrow: 1,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
+    paddingTop: spacing.md,
     paddingBottom: spacing.xl,
   },
 
-  confirmation: {
-    flex: 1,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-  },
-
-  confirmationAction: {
-    marginTop: spacing.xl,
-  },
-
-  heading: {
-    ...textStyles.title,
+  feature: {
+    width: "100%",
+    height: 160,
   },
 
   message: {
     ...textStyles.body,
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
     lineHeight: 24,
+    textAlign: "center",
   },
 
   form: {
-    gap: spacing.lg,
-    marginTop: spacing.xl,
+    gap: spacing.md,
+    marginTop: spacing.lg,
   },
 
   field: {
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
 
   label: {
-    ...textStyles.headline,
-  },
-
-  nativeHost: {
-    width: "100%",
-  },
-
-  nativeInput: {
-    width: "100%",
+    ...textStyles.caption,
+    fontWeight: textStyles.headline.fontWeight,
   },
 
   error: {
     ...textStyles.caption,
     lineHeight: 18,
+  },
+
+  confirmation: {
+    flexGrow: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xl,
+  },
+
+  confirmationFeature: {
+    width: "100%",
+    height: 180,
+  },
+
+  confirmationTitle: {
+    ...textStyles.title,
+    marginTop: spacing.lg,
+    textAlign: "center",
+  },
+
+  confirmationMessage: {
+    ...textStyles.body,
+    marginTop: spacing.sm,
+    lineHeight: 24,
+    textAlign: "center",
+  },
+
+  confirmationAction: {
+    width: "100%",
+    marginTop: spacing.lg,
   },
 });

@@ -1,10 +1,6 @@
-import { TextInput } from "@expo/ui";
-import {
-  controlSize,
-  textFieldStyle,
-} from "@expo/ui/swift-ui/modifiers";
-import { router, Stack } from "expo-router";
-import { useState } from "react";
+import { Image } from "expo-image";
+import { router } from "expo-router";
+import { useRef, useState } from "react";
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -13,27 +9,18 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 
-import { AppButton } from "@/src/components/controls";
-import { toolbarIcons } from "@/src/components/navigation/toolbarIcons";
+import { AppButton, AppTextInput } from "@/src/components/controls";
 import { useAuth } from "@/src/features/auth/AuthProvider";
-import {
-  NativeThemeHost,
-  spacing,
-  textStyles,
-  useAppTheme,
-} from "@/src/theme";
-
-const FIELD_MODIFIERS = [
-  textFieldStyle("roundedBorder"),
-  controlSize("large"),
-];
+import { spacing, textStyles, useAppTheme } from "@/src/theme";
 
 export function SignInScreen() {
   const theme = useAppTheme();
   const auth = useAuth();
+  const passwordInputRef = useRef<TextInput>(null);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -90,189 +77,170 @@ export function SignInScreen() {
   }
 
   return (
-    <>
-      <Stack.Toolbar placement="left">
-        <Stack.Toolbar.Button
-          icon={toolbarIcons.close}
-          accessibilityLabel="Close sign in"
-          disabled={submitting}
-          onPress={() => {
-            router.dismiss();
-          }}
-        />
-      </Stack.Toolbar>
-
-      <KeyboardAvoidingView
-        style={[
-          styles.root,
-          {
-            backgroundColor: theme.colors.appBackground,
-          },
-        ]}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+    <KeyboardAvoidingView
+      style={[
+        styles.root,
+        {
+          backgroundColor: theme.colors.appBackground,
+        },
+      ]}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
+      <ScrollView
+        style={styles.scrollView}
+        contentInsetAdjustmentBehavior="automatic"
+        automaticallyAdjustKeyboardInsets
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.content}
       >
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          contentInsetAdjustmentBehavior="automatic"
-          contentContainerStyle={styles.content}
+        <Image
+          source={require("@/assets/images/debtulator_stone_flow_4096.png")}
+          contentFit="contain"
+          contentPosition="center"
+          style={styles.feature}
+        />
+
+        <Text
+          style={[
+            styles.message,
+            {
+              color: theme.colors.secondaryText,
+            },
+          ]}
         >
-          <Text
-            style={[
-              styles.heading,
-              {
-                color: theme.colors.text,
-              },
-            ]}
-          >
-            Welcome back
-          </Text>
+          Welcome back. Sign in to continue to Debtulator.
+        </Text>
 
-          <Text
-            style={[
-              styles.message,
-              {
-                color: theme.colors.secondaryText,
-              },
-            ]}
-          >
-            Sign in to continue to Debtulator.
-          </Text>
+        <View style={styles.form}>
+          <View style={styles.field}>
+            <Text
+              style={[
+                styles.label,
+                {
+                  color: theme.colors.text,
+                },
+              ]}
+            >
+              Email
+            </Text>
 
-          <View style={styles.form}>
-            <View style={styles.field}>
-              <Text
-                style={[
-                  styles.label,
-                  {
-                    color: theme.colors.text,
-                  },
-                ]}
-              >
-                Email
-              </Text>
-
-              <NativeThemeHost
-                matchContents={{ vertical: true }}
-                style={styles.nativeHost}
-              >
-                <TextInput
-                  placeholder="you@example.com"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  autoComplete="email"
-                  keyboardType="email-address"
-                  editable={!submitting}
-                  modifiers={FIELD_MODIFIERS}
-                  style={styles.nativeInput}
-                  onChangeText={(value) => {
-                    setEmail(value);
-                    setError(null);
-                  }}
-                />
-              </NativeThemeHost>
-            </View>
-
-            <View style={styles.field}>
-              <Text
-                style={[
-                  styles.label,
-                  {
-                    color: theme.colors.text,
-                  },
-                ]}
-              >
-                Password
-              </Text>
-
-              <NativeThemeHost
-                matchContents={{ vertical: true }}
-                style={styles.nativeHost}
-              >
-                <TextInput
-                  placeholder="Password"
-                  secureTextEntry
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  autoComplete="current-password"
-                  returnKeyType="go"
-                  editable={!submitting}
-                  modifiers={FIELD_MODIFIERS}
-                  style={styles.nativeInput}
-                  onChangeText={(value) => {
-                    setPassword(value);
-                    setError(null);
-                  }}
-                  onSubmitEditing={() => {
-                    void signIn();
-                  }}
-                />
-              </NativeThemeHost>
-
-              <Pressable
-                accessibilityRole="button"
-                disabled={submitting}
-                onPress={() => {
-                  router.push("/(auth)/(modals)/forgot-password");
-                }}
-                style={({ pressed }) => [
-                  styles.forgotPassword,
-                  pressed && styles.textActionPressed,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.forgotPasswordText,
-                    {
-                      color: theme.colors.controlTint,
-                    },
-                  ]}
-                >
-                  Forgot password?
-                </Text>
-              </Pressable>
-            </View>
-
-            {!auth.configured && !error ? (
-              <Text
-                accessibilityRole="alert"
-                style={[
-                  styles.error,
-                  {
-                    color: theme.colors.negative,
-                  },
-                ]}
-              >
-                Authentication is not available in this build.
-              </Text>
-            ) : null}
-
-            {error ? (
-              <Text
-                accessibilityRole="alert"
-                accessibilityLiveRegion="polite"
-                style={[
-                  styles.error,
-                  {
-                    color: theme.colors.negative,
-                  },
-                ]}
-              >
-                {error}
-              </Text>
-            ) : null}
-
-            <AppButton
-              label="Sign in"
-              loading={submitting}
-              disabled={!canSubmit}
-              onPress={() => {
-                void signIn();
+            <AppTextInput
+              value={email}
+              placeholder="you@example.com"
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="email"
+              textContentType="emailAddress"
+              keyboardType="email-address"
+              returnKeyType="next"
+              blurOnSubmit={false}
+              editable={!submitting}
+              onChangeText={(value) => {
+                setEmail(value);
+                setError(null);
+              }}
+              onSubmitEditing={() => {
+                passwordInputRef.current?.focus();
               }}
             />
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </>
+
+          <View style={styles.field}>
+            <Text
+              style={[
+                styles.label,
+                {
+                  color: theme.colors.text,
+                },
+              ]}
+            >
+              Password
+            </Text>
+
+            <AppTextInput
+              ref={passwordInputRef}
+              value={password}
+              placeholder="Password"
+              secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="current-password"
+              textContentType="password"
+              returnKeyType="go"
+              editable={!submitting}
+              onChangeText={(value) => {
+                setPassword(value);
+                setError(null);
+              }}
+              onSubmitEditing={() => {
+                void signIn();
+              }}
+            />
+
+            <Pressable
+              accessibilityRole="button"
+              disabled={submitting}
+              onPress={() => {
+                router.push("/(auth)/forgot-password");
+              }}
+              style={({ pressed }) => [
+                styles.textAction,
+                pressed && !submitting && styles.textActionPressed,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.textActionLabel,
+                  {
+                    color: theme.colors.controlTint,
+                  },
+                ]}
+              >
+                Forgot password?
+              </Text>
+            </Pressable>
+          </View>
+
+          {!auth.configured && !error ? (
+            <Text
+              accessibilityRole="alert"
+              style={[
+                styles.error,
+                {
+                  color: theme.colors.negative,
+                },
+              ]}
+            >
+              Authentication is not available in this build.
+            </Text>
+          ) : null}
+
+          {error ? (
+            <Text
+              accessibilityRole="alert"
+              accessibilityLiveRegion="polite"
+              style={[
+                styles.error,
+                {
+                  color: theme.colors.negative,
+                },
+              ]}
+            >
+              {error}
+            </Text>
+          ) : null}
+
+          <AppButton
+            label="Sign in"
+            loading={submitting}
+            disabled={!canSubmit}
+            onPress={() => {
+              void signIn();
+            }}
+          />
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -336,48 +304,49 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
+  scrollView: {
+    flex: 1,
+  },
+
   content: {
+    flexGrow: 1,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
+    paddingTop: spacing.md,
     paddingBottom: spacing.xl,
   },
 
-  heading: {
-    ...textStyles.title,
+  feature: {
+    width: "100%",
+    height: 180,
   },
 
   message: {
     ...textStyles.body,
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
+    lineHeight: 24,
+    textAlign: "center",
   },
 
   form: {
-    gap: spacing.lg,
-    marginTop: spacing.xl,
+    gap: spacing.md,
+    marginTop: spacing.lg,
   },
 
   field: {
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
 
   label: {
-    ...textStyles.headline,
+    ...textStyles.caption,
+    fontWeight: textStyles.headline.fontWeight,
   },
 
-  nativeHost: {
-    width: "100%",
-  },
-
-  nativeInput: {
-    width: "100%",
-  },
-
-  forgotPassword: {
+  textAction: {
     alignSelf: "flex-end",
     paddingVertical: spacing.xs,
   },
 
-  forgotPasswordText: {
+  textActionLabel: {
     ...textStyles.caption,
     fontWeight: textStyles.headline.fontWeight,
   },
