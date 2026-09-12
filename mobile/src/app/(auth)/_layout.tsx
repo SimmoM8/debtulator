@@ -1,31 +1,40 @@
 import { Stack } from "expo-router";
-import { Platform } from "react-native";
+
+import { SolidNavHeader } from "@/src/components/layout";
 
 export default function AuthLayout() {
-  const isIos = Platform.OS === "ios";
-
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-      }}
-    >
-      <Stack.Screen name="index" />
-
+    <SolidNavHeader>
       <Stack.Screen
-        name="(modals)"
+        name="index"
         options={{
-          presentation: isIos ? "formSheet" : "modal",
-
-          ...(isIos
-            ? {
-                sheetAllowedDetents: [1],
-                sheetInitialDetentIndex: 0,
-                sheetGrabberVisible: true,
-              }
-            : {}),
+          headerShown: false,
         }}
       />
-    </Stack>
+
+      <Stack.Screen
+        name="sign-in"
+        options={{
+          title: "Sign In",
+          headerBackButtonDisplayMode: "minimal",
+        }}
+      />
+
+      <Stack.Screen
+        name="create-account"
+        options={{
+          title: "Create Account",
+          headerBackButtonDisplayMode: "minimal",
+        }}
+      />
+
+      <Stack.Screen
+        name="forgot-password"
+        options={{
+          title: "Reset Password",
+          headerBackButtonDisplayMode: "minimal",
+        }}
+      />
+    </SolidNavHeader>
   );
 }

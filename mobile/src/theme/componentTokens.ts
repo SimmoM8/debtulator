@@ -10,6 +10,11 @@ export const componentTokens = {
     radius: brand.radius.medium,
   },
 
+  textInput: {
+    height: 52,
+    radius: 14,
+  },
+
   quickAction: {
     size: 44,
     iconSize: 19,

@@ -1,9 +1,4 @@
-import { TextInput } from "@expo/ui";
-import {
-  controlSize,
-  textFieldStyle,
-} from "@expo/ui/swift-ui/modifiers";
-import { router, Stack } from "expo-router";
+import { router } from "expo-router";
 import { useState } from "react";
 import {
   Keyboard,
@@ -15,19 +10,9 @@ import {
   View,
 } from "react-native";
 
-import { AppButton } from "@/src/components/controls";
+import { AppButton, AppTextInput } from "@/src/components/controls";
 import { useAuth } from "@/src/features/auth/AuthProvider";
-import {
-  NativeThemeHost,
-  spacing,
-  textStyles,
-  useAppTheme,
-} from "@/src/theme";
-
-const FIELD_MODIFIERS = [
-  textFieldStyle("roundedBorder"),
-  controlSize("large"),
-];
+import { spacing, textStyles, useAppTheme } from "@/src/theme";
 
 export function ForgotPasswordScreen() {
   const theme = useAppTheme();
@@ -38,10 +23,7 @@ export function ForgotPasswordScreen() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canSubmit =
-    auth.configured &&
-    email.trim().length > 0 &&
-    !submitting;
+  const canSubmit = auth.configured && email.trim().length > 0 && !submitting;
 
   async function sendResetLink() {
     if (submitting) {
@@ -81,23 +63,65 @@ export function ForgotPasswordScreen() {
     return (
       <View
         style={[
-          styles.confirmation,
+          styles.root,
           {
             backgroundColor: theme.colors.appBackground,
           },
         ]}
       >
-        <Text
-          style={[
-            styles.heading,
-            {
-              color: theme.colors.text,
-            },
-          ]}
-        >
-          Check your email
-        </Text>
+        <View style={styles.confirmation}>
+          <Text
+            style={[
+              styles.confirmationTitle,
+              {
+                color: theme.colors.text,
+              },
+            ]}
+          >
+            Check your email
+          </Text>
 
+          <Text
+            style={[
+              styles.confirmationMessage,
+              {
+                color: theme.colors.secondaryText,
+              },
+            ]}
+          >
+            If an account exists for that email, a password reset link has been
+            sent.
+          </Text>
+
+          <View style={styles.confirmationAction}>
+            <AppButton
+              label="Back to sign in"
+              onPress={() => {
+                router.back();
+              }}
+            />
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <KeyboardAvoidingView
+      style={[
+        styles.root,
+        {
+          backgroundColor: theme.colors.appBackground,
+        },
+      ]}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        automaticallyAdjustKeyboardInsets
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.content}
+      >
         <Text
           style={[
             styles.message,
@@ -106,127 +130,68 @@ export function ForgotPasswordScreen() {
             },
           ]}
         >
-          If an account exists for that email, a password reset link has been
-          sent.
+          Enter your email and we’ll send you a reset link.
         </Text>
 
-        <View style={styles.confirmationAction}>
-          <AppButton
-            label="Back to sign in"
-            onPress={() => {
-              router.back();
-            }}
-          />
-        </View>
-      </View>
-    );
-  }
+        <View style={styles.form}>
+          <View style={styles.field}>
+            <Text
+              style={[
+                styles.label,
+                {
+                  color: theme.colors.text,
+                },
+              ]}
+            >
+              Email
+            </Text>
 
-  return (
-    <>
-      <Stack.Screen.BackButton displayMode="minimal" />
-
-      <KeyboardAvoidingView
-        style={[
-          styles.root,
-          {
-            backgroundColor: theme.colors.appBackground,
-          },
-        ]}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          contentInsetAdjustmentBehavior="automatic"
-          contentContainerStyle={styles.content}
-        >
-          <Text
-            style={[
-              styles.heading,
-              {
-                color: theme.colors.text,
-              },
-            ]}
-          >
-            Reset your password
-          </Text>
-
-          <Text
-            style={[
-              styles.message,
-              {
-                color: theme.colors.secondaryText,
-              },
-            ]}
-          >
-            Enter your email and we’ll send you a reset link.
-          </Text>
-
-          <View style={styles.form}>
-            <View style={styles.field}>
-              <Text
-                style={[
-                  styles.label,
-                  {
-                    color: theme.colors.text,
-                  },
-                ]}
-              >
-                Email
-              </Text>
-
-              <NativeThemeHost
-                matchContents={{ vertical: true }}
-                style={styles.nativeHost}
-              >
-                <TextInput
-                  placeholder="you@example.com"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  autoComplete="email"
-                  keyboardType="email-address"
-                  returnKeyType="send"
-                  editable={!submitting}
-                  modifiers={FIELD_MODIFIERS}
-                  style={styles.nativeInput}
-                  onChangeText={(value) => {
-                    setEmail(value);
-                    setError(null);
-                  }}
-                  onSubmitEditing={() => {
-                    void sendResetLink();
-                  }}
-                />
-              </NativeThemeHost>
-            </View>
-
-            {error ? (
-              <Text
-                accessibilityRole="alert"
-                accessibilityLiveRegion="polite"
-                style={[
-                  styles.error,
-                  {
-                    color: theme.colors.negative,
-                  },
-                ]}
-              >
-                {error}
-              </Text>
-            ) : null}
-
-            <AppButton
-              label="Send reset link"
-              loading={submitting}
-              disabled={!canSubmit}
-              onPress={() => {
+            <AppTextInput
+              value={email}
+              placeholder="you@example.com"
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="email"
+              textContentType="emailAddress"
+              keyboardType="email-address"
+              returnKeyType="send"
+              editable={!submitting}
+              onChangeText={(value) => {
+                setEmail(value);
+                setError(null);
+              }}
+              onSubmitEditing={() => {
                 void sendResetLink();
               }}
             />
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </>
+
+          {error ? (
+            <Text
+              accessibilityRole="alert"
+              accessibilityLiveRegion="polite"
+              style={[
+                styles.error,
+                {
+                  color: theme.colors.negative,
+                },
+              ]}
+            >
+              {error}
+            </Text>
+          ) : null}
+
+          <AppButton
+            label="Send reset link"
+            loading={submitting}
+            disabled={!canSubmit}
+            onPress={() => {
+              void sendResetLink();
+            }}
+          />
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -253,10 +218,7 @@ function getRecoveryErrorMessage(error: unknown): string {
       ? candidate.message.toLowerCase()
       : "";
 
-  if (
-    candidate.status === 429 ||
-    code.includes("rate_limit")
-  ) {
+  if (candidate.status === 429 || code.includes("rate_limit")) {
     return "Too many attempts. Try again in a little while.";
   }
 
@@ -278,53 +240,53 @@ const styles = StyleSheet.create({
 
   content: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
+    paddingTop: spacing.lg,
     paddingBottom: spacing.xl,
-  },
-
-  confirmation: {
-    flex: 1,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-  },
-
-  confirmationAction: {
-    marginTop: spacing.xl,
-  },
-
-  heading: {
-    ...textStyles.title,
   },
 
   message: {
     ...textStyles.body,
-    marginTop: spacing.sm,
     lineHeight: 24,
   },
 
   form: {
-    gap: spacing.lg,
-    marginTop: spacing.xl,
+    gap: spacing.md,
+    marginTop: spacing.lg,
   },
 
   field: {
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
 
   label: {
-    ...textStyles.headline,
-  },
-
-  nativeHost: {
-    width: "100%",
-  },
-
-  nativeInput: {
-    width: "100%",
+    ...textStyles.caption,
+    fontWeight: textStyles.headline.fontWeight,
   },
 
   error: {
     ...textStyles.caption,
     lineHeight: 18,
+  },
+
+  confirmation: {
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: spacing.lg,
+  },
+
+  confirmationTitle: {
+    ...textStyles.title,
+    textAlign: "center",
+  },
+
+  confirmationMessage: {
+    ...textStyles.body,
+    marginTop: spacing.sm,
+    lineHeight: 24,
+    textAlign: "center",
+  },
+
+  confirmationAction: {
+    marginTop: spacing.lg,
   },
 });

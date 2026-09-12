@@ -3,6 +3,8 @@ export {
   type AppButtonVariant,
 } from "./AppButton";
 
+export { AppTextInput } from "./AppTextInput";
+
 export {
   SegmentedControl,
   type SegmentedControlOption,

@@ -37,6 +37,14 @@ export function WelcomeScreen() {
             },
           ]}
         >
+          <Image
+            source={require("@/assets/images/debtulator_stone_flow_4096.png")}
+            contentFit="contain"
+            contentPosition="bottom"
+            pointerEvents="none"
+            style={styles.feature}
+          />
+
           <View
             style={[
               styles.heroContent,
@@ -87,13 +95,6 @@ export function WelcomeScreen() {
                 Track debts, split costs, and focus on what really matters.
               </Text>
             </View>
-
-            <Image
-              source={require("@/assets/images/debtulator_valley_connection_HD.png")}
-              contentFit="cover"
-              contentPosition="bottom"
-              style={styles.feature}
-            />
           </View>
         </View>
       }
@@ -103,7 +104,7 @@ export function WelcomeScreen() {
           <AppButton
             label="Sign in"
             onPress={() => {
-              router.push("/(auth)/(modals)/sign-in");
+              router.push("/(auth)/sign-in");
             }}
           />
 
@@ -111,7 +112,7 @@ export function WelcomeScreen() {
             label="Create account"
             variant="secondary"
             onPress={() => {
-              router.push("/(auth)/(modals)/create-account");
+              router.push("/(auth)/create-account");
             }}
           />
         </View>
@@ -123,11 +124,23 @@ export function WelcomeScreen() {
 const styles = StyleSheet.create({
   hero: {
     width: "100%",
+    overflow: "hidden",
+  },
+
+  feature: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
   },
 
   heroContent: {
     flex: 1,
     alignItems: "center",
+    zIndex: 1,
   },
 
   brand: {
@@ -160,12 +173,6 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     textAlign: "center",
     lineHeight: 24,
-  },
-
-  feature: {
-    flex: 1,
-    width: "100%",
-    marginTop: spacing.lg,
   },
 
   actions: {
