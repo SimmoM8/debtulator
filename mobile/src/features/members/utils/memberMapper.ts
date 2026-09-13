@@ -18,7 +18,6 @@ export function memberToCreateSyncPayload(
 ): Record<string, unknown> {
   return {
     displayName: member.displayName,
-    createdAt: member.createdAt,
   };
 }
 

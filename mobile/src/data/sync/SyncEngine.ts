@@ -58,14 +58,21 @@ export class SyncEngine {
   }
 
   private async performSync(ownerUserId: string): Promise<void> {
-    await this.push(ownerUserId);
-
     const syncStore = new SqliteSyncStore(this.db);
 
+    /*
+     * Member display-name upserts contain only private member fields.
+     * If the backend changed the same member meanwhile (for example when a
+     * member link was accepted), retry the stale local rename instead of
+     * permanently blocking every future pull.
+     */
+    await syncStore.repairNonWritableTimestampPayloads(ownerUserId);
+    await syncStore.requeueRecoverableMemberConflicts(ownerUserId);
+    await this.push(ownerUserId);
+
     if (await syncStore.hasBlockingFailure(ownerUserId)) {
-      throw new SyncBlockedError(
-        "Synchronization is blocked by a conflict or rejected local change.",
-      );
+      const failures = await syncStore.getBlockingFailures(ownerUserId);
+      throw new SyncBlockedError(describeBlockingFailure(failures[0]));
     }
 
     /*
@@ -157,9 +164,9 @@ export class SyncEngine {
           throw error;
         }
 
-        await this.applyMutationResult(mutation, result);
+        const blocked = await this.applyMutationResult(mutation, result);
 
-        if (result.status === "conflict" || result.status === "rejected") {
+        if (blocked) {
           throw new SyncBlockedError(
             result.message ??
               `Synchronization ${result.status} for ${result.entityType} ${result.entityId}.`,
@@ -204,7 +211,7 @@ export class SyncEngine {
   private async applyMutationResult(
     mutation: SyncMutation,
     result: SyncMutationResult,
-  ): Promise<void> {
+  ): Promise<boolean> {
     if (
       result.entityType !== mutation.entityType ||
       result.entityId !== mutation.entityId
@@ -218,26 +225,37 @@ export class SyncEngine {
       switch (result.status) {
         case "applied":
           await syncStore.markApplied(mutation, result.version);
-          return;
+          return false;
         case "conflict":
+          if (canRebaseMemberConflict(mutation, result)) {
+            await syncStore.rebaseMemberConflict(
+              mutation.id,
+              result.version,
+              result.errorCode,
+              result.message ?? "The remote member changed.",
+            );
+            return false;
+          }
+
           await syncStore.markConflict(
             mutation.id,
             result.errorCode,
             result.message ?? "The remote record changed.",
           );
-          return;
+          return true;
         case "rejected":
           await syncStore.markRejected(
             mutation.id,
             result.errorCode,
             result.message ?? "The backend rejected the local change.",
           );
-          return;
+          return true;
         case "retry":
           await syncStore.markRetry(
             mutation.id,
             result.message ?? "Temporary synchronization failure.",
           );
+          return false;
       }
     });
   }
@@ -419,6 +437,37 @@ export class SyncEngine {
 
     emitChanges(changedResources);
   }
+}
+
+function canRebaseMemberConflict(
+  mutation: SyncMutation,
+  result: SyncMutationResult,
+): result is SyncMutationResult & { version: number } {
+  return (
+    mutation.entityType === "member" &&
+    mutation.operation === "upsert" &&
+    mutation.baseVersion !== null &&
+    mutation.attemptCount < 3 &&
+    result.status === "conflict" &&
+    result.version !== null
+  );
+}
+
+function describeBlockingFailure(
+  failure: SyncMutation | undefined,
+): string {
+  if (!failure) {
+    return "Synchronization is blocked by a conflict or rejected local change.";
+  }
+
+  const errorCode = failure.lastErrorCode
+    ? ` (${failure.lastErrorCode})`
+    : "";
+  const detail = failure.lastError
+    ? `: ${failure.lastError}`
+    : "";
+
+  return `Synchronization is blocked by ${failure.status} ${failure.entityType} ${failure.entityId}${errorCode}${detail}`;
 }
 
 function assertBootstrapIdentity(

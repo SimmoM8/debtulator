@@ -1,6 +1,9 @@
+import { router } from "expo-router";
 import { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
+import { BackendError } from "@/src/data/backend/BackendClient";
+import { useBackendClient } from "@/src/data/backend/BackendProvider";
 import { Card } from "@/src/components/cards/Card";
 import { SegmentedControl } from "@/src/components/controls/SegmentedControl";
 import { SolidScreen } from "@/src/components/layout/SolidScreen";
@@ -10,6 +13,7 @@ import type {
   RequestInboxItem,
   RequestInboxScope,
 } from "@/src/features/inbox/model/RequestInboxItem";
+import { rejectMemberLinkRequest } from "@/src/features/members/operations/respondToMemberLinkRequest";
 import { spacing, textStyles, useAppTheme } from "@/src/theme";
 
 const SCOPE_OPTIONS = [
@@ -20,8 +24,69 @@ const SCOPE_OPTIONS = [
 
 export function InboxScreen() {
   const theme = useAppTheme();
+  const backend = useBackendClient();
+  const [respondingRequestId, setRespondingRequestId] = useState<string | null>(
+    null,
+  );
   const [scope, setScope] = useState<RequestInboxScope>("needs_action");
   const inbox = useInboxRequests(scope);
+
+  function openMemberLinkAcceptance(item: RequestInboxItem) {
+    if (respondingRequestId) {
+      return;
+    }
+
+    router.push({
+      pathname: "/(main)/inbox/member-link/[requestId]",
+      params: {
+        requestId: item.requestId,
+        name: item.counterpartyName,
+      },
+    });
+  }
+
+  function confirmDecline(item: RequestInboxItem) {
+    if (!backend || respondingRequestId) {
+      return;
+    }
+
+    Alert.alert(
+      "Decline member link?",
+      `Decline the member-link request from ${item.counterpartyName}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Decline",
+          style: "destructive",
+          onPress: () => {
+            void declineMemberLink(item);
+          },
+        },
+      ],
+    );
+  }
+
+  async function declineMemberLink(item: RequestInboxItem) {
+    if (!backend || respondingRequestId) {
+      return;
+    }
+
+    setRespondingRequestId(item.requestId);
+
+    try {
+      await rejectMemberLinkRequest(backend, item.requestId);
+      await inbox.refresh();
+    } catch (error) {
+      Alert.alert(
+        "Couldn’t decline request",
+        error instanceof BackendError
+          ? error.message
+          : "The request couldn’t be updated. Try again.",
+      );
+    } finally {
+      setRespondingRequestId(null);
+    }
+  }
 
   return (
     <SolidScreen>
@@ -57,7 +122,6 @@ export function InboxScreen() {
                     >
                       {item.counterpartyName}
                     </Text>
-
                     <Text
                       style={[
                         styles.status,
@@ -94,6 +158,62 @@ export function InboxScreen() {
                   >
                     {formatTimestamp(item.updatedAt)}
                   </Text>
+
+                  {canRespondToMemberLink(item) ? (
+                    <View style={styles.actions}>
+                      <Pressable
+                        accessibilityRole="button"
+                        disabled={respondingRequestId !== null}
+                        onPress={() => {
+                          confirmDecline(item);
+                        }}
+                        style={({ pressed }) => [
+                          styles.action,
+                          {
+                            backgroundColor: theme.colors.controlSurface,
+                            borderColor: theme.colors.outline,
+                          },
+                          pressed && styles.pressed,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.actionText,
+                            { color: theme.colors.onControlSurface },
+                          ]}
+                        >
+                          {respondingRequestId === item.requestId
+                            ? "Updating…"
+                            : "Decline"}
+                        </Text>
+                      </Pressable>
+
+                      <Pressable
+                        accessibilityRole="button"
+                        disabled={respondingRequestId !== null}
+                        onPress={() => {
+                          openMemberLinkAcceptance(item);
+                        }}
+                        style={({ pressed }) => [
+                          styles.action,
+                          {
+                            backgroundColor: theme.colors.controlContainer,
+                            borderColor: theme.colors.controlContainer,
+                          },
+                          pressed && styles.pressed,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.actionText,
+                            { color: theme.colors.onControlContainer },
+                          ]}
+                        >
+                          Accept
+                        </Text>
+                      </Pressable>
+                    </View>
+                  ) : null}
                 </View>
               </Card>
             ))}
@@ -122,6 +242,14 @@ function emptyState(scope: RequestInboxScope) {
         message: "Resolved requests will appear here.",
       };
   }
+}
+
+function canRespondToMemberLink(item: RequestInboxItem): boolean {
+  return (
+    item.type === "member_link" &&
+    item.direction === "incoming" &&
+    item.status === "pending"
+  );
 }
 
 function requestTypeLabel(type: string): string {
@@ -212,5 +340,25 @@ const styles = StyleSheet.create({
   timestamp: {
     ...textStyles.caption,
     marginTop: spacing.sm,
+  },
+  actions: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  action: {
+    minHeight: 44,
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: spacing.md,
+  },
+  actionText: {
+    ...textStyles.headline,
+  },
+  pressed: {
+    opacity: 0.7,
   },
 });

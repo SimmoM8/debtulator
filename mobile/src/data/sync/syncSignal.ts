@@ -1,4 +1,4 @@
-type SyncListener = () => void;
+type SyncListener = () => void | Promise<void>;
 
 const listeners = new Set<SyncListener>();
 
@@ -12,6 +12,10 @@ export function subscribeToSyncRequests(listener: SyncListener): () => void {
 
 export function requestSync(): void {
   for (const listener of listeners) {
-    listener();
+    void listener();
   }
+}
+
+export async function requestSyncAndWait(): Promise<void> {
+  await Promise.all(Array.from(listeners, (listener) => listener()));
 }

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useRef, useState } from "react";
 
 import { useBackendClient } from "@/src/data/backend/BackendProvider";
 import type {
@@ -58,13 +59,15 @@ export function useInboxRequests(
     }
   }, [backend, requestTypesKey, scope]);
 
-  useEffect(() => {
-    void refresh();
+  useFocusEffect(
+    useCallback(() => {
+      void refresh();
 
-    return () => {
-      requestSequence.current += 1;
-    };
-  }, [refresh]);
+      return () => {
+        requestSequence.current += 1;
+      };
+    }, [refresh]),
+  );
 
   return {
     data,
