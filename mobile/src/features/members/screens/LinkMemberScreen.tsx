@@ -44,7 +44,48 @@ export function LinkMemberScreen() {
     ? "Loading member…"
     : (member.data?.displayName ?? "Member unavailable");
 
-  async function selectUser(targetUserId: string) {
+  function selectUser(targetUserId: string) {
+    if (!member.data || linkRequest.isCreating) {
+      return;
+    }
+
+    const targetUser = discovery.data.find((user) => user.id === targetUserId);
+
+    if (!targetUser) {
+      return;
+    }
+
+    const memberName = member.data.displayName;
+    const accountName = targetUser.displayName;
+
+    Alert.alert(
+      "Choose member name",
+      `When ${accountName} accepts, keep your current member name or replace it with their account name.`,
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: `Keep "${memberName}"`,
+          onPress: () => {
+            void sendLinkRequest(targetUserId, false);
+          },
+        },
+        {
+          text: `Use "${accountName}"`,
+          onPress: () => {
+            void sendLinkRequest(targetUserId, true);
+          },
+        },
+      ],
+    );
+  }
+
+  async function sendLinkRequest(
+    targetUserId: string,
+    useTargetName: boolean,
+  ) {
     if (!member.data || linkRequest.isCreating) {
       return;
     }
@@ -53,6 +94,7 @@ export function LinkMemberScreen() {
       await linkRequest.createRequest({
         member: member.data,
         targetUserId,
+        useTargetName,
       });
 
       Alert.alert(
@@ -128,7 +170,7 @@ export function LinkMemberScreen() {
           error={canSearch ? discovery.error?.message ?? null : null}
           disabled={linkRequest.isCreating}
           onRetry={discovery.refresh}
-          onPressItem={(targetUserId) => void selectUser(targetUserId)}
+          onPressItem={selectUser}
           header={
             <View style={styles.target}>
               <Card>

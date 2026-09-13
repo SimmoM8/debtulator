@@ -4,7 +4,7 @@ export type RequestMemberLinkInput = {
   requestId: string;
   targetUserId: string;
   memberId: string;
-  displayName: string;
+  displayName: string | null;
   useTargetName: boolean;
 };
 

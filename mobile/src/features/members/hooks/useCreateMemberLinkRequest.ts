@@ -10,7 +10,11 @@ export function useCreateMemberLinkRequest() {
   const [isCreating, setIsCreating] = useState(false);
 
   const createRequest = useCallback(
-    async (input: { member: Member; targetUserId: string }) => {
+    async (input: {
+      member: Member;
+      targetUserId: string;
+      useTargetName: boolean;
+    }) => {
       if (!backend) {
         throw new Error("The backend is not available.");
       }
@@ -26,8 +30,8 @@ export function useCreateMemberLinkRequest() {
           requestId: Crypto.randomUUID(),
           targetUserId: input.targetUserId,
           memberId: input.member.id,
-          displayName: input.member.displayName,
-          useTargetName: false,
+          displayName: null,
+          useTargetName: input.useTargetName,
         });
       } finally {
         setIsCreating(false);
