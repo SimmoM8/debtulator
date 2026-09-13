@@ -41,7 +41,31 @@ export function getCreateAccountErrorMessage(error: unknown): string {
   const code = getAuthErrorCode(error);
 
   if (code === "AUTH_ACCOUNT_ALREADY_EXISTS") {
-    return "An account already uses those credentials.";
+    return "An account already uses that email address.";
+  }
+
+  if (code === "AUTH_USERNAME_TAKEN") {
+    return "That username is already in use.";
+  }
+
+  if (code === "AUTH_INVALID_USERNAME") {
+    return "Username must use 3–40 lowercase letters, numbers, or underscores.";
+  }
+
+  if (code === "AUTH_INVALID_NAME") {
+    return "Enter a valid name.";
+  }
+
+  if (code === "AUTH_INVALID_PHONE") {
+    return "Use an international phone number such as +46701234567.";
+  }
+
+  if (code === "AUTH_CURRENCY_NOT_SUPPORTED") {
+    return "Select a supported base currency.";
+  }
+
+  if (code === "AUTH_REGISTRATION_PENDING") {
+    return "An account registration is already in progress for this email address.";
   }
 
   if (code === "AUTH_WEAK_PASSWORD") {
@@ -144,10 +168,15 @@ export function isRetryableAuthError(error: unknown): boolean {
 function isConnectivityErrorCode(code: string | null): boolean {
   return (
     code === "AUTH_NETWORK_UNAVAILABLE" ||
+    code === "BACKEND_NETWORK_UNAVAILABLE" ||
     code === "AUTH_REQUEST_TIMEOUT" ||
+    code === "BACKEND_REQUEST_TIMEOUT" ||
     code === "AUTH_PROVIDER_UNAVAILABLE" ||
     code === "AUTH_HTTP_502" ||
     code === "AUTH_HTTP_503" ||
-    code === "AUTH_HTTP_504"
+    code === "AUTH_HTTP_504" ||
+    code === "BACKEND_HTTP_502" ||
+    code === "BACKEND_HTTP_503" ||
+    code === "BACKEND_HTTP_504"
   );
 }

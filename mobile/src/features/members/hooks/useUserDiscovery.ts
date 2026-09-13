@@ -7,6 +7,7 @@ import type { DiscoveredUser } from "@/src/features/members/model/DiscoveredUser
 import { searchUsers } from "@/src/features/members/operations/searchUsers";
 
 const SEARCH_DEBOUNCE_MS = 300;
+export const MIN_USER_DISCOVERY_QUERY_LENGTH = 3;
 
 export function useUserDiscovery(query: string) {
   const backend = useBackendClient();
@@ -21,7 +22,10 @@ export function useUserDiscovery(query: string) {
   useEffect(() => {
     const currentRequestId = ++requestId.current;
 
-    if (!normalizedQuery || !backend) {
+    if (
+      normalizedQuery.length < MIN_USER_DISCOVERY_QUERY_LENGTH ||
+      !backend
+    ) {
       setData([]);
       setLoading(false);
       setError(null);

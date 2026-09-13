@@ -3,6 +3,7 @@ import {
   BackendError,
 } from "@/src/data/backend/BackendClient";
 import type { Currency } from "@/src/features/currencies/model/Currency";
+import type { Profile } from "@/src/features/profile/model/Profile";
 
 import type {
   BootstrapStartResponse,
@@ -174,13 +175,19 @@ export class BackendSyncGateway {
     return value.map(parseCurrency);
   }
 
-  async getBaseCurrencyCode(): Promise<string> {
+  async getProfile(): Promise<Profile> {
     const value = requireObject(
       await this.backend.get<unknown>("/api/v1/profile"),
       "profile",
     );
 
-    return requireString(value.baseCurrency, "baseCurrency");
+    return {
+      userId: requireString(value.userId, "userId"),
+      username: requireString(value.username, "username"),
+      name: requireNullableString(value.name, "name"),
+      phoneNumber: requireNullableString(value.phoneNumber, "phoneNumber"),
+      baseCurrencyCode: requireString(value.baseCurrency, "baseCurrency"),
+    };
   }
 }
 
@@ -335,6 +342,14 @@ function requireString(value: unknown, field: string): string {
   }
 
   return value;
+}
+
+function requireNullableString(value: unknown, field: string): string | null {
+  if (value === null) {
+    return null;
+  }
+
+  return requireString(value, field);
 }
 
 function requireBoolean(value: unknown, field: string): boolean {

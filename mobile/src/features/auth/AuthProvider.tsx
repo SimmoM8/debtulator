@@ -10,6 +10,7 @@ import {
 } from "react";
 import { AppState } from "react-native";
 
+import { BackendClient } from "@/src/data/backend/BackendClient";
 import {
   backendApiUrl,
   isBackendApiConfigured,
@@ -23,12 +24,17 @@ import {
   parseAuthSession,
   type AuthSession,
 } from "@/src/features/auth/model/AuthSession";
+import { registerAccount } from "@/src/features/auth/operations/registerAccount";
 
 const AUTH_SESSION_STORAGE_KEY = "debtulator.auth.session.v1";
 const ACCESS_TOKEN_REFRESH_LEEWAY_SECONDS = 60;
 
 const authGateway = isBackendApiConfigured
   ? new BackendAuthGateway(backendApiUrl)
+  : null;
+
+const registrationClient = isBackendApiConfigured
+  ? new BackendClient(backendApiUrl)
   : null;
 
 type SignInInput = {
@@ -39,6 +45,10 @@ type SignInInput = {
 type SignUpInput = {
   email: string;
   password: string;
+  name: string;
+  username: string;
+  phoneNumber: string | null;
+  baseCurrency: string;
 };
 
 type SignUpResult = {
@@ -212,10 +222,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         );
       }
 
-      if (
-        !options.forceRefresh &&
-        !isAccessTokenExpiring(currentSession)
-      ) {
+      if (!options.forceRefresh && !isAccessTokenExpiring(currentSession)) {
         return currentSession.accessToken;
       }
 
@@ -326,26 +333,39 @@ export function AuthProvider({ children }: PropsWithChildren) {
   );
 
   const signUp = useCallback(
-    async ({ email, password }: SignUpInput): Promise<SignUpResult> => {
-      if (!authGateway) {
+    async ({
+      email,
+      password,
+      name,
+      username,
+      phoneNumber,
+      baseCurrency,
+    }: SignUpInput): Promise<SignUpResult> => {
+      if (!registrationClient) {
         throw new AuthClientError(
           "AUTH_NOT_CONFIGURED",
           "Authentication is not configured.",
         );
       }
 
-      const result = await authGateway.register({
+      const result = await registerAccount(registrationClient, {
         email: email.trim(),
         password,
+        name: name.trim(),
+        username: username.trim().toLowerCase(),
+        phoneNumber: phoneNumber?.trim() || null,
+        baseCurrency: baseCurrency.trim().toUpperCase(),
       });
 
       if (result.session) {
         try {
           await persistSession(result.session);
         } catch (error) {
-          void authGateway
-            .signOut(result.session.accessToken)
-            .catch(() => undefined);
+          if (authGateway) {
+            void authGateway
+              .signOut(result.session.accessToken)
+              .catch(() => undefined);
+          }
           throw error;
         }
       }

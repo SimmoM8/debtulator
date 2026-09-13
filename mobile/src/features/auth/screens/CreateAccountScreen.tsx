@@ -1,10 +1,11 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -18,14 +19,26 @@ import {
   getCreateAccountErrorMessage,
   getResendConfirmationErrorMessage,
 } from "@/src/features/auth/utils/authErrorMessages";
+import { useCurrencyCatalogue } from "@/src/features/currencies/hooks/useCurrencyCatalogue";
 import { spacing, textStyles, useAppTheme } from "@/src/theme";
+
+const USERNAME_PATTERN = /^[a-z0-9_]{3,40}$/;
+const E164_PHONE_PATTERN = /^\+[1-9][0-9]{7,14}$/;
 
 export function CreateAccountScreen() {
   const theme = useAppTheme();
   const auth = useAuth();
+  const currencies = useCurrencyCatalogue();
+  const usernameInputRef = useRef<TextInput>(null);
+  const phoneInputRef = useRef<TextInput>(null);
+  const emailInputRef = useRef<TextInput>(null);
   const passwordInputRef = useRef<TextInput>(null);
   const confirmPasswordInputRef = useRef<TextInput>(null);
 
+  const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [baseCurrency, setBaseCurrency] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -35,8 +48,16 @@ export function CreateAccountScreen() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
+  const enabledCurrencies = useMemo(
+    () => currencies.data.filter((currency) => currency.enabled),
+    [currencies.data],
+  );
+
   const canSubmit =
     auth.configured &&
+    name.trim().length > 0 &&
+    USERNAME_PATTERN.test(username.trim().toLowerCase()) &&
+    baseCurrency.length > 0 &&
     email.trim().length > 0 &&
     password.length >= 8 &&
     confirmPassword.length > 0 &&
@@ -47,7 +68,35 @@ export function CreateAccountScreen() {
       return;
     }
 
+    const normalizedName = name.trim();
+    const normalizedUsername = username.trim().toLowerCase();
+    const normalizedPhoneNumber = phoneNumber.trim();
     const normalizedEmail = email.trim();
+
+    if (!normalizedName) {
+      setError("Enter your name.");
+      return;
+    }
+
+    if (!USERNAME_PATTERN.test(normalizedUsername)) {
+      setError(
+        "Username must use 3–40 lowercase letters, numbers, or underscores.",
+      );
+      return;
+    }
+
+    if (
+      normalizedPhoneNumber &&
+      !E164_PHONE_PATTERN.test(normalizedPhoneNumber)
+    ) {
+      setError("Use an international phone number such as +46701234567.");
+      return;
+    }
+
+    if (!enabledCurrencies.some((currency) => currency.code === baseCurrency)) {
+      setError("Select a supported base currency.");
+      return;
+    }
 
     if (!isValidEmail(normalizedEmail)) {
       setError("Enter a valid email address.");
@@ -78,6 +127,10 @@ export function CreateAccountScreen() {
       const result = await auth.signUp({
         email: normalizedEmail,
         password,
+        name: normalizedName,
+        username: normalizedUsername,
+        phoneNumber: normalizedPhoneNumber || null,
+        baseCurrency,
       });
 
       if (result.emailVerificationRequired) {
@@ -210,22 +263,196 @@ export function CreateAccountScreen() {
           style={styles.feature}
         />
 
-        <Text
-          style={[
-            styles.message,
-            {
-              color: theme.colors.secondaryText,
-            },
-          ]}
-        >
+        <Text style={[styles.message, { color: theme.colors.secondaryText }]}>
           Create an account to keep shared money clear and organised.
         </Text>
 
         <View style={styles.form}>
           <View style={styles.field}>
-            <Text style={[styles.label, { color: theme.colors.text }]}>Email</Text>
+            <Text style={[styles.label, { color: theme.colors.text }]}>
+              Name
+            </Text>
 
             <AppTextInput
+              value={name}
+              placeholder="Your name"
+              autoCapitalize="words"
+              autoCorrect={false}
+              autoComplete="name"
+              textContentType="name"
+              returnKeyType="next"
+              blurOnSubmit={false}
+              maxLength={120}
+              editable={!submitting}
+              onChangeText={(value) => {
+                setName(value);
+                setError(null);
+              }}
+              onSubmitEditing={() => {
+                usernameInputRef.current?.focus();
+              }}
+            />
+          </View>
+
+          <View style={styles.field}>
+            <Text style={[styles.label, { color: theme.colors.text }]}>
+              Username
+            </Text>
+
+            <AppTextInput
+              ref={usernameInputRef}
+              value={username}
+              placeholder="username"
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="username-new"
+              textContentType="username"
+              returnKeyType="next"
+              blurOnSubmit={false}
+              maxLength={40}
+              editable={!submitting}
+              onChangeText={(value) => {
+                setUsername(value.toLowerCase());
+                setError(null);
+              }}
+              onSubmitEditing={() => {
+                phoneInputRef.current?.focus();
+              }}
+            />
+
+            <Text
+              style={[styles.helper, { color: theme.colors.secondaryText }]}
+            >
+              Your unique Debtulator identifier. Use letters, numbers, and
+              underscores.
+            </Text>
+          </View>
+
+          <View style={styles.field}>
+            <Text style={[styles.label, { color: theme.colors.text }]}>
+              Phone (optional)
+            </Text>
+
+            <AppTextInput
+              ref={phoneInputRef}
+              value={phoneNumber}
+              placeholder="+46701234567"
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="tel"
+              textContentType="telephoneNumber"
+              keyboardType="phone-pad"
+              returnKeyType="next"
+              blurOnSubmit={false}
+              maxLength={32}
+              editable={!submitting}
+              onChangeText={(value) => {
+                setPhoneNumber(value);
+                setError(null);
+              }}
+              onSubmitEditing={() => {
+                emailInputRef.current?.focus();
+              }}
+            />
+
+            <Text
+              style={[styles.helper, { color: theme.colors.secondaryText }]}
+            >
+              Use international E.164 format if you add a phone number.
+            </Text>
+          </View>
+
+          <View style={styles.field}>
+            <Text style={[styles.label, { color: theme.colors.text }]}>
+              Base currency
+            </Text>
+
+            <View style={styles.currencyOptions}>
+              {enabledCurrencies.map((currency) => {
+                const selected = currency.code === baseCurrency;
+
+                return (
+                  <Pressable
+                    key={currency.code}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    disabled={submitting}
+                    onPress={() => {
+                      setBaseCurrency(currency.code);
+                      setError(null);
+                    }}
+                    style={({ pressed }) => [
+                      styles.currencyOption,
+                      {
+                        backgroundColor: selected
+                          ? theme.colors.controlContainer
+                          : theme.colors.appBackground,
+                        borderColor: selected
+                          ? theme.colors.controlTint
+                          : theme.colors.outline,
+                      },
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.currencyCode,
+                        {
+                          color: selected
+                            ? theme.colors.onControlContainer
+                            : theme.colors.text,
+                        },
+                      ]}
+                    >
+                      {currency.code}
+                    </Text>
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        styles.currencyName,
+                        {
+                          color: selected
+                            ? theme.colors.onControlContainer
+                            : theme.colors.secondaryText,
+                        },
+                      ]}
+                    >
+                      {currency.name}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {currencies.loading ? (
+              <Text
+                style={[styles.helper, { color: theme.colors.secondaryText }]}
+              >
+                Loading currencies…
+              </Text>
+            ) : null}
+
+            {currencies.error ? (
+              <Text style={[styles.helper, { color: theme.colors.negative }]}>
+                Couldn’t load the local currency catalogue.
+              </Text>
+            ) : null}
+
+            <Text
+              style={[styles.helper, { color: theme.colors.secondaryText }]}
+            >
+              Summaries use this currency. Individual debts keep their original
+              currency.
+            </Text>
+          </View>
+
+          <View style={styles.field}>
+            <Text style={[styles.label, { color: theme.colors.text }]}>
+              Email
+            </Text>
+
+            <AppTextInput
+              ref={emailInputRef}
               value={email}
               placeholder="you@example.com"
               autoCapitalize="none"
@@ -248,7 +475,9 @@ export function CreateAccountScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text style={[styles.label, { color: theme.colors.text }]}>Password</Text>
+            <Text style={[styles.label, { color: theme.colors.text }]}>
+              Password
+            </Text>
 
             <AppTextInput
               ref={passwordInputRef}
@@ -274,7 +503,9 @@ export function CreateAccountScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text style={[styles.label, { color: theme.colors.text }]}>Confirm password</Text>
+            <Text style={[styles.label, { color: theme.colors.text }]}>
+              Confirm password
+            </Text>
 
             <AppTextInput
               ref={confirmPasswordInputRef}
@@ -297,6 +528,16 @@ export function CreateAccountScreen() {
               }}
             />
           </View>
+
+          <Text
+            style={[
+              styles.discoveryNotice,
+              { color: theme.colors.secondaryText },
+            ]}
+          >
+            Debtulator uses your username, name, and exact contact identifiers
+            for user discovery and member linking.
+          </Text>
 
           {!auth.configured && !error ? (
             <Text
@@ -369,9 +610,41 @@ const styles = StyleSheet.create({
     ...textStyles.caption,
     fontWeight: textStyles.headline.fontWeight,
   },
+  helper: {
+    ...textStyles.caption,
+    lineHeight: 18,
+  },
+  currencyOptions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  currencyOption: {
+    minWidth: 112,
+    flexGrow: 1,
+    flexBasis: "30%",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  currencyCode: {
+    ...textStyles.headline,
+  },
+  currencyName: {
+    ...textStyles.caption,
+    marginTop: 2,
+  },
+  discoveryNotice: {
+    ...textStyles.caption,
+    lineHeight: 18,
+  },
   error: {
     ...textStyles.caption,
     lineHeight: 18,
+  },
+  pressed: {
+    opacity: 0.65,
   },
   confirmation: {
     flexGrow: 1,
