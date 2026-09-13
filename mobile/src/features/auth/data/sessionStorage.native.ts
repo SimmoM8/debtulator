@@ -1,15 +1,19 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from "expo-secure-store";
+
+const secureStoreOptions = {
+  keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+};
 
 export const authSessionStorage = {
   getItem(key: string) {
-    return AsyncStorage.getItem(key);
+    return SecureStore.getItemAsync(key);
   },
 
   setItem(key: string, value: string) {
-    return AsyncStorage.setItem(key, value);
+    return SecureStore.setItemAsync(key, value, secureStoreOptions);
   },
 
   removeItem(key: string) {
-    return AsyncStorage.removeItem(key);
+    return SecureStore.deleteItemAsync(key);
   },
 };

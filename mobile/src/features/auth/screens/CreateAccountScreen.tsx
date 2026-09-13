@@ -14,6 +14,10 @@ import {
 
 import { AppButton, AppTextInput } from "@/src/components/controls";
 import { useAuth } from "@/src/features/auth/AuthProvider";
+import {
+  getCreateAccountErrorMessage,
+  getResendConfirmationErrorMessage,
+} from "@/src/features/auth/utils/authErrorMessages";
 import { spacing, textStyles, useAppTheme } from "@/src/theme";
 
 export function CreateAccountScreen() {
@@ -26,13 +30,15 @@ export function CreateAccountScreen() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [resending, setResending] = useState(false);
   const [verificationSent, setVerificationSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const canSubmit =
     auth.configured &&
     email.trim().length > 0 &&
-    password.length > 0 &&
+    password.length >= 8 &&
     confirmPassword.length > 0 &&
     !submitting;
 
@@ -66,6 +72,7 @@ export function CreateAccountScreen() {
     Keyboard.dismiss();
     setSubmitting(true);
     setError(null);
+    setNotice(null);
 
     try {
       const result = await auth.signUp({
@@ -83,12 +90,29 @@ export function CreateAccountScreen() {
     }
   }
 
+  async function resendConfirmation() {
+    if (resending) {
+      return;
+    }
+
+    setResending(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      await auth.resendConfirmation({ email: email.trim() });
+      setNotice("A new confirmation email has been sent.");
+    } catch (error) {
+      setError(getResendConfirmationErrorMessage(error));
+    } finally {
+      setResending(false);
+    }
+  }
+
   if (verificationSent) {
     return (
       <ScrollView
-        style={{
-          backgroundColor: theme.colors.appBackground,
-        }}
+        style={{ backgroundColor: theme.colors.appBackground }}
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={styles.confirmation}
       >
@@ -117,14 +141,44 @@ export function CreateAccountScreen() {
             },
           ]}
         >
-          We sent a confirmation link to {email.trim()}.
+          We sent a confirmation link to {email.trim()}. Open it on this device
+          to finish creating your account.
         </Text>
 
-        <View style={styles.confirmationAction}>
+        {error ? (
+          <Text
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+            style={[styles.centeredError, { color: theme.colors.negative }]}
+          >
+            {error}
+          </Text>
+        ) : null}
+
+        {notice ? (
+          <Text
+            accessibilityLiveRegion="polite"
+            style={[styles.centeredNotice, { color: theme.colors.positive }]}
+          >
+            {notice}
+          </Text>
+        ) : null}
+
+        <View style={styles.confirmationActions}>
           <AppButton
-            label="Done"
+            label="Resend confirmation"
+            variant="secondary"
+            loading={resending}
+            disabled={resending}
             onPress={() => {
-              router.back();
+              void resendConfirmation();
+            }}
+          />
+
+          <AppButton
+            label="Back to sign in"
+            onPress={() => {
+              router.replace("/(auth)/sign-in");
             }}
           />
         </View>
@@ -169,16 +223,7 @@ export function CreateAccountScreen() {
 
         <View style={styles.form}>
           <View style={styles.field}>
-            <Text
-              style={[
-                styles.label,
-                {
-                  color: theme.colors.text,
-                },
-              ]}
-            >
-              Email
-            </Text>
+            <Text style={[styles.label, { color: theme.colors.text }]}>Email</Text>
 
             <AppTextInput
               value={email}
@@ -190,6 +235,7 @@ export function CreateAccountScreen() {
               keyboardType="email-address"
               returnKeyType="next"
               blurOnSubmit={false}
+              maxLength={320}
               editable={!submitting}
               onChangeText={(value) => {
                 setEmail(value);
@@ -202,16 +248,7 @@ export function CreateAccountScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text
-              style={[
-                styles.label,
-                {
-                  color: theme.colors.text,
-                },
-              ]}
-            >
-              Password
-            </Text>
+            <Text style={[styles.label, { color: theme.colors.text }]}>Password</Text>
 
             <AppTextInput
               ref={passwordInputRef}
@@ -224,6 +261,7 @@ export function CreateAccountScreen() {
               textContentType="newPassword"
               returnKeyType="next"
               blurOnSubmit={false}
+              maxLength={128}
               editable={!submitting}
               onChangeText={(value) => {
                 setPassword(value);
@@ -236,16 +274,7 @@ export function CreateAccountScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text
-              style={[
-                styles.label,
-                {
-                  color: theme.colors.text,
-                },
-              ]}
-            >
-              Confirm password
-            </Text>
+            <Text style={[styles.label, { color: theme.colors.text }]}>Confirm password</Text>
 
             <AppTextInput
               ref={confirmPasswordInputRef}
@@ -257,6 +286,7 @@ export function CreateAccountScreen() {
               autoComplete="new-password"
               textContentType="newPassword"
               returnKeyType="done"
+              maxLength={128}
               editable={!submitting}
               onChangeText={(value) => {
                 setConfirmPassword(value);
@@ -271,12 +301,7 @@ export function CreateAccountScreen() {
           {!auth.configured && !error ? (
             <Text
               accessibilityRole="alert"
-              style={[
-                styles.error,
-                {
-                  color: theme.colors.negative,
-                },
-              ]}
+              style={[styles.error, { color: theme.colors.negative }]}
             >
               Authentication is not available in this build.
             </Text>
@@ -286,12 +311,7 @@ export function CreateAccountScreen() {
             <Text
               accessibilityRole="alert"
               accessibilityLiveRegion="polite"
-              style={[
-                styles.error,
-                {
-                  color: theme.colors.negative,
-                },
-              ]}
+              style={[styles.error, { color: theme.colors.negative }]}
             >
               {error}
             </Text>
@@ -315,99 +335,44 @@ function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
-function getCreateAccountErrorMessage(error: unknown): string {
-  if (typeof error !== "object" || error === null) {
-    return "Unable to create your account right now. Please try again.";
-  }
-
-  const candidate = error as {
-    code?: unknown;
-    status?: unknown;
-    message?: unknown;
-  };
-
-  const code =
-    typeof candidate.code === "string" ? candidate.code.toLowerCase() : "";
-
-  const message =
-    typeof candidate.message === "string"
-      ? candidate.message.toLowerCase()
-      : "";
-
-  if (
-    code.includes("already") ||
-    message.includes("already registered") ||
-    message.includes("already exists")
-  ) {
-    return "An account already uses those credentials.";
-  }
-
-  if (code.includes("password") || message.includes("password")) {
-    return "Choose a stronger password and try again.";
-  }
-
-  if (candidate.status === 429 || code.includes("rate_limit")) {
-    return "Too many attempts. Try again in a little while.";
-  }
-
-  if (
-    message.includes("network request failed") ||
-    message.includes("failed to fetch") ||
-    message.includes("network")
-  ) {
-    return "Couldn’t reach Debtulator. Check your connection and try again.";
-  }
-
-  return "Unable to create your account right now. Please try again.";
-}
-
 const styles = StyleSheet.create({
   root: {
     flex: 1,
   },
-
   scrollView: {
     flex: 1,
   },
-
   content: {
     flexGrow: 1,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
     paddingBottom: spacing.xl,
   },
-
   feature: {
     width: "100%",
     height: 160,
   },
-
   message: {
     ...textStyles.body,
     marginTop: spacing.md,
     lineHeight: 24,
     textAlign: "center",
   },
-
   form: {
     gap: spacing.md,
     marginTop: spacing.lg,
   },
-
   field: {
     gap: spacing.xs,
   },
-
   label: {
     ...textStyles.caption,
     fontWeight: textStyles.headline.fontWeight,
   },
-
   error: {
     ...textStyles.caption,
     lineHeight: 18,
   },
-
   confirmation: {
     flexGrow: 1,
     alignItems: "center",
@@ -415,27 +380,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.xl,
   },
-
   confirmationFeature: {
     width: "100%",
     height: 180,
   },
-
   confirmationTitle: {
     ...textStyles.title,
     marginTop: spacing.lg,
     textAlign: "center",
   },
-
   confirmationMessage: {
     ...textStyles.body,
     marginTop: spacing.sm,
     lineHeight: 24,
     textAlign: "center",
   },
-
-  confirmationAction: {
+  confirmationActions: {
     width: "100%",
+    gap: spacing.md,
     marginTop: spacing.lg,
+  },
+  centeredError: {
+    ...textStyles.caption,
+    marginTop: spacing.md,
+    lineHeight: 18,
+    textAlign: "center",
+  },
+  centeredNotice: {
+    ...textStyles.caption,
+    marginTop: spacing.md,
+    lineHeight: 18,
+    textAlign: "center",
   },
 });

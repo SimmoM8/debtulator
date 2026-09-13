@@ -126,7 +126,6 @@ const styles = StyleSheet.create({
     width: "100%",
     overflow: "hidden",
   },
-
   feature: {
     position: "absolute",
     top: 0,
@@ -136,24 +135,20 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
-
   heroContent: {
     flex: 1,
     alignItems: "center",
     zIndex: 1,
   },
-
   brand: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
   },
-
   brandName: {
     ...textStyles.headline,
   },
-
   copy: {
     width: "100%",
     maxWidth: 420,
@@ -161,12 +156,10 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
     paddingHorizontal: spacing.lg,
   },
-
   title: {
     ...textStyles.largeTitle,
     textAlign: "center",
   },
-
   subtitle: {
     ...textStyles.body,
     maxWidth: 340,
@@ -174,14 +167,12 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 24,
   },
-
   actions: {
     width: "100%",
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.lg,
   },
-
   actionsContent: {
     width: "100%",
     maxWidth: 480,

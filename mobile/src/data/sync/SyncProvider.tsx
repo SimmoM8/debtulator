@@ -2,31 +2,58 @@ import type { PropsWithChildren } from "react";
 import { useCallback, useEffect } from "react";
 import { AppState } from "react-native";
 
+import { backendApiUrl } from "@/src/data/backend/backendConfig";
 import { openDatabase } from "@/src/data/sqlite/openDatabase";
-import { supabase } from "@/src/data/supabase/supabaseClient";
+import { useAuth } from "@/src/features/auth/AuthProvider";
 
-import { BackendSyncGateway } from "./BackendSyncGateway";
+import {
+  BackendApiError,
+  BackendSyncGateway,
+} from "./BackendSyncGateway";
 import { SyncBlockedError, SyncEngine } from "./SyncEngine";
 import { subscribeToSyncRequests } from "./syncSignal";
 
 const SYNC_INTERVAL_MS = 60_000;
-const backendApiUrl = process.env.EXPO_PUBLIC_API_URL?.trim() ?? "";
 
 type SyncProviderProps = PropsWithChildren<{
   ownerUserId: string;
 }>;
 
+type AccessTokenProvider = (options?: {
+  forceRefresh?: boolean;
+}) => Promise<string>;
+
 export function SyncProvider({ ownerUserId, children }: SyncProviderProps) {
+  const auth = useAuth();
+
   const runSync = useCallback(async () => {
-    if (!supabase || !backendApiUrl) {
+    if (!backendApiUrl || !auth.session) {
       return;
     }
 
     try {
       const db = await openDatabase();
-      const engine = getSyncEngine(db, ownerUserId);
+      const engine = getSyncEngine(
+        db,
+        ownerUserId,
+        auth.getAccessToken,
+      );
 
-      await engine.sync(ownerUserId);
+      try {
+        await engine.sync(ownerUserId);
+      } catch (error) {
+        if (!(error instanceof BackendApiError) || error.status !== 401) {
+          throw error;
+        }
+
+        /*
+         * The backend rejected the access token. Force one refresh through
+         * AuthProvider, which also clears the app session when the refresh
+         * token is no longer valid, then retry the sync once.
+         */
+        await auth.getAccessToken({ forceRefresh: true });
+        await engine.sync(ownerUserId);
+      }
     } catch (error) {
       if (error instanceof SyncBlockedError) {
         console.warn("Sync requires attention", error.message);
@@ -39,7 +66,7 @@ export function SyncProvider({ ownerUserId, children }: SyncProviderProps) {
        */
       console.warn("Sync failed", error);
     }
-  }, [ownerUserId]);
+  }, [auth.getAccessToken, auth.session, ownerUserId]);
 
   useEffect(() => {
     void runSync();
@@ -79,44 +106,30 @@ export function SyncProvider({ ownerUserId, children }: SyncProviderProps) {
 let syncEngine: {
   db: Awaited<ReturnType<typeof openDatabase>>;
   ownerUserId: string;
+  getAccessToken: AccessTokenProvider;
   engine: SyncEngine;
 } | null = null;
 
 function getSyncEngine(
   db: Awaited<ReturnType<typeof openDatabase>>,
   ownerUserId: string,
+  getAccessToken: AccessTokenProvider,
 ): SyncEngine {
   if (
     !syncEngine ||
     syncEngine.db !== db ||
-    syncEngine.ownerUserId !== ownerUserId
+    syncEngine.ownerUserId !== ownerUserId ||
+    syncEngine.getAccessToken !== getAccessToken
   ) {
     const remote = new BackendSyncGateway(
       backendApiUrl,
-      async () => {
-        if (!supabase) {
-          throw new Error("Supabase Auth is not configured.");
-        }
-
-        const { data, error } = await supabase.auth.getSession();
-
-        if (error) {
-          throw error;
-        }
-
-        const accessToken = data.session?.access_token;
-
-        if (!accessToken) {
-          throw new Error("No authenticated access token is available.");
-        }
-
-        return accessToken;
-      },
+      () => getAccessToken(),
     );
 
     syncEngine = {
       db,
       ownerUserId,
+      getAccessToken,
       engine: new SyncEngine(db, remote),
     };
   }

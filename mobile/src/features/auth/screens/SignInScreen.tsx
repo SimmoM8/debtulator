@@ -15,6 +15,11 @@ import {
 
 import { AppButton, AppTextInput } from "@/src/components/controls";
 import { useAuth } from "@/src/features/auth/AuthProvider";
+import {
+  getResendConfirmationErrorMessage,
+  getSignInErrorMessage,
+  isEmailConfirmationRequired,
+} from "@/src/features/auth/utils/authErrorMessages";
 import { spacing, textStyles, useAppTheme } from "@/src/theme";
 
 export function SignInScreen() {
@@ -25,16 +30,20 @@ export function SignInScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [confirmationRequired, setConfirmationRequired] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const canSubmit =
     auth.configured &&
     email.trim().length > 0 &&
     password.length > 0 &&
-    !submitting;
+    !submitting &&
+    !resending;
 
   async function signIn() {
-    if (submitting) {
+    if (submitting || resending) {
       return;
     }
 
@@ -62,7 +71,9 @@ export function SignInScreen() {
 
     Keyboard.dismiss();
     setSubmitting(true);
+    setConfirmationRequired(false);
     setError(null);
+    setNotice(null);
 
     try {
       await auth.signIn({
@@ -70,10 +81,38 @@ export function SignInScreen() {
         password,
       });
     } catch (error) {
-      setError(getLoginErrorMessage(error));
+      setConfirmationRequired(isEmailConfirmationRequired(error));
+      setError(getSignInErrorMessage(error));
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function resendConfirmation() {
+    const normalizedEmail = email.trim();
+
+    if (!isValidEmail(normalizedEmail) || resending || submitting) {
+      return;
+    }
+
+    setResending(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      await auth.resendConfirmation({ email: normalizedEmail });
+      setNotice("A new confirmation email has been sent.");
+    } catch (error) {
+      setError(getResendConfirmationErrorMessage(error));
+    } finally {
+      setResending(false);
+    }
+  }
+
+  function clearFeedback() {
+    setConfirmationRequired(false);
+    setError(null);
+    setNotice(null);
   }
 
   return (
@@ -113,16 +152,7 @@ export function SignInScreen() {
 
         <View style={styles.form}>
           <View style={styles.field}>
-            <Text
-              style={[
-                styles.label,
-                {
-                  color: theme.colors.text,
-                },
-              ]}
-            >
-              Email
-            </Text>
+            <Text style={[styles.label, { color: theme.colors.text }]}>Email</Text>
 
             <AppTextInput
               value={email}
@@ -134,10 +164,11 @@ export function SignInScreen() {
               keyboardType="email-address"
               returnKeyType="next"
               blurOnSubmit={false}
-              editable={!submitting}
+              maxLength={320}
+              editable={!submitting && !resending}
               onChangeText={(value) => {
                 setEmail(value);
-                setError(null);
+                clearFeedback();
               }}
               onSubmitEditing={() => {
                 passwordInputRef.current?.focus();
@@ -146,16 +177,7 @@ export function SignInScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text
-              style={[
-                styles.label,
-                {
-                  color: theme.colors.text,
-                },
-              ]}
-            >
-              Password
-            </Text>
+            <Text style={[styles.label, { color: theme.colors.text }]}>Password</Text>
 
             <AppTextInput
               ref={passwordInputRef}
@@ -167,10 +189,11 @@ export function SignInScreen() {
               autoComplete="current-password"
               textContentType="password"
               returnKeyType="go"
-              editable={!submitting}
+              maxLength={128}
+              editable={!submitting && !resending}
               onChangeText={(value) => {
                 setPassword(value);
-                setError(null);
+                clearFeedback();
               }}
               onSubmitEditing={() => {
                 void signIn();
@@ -179,13 +202,13 @@ export function SignInScreen() {
 
             <Pressable
               accessibilityRole="button"
-              disabled={submitting}
+              disabled={submitting || resending}
               onPress={() => {
                 router.push("/(auth)/forgot-password");
               }}
               style={({ pressed }) => [
                 styles.textAction,
-                pressed && !submitting && styles.textActionPressed,
+                pressed && styles.textActionPressed,
               ]}
             >
               <Text
@@ -204,12 +227,7 @@ export function SignInScreen() {
           {!auth.configured && !error ? (
             <Text
               accessibilityRole="alert"
-              style={[
-                styles.error,
-                {
-                  color: theme.colors.negative,
-                },
-              ]}
+              style={[styles.error, { color: theme.colors.negative }]}
             >
               Authentication is not available in this build.
             </Text>
@@ -219,15 +237,42 @@ export function SignInScreen() {
             <Text
               accessibilityRole="alert"
               accessibilityLiveRegion="polite"
-              style={[
-                styles.error,
-                {
-                  color: theme.colors.negative,
-                },
-              ]}
+              style={[styles.error, { color: theme.colors.negative }]}
             >
               {error}
             </Text>
+          ) : null}
+
+          {notice ? (
+            <Text
+              accessibilityLiveRegion="polite"
+              style={[styles.notice, { color: theme.colors.positive }]}
+            >
+              {notice}
+            </Text>
+          ) : null}
+
+          {confirmationRequired ? (
+            <Pressable
+              accessibilityRole="button"
+              disabled={resending || submitting}
+              onPress={() => {
+                void resendConfirmation();
+              }}
+              style={({ pressed }) => [
+                styles.resendAction,
+                pressed && styles.textActionPressed,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.resendActionLabel,
+                  { color: theme.colors.controlTint },
+                ]}
+              >
+                {resending ? "Sending…" : "Resend confirmation email"}
+              </Text>
+            </Pressable>
           ) : null}
 
           <AppButton
@@ -248,114 +293,64 @@ function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
-function getLoginErrorMessage(error: unknown): string {
-  if (typeof error !== "object" || error === null) {
-    return "Unable to sign in right now. Please try again.";
-  }
-
-  const candidate = error as {
-    code?: unknown;
-    status?: unknown;
-    message?: unknown;
-  };
-
-  const code =
-    typeof candidate.code === "string" ? candidate.code.toLowerCase() : "";
-
-  const message =
-    typeof candidate.message === "string"
-      ? candidate.message.toLowerCase()
-      : "";
-
-  if (
-    code === "invalid_credentials" ||
-    code === "auth_invalid_credentials" ||
-    message.includes("invalid login credentials") ||
-    message.includes("invalid credentials")
-  ) {
-    return "Incorrect email or password.";
-  }
-
-  if (code === "email_not_confirmed" || code === "auth_email_not_confirmed") {
-    return "Confirm your email address before signing in.";
-  }
-
-  if (
-    candidate.status === 429 ||
-    code === "auth_rate_limited" ||
-    code.includes("rate_limit")
-  ) {
-    return "Too many sign-in attempts. Try again in a little while.";
-  }
-
-  if (
-    message.includes("network request failed") ||
-    message.includes("failed to fetch") ||
-    message.includes("network")
-  ) {
-    return "Couldn’t reach Debtulator. Check your connection and try again.";
-  }
-
-  return "Unable to sign in right now. Please try again.";
-}
-
 const styles = StyleSheet.create({
   root: {
     flex: 1,
   },
-
   scrollView: {
     flex: 1,
   },
-
   content: {
     flexGrow: 1,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
     paddingBottom: spacing.xl,
   },
-
   feature: {
     width: "100%",
     height: 180,
   },
-
   message: {
     ...textStyles.body,
     marginTop: spacing.md,
     lineHeight: 24,
     textAlign: "center",
   },
-
   form: {
     gap: spacing.md,
     marginTop: spacing.lg,
   },
-
   field: {
     gap: spacing.xs,
   },
-
   label: {
     ...textStyles.caption,
     fontWeight: textStyles.headline.fontWeight,
   },
-
   textAction: {
     alignSelf: "flex-end",
     paddingVertical: spacing.xs,
   },
-
   textActionLabel: {
     ...textStyles.caption,
     fontWeight: textStyles.headline.fontWeight,
   },
-
+  resendAction: {
+    alignSelf: "flex-start",
+    paddingVertical: spacing.xs,
+  },
+  resendActionLabel: {
+    ...textStyles.caption,
+    fontWeight: textStyles.headline.fontWeight,
+  },
   textActionPressed: {
     opacity: 0.6,
   },
-
   error: {
+    ...textStyles.caption,
+    lineHeight: 18,
+  },
+  notice: {
     ...textStyles.caption,
     lineHeight: 18,
   },
