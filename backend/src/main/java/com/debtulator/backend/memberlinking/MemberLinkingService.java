@@ -141,6 +141,7 @@ public class MemberLinkingService {
                 requesterName,
                 targetName,
                 requesterMember.getId(),
+                useTargetName,
                 Instant.now(clock)
         );
 
@@ -184,11 +185,17 @@ public class MemberLinkingService {
                 "The requester profile is no longer complete."
         );
 
+        String currentTargetName = requireName(
+                requireTargetProfile(request.getTargetUserId()),
+                MemberLinkingException.Reason.TARGET_PROFILE_INCOMPLETE,
+                "The target profile is no longer complete."
+        );
+
         Member requesterMember = linkExistingMember(
                 request.getRequesterUserId(),
                 request.getRequesterMemberId(),
                 request.getTargetUserId(),
-                null
+                request.isRequesterUseTargetName() ? currentTargetName : null
         );
 
         Member targetMember = prepareTargetMember(
@@ -307,14 +314,7 @@ public class MemberLinkingService {
             );
         }
 
-        Member member = requireAvailableMember(requesterUserId, requesterMemberId);
-        if (!useTargetName) return member;
-
-        try {
-            return memberService.renameForLinking(requesterUserId, requesterMemberId, targetName);
-        } catch (MemberServiceException exception) {
-            throw mapMemberException(exception, "The selected member could not be renamed for linking.");
-        }
+        return requireAvailableMember(requesterUserId, requesterMemberId);
     }
 
     private Member prepareTargetMember(
