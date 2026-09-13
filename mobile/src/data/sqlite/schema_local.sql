@@ -1,7 +1,7 @@
 -- Debtulator local SQLite schema
--- Effective schema version: 3
+-- Effective schema version: 4
 --
--- Consolidated end-state represented by migrateDatabase.ts after V1 -> V2 -> V3.
+-- Consolidated end-state represented by migrateDatabase.ts after V1 -> V2 -> V3 -> V4.
 -- This is a reference schema only; runtime upgrades must use migrateDatabase.ts.
 
 PRAGMA foreign_keys = ON;
@@ -37,6 +37,9 @@ CREATE INDEX currencies_enabled_display_order_idx
 
 CREATE TABLE profiles (
   user_id TEXT PRIMARY KEY NOT NULL,
+  username TEXT,
+  name TEXT,
+  phone_number TEXT,
   base_currency_code TEXT NOT NULL DEFAULT 'SEK',
   FOREIGN KEY (base_currency_code)
     REFERENCES currencies(code)
@@ -112,4 +115,4 @@ CREATE TABLE sync_state (
     CHECK (bootstrap_completed IN (0, 1))
 );
 
-PRAGMA user_version = 3;
+PRAGMA user_version = 4;

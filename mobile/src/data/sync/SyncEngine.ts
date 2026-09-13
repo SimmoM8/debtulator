@@ -93,13 +93,17 @@ export class SyncEngine {
   }
 
   private async syncReferenceData(ownerUserId: string): Promise<void> {
-    const [currencies, baseCurrencyCode] = await Promise.all([
+    const [currencies, profile] = await Promise.all([
       this.remote.getCurrencyCatalogue(),
-      this.remote.getBaseCurrencyCode(),
+      this.remote.getProfile(),
     ]);
 
     if (currencies.length === 0) {
       throw new Error("Backend returned an empty currency catalogue.");
+    }
+
+    if (profile.userId !== ownerUserId) {
+      throw new Error("Backend returned a profile for another user.");
     }
 
     const returnedCodes = new Set(currencies.map((currency) => currency.code));
@@ -111,18 +115,18 @@ export class SyncEngine {
       await currencyRepository.replaceCatalogue(currencies);
 
       const baseCurrency =
-        returnedCodes.has(baseCurrencyCode)
-          ? baseCurrencyCode
-          : (await currencyRepository.getByCode(baseCurrencyCode))?.code;
+        returnedCodes.has(profile.baseCurrencyCode)
+          ? profile.baseCurrencyCode
+          : (await currencyRepository.getByCode(profile.baseCurrencyCode))?.code;
 
       if (!baseCurrency) {
         throw new Error(
-          `Backend profile references unknown base currency '${baseCurrencyCode}'.`,
+          `Backend profile references unknown base currency '${profile.baseCurrencyCode}'.`,
         );
       }
 
       await profileRepository.save({
-        userId: ownerUserId,
+        ...profile,
         baseCurrencyCode: baseCurrency,
       });
     });

@@ -2,7 +2,7 @@ import type { SQLiteDatabase } from "expo-sqlite";
 
 import { createSchema } from "./createSchema";
 
-const DATABASE_VERSION = 3;
+const DATABASE_VERSION = 4;
 
 type UserVersionRow = {
   user_version: number;
@@ -63,6 +63,11 @@ export async function migrateDatabase(db: SQLiteDatabase): Promise<void> {
   if (version < 3) {
     await migrateToLocalCurrencyCatalogue(db);
     version = 3;
+  }
+
+  if (version < 4) {
+    await migrateToAccountProfile(db);
+    version = 4;
   }
 
   await assertCurrentSchema(db);
@@ -288,6 +293,16 @@ async function migrateToLocalCurrencyCatalogue(
     }
 
     await tx.execAsync("PRAGMA user_version = 3");
+  });
+}
+
+async function migrateToAccountProfile(db: SQLiteDatabase): Promise<void> {
+  await db.withExclusiveTransactionAsync(async (tx) => {
+    await addColumnIfMissing(tx, "profiles", "username", "TEXT");
+    await addColumnIfMissing(tx, "profiles", "name", "TEXT");
+    await addColumnIfMissing(tx, "profiles", "phone_number", "TEXT");
+
+    await tx.execAsync("PRAGMA user_version = 4");
   });
 }
 
@@ -599,7 +614,13 @@ async function assertCurrentSchema(db: SQLiteDatabase): Promise<void> {
       "enabled",
       "display_order",
     ],
-    profiles: ["user_id", "base_currency_code"],
+    profiles: [
+      "user_id",
+      "username",
+      "name",
+      "phone_number",
+      "base_currency_code",
+    ],
     debts: [
       "id",
       "owner_user_id",

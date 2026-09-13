@@ -63,6 +63,9 @@ export async function createSchema(db: SQLiteDatabase): Promise<void> {
 
     CREATE TABLE IF NOT EXISTS profiles (
       user_id TEXT PRIMARY KEY NOT NULL,
+      username TEXT,
+      name TEXT,
+      phone_number TEXT,
       base_currency_code TEXT NOT NULL DEFAULT 'SEK',
       FOREIGN KEY (base_currency_code)
         REFERENCES currencies(code)

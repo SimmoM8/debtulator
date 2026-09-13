@@ -16,8 +16,13 @@ import { MemberAvatar } from "@/src/features/members/components/MemberAvatar";
 import { MemberSearchResultsList } from "@/src/features/members/components/MemberSearchResultsList";
 import { useCreateMemberLinkRequest } from "@/src/features/members/hooks/useCreateMemberLinkRequest";
 import { useMember } from "@/src/features/members/hooks/useMember";
-import { useUserDiscovery } from "@/src/features/members/hooks/useUserDiscovery";
+import {
+  MIN_USER_DISCOVERY_QUERY_LENGTH,
+  useUserDiscovery,
+} from "@/src/features/members/hooks/useUserDiscovery";
 import { NativeThemeHost, spacing, textStyles, useAppTheme } from "@/src/theme";
+
+const SEARCH_PLACEHOLDER = "Search username, name, email or phone";
 
 export function LinkMemberScreen() {
   const theme = useAppTheme();
@@ -31,7 +36,9 @@ export function LinkMemberScreen() {
     member.data?.linkedUserId === null ? searchQuery : "",
   );
   const linkRequest = useCreateMemberLinkRequest();
-  const hasSearchQuery = searchQuery.trim().length > 0;
+  const queryLength = searchQuery.trim().length;
+  const hasSearchQuery = queryLength > 0;
+  const canSearch = queryLength >= MIN_USER_DISCOVERY_QUERY_LENGTH;
 
   const targetMemberName = member.loading
     ? "Loading member…"
@@ -76,7 +83,7 @@ export function LinkMemberScreen() {
       {Platform.OS === "ios" ? (
         <>
           <Stack.SearchBar
-            placeholder="Search by name or email"
+            placeholder={SEARCH_PLACEHOLDER}
             placement="integrated"
             hideNavigationBar={false}
             hideWhenScrolling={false}
@@ -101,7 +108,7 @@ export function LinkMemberScreen() {
                 modifiers={[fillMaxWidth()]}
               >
                 <DockedSearchBar.Placeholder>
-                  <AndroidText>Search by name or email</AndroidText>
+                  <AndroidText>{SEARCH_PLACEHOLDER}</AndroidText>
                 </DockedSearchBar.Placeholder>
                 <DockedSearchBar.LeadingIcon>
                   <Icon
@@ -116,9 +123,9 @@ export function LinkMemberScreen() {
         ) : null}
 
         <MemberSearchResultsList
-          items={hasSearchQuery ? discovery.data : []}
-          loading={hasSearchQuery && discovery.loading}
-          error={discovery.error?.message ?? null}
+          items={canSearch ? discovery.data : []}
+          loading={canSearch && discovery.loading}
+          error={canSearch ? discovery.error?.message ?? null : null}
           disabled={linkRequest.isCreating}
           onRetry={discovery.refresh}
           onPressItem={(targetUserId) => void selectUser(targetUserId)}
@@ -148,15 +155,20 @@ export function LinkMemberScreen() {
             </View>
           }
           emptyState={
-            hasSearchQuery
+            !hasSearchQuery
               ? {
-                  title: "No users found",
-                  message: "Try a different name or email address.",
-                }
-              : {
                   title: "Search for a user",
-                  message: "Search by name or email.",
+                  message: "Search by username, name, exact email, or exact phone number.",
                 }
+              : !canSearch
+                ? {
+                    title: "Keep typing",
+                    message: `Enter at least ${MIN_USER_DISCOVERY_QUERY_LENGTH} characters.`,
+                  }
+                : {
+                    title: "No users found",
+                    message: "Try a different username, name, email address, or phone number.",
+                  }
           }
         />
       </View>

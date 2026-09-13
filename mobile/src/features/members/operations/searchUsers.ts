@@ -18,14 +18,12 @@ export async function searchUsers(
 
 function parseDiscoveredUser(value: unknown): DiscoveredUser {
   const object = requireObject(value);
+  const username = requireString(object.username, "username");
 
   return {
     id: requireString(object.id, "id"),
     displayName: requireString(object.name, "name"),
-    detail:
-      object.detail === null
-        ? null
-        : requireString(object.detail, "detail"),
+    detail: `@${username}`,
   };
 }
 
