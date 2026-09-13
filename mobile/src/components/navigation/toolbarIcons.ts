@@ -3,12 +3,15 @@ import ArrowBackIcon from "@expo/material-symbols/arrow_back.xml";
 import CheckIcon from "@expo/material-symbols/check.xml";
 import CloseIcon from "@expo/material-symbols/close.xml";
 import MoreIcon from "@expo/material-symbols/more_vert.xml";
+import NotificationsIcon from "@expo/material-symbols/notifications.xml";
 import SearchIcon from "@expo/material-symbols/search.xml";
 
 export const toolbarIcons = {
   plus: process.env.EXPO_OS === "ios" ? "plus" : AddIcon,
 
   back: process.env.EXPO_OS === "ios" ? "chevron.left" : ArrowBackIcon,
+
+  bell: process.env.EXPO_OS === "ios" ? "bell" : NotificationsIcon,
 
   check: process.env.EXPO_OS === "ios" ? "checkmark" : CheckIcon,
 

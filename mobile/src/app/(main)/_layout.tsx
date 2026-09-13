@@ -10,6 +10,8 @@ export default function MainLayout() {
     >
       <Stack.Screen name="(tabs)" />
 
+      <Stack.Screen name="inbox" />
+
       <Stack.Screen
         name="(modals)"
         options={{

@@ -13,7 +13,6 @@ export function useCreateMemberLinkRequest() {
     async (input: {
       member: Member;
       targetUserId: string;
-      useTargetName: boolean;
     }) => {
       if (!backend) {
         throw new Error("The backend is not available.");
@@ -31,7 +30,7 @@ export function useCreateMemberLinkRequest() {
           targetUserId: input.targetUserId,
           memberId: input.member.id,
           displayName: null,
-          useTargetName: input.useTargetName,
+          useTargetName: false,
         });
       } finally {
         setIsCreating(false);

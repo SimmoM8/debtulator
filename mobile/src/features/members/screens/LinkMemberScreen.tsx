@@ -16,6 +16,7 @@ import { MemberAvatar } from "@/src/features/members/components/MemberAvatar";
 import { MemberSearchResultsList } from "@/src/features/members/components/MemberSearchResultsList";
 import { useCreateMemberLinkRequest } from "@/src/features/members/hooks/useCreateMemberLinkRequest";
 import { useMember } from "@/src/features/members/hooks/useMember";
+import { renameMember } from "@/src/features/members/operations/renameMember";
 import {
   MIN_USER_DISCOVERY_QUERY_LENGTH,
   useUserDiscovery,
@@ -32,6 +33,7 @@ export function LinkMemberScreen() {
   const memberId = typeof memberIdParam === "string" ? memberIdParam : null;
   const member = useMember(memberId);
   const [searchQuery, setSearchQuery] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const discovery = useUserDiscovery(
     member.data?.linkedUserId === null ? searchQuery : "",
   );
@@ -45,7 +47,7 @@ export function LinkMemberScreen() {
     : (member.data?.displayName ?? "Member unavailable");
 
   function selectUser(targetUserId: string) {
-    if (!member.data || linkRequest.isCreating) {
+    if (!member.data || linkRequest.isCreating || submitting) {
       return;
     }
 
@@ -60,7 +62,7 @@ export function LinkMemberScreen() {
 
     Alert.alert(
       "Choose member name",
-      `When ${accountName} accepts, keep your current member name or replace it with their account name.`,
+      `Keep your current private member name or change it to ${accountName} before sending the request.`,
       [
         {
           text: "Cancel",
@@ -69,13 +71,13 @@ export function LinkMemberScreen() {
         {
           text: `Keep "${memberName}"`,
           onPress: () => {
-            void sendLinkRequest(targetUserId, false);
+            void sendLinkRequest(targetUserId, null);
           },
         },
         {
           text: `Use "${accountName}"`,
           onPress: () => {
-            void sendLinkRequest(targetUserId, true);
+            void sendLinkRequest(targetUserId, accountName);
           },
         },
       ],
@@ -84,31 +86,52 @@ export function LinkMemberScreen() {
 
   async function sendLinkRequest(
     targetUserId: string,
-    useTargetName: boolean,
+    replacementDisplayName: string | null,
   ) {
-    if (!member.data || linkRequest.isCreating) {
+    if (!member.data || linkRequest.isCreating || submitting) {
       return;
     }
 
+    let requestMember = member.data;
+    let renamed = false;
+
+    setSubmitting(true);
+
     try {
+      if (
+        replacementDisplayName &&
+        replacementDisplayName !== requestMember.displayName
+      ) {
+        requestMember = await renameMember(
+          requestMember,
+          replacementDisplayName,
+        );
+        renamed = true;
+      }
+
       await linkRequest.createRequest({
-        member: member.data,
+        member: requestMember,
         targetUserId,
-        useTargetName,
       });
 
       Alert.alert(
         "Link request sent",
-        `A link request has been sent for ${member.data.displayName}.`,
+        `A link request has been sent for ${requestMember.displayName}.`,
         [{ text: "OK", onPress: () => router.dismiss() }],
       );
     } catch (error) {
-      const message =
+      let message =
         error instanceof BackendError
           ? error.message
           : "The link request couldn’t be sent. Try again.";
 
+      if (renamed) {
+        message += `\n\nThe member name was changed to ${requestMember.displayName} and has been kept.`;
+      }
+
       Alert.alert("Couldn’t send link request", message);
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -168,7 +191,7 @@ export function LinkMemberScreen() {
           items={canSearch ? discovery.data : []}
           loading={canSearch && discovery.loading}
           error={canSearch ? discovery.error?.message ?? null : null}
-          disabled={linkRequest.isCreating}
+          disabled={linkRequest.isCreating || submitting}
           onRetry={discovery.refresh}
           onPressItem={selectUser}
           header={
