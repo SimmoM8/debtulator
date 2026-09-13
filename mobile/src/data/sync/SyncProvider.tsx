@@ -46,9 +46,7 @@ export function SyncProvider({ ownerUserId, children }: SyncProviderProps) {
   useEffect(() => {
     void runSync();
 
-    return subscribeToSyncRequests(() => {
-      void runSync();
-    });
+    return subscribeToSyncRequests(runSync);
   }, [runSync]);
 
   useEffect(() => {

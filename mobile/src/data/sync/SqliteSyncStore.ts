@@ -1,3 +1,4 @@
+import * as Crypto from "expo-crypto";
 import type { SQLiteDatabase } from "expo-sqlite";
 
 import type {
@@ -25,6 +26,16 @@ type SyncMutationRow = {
 type SyncStateRow = {
   last_remote_sequence: string;
   bootstrap_completed: number;
+};
+
+type SyncPayloadRepairRow = {
+  id: string;
+  entity_type: SyncEntityType;
+  status: LocalSyncMutationStatus;
+  payload_json: string;
+  attempt_count: number;
+  last_error_code: string | null;
+  last_error: string | null;
 };
 
 export class SqliteSyncStore {
@@ -107,6 +118,170 @@ export class SqliteSyncStore {
     return rows.map(mapMutationRow);
   }
 
+  async repairNonWritableTimestampPayloads(
+    ownerUserId: string,
+  ): Promise<void> {
+    const rows = await this.db.getAllAsync<SyncPayloadRepairRow>(
+      `
+        SELECT
+          id,
+          entity_type,
+          status,
+          payload_json,
+          attempt_count,
+          last_error_code,
+          last_error
+        FROM sync_outbox
+        WHERE owner_user_id = ?
+          AND operation = 'upsert'
+          AND entity_type IN ('member', 'debt')
+          AND payload_json IS NOT NULL
+          AND status IN ('pending', 'conflict', 'rejected')
+      `,
+      [ownerUserId],
+    );
+
+    for (const row of rows) {
+      let payload: unknown;
+
+      try {
+        payload = JSON.parse(row.payload_json);
+      } catch {
+        continue;
+      }
+
+      if (
+        typeof payload !== "object" ||
+        payload === null ||
+        Array.isArray(payload)
+      ) {
+        continue;
+      }
+
+      const writablePayload = {
+        ...(payload as Record<string, unknown>),
+      };
+      const removesCreatedAt =
+        Object.prototype.hasOwnProperty.call(writablePayload, "createdAt");
+
+      if (removesCreatedAt) {
+        delete writablePayload.createdAt;
+      }
+
+      const recoverInvalidPayload =
+        row.status === "rejected" &&
+        row.last_error_code === "INVALID_PAYLOAD" &&
+        row.last_error?.includes("createdAt") === true &&
+        row.last_error?.includes("not writable") === true;
+
+      const recoverIdempotencyReuse =
+        row.status === "rejected" &&
+        row.last_error_code === "IDEMPOTENCY_KEY_REUSED";
+
+      if (
+        !removesCreatedAt &&
+        !recoverInvalidPayload &&
+        !recoverIdempotencyReuse
+      ) {
+        continue;
+      }
+
+      /*
+       * Once a mutation has reached the backend, its ID is an idempotency key.
+       * If we change that request (payload/base version), retrying with the same
+       * ID is correctly rejected as IDEMPOTENCY_KEY_REUSED. Rotate the ID for
+       * any repaired request that may already have been observed remotely.
+       */
+      const rotateMutationId =
+        recoverInvalidPayload ||
+        recoverIdempotencyReuse ||
+        row.status !== "pending" ||
+        row.attempt_count > 0;
+      const recover =
+        recoverInvalidPayload || recoverIdempotencyReuse;
+
+      await this.db.runAsync(
+        `
+          UPDATE sync_outbox
+          SET
+            id = ?,
+            payload_json = ?,
+            status = CASE
+              WHEN ? = 1 THEN 'pending'
+              ELSE status
+            END,
+            last_error_code = CASE
+              WHEN ? = 1 THEN NULL
+              ELSE last_error_code
+            END,
+            last_error = CASE
+              WHEN ? = 1 THEN NULL
+              ELSE last_error
+            END
+          WHERE id = ?
+        `,
+        [
+          rotateMutationId ? Crypto.randomUUID() : row.id,
+          JSON.stringify(writablePayload),
+          recover ? 1 : 0,
+          recover ? 1 : 0,
+          recover ? 1 : 0,
+          row.id,
+        ],
+      );
+    }
+  }
+
+  async getBlockingFailures(
+    ownerUserId: string,
+  ): Promise<SyncMutation[]> {
+    const rows = await this.db.getAllAsync<SyncMutationRow>(
+      `
+        SELECT
+          id,
+          owner_user_id,
+          entity_type,
+          entity_id,
+          operation,
+          base_version,
+          payload_json,
+          created_at,
+          attempt_count,
+          status,
+          last_error_code,
+          last_error
+        FROM sync_outbox
+        WHERE owner_user_id = ?
+          AND status IN ('conflict', 'rejected')
+        ORDER BY created_at ASC, id ASC
+      `,
+      [ownerUserId],
+    );
+
+    return rows.map(mapMutationRow);
+  }
+
+  async requeueRecoverableMemberConflicts(
+    ownerUserId: string,
+  ): Promise<void> {
+    await this.db.runAsync(
+      `
+        UPDATE sync_outbox
+        SET
+          status = 'pending',
+          last_error_code = NULL,
+          last_error = NULL
+        WHERE owner_user_id = ?
+          AND status = 'conflict'
+          AND entity_type = 'member'
+          AND operation = 'upsert'
+          AND base_version IS NOT NULL
+          AND attempt_count < 3
+      `,
+      [ownerUserId],
+    );
+  }
+
   async hasBlockingFailure(ownerUserId: string): Promise<boolean> {
     const row = await this.db.getFirstAsync<{ count: number }>(
       `
@@ -179,6 +354,31 @@ export class SqliteSyncStore {
         WHERE id = ?
       `,
       [mutation.id],
+    );
+  }
+
+  async rebaseMemberConflict(
+    id: string,
+    remoteVersion: number,
+    errorCode: string | null,
+    error: string,
+  ): Promise<void> {
+    await this.db.runAsync(
+      `
+        UPDATE sync_outbox
+        SET
+          id = ?,
+          base_version = ?,
+          status = 'pending',
+          attempt_count = attempt_count + 1,
+          last_error_code = ?,
+          last_error = ?
+        WHERE id = ?
+          AND status = 'pending'
+          AND entity_type = 'member'
+          AND operation = 'upsert'
+      `,
+      [Crypto.randomUUID(), remoteVersion, errorCode, error, id],
     );
   }
 
