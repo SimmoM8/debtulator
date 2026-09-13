@@ -19,6 +19,20 @@ public class CurrencyService {
 
     private final CurrencyRepository currencyRepository;
 
+    /**
+     * Returns the complete authoritative catalogue, including disabled
+     * currencies. Mobile clients replicate this snapshot locally and use the
+     * enabled flag only to decide which currencies may be selected for new
+     * operations.
+     */
+    public List<Currency> getCurrencies() {
+        List<Currency> currencies =
+                currencyRepository.findAllByOrderByDisplayOrderAscCodeAsc();
+
+        currencies.forEach(this::validateConfiguration);
+        return currencies;
+    }
+
     public List<Currency> getEnabledCurrencies() {
         List<Currency> currencies =
                 currencyRepository.findAllByEnabledTrueOrderByDisplayOrderAscCodeAsc();
