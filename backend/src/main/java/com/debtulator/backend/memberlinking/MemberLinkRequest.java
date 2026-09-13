@@ -18,7 +18,6 @@ public class MemberLinkRequest {
     @Column(name = "requester_name", nullable = false, length = 120) private String requesterName;
     @Column(name = "target_name", nullable = false, length = 120) private String targetName;
     @Column(name = "requester_member_id") private UUID requesterMemberId;
-    @Column(name = "requester_use_target_name", nullable = false) private boolean requesterUseTargetName;
     @Column(name = "target_member_id") private UUID targetMemberId;
     @Column(nullable = false) private String status;
     @Column(name = "created_at", nullable = false) private Instant createdAt;
@@ -30,31 +29,12 @@ public class MemberLinkRequest {
             String requesterName, String targetName,
             UUID requesterMemberId, Instant createdAt
     ) {
-        this(
-                id,
-                requesterUserId,
-                targetUserId,
-                requesterName,
-                targetName,
-                requesterMemberId,
-                false,
-                createdAt
-        );
-    }
-
-    public MemberLinkRequest(
-            UUID id, UUID requesterUserId, UUID targetUserId,
-            String requesterName, String targetName,
-            UUID requesterMemberId, boolean requesterUseTargetName,
-            Instant createdAt
-    ) {
         this.id = id;
         this.requesterUserId = requesterUserId;
         this.targetUserId = targetUserId;
         this.requesterName = requesterName;
         this.targetName = targetName;
         this.requesterMemberId = requesterMemberId;
-        this.requesterUseTargetName = requesterUseTargetName;
         this.status = MemberLinkRequestStatus.PENDING.getValue();
         this.createdAt = createdAt;
     }

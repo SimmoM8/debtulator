@@ -97,4 +97,22 @@ public interface MemberLinkRequestRepository extends JpaRepository<MemberLinkReq
             @Param("userId") UUID userId
     );
 
+    @Query("""
+            select request from MemberLinkRequest request
+            where (
+                    request.requesterUserId = :userId
+                    or request.targetUserId = :userId
+            )
+              and request.status <> 'pending'
+            order by coalesce(
+                    request.unlinkedAt,
+                    request.resolvedAt,
+                    request.createdAt
+            ) desc
+            """)
+    List<MemberLinkRequest> findHistoryForUser(
+            @Param("userId") UUID userId,
+            Pageable pageable
+    );
+
 }

@@ -141,7 +141,6 @@ public class MemberLinkingService {
                 requesterName,
                 targetName,
                 requesterMember.getId(),
-                useTargetName,
                 Instant.now(clock)
         );
 
@@ -185,17 +184,11 @@ public class MemberLinkingService {
                 "The requester profile is no longer complete."
         );
 
-        String currentTargetName = requireName(
-                requireTargetProfile(request.getTargetUserId()),
-                MemberLinkingException.Reason.TARGET_PROFILE_INCOMPLETE,
-                "The target profile is no longer complete."
-        );
-
         Member requesterMember = linkExistingMember(
                 request.getRequesterUserId(),
                 request.getRequesterMemberId(),
                 request.getTargetUserId(),
-                request.isRequesterUseTargetName() ? currentTargetName : null
+                null
         );
 
         Member targetMember = prepareTargetMember(
@@ -307,10 +300,10 @@ public class MemberLinkingService {
             }
         }
 
-        if (hasText(requestedDisplayName)) {
+        if (hasText(requestedDisplayName) || useTargetName) {
             throw new MemberLinkingException(
                     MemberLinkingException.Reason.INVALID_NAME_SELECTION,
-                    "A custom display name is only valid when creating a new member."
+                    "Existing-member display names must be changed separately from the link request."
             );
         }
 
