@@ -1,7 +1,5 @@
 import { Button, Picker, Switch } from "@expo/ui";
-
 import { DateTimePicker } from "@expo/ui/community/datetime-picker";
-
 import {
   DatePickerDialog as AndroidDatePickerDialog,
   Text as AndroidText,
@@ -9,16 +7,13 @@ import {
   DropdownMenu,
   DropdownMenuItem,
 } from "@expo/ui/jetpack-compose";
-
 import {
   router,
   Stack,
   useFocusEffect,
   useLocalSearchParams,
 } from "expo-router";
-
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-
 import {
   Alert,
   KeyboardAvoidingView,
@@ -32,25 +27,18 @@ import {
 
 import { SegmentedControl } from "@/src/components/controls";
 import { toolbarIcons } from "@/src/components/navigation/toolbarIcons";
-
+import { useCurrencyCatalogue } from "@/src/features/currencies/hooks/useCurrencyCatalogue";
+import type { Currency } from "@/src/features/currencies/model/Currency";
 import { SelectedMemberCard } from "@/src/features/debts/components/SelectedMemberCard";
 import type { DebtDirection } from "@/src/features/debts/model/Debt";
 import { useNewDebt } from "@/src/features/debts/state/NewDebtProvider";
-
 import { useMembers } from "@/src/features/members/hooks/useMembers";
 import { formatDate, startOfToday } from "@/src/lib/dates";
-
 import { NativeThemeHost, textStyles, useAppTheme } from "@/src/theme";
 
 const DIRECTION_OPTIONS = [
-  {
-    value: "you_owe",
-    label: "You owe",
-  },
-  {
-    value: "they_owe",
-    label: "They owe",
-  },
+  { value: "you_owe", label: "You owe" },
+  { value: "they_owe", label: "They owe" },
 ] as const satisfies readonly {
   value: DebtDirection;
   label: string;
@@ -58,17 +46,19 @@ const DIRECTION_OPTIONS = [
 
 const LATEST_ALLOWED_DUE_DATE = new Date(
   Date.now() + 5 * 365 * 24 * 60 * 60 * 1000,
-); // Five years from now
-
-export type Currency = "SEK";
+);
 
 export function NewDebtScreen() {
   const theme = useAppTheme();
-
   const draft = useNewDebt();
-  const { setMemberId } = draft;
-
+  const { currency, setCurrency, setMemberId } = draft;
   const members = useMembers();
+  const currencyCatalogue = useCurrencyCatalogue();
+
+  const currencies = useMemo(
+    () => currencyCatalogue.data.filter((item) => item.enabled),
+    [currencyCatalogue.data],
+  );
 
   const { memberId: initialMemberId } = useLocalSearchParams<{
     memberId?: string;
@@ -79,17 +69,27 @@ export function NewDebtScreen() {
     [draft.memberId, members.data],
   );
 
-  const styles = useMemo(() => createStyles(theme.colors), [theme.colors]);
+  const selectedCurrency = useMemo(
+    () => currencies.find((item) => item.code === currency) ?? null,
+    [currencies, currency],
+  );
 
+  const styles = useMemo(() => createStyles(theme.colors), [theme.colors]);
   const titleInputRef = useRef<TextInput>(null);
   const amountInputRef = useRef<TextInput>(null);
-
   const hasFocusedOnceRef = useRef(false);
   const hasAppliedInitialMemberRef = useRef(false);
-
   const [showAndroidDatePicker, setShowAndroidDatePicker] = useState(false);
-
   const [showAndroidCurrencyMenu, setShowAndroidCurrencyMenu] = useState(false);
+
+  useEffect(() => {
+    if (
+      currencies.length > 0 &&
+      !currencies.some((item) => item.code === currency)
+    ) {
+      setCurrency(currencies[0].code);
+    }
+  }, [currencies, currency, setCurrency]);
 
   useEffect(() => {
     if (hasAppliedInitialMemberRef.current) {
@@ -120,9 +120,7 @@ export function NewDebtScreen() {
   );
 
   function focusAmount() {
-    requestAnimationFrame(() => {
-      amountInputRef.current?.focus();
-    });
+    requestAnimationFrame(() => amountInputRef.current?.focus());
   }
 
   function changeDirection(value: DebtDirection) {
@@ -132,14 +130,19 @@ export function NewDebtScreen() {
 
   function changeAmount(candidate: string) {
     const normalized = candidate.replace(",", ".");
+    const decimalPlaces = selectedCurrency?.decimalPlaces ?? 0;
+    const pattern =
+      decimalPlaces === 0
+        ? /^\d{0,30}$/
+        : new RegExp(`^\\d{0,30}(?:\\.\\d{0,${decimalPlaces}})?$`);
 
-    if (/^\d*(\.\d{0,2})?$/.test(normalized)) {
+    if (pattern.test(normalized)) {
       draft.setAmount(normalized);
     }
   }
 
-  function changeCurrency(value: Currency) {
-    draft.setCurrency(value);
+  function changeCurrency(currencyCode: string) {
+    setCurrency(currencyCode);
     setShowAndroidCurrencyMenu(false);
     focusAmount();
   }
@@ -175,9 +178,7 @@ export function NewDebtScreen() {
 
     router.push({
       pathname: "/(main)/(modals)/debt/select-member",
-      params: {
-        from: "new-debt",
-      },
+      params: { from: "new-debt" },
     });
   }
 
@@ -197,16 +198,15 @@ export function NewDebtScreen() {
 
     try {
       await draft.create();
-
       draft.reset();
-
       router.dismiss();
     } catch (error) {
       console.error("Failed to create debt", error);
-
       Alert.alert(
         "Couldn’t create debt",
-        "Your debt wasn’t saved. Your entered details have been kept so you can try again.",
+        error instanceof Error
+          ? error.message
+          : "Your debt wasn’t saved. Your entered details have been kept so you can try again.",
       );
     }
   }
@@ -225,26 +225,18 @@ export function NewDebtScreen() {
       <Stack.Toolbar placement="right">
         {Platform.OS === "ios" ? (
           <Stack.Toolbar.Button
-            accessibilityLabel={
-              draft.isCreating ? "Creating debt" : "Create debt"
-            }
-            disabled={!draft.canCreate}
-            onPress={() => {
-              void create();
-            }}
+            accessibilityLabel={draft.isCreating ? "Creating debt" : "Create debt"}
+            disabled={!draft.canCreate || currencies.length === 0}
+            onPress={() => void create()}
           >
             {draft.isCreating ? "Creating…" : "Create"}
           </Stack.Toolbar.Button>
         ) : (
           <Stack.Toolbar.Button
             icon={toolbarIcons.check}
-            accessibilityLabel={
-              draft.isCreating ? "Creating debt" : "Create debt"
-            }
-            disabled={!draft.canCreate}
-            onPress={() => {
-              void create();
-            }}
+            accessibilityLabel={draft.isCreating ? "Creating debt" : "Create debt"}
+            disabled={!draft.canCreate || currencies.length === 0}
+            onPress={() => void create()}
           />
         )}
       </Stack.Toolbar>
@@ -295,15 +287,16 @@ export function NewDebtScreen() {
                 placeholder="0"
                 placeholderTextColor={theme.colors.placeholder}
                 selectionColor={theme.colors.controlTint}
-                maxLength={12}
-                editable={!draft.isCreating}
+                maxLength={39}
+                editable={!draft.isCreating && selectedCurrency !== null}
                 style={styles.amountInput}
               />
 
               <View style={styles.currencyControl}>
                 {Platform.OS === "android" ? (
                   <AndroidCurrencySelector
-                    value={draft.currency as Currency}
+                    value={currency}
+                    currencies={currencies}
                     expanded={showAndroidCurrencyMenu}
                     onExpandedChange={setShowAndroidCurrencyMenu}
                     onChange={changeCurrency}
@@ -311,12 +304,16 @@ export function NewDebtScreen() {
                 ) : (
                   <NativeThemeHost matchContents>
                     <Picker
-                      selectedValue={draft.currency}
-                      onValueChange={(value) => {
-                        changeCurrency(value as Currency);
-                      }}
+                      selectedValue={currency}
+                      onValueChange={(value) => changeCurrency(String(value))}
                     >
-                      <Picker.Item key="SEK" label="SEK" value="SEK" />
+                      {currencies.map((item) => (
+                        <Picker.Item
+                          key={item.code}
+                          label={`${item.code} — ${item.name}`}
+                          value={item.code}
+                        />
+                      ))}
                     </Picker>
                   </NativeThemeHost>
                 )}
@@ -326,7 +323,6 @@ export function NewDebtScreen() {
 
           <View style={styles.dueDateRow}>
             <Text style={styles.dueDateLabel}>Due date</Text>
-
             <View style={styles.dueDateActions}>
               {draft.hasDueDate && (
                 <View style={styles.dateControl}>
@@ -338,18 +334,14 @@ export function NewDebtScreen() {
                       minimumDate={startOfToday()}
                       accentColor={theme.colors.controlTint}
                       themeVariant={theme.scheme}
-                      onValueChange={(_, value) => {
-                        changeDate(value);
-                      }}
+                      onValueChange={(_, value) => changeDate(value)}
                     />
                   ) : (
                     <NativeThemeHost matchContents>
                       <Button
                         variant="text"
                         label={formatDate(draft.dueDate)}
-                        onPress={() => {
-                          setShowAndroidDatePicker(true);
-                        }}
+                        onPress={() => setShowAndroidDatePicker(true)}
                       />
                     </NativeThemeHost>
                   )}
@@ -357,10 +349,7 @@ export function NewDebtScreen() {
               )}
 
               <NativeThemeHost matchContents style={styles.switchHost}>
-                <Switch
-                  value={draft.hasDueDate}
-                  onValueChange={toggleDueDate}
-                />
+                <Switch value={draft.hasDueDate} onValueChange={toggleDueDate} />
               </NativeThemeHost>
             </View>
           </View>
@@ -386,14 +375,16 @@ export function NewDebtScreen() {
 }
 
 type AndroidCurrencySelectorProps = {
-  value: Currency;
+  value: string;
+  currencies: readonly Currency[];
   expanded: boolean;
   onExpandedChange: (expanded: boolean) => void;
-  onChange: (currency: Currency) => void;
+  onChange: (currency: string) => void;
 };
 
 function AndroidCurrencySelector({
   value,
+  currencies,
   expanded,
   onExpandedChange,
   onChange,
@@ -404,34 +395,30 @@ function AndroidCurrencySelector({
     <NativeThemeHost matchContents style={stylesStatic.androidCurrencyHost}>
       <DropdownMenu
         expanded={expanded}
-        onDismissRequest={() => {
-          onExpandedChange(false);
-        }}
+        onDismissRequest={() => onExpandedChange(false)}
       >
         <DropdownMenu.Trigger>
           <AndroidTextButton
-            colors={{
-              contentColor: theme.colors.controlTint,
-            }}
-            onClick={() => {
-              onExpandedChange(true);
-            }}
+            colors={{ contentColor: theme.colors.controlTint }}
+            onClick={() => onExpandedChange(true)}
           >
             <AndroidText>{value}</AndroidText>
           </AndroidTextButton>
         </DropdownMenu.Trigger>
 
         <DropdownMenu.Items>
-          <DropdownMenuItem
-            key="SEK"
-            onClick={() => {
-              onChange("SEK");
-            }}
-          >
-            <DropdownMenuItem.Text>
-              <AndroidText>SEK</AndroidText>
-            </DropdownMenuItem.Text>
-          </DropdownMenuItem>
+          {currencies.map((item) => (
+            <DropdownMenuItem
+              key={item.code}
+              onClick={() => onChange(item.code)}
+            >
+              <DropdownMenuItem.Text>
+                <AndroidText>
+                  {item.code} — {item.name}
+                </AndroidText>
+              </DropdownMenuItem.Text>
+            </DropdownMenuItem>
+          ))}
         </DropdownMenu.Items>
       </DropdownMenu>
     </NativeThemeHost>
@@ -444,23 +431,19 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       flex: 1,
       backgroundColor: colors.appBackground,
     },
-
     content: {
       flex: 1,
       paddingHorizontal: 20,
       paddingTop: 18,
     },
-
     memberSection: {
       marginTop: 16,
     },
-
     titleRow: {
       height: 58,
       marginTop: 10,
       justifyContent: "center",
     },
-
     titleInput: {
       width: "100%",
       height: 48,
@@ -470,19 +453,16 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       color: colors.text,
       textAlign: "center",
     },
-
     amountSection: {
       alignItems: "center",
       marginTop: 18,
     },
-
     amountRow: {
       height: 96,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
     },
-
     amountInput: {
       minWidth: 110,
       maxWidth: 250,
@@ -495,13 +475,11 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       textAlign: "right",
       textAlignVertical: "center",
     },
-
     currencyControl: {
       marginLeft: 8,
       alignItems: "flex-start",
       justifyContent: "center",
     },
-
     dueDateRow: {
       height: 60,
       flexDirection: "row",
@@ -509,22 +487,18 @@ function createStyles(colors: ReturnType<typeof useAppTheme>["colors"]) {
       marginTop: 4,
       paddingHorizontal: 4,
     },
-
     dueDateLabel: {
       flex: 1,
       ...textStyles.body,
       color: colors.text,
     },
-
     dueDateActions: {
       flexDirection: "row",
       alignItems: "center",
     },
-
     dateControl: {
       marginRight: 10,
     },
-
     switchHost: {
       justifyContent: "center",
     },

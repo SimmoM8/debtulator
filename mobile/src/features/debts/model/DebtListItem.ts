@@ -1,10 +1,12 @@
+import type { Money } from "@/src/features/currencies/model/Money";
+
 import type { DebtDirection } from "./Debt";
 
 export type DebtListItem = {
   id: string;
   title: string;
   person: string;
-  amount: number;
+  money: Money;
   direction: DebtDirection;
   date: string;
   dueDate: string | null;

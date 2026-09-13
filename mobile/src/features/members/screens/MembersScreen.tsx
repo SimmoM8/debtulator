@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import { useMemo, useState } from "react";
 
 import { SplitBackgroundScreen } from "@/src/components/layout";
@@ -5,26 +6,18 @@ import {
   ListState,
   type ListStateMessage,
 } from "@/src/components/states/ListState";
+import { MembersList } from "@/src/features/members/components/MembersList";
 import {
   MemberSummaryHeader,
   type MemberFilter,
 } from "@/src/features/members/components/MemberSummaryHeader";
-import { MembersList } from "@/src/features/members/components/MembersList";
 import { useMembers } from "@/src/features/members/hooks/useMembers";
 import { buildMembersScreenModel } from "@/src/features/members/model/MembersScreenModel";
-import { router } from "expo-router";
 
 export function MembersScreen() {
   const members = useMembers();
-
   const [filter, setFilter] = useState<MemberFilter>("all");
 
-  /*
-   * Until member linking is implemented, no members have a linked identity.
-   *
-   * Once linking exists, pass the linked member ids as the second argument
-   * instead of changing the Member domain model or this screen.
-   */
   const model = useMemo(
     () => buildMembersScreenModel(members.data),
     [members.data],
@@ -59,9 +52,7 @@ export function MembersScreen() {
           onPressItem={(memberId) => {
             router.push({
               pathname: "/(main)/(tabs)/members/[memberId]",
-              params: {
-                memberId,
-              },
+              params: { memberId },
             });
           }}
         />
@@ -98,13 +89,11 @@ function getMemberNoResultsState(filter: MemberFilter): ListStateMessage {
         title: "No linked members",
         message: "You haven’t linked any members yet.",
       };
-
     case "non_linked":
       return {
         title: "No non-linked members",
         message: "All of your members are linked.",
       };
-
     case "all":
       return {
         title: "No members",

@@ -3,8 +3,8 @@ export type DebtSqlRow = {
   owner_user_id: string;
   member_id: string;
   direction: string;
-  amount: number;
-  currency: string;
+  amount: string;
+  currency_code: string;
   title: string;
   due_date: string | null;
   created_at: string;

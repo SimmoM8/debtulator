@@ -1,10 +1,12 @@
 import type { SQLiteDatabase } from "expo-sqlite";
 
 import { emitDataChanged, type DataResource } from "@/src/data/sqlite/dataChanges";
+import { SqliteCurrencyRepository } from "@/src/features/currencies/data/SqliteCurrencyRepository";
 import { SqliteDebtRepository } from "@/src/features/debts/data/SqliteDebtRepository";
 import { syncPayloadToDebt } from "@/src/features/debts/utils/debtMapper";
 import { SqliteMemberRepository } from "@/src/features/members/data/SqliteMemberRepository";
 import { syncPayloadToMember } from "@/src/features/members/utils/memberMapper";
+import { SqliteProfileRepository } from "@/src/features/profile/data/SqliteProfileRepository";
 
 import {
   BackendSyncGateway,
@@ -66,6 +68,13 @@ export class SyncEngine {
       );
     }
 
+    /*
+     * Reference/account data is synchronized before debt bootstrap/pull so
+     * every incoming debt currency is already known locally and the user's
+     * base currency is available to local summary calculations.
+     */
+    await this.syncReferenceData(ownerUserId);
+
     if (!(await syncStore.isBootstrapCompleted(ownerUserId))) {
       await this.bootstrap(ownerUserId);
     }
@@ -83,6 +92,44 @@ export class SyncEngine {
     }
   }
 
+  private async syncReferenceData(ownerUserId: string): Promise<void> {
+    const [currencies, baseCurrencyCode] = await Promise.all([
+      this.remote.getCurrencyCatalogue(),
+      this.remote.getBaseCurrencyCode(),
+    ]);
+
+    if (currencies.length === 0) {
+      throw new Error("Backend returned an empty currency catalogue.");
+    }
+
+    const returnedCodes = new Set(currencies.map((currency) => currency.code));
+
+    await this.db.withExclusiveTransactionAsync(async (tx) => {
+      const currencyRepository = new SqliteCurrencyRepository(tx);
+      const profileRepository = new SqliteProfileRepository(tx);
+
+      await currencyRepository.replaceCatalogue(currencies);
+
+      const baseCurrency =
+        returnedCodes.has(baseCurrencyCode)
+          ? baseCurrencyCode
+          : (await currencyRepository.getByCode(baseCurrencyCode))?.code;
+
+      if (!baseCurrency) {
+        throw new Error(
+          `Backend profile references unknown base currency '${baseCurrencyCode}'.`,
+        );
+      }
+
+      await profileRepository.save({
+        userId: ownerUserId,
+        baseCurrencyCode: baseCurrency,
+      });
+    });
+
+    emitDataChanged("currencies", "profile");
+  }
+
   private async push(ownerUserId: string): Promise<void> {
     const syncStore = new SqliteSyncStore(this.db);
 
@@ -94,10 +141,7 @@ export class SyncEngine {
       }
 
       for (const storedMutation of mutations) {
-        const mutation = await this.prepareMutation(
-          syncStore,
-          storedMutation,
-        );
+        const mutation = await this.prepareMutation(syncStore, storedMutation);
 
         let result: SyncMutationResult;
 
@@ -171,7 +215,6 @@ export class SyncEngine {
         case "applied":
           await syncStore.markApplied(mutation, result.version);
           return;
-
         case "conflict":
           await syncStore.markConflict(
             mutation.id,
@@ -179,7 +222,6 @@ export class SyncEngine {
             result.message ?? "The remote record changed.",
           );
           return;
-
         case "rejected":
           await syncStore.markRejected(
             mutation.id,
@@ -187,7 +229,6 @@ export class SyncEngine {
             result.message ?? "The backend rejected the local change.",
           );
           return;
-
         case "retry":
           await syncStore.markRetry(
             mutation.id,
@@ -215,14 +256,8 @@ export class SyncEngine {
       const debtRepository = new SqliteDebtRepository(tx);
       const syncStore = new SqliteSyncStore(tx);
 
-      await tx.runAsync(
-        "DELETE FROM debts WHERE owner_user_id = ?",
-        [ownerUserId],
-      );
-      await tx.runAsync(
-        "DELETE FROM members WHERE owner_user_id = ?",
-        [ownerUserId],
-      );
+      await tx.runAsync("DELETE FROM debts WHERE owner_user_id = ?", [ownerUserId]);
+      await tx.runAsync("DELETE FROM members WHERE owner_user_id = ?", [ownerUserId]);
 
       for (const item of memberItems) {
         const member = syncPayloadToMember(item.payload);
@@ -270,11 +305,7 @@ export class SyncEngine {
     let afterId: string | null = null;
 
     while (true) {
-      const page = await this.remote.getBootstrapPage(
-        entityType,
-        afterId,
-      );
-
+      const page = await this.remote.getBootstrapPage(entityType, afterId);
       items.push(...page.items);
 
       if (!page.hasMore) {
@@ -344,14 +375,12 @@ export class SyncEngine {
               }
 
               const member = syncPayloadToMember(change.payload);
-
               assertRemoteIdentity(
                 ownerUserId,
                 change.entityId,
                 member.id,
                 member.ownerUserId,
               );
-
               await memberRepository.save(member);
             }
 
@@ -367,14 +396,12 @@ export class SyncEngine {
               }
 
               const debt = syncPayloadToDebt(change.payload);
-
               assertRemoteIdentity(
                 ownerUserId,
                 change.entityId,
                 debt.id,
                 debt.ownerUserId,
               );
-
               await debtRepository.save(debt);
             }
 

@@ -15,16 +15,11 @@ export type MembersScreenModel = {
   items: MemberListItem[];
 };
 
-const NO_LINKED_MEMBERS: ReadonlySet<string> = new Set();
-
-export function buildMembersScreenModel(
-  members: Member[],
-  linkedMemberIds: ReadonlySet<string> = NO_LINKED_MEMBERS,
-): MembersScreenModel {
+export function buildMembersScreenModel(members: Member[]): MembersScreenModel {
   const items = members.map<MemberListItem>((member) => ({
     id: member.id,
     displayName: member.displayName,
-    linkStatus: linkedMemberIds.has(member.id) ? "linked" : "non_linked",
+    linkStatus: member.linkedUserId === null ? "non_linked" : "linked",
   }));
 
   const linkedCount = items.filter(

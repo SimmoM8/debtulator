@@ -1,5 +1,4 @@
 import type { PropsWithChildren } from "react";
-
 import {
   createContext,
   useCallback,
@@ -8,6 +7,11 @@ import {
   useState,
 } from "react";
 
+import { useBaseCurrencyCode } from "@/src/features/currencies/hooks/useBaseCurrencyCode";
+import {
+  createMoney,
+  isValidPositiveMoneyInput,
+} from "@/src/features/currencies/utils/money";
 import { useCreateDebt } from "@/src/features/debts/hooks/useCreateDebt";
 import type { DebtDirection } from "@/src/features/debts/model/Debt";
 import { startOfToday } from "@/src/lib/dates";
@@ -36,29 +40,24 @@ type NewDebtContextValue = {
 const NewDebtContext = createContext<NewDebtContextValue | null>(null);
 
 export function NewDebtProvider({ children }: PropsWithChildren) {
+  const baseCurrencyCode = useBaseCurrencyCode();
   const [memberId, setMemberId] = useState("");
-
   const [direction, setDirection] = useState<DebtDirection>("you_owe");
-
   const [title, setTitle] = useState("");
-
   const [amount, setAmount] = useState("");
-
-  const [currency, setCurrency] = useState("SEK");
-
+  const [selectedCurrency, setSelectedCurrency] = useState<string | null>(null);
   const [hasDueDate, setHasDueDate] = useState(false);
-
   const [dueDate, setDueDate] = useState(startOfToday);
-
   const { createDebt, isCreating } = useCreateDebt();
 
-  const numericAmount = Number(amount);
+  const currency = selectedCurrency ?? baseCurrencyCode;
 
   const canCreate =
     !isCreating &&
     memberId !== "" &&
-    Number.isFinite(numericAmount) &&
-    numericAmount > 0 &&
+    title.trim().length > 0 &&
+    isValidPositiveMoneyInput(amount) &&
+    currency.length > 0 &&
     (!hasDueDate || dueDate >= startOfToday());
 
   const create = useCallback(async () => {
@@ -70,20 +69,19 @@ export function NewDebtProvider({ children }: PropsWithChildren) {
       memberId,
       direction,
       title,
-      amount: numericAmount,
-      currency,
+      money: createMoney(amount, currency),
       dueDate: hasDueDate ? dueDate : null,
     });
   }, [
+    amount,
     canCreate,
     createDebt,
-    memberId,
-    direction,
-    title,
-    numericAmount,
     currency,
-    hasDueDate,
+    direction,
     dueDate,
+    hasDueDate,
+    memberId,
+    title,
   ]);
 
   const reset = useCallback(() => {
@@ -91,7 +89,7 @@ export function NewDebtProvider({ children }: PropsWithChildren) {
     setDirection("you_owe");
     setTitle("");
     setAmount("");
-    setCurrency("SEK");
+    setSelectedCurrency(null);
     setHasDueDate(false);
     setDueDate(startOfToday());
   }, []);
@@ -109,7 +107,7 @@ export function NewDebtProvider({ children }: PropsWithChildren) {
       setDirection,
       setTitle,
       setAmount,
-      setCurrency,
+      setCurrency: setSelectedCurrency,
       setHasDueDate,
       setDueDate,
       canCreate,
@@ -118,17 +116,17 @@ export function NewDebtProvider({ children }: PropsWithChildren) {
       reset,
     }),
     [
-      memberId,
-      direction,
-      title,
       amount,
-      currency,
-      hasDueDate,
-      dueDate,
-      isCreating,
       canCreate,
       create,
+      currency,
+      direction,
+      dueDate,
+      hasDueDate,
+      isCreating,
+      memberId,
       reset,
+      title,
     ],
   );
 

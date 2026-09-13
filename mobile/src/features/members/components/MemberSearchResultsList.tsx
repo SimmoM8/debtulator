@@ -5,28 +5,29 @@ import {
   ListState,
   type ListStateMessage,
 } from "@/src/components/states/ListState";
-
 import { MemberAvatar } from "@/src/features/members/components/MemberAvatar";
-
+import type { DiscoveredUser } from "@/src/features/members/model/DiscoveredUser";
 import { spacing, textStyles, useAppTheme } from "@/src/theme";
 
-export type MemberSearchResultItem = {
-  id: string;
-  displayName: string;
-  email: string;
-};
-
 type MemberSearchResultsListProps = {
-  items: readonly MemberSearchResultItem[];
+  items: readonly DiscoveredUser[];
   emptyState: ListStateMessage;
+  loading?: boolean;
+  error?: string | null;
+  disabled?: boolean;
   header?: ReactNode;
+  onRetry?: () => void | Promise<void>;
   onPressItem?: (id: string) => void;
 };
 
 export function MemberSearchResultsList({
   items,
   emptyState,
+  loading,
+  error,
+  disabled,
   header,
+  onRetry,
   onPressItem,
 }: MemberSearchResultsListProps) {
   const theme = useAppTheme();
@@ -47,9 +48,7 @@ export function MemberSearchResultsList({
         <View
           style={[
             styles.separator,
-            {
-              backgroundColor: theme.colors.separator,
-            },
+            { backgroundColor: theme.colors.separator },
           ]}
         />
       )}
@@ -57,24 +56,31 @@ export function MemberSearchResultsList({
       ListEmptyComponent={
         <View style={styles.emptyState}>
           <ListState
-            loading={false}
-            error={null}
-            totalCount={0}
-            visibleCount={0}
+            loading={loading}
+            error={error}
+            totalCount={items.length}
+            visibleCount={items.length}
+            loadingState={{
+              title: "Searching…",
+              message: "Searching for Debtulator users.",
+            }}
             emptyState={emptyState}
+            errorState={{
+              title: "Couldn’t search",
+              message: error ?? "The search couldn’t be completed.",
+            }}
+            onRetry={onRetry}
           />
         </View>
       }
       renderItem={({ item }) => (
         <Pressable
-          accessibilityRole={onPressItem ? "button" : undefined}
-          disabled={!onPressItem}
-          onPress={() => {
-            onPressItem?.(item.id);
-          }}
+          accessibilityRole={onPressItem && !disabled ? "button" : undefined}
+          disabled={!onPressItem || disabled}
+          onPress={() => onPressItem?.(item.id)}
           style={({ pressed }) => [
             styles.row,
-            pressed && onPressItem && styles.pressed,
+            pressed && onPressItem && !disabled && styles.pressed,
           ]}
         >
           <MemberAvatar displayName={item.displayName} />
@@ -82,27 +88,19 @@ export function MemberSearchResultsList({
           <View style={styles.details}>
             <Text
               numberOfLines={1}
-              style={[
-                styles.name,
-                {
-                  color: theme.colors.text,
-                },
-              ]}
+              style={[styles.name, { color: theme.colors.text }]}
             >
               {item.displayName}
             </Text>
 
-            <Text
-              numberOfLines={1}
-              style={[
-                styles.email,
-                {
-                  color: theme.colors.secondaryText,
-                },
-              ]}
-            >
-              {item.email}
-            </Text>
+            {item.detail ? (
+              <Text
+                numberOfLines={1}
+                style={[styles.detail, { color: theme.colors.secondaryText }]}
+              >
+                {item.detail}
+              </Text>
+            ) : null}
           </View>
         </Pressable>
       )}
@@ -111,23 +109,10 @@ export function MemberSearchResultsList({
 }
 
 const styles = StyleSheet.create({
-  list: {
-    flex: 1,
-  },
-
-  content: {
-    paddingVertical: spacing.sm,
-  },
-
-  emptyContent: {
-    flexGrow: 1,
-  },
-
-  emptyState: {
-    flex: 1,
-    justifyContent: "center",
-  },
-
+  list: { flex: 1 },
+  content: { paddingVertical: spacing.sm },
+  emptyContent: { flexGrow: 1 },
+  emptyState: { flex: 1, justifyContent: "center" },
   row: {
     minHeight: 68,
     flexDirection: "row",
@@ -135,27 +120,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
   },
-
-  details: {
-    flex: 1,
-    marginLeft: 14,
-  },
-
-  name: {
-    ...textStyles.body,
-  },
-
-  email: {
-    ...textStyles.caption,
-    marginTop: 3,
-  },
-
+  details: { flex: 1, marginLeft: 14 },
+  name: { ...textStyles.body },
+  detail: { ...textStyles.caption, marginTop: 3 },
   separator: {
     height: StyleSheet.hairlineWidth,
     marginLeft: spacing.lg + 44 + 14,
   },
-
-  pressed: {
-    opacity: 0.65,
-  },
+  pressed: { opacity: 0.65 },
 });

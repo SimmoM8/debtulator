@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { formatMoney } from "@/src/features/currencies/utils/money";
 import type { DebtListItem } from "@/src/features/debts/model/DebtListItem";
 import {
   getContentSurfaceAppearance,
@@ -26,23 +27,14 @@ export function DebtListRow({
   const content = (
     <>
       <View style={styles.content}>
-        <Text
-          style={[
-            styles.title,
-            {
-              color: appearance.contentColor,
-            },
-          ]}
-        >
+        <Text style={[styles.title, { color: appearance.contentColor }]}>
           {item.title}
         </Text>
 
         <Text
           style={[
             styles.subtitle,
-            {
-              color: appearance.mutedContentColor,
-            },
+            { color: appearance.mutedContentColor },
           ]}
         >
           {item.direction === "you_owe"
@@ -51,15 +43,8 @@ export function DebtListRow({
         </Text>
       </View>
 
-      <Text
-        style={[
-          styles.amount,
-          {
-            color: appearance.contentColor,
-          },
-        ]}
-      >
-        {item.amount} kr
+      <Text style={[styles.amount, { color: appearance.contentColor }]}>
+        {formatMoney(item.money)}
       </Text>
     </>
   );

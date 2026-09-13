@@ -1,8 +1,6 @@
 import type { DebtSqlRow } from "@/src/features/debts/data/DebtSqlRow";
-import type {
-  Debt,
-  DebtDirection,
-} from "@/src/features/debts/model/Debt";
+import type { Debt, DebtDirection } from "@/src/features/debts/model/Debt";
+import { createMoney } from "@/src/features/currencies/utils/money";
 
 export function mapDebtRow(row: DebtSqlRow): Debt {
   return {
@@ -10,8 +8,7 @@ export function mapDebtRow(row: DebtSqlRow): Debt {
     ownerUserId: row.owner_user_id,
     memberId: row.member_id,
     direction: requireDirection(row.direction),
-    amount: row.amount,
-    currency: row.currency,
+    money: createMoney(row.amount, row.currency_code),
     title: row.title,
     dueDate: row.due_date,
     createdAt: row.created_at,
@@ -26,24 +23,24 @@ export function debtToCreateSyncPayload(
   return {
     memberId: debt.memberId,
     direction: debt.direction,
-    amount: debt.amount.toString(),
-    currency: debt.currency,
+    amount: debt.money.amount,
+    currency: debt.money.currencyCode,
     title: debt.title,
     dueDate: debt.dueDate,
     createdAt: debt.createdAt,
   };
 }
 
-export function syncPayloadToDebt(
-  value: Record<string, unknown>,
-): Debt {
+export function syncPayloadToDebt(value: Record<string, unknown>): Debt {
   return {
     id: requireString(value.id, "id"),
     ownerUserId: requireString(value.ownerUserId, "ownerUserId"),
     memberId: requireString(value.memberId, "memberId"),
     direction: requireDirection(requireString(value.direction, "direction")),
-    amount: requireAmount(value.amount),
-    currency: requireString(value.currency, "currency"),
+    money: createMoney(
+      requireAmount(value.amount),
+      requireString(value.currency, "currency"),
+    ),
     title: requireString(value.title, "title"),
     dueDate:
       value.dueDate === null
@@ -63,18 +60,16 @@ function requireDirection(value: string): DebtDirection {
   return value;
 }
 
-function requireAmount(value: unknown): number {
-  if (typeof value !== "string" && typeof value !== "number") {
-    throw new Error("Invalid debt sync amount.");
+function requireAmount(value: unknown): string {
+  if (typeof value === "string") {
+    return value;
   }
 
-  const amount = Number(value);
-
-  if (!Number.isFinite(amount) || amount <= 0) {
-    throw new Error("Invalid debt sync amount.");
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
   }
 
-  return amount;
+  throw new Error("Invalid debt sync amount.");
 }
 
 function requireString(value: unknown, field: string): string {

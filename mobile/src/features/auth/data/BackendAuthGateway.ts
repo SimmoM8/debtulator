@@ -1,13 +1,8 @@
+import {
+  BackendClient,
+  BackendError,
+} from "@/src/data/backend/BackendClient";
 import { parseAuthSession, type AuthSession } from "@/src/features/auth/model/AuthSession";
-
-const REQUEST_TIMEOUT_MS = 15_000;
-
-type ProblemDetail = {
-  title?: unknown;
-  detail?: unknown;
-  code?: unknown;
-  errors?: unknown;
-};
 
 type RegisterResponse = {
   emailVerificationRequired: boolean;
@@ -26,24 +21,27 @@ export class AuthApiError extends Error {
   }
 }
 
+/**
+ * Authentication protocol adapter. HTTP transport remains centralized in
+ * BackendClient; this class only owns auth endpoint semantics and parsing.
+ */
 export class BackendAuthGateway {
-  private readonly baseUrl: string;
+  private readonly backend: BackendClient;
 
   constructor(baseUrl: string) {
-    this.baseUrl = baseUrl.replace(/\/+$/, "");
+    this.backend = new BackendClient(baseUrl);
   }
 
   async signIn(input: {
     email: string;
     password: string;
   }): Promise<AuthSession> {
-    const value = await this.requestJson("/api/v1/auth/sign-in", {
-      method: "POST",
-      body: {
+    const value = await this.run(() =>
+      this.backend.postPublic<unknown>("/api/v1/auth/sign-in", {
         email: input.email,
         password: input.password,
-      },
-    });
+      }),
+    );
 
     return parseSessionResponse(value);
   }
@@ -52,60 +50,53 @@ export class BackendAuthGateway {
     email: string;
     password: string;
   }): Promise<RegisterResponse> {
-    const value = await this.requestJson("/api/v1/auth/register", {
-      method: "POST",
-      body: {
+    const value = await this.run(() =>
+      this.backend.postPublic<unknown>("/api/v1/auth/register", {
         email: input.email,
         password: input.password,
-      },
-    });
+      }),
+    );
 
     return parseRegisterResponse(value);
   }
 
   async refresh(refreshToken: string): Promise<AuthSession> {
-    const value = await this.requestJson("/api/v1/auth/refresh", {
-      method: "POST",
-      body: {
+    const value = await this.run(() =>
+      this.backend.postPublic<unknown>("/api/v1/auth/refresh", {
         refreshToken,
-      },
-    });
+      }),
+    );
 
     return parseSessionResponse(value);
   }
 
   async signOut(accessToken: string): Promise<void> {
-    await this.requestVoid("/api/v1/auth/sign-out", {
-      method: "POST",
-      accessToken,
-    });
+    await this.run(() =>
+      this.backend.postWithAccessTokenVoid(
+        "/api/v1/auth/sign-out",
+        accessToken,
+      ),
+    );
   }
 
   async requestPasswordRecovery(email: string): Promise<void> {
-    await this.requestVoid("/api/v1/auth/password/recovery", {
-      method: "POST",
-      body: {
-        email,
-      },
-    });
+    await this.run(() =>
+      this.backend.postPublicVoid("/api/v1/auth/password/recovery", { email }),
+    );
   }
 
   async resendConfirmation(email: string): Promise<void> {
-    await this.requestVoid("/api/v1/auth/email/resend", {
-      method: "POST",
-      body: {
-        email,
-      },
-    });
+    await this.run(() =>
+      this.backend.postPublicVoid("/api/v1/auth/email/resend", { email }),
+    );
   }
 
   async confirmEmail(tokenHash: string): Promise<AuthSession> {
-    const value = await this.requestJson("/api/v1/auth/email/confirm", {
-      method: "POST",
-      body: {
+    const value = await this.run(() =>
+      this.backend.postPublic<unknown>("/api/v1/auth/email/confirm", {
         tokenHash,
-      },
-    });
+      }),
+    );
 
     return parseSessionResponse(value);
   }
@@ -114,98 +105,26 @@ export class BackendAuthGateway {
     tokenHash: string;
     newPassword: string;
   }): Promise<void> {
-    await this.requestVoid("/api/v1/auth/password/reset", {
-      method: "POST",
-      body: {
+    await this.run(() =>
+      this.backend.postPublicVoid("/api/v1/auth/password/reset", {
         tokenHash: input.tokenHash,
         newPassword: input.newPassword,
-      },
-    });
+      }),
+    );
   }
 
-  private async requestJson(
-    path: string,
-    input: RequestInput,
-  ): Promise<unknown> {
-    const response = await this.request(path, input);
-
+  private async run<T>(operation: () => Promise<T>): Promise<T> {
     try {
-      return await response.json();
-    } catch {
-      throw new AuthApiError(
-        "Debtulator received an invalid authentication response.",
-        502,
-        "AUTH_INVALID_RESPONSE",
-      );
-    }
-  }
-
-  private async requestVoid(
-    path: string,
-    input: RequestInput,
-  ): Promise<void> {
-    await this.request(path, input);
-  }
-
-  private async request(path: string, input: RequestInput): Promise<Response> {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => {
-      controller.abort();
-    }, REQUEST_TIMEOUT_MS);
-
-    const headers: Record<string, string> = {
-      Accept: "application/json, application/problem+json",
-    };
-
-    if (input.body !== undefined) {
-      headers["Content-Type"] = "application/json";
-    }
-
-    if (input.accessToken) {
-      headers.Authorization = `Bearer ${input.accessToken}`;
-    }
-
-    let response: Response;
-
-    try {
-      response = await fetch(`${this.baseUrl}${path}`, {
-        method: input.method,
-        headers,
-        body:
-          input.body === undefined ? undefined : JSON.stringify(input.body),
-        signal: controller.signal,
-      });
+      return await operation();
     } catch (error) {
-      if (error instanceof Error && error.name === "AbortError") {
-        throw new AuthApiError(
-          "The authentication request timed out.",
-          0,
-          "AUTH_REQUEST_TIMEOUT",
-        );
+      if (error instanceof BackendError) {
+        throw toAuthApiError(error);
       }
 
-      throw new AuthApiError(
-        "Debtulator could not reach the authentication service.",
-        0,
-        "AUTH_NETWORK_UNAVAILABLE",
-      );
-    } finally {
-      clearTimeout(timeout);
+      throw error;
     }
-
-    if (!response.ok) {
-      throw await createAuthApiError(response);
-    }
-
-    return response;
   }
 }
-
-type RequestInput = {
-  method: "GET" | "POST" | "PUT";
-  body?: Record<string, unknown>;
-  accessToken?: string;
-};
 
 function parseSessionResponse(value: unknown): AuthSession {
   try {
@@ -227,9 +146,7 @@ function parseRegisterResponse(value: unknown): RegisterResponse {
   );
 
   const session =
-    object.session === null
-      ? null
-      : parseSessionResponse(object.session);
+    object.session === null ? null : parseSessionResponse(object.session);
 
   if (!emailVerificationRequired && session === null) {
     throw new AuthApiError(
@@ -245,35 +162,27 @@ function parseRegisterResponse(value: unknown): RegisterResponse {
   };
 }
 
-async function createAuthApiError(response: Response): Promise<AuthApiError> {
-  const problem = await readProblemDetail(response);
-  const code =
-    typeof problem?.code === "string" && problem.code.length > 0
-      ? problem.code
-      : `AUTH_HTTP_${response.status}`;
-
-  const message =
-    typeof problem?.detail === "string" && problem.detail.length > 0
-      ? problem.detail
-      : typeof problem?.title === "string" && problem.title.length > 0
-        ? problem.title
-        : `Authentication request failed with status ${response.status}.`;
-
+function toAuthApiError(error: BackendError): AuthApiError {
   return new AuthApiError(
-    message,
-    response.status,
-    code,
-    parseFieldErrors(problem?.errors),
+    error.code === "BACKEND_INVALID_RESPONSE"
+      ? "Debtulator received an invalid authentication response."
+      : error.message,
+    error.status,
+    mapAuthErrorCode(error.code),
+    parseFieldErrors(error.problem?.errors),
   );
 }
 
-async function readProblemDetail(
-  response: Response,
-): Promise<ProblemDetail | null> {
-  try {
-    return (await response.json()) as ProblemDetail;
-  } catch {
-    return null;
+function mapAuthErrorCode(code: string): string {
+  switch (code) {
+    case "BACKEND_INVALID_RESPONSE":
+      return "AUTH_INVALID_RESPONSE";
+    case "BACKEND_REQUEST_TIMEOUT":
+      return "AUTH_REQUEST_TIMEOUT";
+    case "BACKEND_NETWORK_UNAVAILABLE":
+      return "AUTH_NETWORK_UNAVAILABLE";
+    default:
+      return code;
   }
 }
 

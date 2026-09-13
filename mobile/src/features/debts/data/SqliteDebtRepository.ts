@@ -18,7 +18,7 @@ export class SqliteDebtRepository implements DebtRepository {
           member_id,
           direction,
           amount,
-          currency,
+          currency_code,
           title,
           due_date,
           created_at,
@@ -43,7 +43,7 @@ export class SqliteDebtRepository implements DebtRepository {
           member_id,
           direction,
           amount,
-          currency,
+          currency_code,
           title,
           due_date,
           created_at,
@@ -69,7 +69,7 @@ export class SqliteDebtRepository implements DebtRepository {
           member_id,
           direction,
           amount,
-          currency,
+          currency_code,
           title,
           due_date,
           created_at,
@@ -82,7 +82,7 @@ export class SqliteDebtRepository implements DebtRepository {
           member_id = excluded.member_id,
           direction = excluded.direction,
           amount = excluded.amount,
-          currency = excluded.currency,
+          currency_code = excluded.currency_code,
           title = excluded.title,
           due_date = excluded.due_date,
           updated_at = excluded.updated_at,
@@ -95,8 +95,8 @@ export class SqliteDebtRepository implements DebtRepository {
         debt.ownerUserId,
         debt.memberId,
         debt.direction,
-        debt.amount,
-        debt.currency,
+        debt.money.amount,
+        debt.money.currencyCode,
         debt.title,
         debt.dueDate,
         debt.createdAt,
@@ -106,13 +106,8 @@ export class SqliteDebtRepository implements DebtRepository {
     );
 
     if (result.changes === 0) {
-      const existing = await this.db.getFirstAsync<DebtSqlRow>(
-        `
-          SELECT owner_user_id
-          FROM debts
-          WHERE id = ?
-          LIMIT 1
-        `,
+      const existing = await this.db.getFirstAsync<{ owner_user_id: string }>(
+        `SELECT owner_user_id FROM debts WHERE id = ? LIMIT 1`,
         [debt.id],
       );
 
@@ -124,11 +119,7 @@ export class SqliteDebtRepository implements DebtRepository {
 
   async delete(ownerUserId: string, debtId: string): Promise<void> {
     await this.db.runAsync(
-      `
-        DELETE FROM debts
-        WHERE owner_user_id = ?
-          AND id = ?
-      `,
+      `DELETE FROM debts WHERE owner_user_id = ? AND id = ?`,
       [ownerUserId, debtId],
     );
   }
