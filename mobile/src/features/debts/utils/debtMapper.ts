@@ -27,6 +27,7 @@ export function debtToCreateSyncPayload(
     currency: debt.money.currencyCode,
     title: debt.title,
     dueDate: debt.dueDate,
+    createdAt: debt.createdAt,
   };
 }
 

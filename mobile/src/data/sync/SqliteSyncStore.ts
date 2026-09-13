@@ -31,6 +31,8 @@ type SyncStateRow = {
 type SyncPayloadRepairRow = {
   id: string;
   entity_type: SyncEntityType;
+  entity_id: string;
+  base_version: number | null;
   status: LocalSyncMutationStatus;
   payload_json: string;
   attempt_count: number;
@@ -126,6 +128,8 @@ export class SqliteSyncStore {
         SELECT
           id,
           entity_type,
+          entity_id,
+          base_version,
           status,
           payload_json,
           attempt_count,
@@ -161,44 +165,64 @@ export class SqliteSyncStore {
       const writablePayload = {
         ...(payload as Record<string, unknown>),
       };
-      const removesCreatedAt =
-        Object.prototype.hasOwnProperty.call(writablePayload, "createdAt");
+      let payloadChanged = false;
+      let recoverRejected = false;
 
-      if (removesCreatedAt) {
-        delete writablePayload.createdAt;
+      if (row.entity_type === "member") {
+        if (Object.prototype.hasOwnProperty.call(writablePayload, "createdAt")) {
+          delete writablePayload.createdAt;
+          payloadChanged = true;
+        }
+
+        recoverRejected =
+          row.status === "rejected" &&
+          row.last_error_code === "INVALID_PAYLOAD" &&
+          row.last_error?.includes("createdAt") === true &&
+          row.last_error?.includes("not writable") === true;
+      } else if (row.base_version === null) {
+        const hasValidCreatedAt =
+          typeof writablePayload.createdAt === "string" &&
+          writablePayload.createdAt.length > 0;
+
+        if (!hasValidCreatedAt) {
+          const debt = await this.db.getFirstAsync<{ created_at: string }>(
+            `
+              SELECT created_at
+              FROM debts
+              WHERE owner_user_id = ?
+                AND id = ?
+              LIMIT 1
+            `,
+            [ownerUserId, row.entity_id],
+          );
+
+          if (debt?.created_at) {
+            writablePayload.createdAt = debt.created_at;
+            payloadChanged = true;
+          }
+        }
+
+        recoverRejected =
+          row.status === "rejected" &&
+          row.last_error_code === "INVALID_PAYLOAD" &&
+          row.last_error?.includes("createdAt") === true &&
+          row.last_error?.includes("must be a string") === true &&
+          typeof writablePayload.createdAt === "string";
       }
-
-      const recoverInvalidPayload =
-        row.status === "rejected" &&
-        row.last_error_code === "INVALID_PAYLOAD" &&
-        row.last_error?.includes("createdAt") === true &&
-        row.last_error?.includes("not writable") === true;
 
       const recoverIdempotencyReuse =
         row.status === "rejected" &&
         row.last_error_code === "IDEMPOTENCY_KEY_REUSED";
 
-      if (
-        !removesCreatedAt &&
-        !recoverInvalidPayload &&
-        !recoverIdempotencyReuse
-      ) {
+      if (!payloadChanged && !recoverRejected && !recoverIdempotencyReuse) {
         continue;
       }
 
-      /*
-       * Once a mutation has reached the backend, its ID is an idempotency key.
-       * If we change that request (payload/base version), retrying with the same
-       * ID is correctly rejected as IDEMPOTENCY_KEY_REUSED. Rotate the ID for
-       * any repaired request that may already have been observed remotely.
-       */
+      const recover = recoverRejected || recoverIdempotencyReuse;
       const rotateMutationId =
-        recoverInvalidPayload ||
-        recoverIdempotencyReuse ||
+        recover ||
         row.status !== "pending" ||
         row.attempt_count > 0;
-      const recover =
-        recoverInvalidPayload || recoverIdempotencyReuse;
 
       await this.db.runAsync(
         `
