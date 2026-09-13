@@ -12,6 +12,7 @@ import {
 
 import { AppButton, AppTextInput } from "@/src/components/controls";
 import { useAuth } from "@/src/features/auth/AuthProvider";
+import { getRecoveryRequestErrorMessage } from "@/src/features/auth/utils/authErrorMessages";
 import { spacing, textStyles, useAppTheme } from "@/src/theme";
 
 export function ForgotPasswordScreen() {
@@ -53,7 +54,7 @@ export function ForgotPasswordScreen() {
 
       setSent(true);
     } catch (error) {
-      setError(getRecoveryErrorMessage(error));
+      setError(getRecoveryRequestErrorMessage(error));
     } finally {
       setSubmitting(false);
     }
@@ -90,14 +91,14 @@ export function ForgotPasswordScreen() {
             ]}
           >
             If an account exists for that email, a password reset link has been
-            sent.
+            sent. Open it on this device to choose a new password.
           </Text>
 
           <View style={styles.confirmationAction}>
             <AppButton
               label="Back to sign in"
               onPress={() => {
-                router.back();
+                router.replace("/(auth)/sign-in");
               }}
             />
           </View>
@@ -130,21 +131,12 @@ export function ForgotPasswordScreen() {
             },
           ]}
         >
-          Enter your email and we’ll send you a reset link.
+          Enter your email and we’ll send you a secure reset link.
         </Text>
 
         <View style={styles.form}>
           <View style={styles.field}>
-            <Text
-              style={[
-                styles.label,
-                {
-                  color: theme.colors.text,
-                },
-              ]}
-            >
-              Email
-            </Text>
+            <Text style={[styles.label, { color: theme.colors.text }]}>Email</Text>
 
             <AppTextInput
               value={email}
@@ -155,6 +147,7 @@ export function ForgotPasswordScreen() {
               textContentType="emailAddress"
               keyboardType="email-address"
               returnKeyType="send"
+              maxLength={320}
               editable={!submitting}
               onChangeText={(value) => {
                 setEmail(value);
@@ -166,16 +159,20 @@ export function ForgotPasswordScreen() {
             />
           </View>
 
+          {!auth.configured && !error ? (
+            <Text
+              accessibilityRole="alert"
+              style={[styles.error, { color: theme.colors.negative }]}
+            >
+              Authentication is not available in this build.
+            </Text>
+          ) : null}
+
           {error ? (
             <Text
               accessibilityRole="alert"
               accessibilityLiveRegion="polite"
-              style={[
-                styles.error,
-                {
-                  color: theme.colors.negative,
-                },
-              ]}
+              style={[styles.error, { color: theme.colors.negative }]}
             >
               {error}
             </Text>
@@ -199,93 +196,49 @@ function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
-function getRecoveryErrorMessage(error: unknown): string {
-  if (typeof error !== "object" || error === null) {
-    return "Unable to send a reset link right now. Please try again.";
-  }
-
-  const candidate = error as {
-    code?: unknown;
-    status?: unknown;
-    message?: unknown;
-  };
-
-  const code =
-    typeof candidate.code === "string" ? candidate.code.toLowerCase() : "";
-
-  const message =
-    typeof candidate.message === "string"
-      ? candidate.message.toLowerCase()
-      : "";
-
-  if (candidate.status === 429 || code.includes("rate_limit")) {
-    return "Too many attempts. Try again in a little while.";
-  }
-
-  if (
-    message.includes("network request failed") ||
-    message.includes("failed to fetch") ||
-    message.includes("network")
-  ) {
-    return "Couldn’t reach Debtulator. Check your connection and try again.";
-  }
-
-  return "Unable to send a reset link right now. Please try again.";
-}
-
 const styles = StyleSheet.create({
   root: {
     flex: 1,
   },
-
   content: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.xl,
   },
-
   message: {
     ...textStyles.body,
     lineHeight: 24,
   },
-
   form: {
     gap: spacing.md,
     marginTop: spacing.lg,
   },
-
   field: {
     gap: spacing.xs,
   },
-
   label: {
     ...textStyles.caption,
     fontWeight: textStyles.headline.fontWeight,
   },
-
   error: {
     ...textStyles.caption,
     lineHeight: 18,
   },
-
   confirmation: {
     flex: 1,
     justifyContent: "center",
     paddingHorizontal: spacing.lg,
   },
-
   confirmationTitle: {
     ...textStyles.title,
     textAlign: "center",
   },
-
   confirmationMessage: {
     ...textStyles.body,
     marginTop: spacing.sm,
     lineHeight: 24,
     textAlign: "center",
   },
-
   confirmationAction: {
     marginTop: spacing.lg,
   },

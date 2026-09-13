@@ -52,7 +52,7 @@ public class AuthService {
         try {
             SupabaseAuthResult result = authGateway.verifyTokenHash(
                     request.tokenHash(),
-                    "signup",
+                    "email",
                     clientIp
             );
             return requireSession(result, AuthOperation.CONFIRM_EMAIL);
@@ -118,6 +118,15 @@ public class AuthService {
                     clientIp
             );
         } catch (SupabaseAuthException exception) {
+            /*
+             * Password recovery is deliberately non-enumerating. If the
+             * upstream provider explicitly reports that the account does not
+             * exist, preserve the public 202 response instead of exposing that
+             * distinction to the client.
+             */
+            if (isUnknownRecoveryAccount(exception)) {
+                return;
+            }
             throw mapException(exception, AuthOperation.RECOVERY_REQUEST);
         }
     }
@@ -228,6 +237,11 @@ public class AuthService {
         return "session_not_found".equals(exception.getErrorCode())
                 || "session_expired".equals(exception.getErrorCode())
                 || "user_not_found".equals(exception.getErrorCode());
+    }
+
+    private boolean isUnknownRecoveryAccount(SupabaseAuthException exception) {
+        return "user_not_found".equals(exception.getErrorCode())
+                || "email_not_found".equals(exception.getErrorCode());
     }
 
     private AuthOperationException mapException(

@@ -35,6 +35,22 @@ export default function AuthLayout() {
           headerBackButtonDisplayMode: "minimal",
         }}
       />
+
+      <Stack.Screen
+        name="email-confirm"
+        options={{
+          title: "Confirm Email",
+          headerBackButtonDisplayMode: "minimal",
+        }}
+      />
+
+      <Stack.Screen
+        name="reset-password"
+        options={{
+          title: "Reset Password",
+          headerBackButtonDisplayMode: "minimal",
+        }}
+      />
     </SolidNavHeader>
   );
 }

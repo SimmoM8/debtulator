@@ -24,7 +24,7 @@ type ScreenProps = PropsWithChildren<{
 export function SplitBackgroundScreen({
   hero,
   children,
-  includeHeaderInset,
+  includeHeaderInset = true,
 }: ScreenProps) {
   const theme = useAppTheme();
 
