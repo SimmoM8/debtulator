@@ -2,80 +2,105 @@ package com.debtulator.backend.userdiscovery;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.sql.Timestamp;
+import java.sql.Types;
 import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 @Repository
 @RequiredArgsConstructor
 public class UserDiscoveryRepository {
+    private final NamedParameterJdbcTemplate namedJdbcTemplate;
     private final JdbcTemplate jdbcTemplate;
 
-    public List<DiscoveryRow> searchByName(UUID requesterUserId, String query, int limit) {
-        String pattern = "%" + escapeLikePattern(query) + "%";
-        return jdbcTemplate.query("""
-                select profile.user_id, profile.name, cast(null as text) as email
+    public List<DiscoveryRow> search(
+            UUID requesterUserId,
+            String query,
+            String exactEmail,
+            String exactPhone,
+            int limit
+    ) {
+        MapSqlParameterSource parameters = new MapSqlParameterSource()
+                .addValue("requesterUserId", requesterUserId)
+                .addValue("query", query)
+                .addValue("exactEmail", exactEmail, Types.VARCHAR)
+                .addValue("exactPhone", exactPhone, Types.VARCHAR)
+                .addValue("limit", limit);
+
+        return namedJdbcTemplate.query(
+                """
+                select
+                    profile.user_id,
+                    profile.name,
+                    profile.username,
+                    word_similarity(lower(:query), lower(profile.username)) as username_score,
+                    word_similarity(lower(:query), lower(profile.name)) as name_score,
+                    (
+                        :exactEmail is not null
+                        and profile.discoverable_by_email = true
+                        and account.email is not null
+                        and lower(account.email) = :exactEmail
+                    ) as email_exact,
+                    (
+                        :exactPhone is not null
+                        and profile.discoverable_by_phone = true
+                        and profile.phone_number = :exactPhone
+                    ) as phone_exact
                 from public.profiles profile
-                where profile.user_id <> ?
+                left join public.user_discovery_auth_accounts account
+                    on account.user_id = profile.user_id
+                where profile.user_id <> :requesterUserId
                   and profile.member_discovery_enabled = true
-                  and profile.discoverable_by_name = true
                   and profile.name is not null
-                  and lower(profile.name) like lower(?) escape '!'
+                  and (
+                        (
+                            profile.discoverable_by_username = true
+                            and word_similarity(
+                                lower(:query),
+                                lower(profile.username)
+                            ) >= 0.70
+                        )
+                        or (
+                            profile.discoverable_by_name = true
+                            and word_similarity(
+                                lower(:query),
+                                lower(profile.name)
+                            ) >= 0.90
+                        )
+                        or (
+                            :exactEmail is not null
+                            and profile.discoverable_by_email = true
+                            and account.email is not null
+                            and lower(account.email) = :exactEmail
+                        )
+                        or (
+                            :exactPhone is not null
+                            and profile.discoverable_by_phone = true
+                            and profile.phone_number = :exactPhone
+                        )
+                  )
                 order by
-                    case when lower(profile.name) = lower(?) then 0 else 1 end,
-                    lower(profile.name),
+                    email_exact desc,
+                    phone_exact desc,
+                    case when lower(profile.username) = lower(:query) then 0 else 1 end,
+                    username_score desc,
+                    name_score desc,
+                    lower(profile.username),
                     profile.user_id
-                limit ?
+                limit :limit
                 """,
+                parameters,
                 (rs, row) -> new DiscoveryRow(
                         rs.getObject("user_id", UUID.class),
                         rs.getString("name"),
-                        rs.getString("email")
-                ),
-                requesterUserId, pattern, query, limit);
-    }
-
-    public Optional<DiscoveryRow> findByExactEmail(UUID requesterUserId, String email) {
-        return jdbcTemplate.query("""
-                select profile.user_id, profile.name, account.email
-                from public.profiles profile
-                join public.user_discovery_auth_accounts account on account.user_id = profile.user_id
-                where profile.user_id <> ?
-                  and profile.member_discovery_enabled = true
-                  and profile.discoverable_by_email = true
-                  and profile.name is not null
-                  and account.email is not null
-                  and lower(account.email) = lower(?)
-                limit 1
-                """,
-                (rs, row) -> new DiscoveryRow(
-                        rs.getObject("user_id", UUID.class),
-                        rs.getString("name"),
-                        rs.getString("email")
-                ),
-                requesterUserId, email).stream().findFirst();
-    }
-
-    public Optional<DiscoveryRow> findByExactUserId(UUID requesterUserId, UUID targetUserId) {
-        return jdbcTemplate.query("""
-                select profile.user_id, profile.name, cast(null as text) as email
-                from public.profiles profile
-                where profile.user_id = ?
-                  and profile.user_id <> ?
-                  and profile.member_discovery_enabled = true
-                  and profile.name is not null
-                limit 1
-                """,
-                (rs, row) -> new DiscoveryRow(
-                        rs.getObject("user_id", UUID.class),
-                        rs.getString("name"),
-                        rs.getString("email")
-                ),
-                targetUserId, requesterUserId).stream().findFirst();
+                        rs.getString("username")
+                )
+        );
     }
 
     public RateLimitState consumeRateLimit(UUID requesterUserId, Instant now, Instant resetCutoff) {
@@ -99,13 +124,12 @@ public class UserDiscoveryRepository {
                         rs.getInt("request_count"),
                         rs.getTimestamp("window_started_at").toInstant()
                 ),
-                requesterUserId, Timestamp.from(now), Timestamp.from(resetCutoff), Timestamp.from(resetCutoff));
+                requesterUserId,
+                Timestamp.from(now),
+                Timestamp.from(resetCutoff),
+                Timestamp.from(resetCutoff));
     }
 
-    private String escapeLikePattern(String value) {
-        return value.replace("!", "!!").replace("%", "!%").replace("_", "!_");
-    }
-
-    public record DiscoveryRow(UUID id, String name, String email) {}
+    public record DiscoveryRow(UUID id, String name, String username) {}
     public record RateLimitState(int requestCount, Instant windowStartedAt) {}
 }

@@ -16,17 +16,36 @@ import com.debtulator.backend.auth.supabase.SupabaseAuthResult;
 import com.debtulator.backend.auth.supabase.SupabaseSession;
 import com.debtulator.backend.auth.supabase.SupabaseUser;
 import com.debtulator.backend.exceptions.AuthOperationException;
+import com.debtulator.backend.profiles.ProfileService;
+import com.debtulator.backend.profiles.ProfileServiceException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
     private final SupabaseAuthGateway authGateway;
+    private final ProfileService profileService;
 
     public RegisterResponse register(RegisterRequest request, String clientIp) {
+        try {
+            profileService.reserveRegistrationProfile(
+                    request.email(),
+                    request.name(),
+                    request.username(),
+                    request.phoneNumber(),
+                    request.baseCurrency()
+            );
+        } catch (ProfileServiceException exception) {
+            throw mapRegistrationProfileException(exception);
+        }
+
+        boolean releaseReservation = false;
+
         try {
             SupabaseAuthResult result = authGateway.register(
                     request.email().trim(),
@@ -35,13 +54,36 @@ public class AuthService {
                     clientIp
             );
 
+            releaseReservation = true;
+
             AuthSessionResponse session = result.session() != null
                     ? toSessionResponse(result.session())
                     : null;
 
             return new RegisterResponse(session == null, session);
         } catch (SupabaseAuthException exception) {
+            /*
+             * 4xx provider errors are deterministic: the signup was rejected,
+             * so the username reservation can be released immediately.
+             * Network/5xx failures are ambiguous and keep the short-lived
+             * reservation so a delayed provider transaction can still be
+             * provisioned by the auth.users trigger.
+             */
+            releaseReservation = exception.getStatusCode() > 0
+                    && exception.getStatusCode() < 500;
             throw mapException(exception, AuthOperation.REGISTER);
+        } finally {
+            if (releaseReservation) {
+                try {
+                    profileService.releaseRegistrationProfile(request.email());
+                } catch (RuntimeException cleanupError) {
+                    log.warn(
+                            "Failed to release account-registration profile reservation for {}",
+                            request.email().trim(),
+                            cleanupError
+                    );
+                }
+            }
         }
     }
 
@@ -228,6 +270,48 @@ public class AuthService {
         return "session_not_found".equals(exception.getErrorCode())
                 || "session_expired".equals(exception.getErrorCode())
                 || "user_not_found".equals(exception.getErrorCode());
+    }
+
+    private AuthOperationException mapRegistrationProfileException(
+            ProfileServiceException exception
+    ) {
+        return switch (exception.getReason()) {
+            case INVALID_NAME -> new AuthOperationException(
+                    HttpStatus.BAD_REQUEST,
+                    "AUTH_INVALID_NAME",
+                    exception.getMessage()
+            );
+            case INVALID_USERNAME -> new AuthOperationException(
+                    HttpStatus.BAD_REQUEST,
+                    "AUTH_INVALID_USERNAME",
+                    exception.getMessage()
+            );
+            case USERNAME_TAKEN -> new AuthOperationException(
+                    HttpStatus.CONFLICT,
+                    "AUTH_USERNAME_TAKEN",
+                    exception.getMessage()
+            );
+            case INVALID_PHONE -> new AuthOperationException(
+                    HttpStatus.BAD_REQUEST,
+                    "AUTH_INVALID_PHONE",
+                    exception.getMessage()
+            );
+            case REGISTRATION_PENDING -> new AuthOperationException(
+                    HttpStatus.CONFLICT,
+                    "AUTH_REGISTRATION_PENDING",
+                    exception.getMessage()
+            );
+            case CURRENCY_NOT_SUPPORTED -> new AuthOperationException(
+                    HttpStatus.BAD_REQUEST,
+                    "AUTH_CURRENCY_NOT_SUPPORTED",
+                    exception.getMessage()
+            );
+            case NOT_FOUND -> new AuthOperationException(
+                    HttpStatus.BAD_REQUEST,
+                    "AUTH_PROFILE_INVALID",
+                    "The account profile could not be prepared."
+            );
+        };
     }
 
     private AuthOperationException mapException(

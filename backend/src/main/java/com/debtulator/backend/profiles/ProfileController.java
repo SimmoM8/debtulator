@@ -11,7 +11,11 @@ import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 
@@ -35,12 +39,20 @@ public class ProfileController {
             @Valid @RequestBody UpdateProfileRequest request
     ) {
         UUID userId = authenticatedUserProvider.from(jwt).id();
-        Profile profile = profileService.update(userId, request.name(), request.baseCurrency());
+        Profile profile = profileService.update(
+                userId,
+                request.username(),
+                request.name(),
+                request.phoneNumber(),
+                request.baseCurrency()
+        );
         return noStore(ResponseEntity.ok()).body(profileMapper.toResponse(profile));
     }
 
     @GetMapping("/discovery-preferences")
-    public ResponseEntity<DiscoveryPreferencesResponse> getDiscoveryPreferences(@AuthenticationPrincipal Jwt jwt) {
+    public ResponseEntity<DiscoveryPreferencesResponse> getDiscoveryPreferences(
+            @AuthenticationPrincipal Jwt jwt
+    ) {
         UUID userId = authenticatedUserProvider.from(jwt).id();
         return noStore(ResponseEntity.ok()).body(
                 profileMapper.toDiscoveryPreferencesResponse(profileService.get(userId))
@@ -56,8 +68,10 @@ public class ProfileController {
         Profile profile = profileService.updateDiscoveryPreferences(
                 userId,
                 request.memberDiscoveryEnabled(),
+                request.discoverableByUsername(),
                 request.discoverableByName(),
-                request.discoverableByEmail()
+                request.discoverableByEmail(),
+                request.discoverableByPhone()
         );
         return noStore(ResponseEntity.ok()).body(profileMapper.toDiscoveryPreferencesResponse(profile));
     }

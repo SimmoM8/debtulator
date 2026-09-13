@@ -14,6 +14,10 @@ public class ProfileServiceException extends RuntimeException {
     public enum Reason {
         NOT_FOUND,
         INVALID_NAME,
+        INVALID_USERNAME,
+        USERNAME_TAKEN,
+        INVALID_PHONE,
+        REGISTRATION_PENDING,
         CURRENCY_NOT_SUPPORTED
     }
 }
