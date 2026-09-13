@@ -1,6 +1,7 @@
 package com.debtulator.backend.exceptions;
 
 import com.debtulator.backend.agreements.AgreementException;
+import com.debtulator.backend.inbox.InboxException;
 import com.debtulator.backend.memberlinking.MemberLinkingException;
 import com.debtulator.backend.profiles.ProfileServiceException;
 import com.debtulator.backend.userdiscovery.UserDiscoveryException;
@@ -109,6 +110,28 @@ public class GlobalExceptionHandler {
         );
         problem.setTitle("Profile request failed");
         problem.setInstance(URI.create(request.getRequestURI()));
+        problem.setProperty("code", code);
+        return problem;
+    }
+
+    @ExceptionHandler(InboxException.class)
+    public ProblemDetail handleInbox(
+            InboxException exception,
+            HttpServletRequest request
+    ) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                exception.getMessage()
+        );
+        problem.setTitle("Inbox request failed");
+        problem.setInstance(URI.create(request.getRequestURI()));
+
+        String code = switch (exception.getReason()) {
+            case INVALID_SCOPE -> "INBOX_INVALID_SCOPE";
+            case INVALID_TYPE -> "INBOX_INVALID_TYPE";
+            case INVALID_LIMIT -> "INBOX_INVALID_LIMIT";
+        };
+
         problem.setProperty("code", code);
         return problem;
     }
