@@ -5,6 +5,7 @@ public record CurrencyResponse(
         String name,
         String symbol,
         short decimalPlaces,
+        boolean enabled,
         int displayOrder
 ) {
 }

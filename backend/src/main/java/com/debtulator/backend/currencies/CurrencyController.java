@@ -21,7 +21,7 @@ public class CurrencyController {
     @GetMapping
     public ResponseEntity<List<CurrencyResponse>> getCurrencies() {
         List<CurrencyResponse> currencies = currencyService
-                .getEnabledCurrencies()
+                .getCurrencies()
                 .stream()
                 .map(currencyMapper::toResponse)
                 .toList();

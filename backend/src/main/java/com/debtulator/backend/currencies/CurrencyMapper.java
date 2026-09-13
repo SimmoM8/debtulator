@@ -12,6 +12,7 @@ public class CurrencyMapper {
                 currency.getName(),
                 currency.getSymbol(),
                 currency.getDecimalPlaces(),
+                currency.isEnabled(),
                 currency.getDisplayOrder()
         );
     }
