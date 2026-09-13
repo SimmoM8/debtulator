@@ -9,7 +9,9 @@ public class ProfileMapper {
     public ProfileResponse toResponse(Profile profile) {
         return new ProfileResponse(
                 profile.getUserId(),
+                profile.getUsername(),
                 profile.getName(),
+                profile.getPhoneNumber(),
                 profile.getBaseCurrency(),
                 profile.getCreatedAt(),
                 profile.getUpdatedAt()
@@ -19,8 +21,10 @@ public class ProfileMapper {
     public DiscoveryPreferencesResponse toDiscoveryPreferencesResponse(Profile profile) {
         return new DiscoveryPreferencesResponse(
                 profile.isMemberDiscoveryEnabled(),
+                profile.isDiscoverableByUsername(),
                 profile.isDiscoverableByName(),
-                profile.isDiscoverableByEmail()
+                profile.isDiscoverableByEmail(),
+                profile.isDiscoverableByPhone()
         );
     }
 }

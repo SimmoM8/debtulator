@@ -86,12 +86,20 @@ public class GlobalExceptionHandler {
     ) {
         HttpStatus status = switch (exception.getReason()) {
             case NOT_FOUND -> HttpStatus.NOT_FOUND;
-            case INVALID_NAME, CURRENCY_NOT_SUPPORTED -> HttpStatus.BAD_REQUEST;
+            case USERNAME_TAKEN, REGISTRATION_PENDING -> HttpStatus.CONFLICT;
+            case INVALID_NAME,
+                 INVALID_USERNAME,
+                 INVALID_PHONE,
+                 CURRENCY_NOT_SUPPORTED -> HttpStatus.BAD_REQUEST;
         };
 
         String code = switch (exception.getReason()) {
             case NOT_FOUND -> "PROFILE_NOT_FOUND";
             case INVALID_NAME -> "PROFILE_INVALID_NAME";
+            case INVALID_USERNAME -> "PROFILE_INVALID_USERNAME";
+            case USERNAME_TAKEN -> "PROFILE_USERNAME_TAKEN";
+            case INVALID_PHONE -> "PROFILE_INVALID_PHONE";
+            case REGISTRATION_PENDING -> "PROFILE_REGISTRATION_PENDING";
             case CURRENCY_NOT_SUPPORTED -> "PROFILE_CURRENCY_NOT_SUPPORTED";
         };
 
