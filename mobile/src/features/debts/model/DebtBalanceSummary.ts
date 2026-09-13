@@ -1,30 +1,38 @@
+import type { Money } from "@/src/features/currencies/model/Money";
+import {
+  addMoney,
+  convertMoney,
+  subtractMoney,
+  zeroMoney,
+} from "@/src/features/currencies/utils/money";
+
 import type { Debt } from "./Debt";
 
 export type DebtBalanceSummary = {
-  youOwe: number;
-  theyOwe: number;
-
+  youOwe: Money;
+  theyOwe: Money;
+  netBalance: Money;
   youOweCount: number;
   theyOweCount: number;
-
-  netBalance: number;
 };
 
 export function buildDebtBalanceSummary(
   debts: readonly Debt[],
+  baseCurrencyCode: string,
 ): DebtBalanceSummary {
-  let youOwe = 0;
-  let theyOwe = 0;
-
+  let youOwe = zeroMoney(baseCurrencyCode);
+  let theyOwe = zeroMoney(baseCurrencyCode);
   let youOweCount = 0;
   let theyOweCount = 0;
 
   for (const debt of debts) {
+    const converted = convertMoney(debt.money, baseCurrencyCode);
+
     if (debt.direction === "you_owe") {
-      youOwe += debt.amount;
+      youOwe = addMoney(youOwe, converted);
       youOweCount += 1;
     } else {
-      theyOwe += debt.amount;
+      theyOwe = addMoney(theyOwe, converted);
       theyOweCount += 1;
     }
   }
@@ -32,10 +40,8 @@ export function buildDebtBalanceSummary(
   return {
     youOwe,
     theyOwe,
-
+    netBalance: subtractMoney(theyOwe, youOwe),
     youOweCount,
     theyOweCount,
-
-    netBalance: theyOwe - youOwe,
   };
 }

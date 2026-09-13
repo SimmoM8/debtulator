@@ -1,4 +1,3 @@
-import { useDebts } from "@/src/features/debts/hooks/useDebts";
 import { useMemo, useState } from "react";
 
 import { SplitBackgroundScreen } from "@/src/components/layout";
@@ -6,24 +5,27 @@ import {
   ListState,
   type ListStateMessage,
 } from "@/src/components/states/ListState";
+import { useBaseCurrencyCode } from "@/src/features/currencies/hooks/useBaseCurrencyCode";
 import { DebtsList } from "@/src/features/debts/components/DebtsList";
 import {
   DebtSummaryHeader,
   type DebtFilter,
 } from "@/src/features/debts/components/DebtSummaryHeader";
+import { useDebts } from "@/src/features/debts/hooks/useDebts";
 import { buildDebtsScreenModel } from "@/src/features/debts/model/DebtsScreenModel";
-import { useMembers } from "../../members/hooks/useMembers";
+import { useMembers } from "@/src/features/members/hooks/useMembers";
 
 export function DebtsScreen() {
   const debts = useDebts();
   const members = useMembers();
-
+  const baseCurrencyCode = useBaseCurrencyCode();
   const [filter, setFilter] = useState<DebtFilter>("all");
 
   const model = useMemo(
-    () => buildDebtsScreenModel(debts.data, members.data),
-    [debts.data, members.data],
+    () => buildDebtsScreenModel(debts.data, members.data, baseCurrencyCode),
+    [baseCurrencyCode, debts.data, members.data],
   );
+
   const filteredItems = useMemo(() => {
     if (filter === "all") {
       return model.items;
@@ -45,9 +47,9 @@ export function DebtsScreen() {
         <DebtSummaryHeader
           youOwe={model.youOwe}
           theyOwe={model.theyOwe}
+          netBalance={model.netBalance}
           youOweCount={model.youOweCount}
           theyOweCount={model.theyOweCount}
-          netBalance={model.netBalance}
           filter={filter}
           onFilterChange={setFilter}
         />

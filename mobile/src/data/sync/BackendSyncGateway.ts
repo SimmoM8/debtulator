@@ -1,3 +1,9 @@
+import {
+  BackendClient,
+  BackendError,
+} from "@/src/data/backend/BackendClient";
+import type { Currency } from "@/src/features/currencies/model/Currency";
+
 import type {
   BootstrapStartResponse,
   PullSyncResponse,
@@ -11,64 +17,37 @@ import type {
 
 const PAGE_SIZE = 500;
 
-type AccessTokenProvider = () => Promise<string>;
-
-type ProblemDetail = {
-  title?: unknown;
-  detail?: unknown;
-  minimumCursor?: unknown;
-};
-
-export class BackendApiError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-  ) {
-    super(message);
-    this.name = "BackendApiError";
-  }
-}
-
-export class SyncCursorExpiredError extends BackendApiError {
+export class SyncCursorExpiredError extends BackendError {
   constructor(readonly minimumCursor: string | null) {
     super(
       "The local sync cursor has expired and a full bootstrap is required.",
       410,
+      "SYNC_CURSOR_EXPIRED",
     );
     this.name = "SyncCursorExpiredError";
   }
 }
 
 export class BackendSyncGateway {
-  private readonly baseUrl: string;
-
-  constructor(
-    baseUrl: string,
-    private readonly getAccessToken: AccessTokenProvider,
-  ) {
-    this.baseUrl = baseUrl.replace(/\/+$/, "");
-  }
+  constructor(private readonly backend: BackendClient) {}
 
   async pushMutation(mutation: SyncMutation): Promise<SyncMutationResult> {
     const payload =
       mutation.payloadJson === null ? null : JSON.parse(mutation.payloadJson);
 
-    const response = await this.request<{ results: unknown[] }>(
+    const response = await this.backend.post<{ results: unknown[] }>(
       "/api/v1/sync/mutations",
       {
-        method: "POST",
-        body: JSON.stringify({
-          mutations: [
-            {
-              id: mutation.id,
-              entityType: mutation.entityType,
-              entityId: mutation.entityId,
-              operation: mutation.operation,
-              baseVersion: mutation.baseVersion,
-              payload,
-            },
-          ],
-        }),
+        mutations: [
+          {
+            id: mutation.id,
+            entityType: mutation.entityType,
+            entityId: mutation.entityId,
+            operation: mutation.operation,
+            baseVersion: mutation.baseVersion,
+            payload,
+          },
+        ],
       },
     );
 
@@ -88,34 +67,46 @@ export class BackendSyncGateway {
   async getChangesAfter(cursor: string): Promise<PullSyncResponse> {
     assertCursor(cursor);
 
-    const response = await this.request<{
-      changes: unknown;
-      nextCursor: unknown;
-      hasMore: unknown;
-    }>(
-      `/api/v1/sync/changes?after=${encodeURIComponent(cursor)}&limit=${PAGE_SIZE}`,
-      { method: "GET" },
-    );
+    try {
+      const response = await this.backend.get<{
+        changes: unknown;
+        nextCursor: unknown;
+        hasMore: unknown;
+      }>(
+        `/api/v1/sync/changes?after=${encodeURIComponent(cursor)}&limit=${PAGE_SIZE}`,
+      );
 
-    if (!Array.isArray(response.changes)) {
-      throw new Error("Backend returned an invalid sync change list.");
+      if (!Array.isArray(response.changes)) {
+        throw new Error("Backend returned an invalid sync change list.");
+      }
+
+      const nextCursor = requireString(response.nextCursor, "nextCursor");
+      assertCursor(nextCursor);
+
+      return {
+        changes: response.changes.map(parseRemoteChange),
+        nextCursor,
+        hasMore: requireBoolean(response.hasMore, "hasMore"),
+      };
+    } catch (error) {
+      if (error instanceof BackendError && error.status === 410) {
+        const minimumCursor =
+          typeof error.problem?.minimumCursor === "string"
+            ? error.problem.minimumCursor
+            : null;
+
+        throw new SyncCursorExpiredError(minimumCursor);
+      }
+
+      throw error;
     }
-
-    const nextCursor = requireString(response.nextCursor, "nextCursor");
-    assertCursor(nextCursor);
-
-    return {
-      changes: response.changes.map(parseRemoteChange),
-      nextCursor,
-      hasMore: requireBoolean(response.hasMore, "hasMore"),
-    };
   }
 
   async startBootstrap(): Promise<BootstrapStartResponse> {
-    const response = await this.request<{
+    const response = await this.backend.get<{
       cursor: unknown;
       entityTypes: unknown;
-    }>("/api/v1/sync/bootstrap", { method: "GET" });
+    }>("/api/v1/sync/bootstrap");
 
     const cursor = requireString(response.cursor, "cursor");
     assertCursor(cursor);
@@ -136,23 +127,18 @@ export class BackendSyncGateway {
     entityType: SyncEntityType,
     afterId: string | null,
   ): Promise<SyncBootstrapPageResponse> {
-    const query = new URLSearchParams({
-      limit: String(PAGE_SIZE),
-    });
+    const query = new URLSearchParams({ limit: String(PAGE_SIZE) });
 
     if (afterId) {
       query.set("afterId", afterId);
     }
 
-    const response = await this.request<{
+    const response = await this.backend.get<{
       entityType: unknown;
       items: unknown;
       nextAfterId: unknown;
       hasMore: unknown;
-    }>(
-      `/api/v1/sync/bootstrap/${entityType}?${query.toString()}`,
-      { method: "GET" },
-    );
+    }>(`/api/v1/sync/bootstrap/${entityType}?${query.toString()}`);
 
     const returnedEntityType = parseEntityType(
       response.entityType,
@@ -167,59 +153,63 @@ export class BackendSyncGateway {
       throw new Error("Backend returned an invalid bootstrap item list.");
     }
 
-    const nextAfterId =
-      response.nextAfterId === null
-        ? null
-        : requireString(response.nextAfterId, "nextAfterId");
-
     return {
       entityType: returnedEntityType,
       items: response.items.map(parseBootstrapItem),
-      nextAfterId,
+      nextAfterId:
+        response.nextAfterId === null
+          ? null
+          : requireString(response.nextAfterId, "nextAfterId"),
       hasMore: requireBoolean(response.hasMore, "hasMore"),
     };
   }
 
-  private async request<T>(
-    path: string,
-    init: RequestInit,
-  ): Promise<T> {
-    const accessToken = await this.getAccessToken();
+  async getCurrencyCatalogue(): Promise<Currency[]> {
+    const value = await this.backend.get<unknown>("/api/v1/currencies");
 
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      ...init,
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${accessToken}`,
-        ...(init.body ? { "Content-Type": "application/json" } : {}),
-        ...init.headers,
-      },
-    });
-
-    if (!response.ok) {
-      const problem = await readProblemDetail(response);
-
-      if (response.status === 410) {
-        const minimumCursor =
-          typeof problem?.minimumCursor === "string"
-            ? problem.minimumCursor
-            : null;
-
-        throw new SyncCursorExpiredError(minimumCursor);
-      }
-
-      const message =
-        typeof problem?.detail === "string"
-          ? problem.detail
-          : typeof problem?.title === "string"
-            ? problem.title
-            : `Backend request failed with status ${response.status}.`;
-
-      throw new BackendApiError(message, response.status);
+    if (!Array.isArray(value)) {
+      throw new Error("Backend returned an invalid currency catalogue.");
     }
 
-    return (await response.json()) as T;
+    return value.map(parseCurrency);
   }
+
+  async getBaseCurrencyCode(): Promise<string> {
+    const value = requireObject(
+      await this.backend.get<unknown>("/api/v1/profile"),
+      "profile",
+    );
+
+    return requireString(value.baseCurrency, "baseCurrency");
+  }
+}
+
+function parseCurrency(value: unknown): Currency {
+  const object = requireObject(value, "currency");
+  const code = requireString(object.code, "code");
+  const decimalPlaces = requireSafeInteger(object.decimalPlaces, "decimalPlaces");
+  const displayOrder = requireSafeInteger(object.displayOrder, "displayOrder");
+
+  if (!/^[A-Z]{3}$/.test(code)) {
+    throw new Error("Backend returned an invalid currency code.");
+  }
+
+  if (decimalPlaces < 0 || decimalPlaces > 8) {
+    throw new Error("Backend returned invalid currency decimal places.");
+  }
+
+  if (displayOrder < 0) {
+    throw new Error("Backend returned an invalid currency display order.");
+  }
+
+  return {
+    code,
+    name: requireString(object.name, "name"),
+    symbol: requireString(object.symbol, "symbol"),
+    decimalPlaces,
+    enabled: requireBoolean(object.enabled, "enabled"),
+    displayOrder,
+  };
 }
 
 function parseMutationResult(value: unknown): SyncMutationResult {
@@ -269,10 +259,7 @@ function parseBootstrapItem(value: unknown): SyncBootstrapItem {
   };
 }
 
-function parseEntityType(
-  value: unknown,
-  field: string,
-): SyncEntityType {
+function parseEntityType(value: unknown, field: string): SyncEntityType {
   const text = requireString(value, field);
 
   if (text !== "member" && text !== "debt") {
@@ -314,12 +301,18 @@ function requireNullableVersion(value: unknown): number | null {
 }
 
 function requireVersion(value: unknown): number {
-  if (
-    typeof value !== "number" ||
-    !Number.isSafeInteger(value) ||
-    value < 0
-  ) {
+  const version = requireSafeInteger(value, "version");
+
+  if (version < 0) {
     throw new Error("Backend returned an invalid entity version.");
+  }
+
+  return version;
+}
+
+function requireSafeInteger(value: unknown, field: string): number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value)) {
+    throw new Error(`Backend returned an invalid ${field}.`);
   }
 
   return value;
@@ -337,7 +330,7 @@ function requireObject(
 }
 
 function requireString(value: unknown, field: string): string {
-  if (typeof value !== "string") {
+  if (typeof value !== "string" || value.length === 0) {
     throw new Error(`Backend returned an invalid ${field}.`);
   }
 
@@ -355,15 +348,5 @@ function requireBoolean(value: unknown, field: string): boolean {
 function assertCursor(value: string): void {
   if (!/^\d+$/.test(value)) {
     throw new Error("Backend returned an invalid sync cursor.");
-  }
-}
-
-async function readProblemDetail(
-  response: Response,
-): Promise<ProblemDetail | null> {
-  try {
-    return (await response.json()) as ProblemDetail;
-  } catch {
-    return null;
   }
 }

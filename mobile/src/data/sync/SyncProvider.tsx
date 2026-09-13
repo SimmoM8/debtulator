@@ -2,14 +2,11 @@ import type { PropsWithChildren } from "react";
 import { useCallback, useEffect } from "react";
 import { AppState } from "react-native";
 
-import { backendApiUrl } from "@/src/data/backend/backendConfig";
+import type { BackendClient } from "@/src/data/backend/BackendClient";
+import { useBackendClient } from "@/src/data/backend/BackendProvider";
 import { openDatabase } from "@/src/data/sqlite/openDatabase";
-import { useAuth } from "@/src/features/auth/AuthProvider";
 
-import {
-  BackendApiError,
-  BackendSyncGateway,
-} from "./BackendSyncGateway";
+import { BackendSyncGateway } from "./BackendSyncGateway";
 import { SyncBlockedError, SyncEngine } from "./SyncEngine";
 import { subscribeToSyncRequests } from "./syncSignal";
 
@@ -19,41 +16,18 @@ type SyncProviderProps = PropsWithChildren<{
   ownerUserId: string;
 }>;
 
-type AccessTokenProvider = (options?: {
-  forceRefresh?: boolean;
-}) => Promise<string>;
-
 export function SyncProvider({ ownerUserId, children }: SyncProviderProps) {
-  const auth = useAuth();
+  const backend = useBackendClient();
 
   const runSync = useCallback(async () => {
-    if (!backendApiUrl || !auth.session) {
+    if (!backend) {
       return;
     }
 
     try {
       const db = await openDatabase();
-      const engine = getSyncEngine(
-        db,
-        ownerUserId,
-        auth.getAccessToken,
-      );
-
-      try {
-        await engine.sync(ownerUserId);
-      } catch (error) {
-        if (!(error instanceof BackendApiError) || error.status !== 401) {
-          throw error;
-        }
-
-        /*
-         * The backend rejected the access token. Force one refresh through
-         * AuthProvider, which also clears the app session when the refresh
-         * token is no longer valid, then retry the sync once.
-         */
-        await auth.getAccessToken({ forceRefresh: true });
-        await engine.sync(ownerUserId);
-      }
+      const engine = getSyncEngine(db, ownerUserId, backend);
+      await engine.sync(ownerUserId);
     } catch (error) {
       if (error instanceof SyncBlockedError) {
         console.warn("Sync requires attention", error.message);
@@ -62,11 +36,12 @@ export function SyncProvider({ ownerUserId, children }: SyncProviderProps) {
 
       /*
        * Remote failure must never make locally stored data unusable.
-       * Pending mutations remain durable in SQLite for a later retry.
+       * Pending mutations and the last valid reference-data snapshots remain
+       * durable in SQLite for a later retry.
        */
       console.warn("Sync failed", error);
     }
-  }, [auth.getAccessToken, auth.session, ownerUserId]);
+  }, [backend, ownerUserId]);
 
   useEffect(() => {
     void runSync();
@@ -83,9 +58,7 @@ export function SyncProvider({ ownerUserId, children }: SyncProviderProps) {
       }
     });
 
-    return () => {
-      subscription.remove();
-    };
+    return () => subscription.remove();
   }, [runSync]);
 
   useEffect(() => {
@@ -95,9 +68,7 @@ export function SyncProvider({ ownerUserId, children }: SyncProviderProps) {
       }
     }, SYNC_INTERVAL_MS);
 
-    return () => {
-      clearInterval(interval);
-    };
+    return () => clearInterval(interval);
   }, [runSync]);
 
   return children;
@@ -106,31 +77,26 @@ export function SyncProvider({ ownerUserId, children }: SyncProviderProps) {
 let syncEngine: {
   db: Awaited<ReturnType<typeof openDatabase>>;
   ownerUserId: string;
-  getAccessToken: AccessTokenProvider;
+  backend: BackendClient;
   engine: SyncEngine;
 } | null = null;
 
 function getSyncEngine(
   db: Awaited<ReturnType<typeof openDatabase>>,
   ownerUserId: string,
-  getAccessToken: AccessTokenProvider,
+  backend: BackendClient,
 ): SyncEngine {
   if (
     !syncEngine ||
     syncEngine.db !== db ||
     syncEngine.ownerUserId !== ownerUserId ||
-    syncEngine.getAccessToken !== getAccessToken
+    syncEngine.backend !== backend
   ) {
-    const remote = new BackendSyncGateway(
-      backendApiUrl,
-      () => getAccessToken(),
-    );
-
     syncEngine = {
       db,
       ownerUserId,
-      getAccessToken,
-      engine: new SyncEngine(db, remote),
+      backend,
+      engine: new SyncEngine(db, new BackendSyncGateway(backend)),
     };
   }
 

@@ -1,4 +1,4 @@
-export type DataResource = "members" | "debts";
+export type DataResource = "members" | "debts" | "currencies" | "profile";
 
 type Listener = (resources: ReadonlySet<DataResource>) => void;
 

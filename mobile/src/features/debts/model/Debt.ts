@@ -1,3 +1,5 @@
+import type { Money } from "@/src/features/currencies/model/Money";
+
 export const DEBT_DIRECTIONS = ["you_owe", "they_owe"] as const;
 
 export type DebtDirection = (typeof DEBT_DIRECTIONS)[number];
@@ -7,8 +9,7 @@ export type Debt = {
   ownerUserId: string;
   memberId: string;
   direction: DebtDirection;
-  amount: number;
-  currency: string;
+  money: Money;
   title: string;
   dueDate: string | null;
   createdAt: string;

@@ -1,7 +1,5 @@
 import { Stack, useLocalSearchParams } from "expo-router";
-
 import { useCallback, useMemo, useState } from "react";
-
 import { StyleSheet, View } from "react-native";
 import Animated, {
   Easing,
@@ -13,25 +11,21 @@ import Animated, {
 
 import { SegmentedControl } from "@/src/components/controls";
 import { SolidScreen } from "@/src/components/layout";
-
+import { useBaseCurrencyCode } from "@/src/features/currencies/hooks/useBaseCurrencyCode";
 import { useDebts } from "@/src/features/debts/hooks/useDebts";
 import { buildDebtsScreenModel } from "@/src/features/debts/model/DebtsScreenModel";
-
 import { MemberDetailsHeader } from "@/src/features/members/components/MemberDetailsHeader";
 import { useMember } from "@/src/features/members/hooks/useMember";
-
 import {
   MEMBER_DETAILS_SECTIONS,
   MEMBER_DETAILS_TRANSITION_DURATION,
   type MemberDetailsSection,
 } from "@/src/features/members/screens/member-details/memberDetailsSections";
-
 import {
   MemberActivitySection,
   MemberDebtsSection,
   MemberOverviewSection,
 } from "@/src/features/members/screens/member-details/sections";
-
 import { spacing } from "@/src/theme";
 
 const SECTION_TRANSITION = {
@@ -41,27 +35,18 @@ const SECTION_TRANSITION = {
 };
 
 export function MemberDetailsScreen() {
-  const params = useLocalSearchParams<{
-    memberId?: string;
-  }>();
-
+  const params = useLocalSearchParams<{ memberId?: string }>();
   const memberId = typeof params.memberId === "string" ? params.memberId : null;
-
   const member = useMember(memberId);
-
   const debts = useDebts();
-
+  const baseCurrencyCode = useBaseCurrencyCode();
   const [section, setSection] = useState<MemberDetailsSection>("overview");
   const collapseProgress = useSharedValue(0);
   const contentProgress = useSharedValue(1);
 
   const contentStyle = useAnimatedStyle(() => ({
     opacity: contentProgress.value,
-    transform: [
-      {
-        translateY: (1 - contentProgress.value) * spacing.sm,
-      },
-    ],
+    transform: [{ translateY: (1 - contentProgress.value) * spacing.sm }],
   }));
 
   const changeSection = useCallback(
@@ -71,15 +56,10 @@ export function MemberDetailsScreen() {
       }
 
       collapseProgress.set(
-        withTiming(
-          nextSection === "overview" ? 0 : 1,
-          SECTION_TRANSITION,
-        ),
+        withTiming(nextSection === "overview" ? 0 : 1, SECTION_TRANSITION),
       );
-
       contentProgress.set(0);
       contentProgress.set(withTiming(1, SECTION_TRANSITION));
-
       setSection(nextSection);
     },
     [collapseProgress, contentProgress, section],
@@ -98,23 +78,21 @@ export function MemberDetailsScreen() {
       buildDebtsScreenModel(
         memberDebts,
         member.data ? [member.data] : [],
+        baseCurrencyCode,
       ),
-    [member.data, memberDebts],
+    [baseCurrencyCode, member.data, memberDebts],
   );
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: member.data?.displayName ?? "Member",
-        }}
-      />
+      <Stack.Screen options={{ title: member.data?.displayName ?? "Member" }} />
 
       <SolidScreen>
         {member.data ? (
           <>
             <MemberDetailsHeader
               member={member.data}
+              linked={member.data.linkedUserId !== null}
               compact={section !== "overview"}
               collapseProgress={collapseProgress}
             />
@@ -158,7 +136,6 @@ export function MemberDetailsScreen() {
 const styles = StyleSheet.create({
   sectionControl: {
     width: "100%",
-
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
   },

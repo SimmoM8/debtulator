@@ -4,33 +4,27 @@ import { useEffect, useState } from "react";
 import { Animated, Easing, StyleSheet, Text, View } from "react-native";
 
 import { Avatar } from "@/src/components/avatars/Avatar";
+import type { Money } from "@/src/features/currencies/model/Money";
+import {
+  absoluteMoney,
+  formatMoney,
+  isNegativeMoney,
+  isPositiveMoney,
+} from "@/src/features/currencies/utils/money";
 import { MemberAvatar } from "@/src/features/members/components/MemberAvatar";
 import { componentTokens, spacing, textStyles, useAppTheme } from "@/src/theme";
 
 import { Card } from "./Card";
 
-const PROFILE_ICON = {
-  ios: "person.fill",
-  android: "person",
-} as const;
-
-const ARROW_RIGHT_ICON = {
-  ios: "arrow.right",
-  android: "arrow_forward",
-} as const;
-
-const ARROW_LEFT_ICON = {
-  ios: "arrow.left",
-  android: "arrow_back",
-} as const;
-
+const PROFILE_ICON = { ios: "person.fill", android: "person" } as const;
+const ARROW_RIGHT_ICON = { ios: "arrow.right", android: "arrow_forward" } as const;
+const ARROW_LEFT_ICON = { ios: "arrow.left", android: "arrow_back" } as const;
 const ARROW_ANIMATION_DURATION = 650;
 
 type BalanceSummaryCardProps = {
   memberName: string;
-  netBalance: number;
+  netBalance: Money;
   debtCount: number;
-  currency?: string;
 };
 
 type BalanceDirection = "member_to_you" | "you_to_member" | "even";
@@ -44,17 +38,15 @@ export function BalanceSummaryCard({
   memberName,
   netBalance,
   debtCount,
-  currency = "kr",
 }: BalanceSummaryCardProps) {
   const theme = useAppTheme();
   const [arrowProgress] = useState(() => new Animated.Value(0));
 
-  const direction: BalanceDirection =
-    netBalance > 0
-      ? "member_to_you"
-      : netBalance < 0
-        ? "you_to_member"
-        : "even";
+  const direction: BalanceDirection = isPositiveMoney(netBalance)
+    ? "member_to_you"
+    : isNegativeMoney(netBalance)
+      ? "you_to_member"
+      : "even";
 
   useEffect(() => {
     arrowProgress.stopAnimation();
@@ -82,10 +74,7 @@ export function BalanceSummaryCard({
     );
 
     animation.start();
-
-    return () => {
-      animation.stop();
-    };
+    return () => animation.stop();
   }, [arrowProgress, direction]);
 
   const arrowDistance =
@@ -109,10 +98,7 @@ export function BalanceSummaryCard({
           >
             {formatRelationshipTitle(direction, memberName)}
           </Text>
-
-          <Text
-            style={[styles.debtCount, { color: theme.colors.onBrandMuted }]}
-          >
+          <Text style={[styles.debtCount, { color: theme.colors.onBrandMuted }]}>
             · {formatDebtCount(debtCount)}
           </Text>
         </View>
@@ -134,7 +120,7 @@ export function BalanceSummaryCard({
               numberOfLines={1}
               style={[styles.amount, { color: theme.colors.onHeroBackground }]}
             >
-              {formatAmount(Math.abs(netBalance), currency)}
+              {formatMoney(absoluteMoney(netBalance))}
             </Text>
 
             <View style={styles.arrowArea}>
@@ -176,7 +162,6 @@ function Participant({ title, avatar }: ParticipantProps) {
   return (
     <View style={styles.participant}>
       {avatar}
-
       <Text
         numberOfLines={1}
         style={[
@@ -206,10 +191,6 @@ function formatRelationshipTitle(
 
 function formatDebtCount(debtCount: number): string {
   return debtCount === 1 ? "1 debt" : `${debtCount} debts`;
-}
-
-function formatAmount(amount: number, currency: string): string {
-  return `${amount.toLocaleString()} ${currency}`;
 }
 
 const styles = StyleSheet.create({

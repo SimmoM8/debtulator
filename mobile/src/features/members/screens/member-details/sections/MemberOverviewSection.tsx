@@ -15,16 +15,8 @@ import { spacing, textStyles, useAppTheme } from "@/src/theme";
 
 type SymbolName = ComponentProps<typeof SymbolView>["name"];
 
-const DISPLAY_NAME_ICON: SymbolName = {
-  ios: "person",
-  android: "person",
-};
-
-const LINK_ICON: SymbolName = {
-  ios: "link",
-  android: "link",
-};
-
+const DISPLAY_NAME_ICON: SymbolName = { ios: "person", android: "person" };
+const LINK_ICON: SymbolName = { ios: "link", android: "link" };
 const DISPLAY_NAME_CHEVRON: SymbolName = {
   ios: "chevron.right",
   android: "chevron_right",
@@ -40,6 +32,7 @@ export function MemberOverviewSection({
   balance,
 }: MemberOverviewSectionProps) {
   const theme = useAppTheme();
+  const linked = member.linkedUserId !== null;
 
   return (
     <View style={styles.section}>
@@ -63,23 +56,23 @@ export function MemberOverviewSection({
           <GroupedListSection>
             <GroupedListRow
               icon={LINK_ICON}
-              label="Not linked"
+              label={linked ? "Linked" : "Not linked"}
               trailing={
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => {
-                    openLinkMember({ memberId: member.id });
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.linkAction,
-                      { color: theme.colors.controlTint },
-                    ]}
+                linked ? undefined : (
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => openLinkMember({ memberId: member.id })}
                   >
-                    Link member
-                  </Text>
-                </Pressable>
+                    <Text
+                      style={[
+                        styles.linkAction,
+                        { color: theme.colors.controlTint },
+                      ]}
+                    >
+                      Link member
+                    </Text>
+                  </Pressable>
+                )
               }
             />
           </GroupedListSection>

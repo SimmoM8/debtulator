@@ -2,6 +2,7 @@ import { Stack } from "expo-router";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { BackendProvider } from "@/src/data/backend/BackendProvider";
 import { SyncProvider } from "@/src/data/sync/SyncProvider";
 import { AuthProvider, useAuth } from "@/src/features/auth/AuthProvider";
 import { AppThemeProvider, useAppTheme } from "@/src/theme";
@@ -11,7 +12,9 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <AppThemeProvider preference="system">
         <AuthProvider>
-          <RootNavigator />
+          <BackendProvider>
+            <RootNavigator />
+          </BackendProvider>
         </AuthProvider>
       </AppThemeProvider>
     </SafeAreaProvider>

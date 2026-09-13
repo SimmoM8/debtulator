@@ -15,19 +15,19 @@ export type DebtsScreenModel = DebtBalanceSummary & {
 export function buildDebtsScreenModel(
   debts: Debt[],
   members: Member[],
+  baseCurrencyCode: string,
 ): DebtsScreenModel {
   const memberNames = new Map(
     members.map((member) => [member.id, member.displayName]),
   );
 
   return {
-    ...buildDebtBalanceSummary(debts),
-
+    ...buildDebtBalanceSummary(debts, baseCurrencyCode),
     items: debts.map((debt) => ({
       id: debt.id,
-      title: debt.title ?? "Untitled debt",
+      title: debt.title || "Untitled debt",
       person: memberNames.get(debt.memberId) ?? "Unknown member",
-      amount: debt.amount,
+      money: debt.money,
       direction: debt.direction,
       date: debt.createdAt,
       dueDate: debt.dueDate,
