@@ -45,7 +45,7 @@ class CurrencyControllerSecurityTest {
     }
 
     @Test
-    void returnsOnlyEnabledCurrenciesInConfiguredOrder() throws Exception {
+    void returnsAuthoritativeCatalogueInConfiguredOrder() throws Exception {
         jdbcTemplate.update(
                 "update public.currencies set enabled = false where code = 'GBP'"
         );
@@ -63,10 +63,12 @@ class CurrencyControllerSecurityTest {
                 ))
                 .andExpect(jsonPath("$[0].code").value("AUD"))
                 .andExpect(jsonPath("$[1].code").value("EUR"))
-                .andExpect(jsonPath("$[2].code").value("SEK"))
-                .andExpect(jsonPath("$[3].code").value("USD"))
-                .andExpect(jsonPath("$[3].decimalPlaces").value(2))
-                .andExpect(jsonPath("$[3].displayOrder").value(50))
-                .andExpect(jsonPath("$.length()").value(4));
+                .andExpect(jsonPath("$[2].code").value("GBP"))
+                .andExpect(jsonPath("$[2].enabled").value(false))
+                .andExpect(jsonPath("$[3].code").value("SEK"))
+                .andExpect(jsonPath("$[4].code").value("USD"))
+                .andExpect(jsonPath("$[4].decimalPlaces").value(2))
+                .andExpect(jsonPath("$[4].displayOrder").value(50))
+                .andExpect(jsonPath("$.length()").value(5));
     }
 }

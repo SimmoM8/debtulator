@@ -72,8 +72,10 @@ class ProfileDiscoveryPreferencesIntegrationTest {
                                 .content("""
                                         {
                                           "memberDiscoveryEnabled": true,
+                                          "discoverableByUsername": true,
                                           "discoverableByName": false,
-                                          "discoverableByEmail": true
+                                          "discoverableByEmail": true,
+                                          "discoverableByPhone": false
                                         }
                                         """)
                 )
