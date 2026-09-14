@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
   },
   title: {
-    ...textStyles.title2,
+    ...textStyles.title,
   },
   message: {
     ...textStyles.body,

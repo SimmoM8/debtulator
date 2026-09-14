@@ -38,7 +38,9 @@ export function useProfile() {
   }, [userId]);
 
   useEffect(() => {
-    void refresh();
+    queueMicrotask(() => {
+      void refresh();
+    });
 
     return subscribeToDataChanges((resources) => {
       if (resources.has("profile")) {

@@ -26,15 +26,19 @@ export function useUserDiscovery(query: string) {
       normalizedQuery.length < MIN_USER_DISCOVERY_QUERY_LENGTH ||
       !backend
     ) {
-      setData([]);
-      setLoading(false);
-      setError(null);
+      queueMicrotask(() => {
+        setData([]);
+        setLoading(false);
+        setError(null);
+      });
       return;
     }
 
-    setData([]);
-    setLoading(true);
-    setError(null);
+    queueMicrotask(() => {
+      setData([]);
+      setLoading(true);
+      setError(null);
+    });
 
     const timeout = setTimeout(() => {
       void (async () => {

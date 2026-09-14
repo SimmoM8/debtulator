@@ -219,13 +219,15 @@ export class SyncEngine {
       throw new Error("Backend sync result does not match the local mutation.");
     }
 
+    let blocked = false;
+
     await this.db.withExclusiveTransactionAsync(async (tx) => {
       const syncStore = new SqliteSyncStore(tx);
 
       switch (result.status) {
         case "applied":
           await syncStore.markApplied(mutation, result.version);
-          return false;
+          return;
         case "conflict":
           if (canRebaseMemberConflict(mutation, result)) {
             await syncStore.rebaseMemberConflict(
@@ -234,7 +236,7 @@ export class SyncEngine {
               result.errorCode,
               result.message ?? "The remote member changed.",
             );
-            return false;
+            return;
           }
 
           await syncStore.markConflict(
@@ -242,22 +244,26 @@ export class SyncEngine {
             result.errorCode,
             result.message ?? "The remote record changed.",
           );
-          return true;
+          blocked = true;
+          return;
         case "rejected":
           await syncStore.markRejected(
             mutation.id,
             result.errorCode,
             result.message ?? "The backend rejected the local change.",
           );
-          return true;
+          blocked = true;
+          return;
         case "retry":
           await syncStore.markRetry(
             mutation.id,
             result.message ?? "Temporary synchronization failure.",
           );
-          return false;
+          return;
       }
     });
+
+    return blocked;
   }
 
   private async bootstrap(ownerUserId: string): Promise<void> {

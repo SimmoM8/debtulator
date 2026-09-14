@@ -35,7 +35,9 @@ export function useDebtRequest(requestId: string | null) {
   }, [backend, requestId]);
 
   useEffect(() => {
-    void refresh();
+    queueMicrotask(() => {
+      void refresh();
+    });
   }, [refresh]);
 
   return {

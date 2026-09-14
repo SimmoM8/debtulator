@@ -56,8 +56,8 @@ export function MemberSearchResultsList({
       ListEmptyComponent={
         <View style={styles.emptyState}>
           <ListState
-            loading={loading}
-            error={error}
+            loading={loading ?? false}
+            error={error ?? null}
             totalCount={items.length}
             visibleCount={items.length}
             loadingState={{
