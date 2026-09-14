@@ -214,6 +214,102 @@ public class AgreementRepository {
         );
     }
 
+    public Optional<AgreementRequest> findForParticipant(
+            UUID requestId,
+            UUID userId
+    ) {
+        return jdbcTemplate.query("""
+                select *
+                from public.agreement_requests
+                where id = ?
+                  and (
+                        requester_user_id = ?
+                        or target_user_id = ?
+                  )
+                """,
+                (resultSet, rowNumber) -> mapRow(resultSet),
+                requestId,
+                userId,
+                userId
+        ).stream().findFirst();
+    }
+
+    public List<AgreementRequest> findPendingIncomingByEntityAndAction(
+            UUID userId,
+            String entityType,
+            String action,
+            int limit
+    ) {
+        return jdbcTemplate.query("""
+                select *
+                from public.agreement_requests
+                where target_user_id = ?
+                  and entity_type = ?
+                  and action = ?
+                  and status = 'pending'
+                order by created_at desc
+                limit ?
+                """,
+                (resultSet, rowNumber) -> mapRow(resultSet),
+                userId,
+                entityType,
+                action,
+                limit
+        );
+    }
+
+    public List<AgreementRequest> findPendingOutgoingByEntityAndAction(
+            UUID userId,
+            String entityType,
+            String action,
+            int limit
+    ) {
+        return jdbcTemplate.query("""
+                select *
+                from public.agreement_requests
+                where requester_user_id = ?
+                  and entity_type = ?
+                  and action = ?
+                  and status = 'pending'
+                order by created_at desc
+                limit ?
+                """,
+                (resultSet, rowNumber) -> mapRow(resultSet),
+                userId,
+                entityType,
+                action,
+                limit
+        );
+    }
+
+    public List<AgreementRequest> findHistoryByEntityAndAction(
+            UUID userId,
+            String entityType,
+            String action,
+            int limit
+    ) {
+        return jdbcTemplate.query("""
+                select *
+                from public.agreement_requests
+                where entity_type = ?
+                  and action = ?
+                  and status <> 'pending'
+                  and (
+                        requester_user_id = ?
+                        or target_user_id = ?
+                  )
+                order by resolved_at desc nulls last, created_at desc
+                limit ?
+                """,
+                (resultSet, rowNumber) -> mapRow(resultSet),
+                entityType,
+                action,
+                userId,
+                userId,
+                limit
+        );
+    }
+
     public void updateStatus(
             UUID requestId,
             String status,

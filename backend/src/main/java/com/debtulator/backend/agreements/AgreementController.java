@@ -20,6 +20,16 @@ public class AgreementController {
     private final AgreementService agreementService;
     private final AuthenticatedUserProvider authenticatedUserProvider;
 
+    @GetMapping("/requests/{requestId}")
+    public ResponseEntity<AgreementRequestResponse> request(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID requestId
+    ) {
+        return noStore(ResponseEntity.ok()).body(
+                agreementService.getRequest(userId(jwt), requestId)
+        );
+    }
+
     @GetMapping("/requests/incoming")
     public ResponseEntity<List<AgreementRequestResponse>> incoming(
             @AuthenticationPrincipal Jwt jwt

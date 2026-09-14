@@ -47,6 +47,15 @@ public class AgreementService {
     }
 
     @Transactional(readOnly = true)
+    public AgreementRequestResponse getRequest(UUID userId, UUID requestId) {
+        AgreementRequest request = agreementRepository
+                .findForParticipant(requestId, userId)
+                .orElseThrow(this::notFound);
+
+        return agreementMapper.toResponse(request, userId);
+    }
+
+    @Transactional(readOnly = true)
     public List<AgreementRequestResponse> getAgreed(UUID userId) {
         return agreementRepository.findAcceptedForUser(userId, MAX_REQUESTS)
                 .stream()

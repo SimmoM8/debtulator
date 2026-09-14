@@ -9,7 +9,8 @@ import java.util.Locale;
 @Getter
 @RequiredArgsConstructor
 public enum InboxRequestType {
-    MEMBER_LINK("member_link");
+    MEMBER_LINK("member_link"),
+    DEBT_CREATE("debt_create");
 
     private final String value;
 
