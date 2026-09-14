@@ -13,6 +13,7 @@ import com.debtulator.backend.auth.supabase.SupabaseAuthResult;
 import com.debtulator.backend.auth.supabase.SupabaseSession;
 import com.debtulator.backend.auth.supabase.SupabaseUser;
 import com.debtulator.backend.exceptions.AuthOperationException;
+import com.debtulator.backend.profiles.ProfileService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,11 +34,14 @@ class AuthServiceTest {
     @Mock
     private SupabaseAuthGateway authGateway;
 
+    @Mock
+    private ProfileService profileService;
+
     private AuthService authService;
 
     @BeforeEach
     void setUp() {
-        authService = new AuthService(authGateway);
+        authService = new AuthService(authGateway, profileService);
     }
 
     @Test
@@ -54,6 +58,10 @@ class AuthServiceTest {
                 new RegisterRequest(
                         "ben@example.com",
                         "strong-password",
+                        "Ben",
+                        "ben",
+                        null,
+                        "SEK",
                         null
                 ),
                 "127.0.0.1"

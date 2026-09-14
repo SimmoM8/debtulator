@@ -40,7 +40,7 @@ class UserDiscoveryServiceIntegrationTest {
     @Test
     void partialNameSearchUsesAccountName() {
         UUID targetId = createUser("ben@example.com", "Benjamin");
-        profileService.updateDiscoveryPreferences(targetId, true, true, false);
+        profileService.updateDiscoveryPreferences(targetId, true, false, true, false, false);
 
         var results = userDiscoveryService.search(requesterUserId, "jam");
 
@@ -52,7 +52,7 @@ class UserDiscoveryServiceIntegrationTest {
     private UUID createUser(String email, String name) {
         UUID id = UUID.randomUUID();
         jdbcTemplate.update("insert into auth.users (id, email) values (?, ?)", id, email);
-        profileService.update(id, name, "SEK");
+        profileService.update(id, null, name, null, "SEK");
         return id;
     }
 }

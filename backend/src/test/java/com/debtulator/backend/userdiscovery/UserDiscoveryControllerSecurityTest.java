@@ -43,7 +43,7 @@ class UserDiscoveryControllerSecurityTest {
 
         requesterUserId = createUser("requester@example.com", "Requester");
         targetUserId = createUser("ben@example.com", "Benjamin");
-        profileService.updateDiscoveryPreferences(targetUserId, true, true, true);
+        profileService.updateDiscoveryPreferences(targetUserId, true, false, true, true, false);
     }
 
     @Test
@@ -62,7 +62,7 @@ class UserDiscoveryControllerSecurityTest {
     private UUID createUser(String email, String name) {
         UUID id = UUID.randomUUID();
         jdbcTemplate.update("insert into auth.users (id, email) values (?, ?)", id, email);
-        profileService.update(id, name, "SEK");
+        profileService.update(id, null, name, null, "SEK");
         return id;
     }
 }

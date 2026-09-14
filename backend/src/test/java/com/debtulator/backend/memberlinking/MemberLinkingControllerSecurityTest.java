@@ -79,7 +79,7 @@ class MemberLinkingControllerSecurityTest {
                 id,
                 email
         );
-        profileService.update(id, name, "SEK");
+        profileService.update(id, null, name, null, "SEK");
         return id;
     }
 }

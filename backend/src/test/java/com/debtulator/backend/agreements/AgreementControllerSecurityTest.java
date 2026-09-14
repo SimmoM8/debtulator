@@ -125,7 +125,7 @@ class AgreementControllerSecurityTest {
                                 "insert into auth.users (id, email) values (?, ?)",
                                 id,
                                 email);
-                profileService.update(id, name, "SEK");
+                profileService.update(id, null, name, null, "SEK");
                 return id;
         }
 }

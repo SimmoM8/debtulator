@@ -40,18 +40,18 @@ class ProfileServiceIntegrationTest {
 
     @Test
     void accountNameAllowsOneOrMoreNames() {
-        assertThat(profileService.update(userId, "  Ben  ", "SEK").getName())
+        assertThat(profileService.update(userId, null, "  Ben  ", null, "SEK").getName())
                 .isEqualTo("Ben");
-        assertThat(profileService.update(userId, "Benjamin Simmons", "SEK").getName())
+        assertThat(profileService.update(userId, null, "Benjamin Simmons", null, "SEK").getName())
                 .isEqualTo("Benjamin Simmons");
     }
 
     @Test
     void blankNameIsRejectedButNullCanRemainUnset() {
-        assertThat(profileService.update(userId, null, "SEK").getName()).isNull();
+        assertThat(profileService.update(userId, null, null, null, "SEK").getName()).isNull();
 
         assertThatThrownBy(() ->
-                profileService.update(userId, "   ", "SEK")
+                profileService.update(userId, null, "   ", null, "SEK")
         )
                 .isInstanceOfSatisfying(
                         ProfileServiceException.class,
