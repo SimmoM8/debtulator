@@ -38,15 +38,19 @@ class UserDiscoveryServiceIntegrationTest {
     }
 
     @Test
-    void partialNameSearchUsesAccountName() {
+    void nameSearchUsesConfiguredSimilarityThreshold() {
         UUID targetId = createUser("ben@example.com", "Benjamin");
         profileService.updateDiscoveryPreferences(targetId, true, false, true, false, false);
 
-        var results = userDiscoveryService.search(requesterUserId, "jam");
+        var results = userDiscoveryService.search(requesterUserId, "Benjamin");
 
         assertThat(results).hasSize(1);
         assertThat(results.getFirst().id()).isEqualTo(targetId);
         assertThat(results.getFirst().name()).isEqualTo("Benjamin");
+
+        assertThat(
+                userDiscoveryService.search(requesterUserId, "jam")
+        ).isEmpty();
     }
 
     private UUID createUser(String email, String name) {

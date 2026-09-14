@@ -50,7 +50,7 @@ class UserDiscoveryControllerSecurityTest {
     void discoveryReturnsNameTerminology() throws Exception {
         mockMvc.perform(
                         get("/api/v1/user-discovery/users")
-                                .queryParam("query", "ben")
+                                .queryParam("query", "Benjamin")
                                 .with(jwt().jwt(jwt -> jwt.subject(requesterUserId.toString())))
                 )
                 .andExpect(status().isOk())
