@@ -2,7 +2,7 @@ import type { SQLiteDatabase } from "expo-sqlite";
 
 import { createSchema } from "./createSchema";
 
-const DATABASE_VERSION = 4;
+const DATABASE_VERSION = 5;
 
 type UserVersionRow = {
   user_version: number;
@@ -68,6 +68,11 @@ export async function migrateDatabase(db: SQLiteDatabase): Promise<void> {
   if (version < 4) {
     await migrateToAccountProfile(db);
     version = 4;
+  }
+
+  if (version < 5) {
+    await migrateToDebtAgreementProjection(db);
+    version = 5;
   }
 
   await assertCurrentSchema(db);
@@ -303,6 +308,27 @@ async function migrateToAccountProfile(db: SQLiteDatabase): Promise<void> {
     await addColumnIfMissing(tx, "profiles", "phone_number", "TEXT");
 
     await tx.execAsync("PRAGMA user_version = 4");
+  });
+}
+
+async function migrateToDebtAgreementProjection(
+  db: SQLiteDatabase,
+): Promise<void> {
+  await db.withExclusiveTransactionAsync(async (tx) => {
+    await addColumnIfMissing(
+      tx,
+      "debts",
+      "agreement_status",
+      "TEXT NOT NULL DEFAULT 'private' CHECK (agreement_status IN ('private', 'pending', 'agreed', 'disagreed'))",
+    );
+    await addColumnIfMissing(tx, "debts", "collaboration_id", "TEXT");
+    await addColumnIfMissing(
+      tx,
+      "debts",
+      "agreed_revision",
+      "INTEGER CHECK (agreed_revision IS NULL OR agreed_revision > 0)",
+    );
+    await tx.execAsync("PRAGMA user_version = 5");
   });
 }
 
@@ -632,6 +658,9 @@ async function assertCurrentSchema(db: SQLiteDatabase): Promise<void> {
       "due_date",
       "created_at",
       "updated_at",
+      "agreement_status",
+      "collaboration_id",
+      "agreed_revision",
       "version",
     ],
     sync_outbox: [

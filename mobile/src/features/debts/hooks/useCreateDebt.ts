@@ -37,6 +37,7 @@ export function useCreateDebt() {
         throw new Error("Cannot create a debt while signed out.");
       }
 
+      const ownerUserId = auth.session.user.id;
       const money = createMoney(input.money.amount, input.money.currencyCode);
 
       if (!isPositiveMoney(money)) {
@@ -53,20 +54,38 @@ export function useCreateDebt() {
         const db = await openDatabase();
         const now = new Date().toISOString();
 
-        const debt: Debt = {
-          id: Crypto.randomUUID(),
-          ownerUserId: auth.session.user.id,
-          memberId: input.memberId,
-          direction: input.direction,
-          money,
-          title: input.title.trim(),
-          dueDate: input.dueDate ? toDateString(input.dueDate) : null,
-          createdAt: now,
-          updatedAt: now,
-          version: null,
-        };
-
         await db.withExclusiveTransactionAsync(async (tx) => {
+          const member = await tx.getFirstAsync<{ linked_user_id: string | null }>(
+            `
+              SELECT linked_user_id
+              FROM members
+              WHERE owner_user_id = ?
+                AND id = ?
+              LIMIT 1
+            `,
+            [ownerUserId, input.memberId],
+          );
+
+          if (!member) {
+            throw new Error("The selected member does not exist.");
+          }
+
+          const debt: Debt = {
+            id: Crypto.randomUUID(),
+            ownerUserId,
+            memberId: input.memberId,
+            direction: input.direction,
+            money,
+            title: input.title.trim(),
+            dueDate: input.dueDate ? toDateString(input.dueDate) : null,
+            createdAt: now,
+            updatedAt: now,
+            agreementStatus: member.linked_user_id ? "pending" : "private",
+            collaborationId: null,
+            agreedRevision: null,
+            version: null,
+          };
+
           const currencyRepository = new SqliteCurrencyRepository(tx);
           const currency = await currencyRepository.getByCode(
             debt.money.currencyCode,

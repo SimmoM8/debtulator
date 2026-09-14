@@ -3,17 +3,14 @@ import { useEffect } from "react";
 import { AppState } from "react-native";
 
 import { useBackendClient } from "@/src/data/backend/BackendProvider";
-import { backendApiUrl } from "@/src/data/backend/backendConfig";
-import { createRealtimeConnectionTicket } from "@/src/data/realtime/createRealtimeConnectionTicket";
-import { parseRealtimeEvent } from "@/src/data/realtime/RealtimeEvent";
+import { parseRealtimeEventBatch } from "@/src/data/realtime/RealtimeEventBatch";
 import { publishRealtimeEvent } from "@/src/data/realtime/realtimeSignal";
-import { createRealtimeUrl } from "@/src/data/realtime/realtimeUrl";
 
 type RealtimeProviderProps = PropsWithChildren<{
   ownerUserId: string;
 }>;
 
-const RECONNECT_DELAYS_MS = [1_000, 2_000, 5_000, 10_000, 30_000] as const;
+const POLL_INTERVAL_MS = 5_000;
 const RECENT_EVENT_LIMIT = 200;
 
 export function RealtimeProvider({
@@ -27,18 +24,18 @@ export function RealtimeProvider({
       return;
     }
 
+    const client = backend;
     let disposed = false;
-    let reconnectAttempt = 0;
-    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-    let socket: WebSocket | null = null;
-    let lastSequence: string | null = null;
+    let polling = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let cursor: string | null = null;
     const recentEventIds = new Set<string>();
     const recentEventOrder: string[] = [];
 
-    function clearReconnectTimer() {
-      if (reconnectTimer) {
-        clearTimeout(reconnectTimer);
-        reconnectTimer = null;
+    function clearTimer() {
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
       }
     }
 
@@ -46,162 +43,76 @@ export function RealtimeProvider({
       if (recentEventIds.has(id)) {
         return false;
       }
-
       recentEventIds.add(id);
       recentEventOrder.push(id);
-
       if (recentEventOrder.length > RECENT_EVENT_LIMIT) {
         const oldest = recentEventOrder.shift();
-
-        if (oldest) {
-          recentEventIds.delete(oldest);
-        }
+        if (oldest) recentEventIds.delete(oldest);
       }
-
       return true;
     }
 
-    function scheduleReconnect() {
-      if (
-        disposed ||
-        AppState.currentState !== "active" ||
-        reconnectTimer !== null
-      ) {
-        return;
-      }
-
-      const index = Math.min(
-        reconnectAttempt,
-        RECONNECT_DELAYS_MS.length - 1,
-      );
-      const delay = RECONNECT_DELAYS_MS[index];
-
-      reconnectAttempt += 1;
-      reconnectTimer = setTimeout(() => {
-        reconnectTimer = null;
-        void connect();
-      }, delay);
+    function scheduleNext() {
+      clearTimer();
+      if (disposed || AppState.currentState !== "active") return;
+      timer = setTimeout(() => {
+        timer = null;
+        void poll();
+      }, POLL_INTERVAL_MS);
     }
 
-    async function connect() {
+    async function poll() {
       if (
         disposed ||
-        !backend ||
-        AppState.currentState !== "active" ||
-        socket !== null
+        polling ||
+        AppState.currentState !== "active"
       ) {
         return;
       }
 
+      polling = true;
       try {
-        const connectionTicket =
-          await createRealtimeConnectionTicket(backend, lastSequence);
+        let hasMore = true;
+        do {
+          const query = cursor === null
+            ? ""
+            : `?after=${encodeURIComponent(cursor)}&limit=100`;
+          const batch = parseRealtimeEventBatch(
+            await client.get<unknown>(`/api/v1/realtime/events${query}`),
+          );
 
-        if (disposed || AppState.currentState !== "active") {
-          return;
-        }
-
-        const nextSocket = new WebSocket(
-          createRealtimeUrl(backendApiUrl, connectionTicket.ticket),
-        );
-
-        socket = nextSocket;
-
-        nextSocket.onopen = () => {
-          reconnectAttempt = 0;
-        };
-
-        nextSocket.onmessage = (message) => {
-          if (typeof message.data !== "string") {
-            return;
-          }
-
-          try {
-            const value = JSON.parse(message.data) as unknown;
-
-            if (
-              typeof value === "object" &&
-              value !== null &&
-              !Array.isArray(value) &&
-              (value as Record<string, unknown>).type === "realtime.keepalive"
-            ) {
-              return;
-            }
-
-            const event = parseRealtimeEvent(value);
-            lastSequence = maxSequence(lastSequence, event.sequence);
-
+          cursor = batch.nextSequence;
+          for (const event of batch.events) {
             if (rememberEvent(event.id)) {
               publishRealtimeEvent(event);
             }
-          } catch (error) {
-            console.warn("Ignored invalid realtime message", error);
           }
-        };
-
-        nextSocket.onerror = () => {
-          nextSocket.close();
-        };
-
-        nextSocket.onclose = () => {
-          if (socket === nextSocket) {
-            socket = null;
-          }
-
-          scheduleReconnect();
-        };
+          hasMore = batch.hasMore;
+        } while (hasMore && !disposed && AppState.currentState === "active");
       } catch (error) {
-        console.warn("Realtime connection failed", error);
-        scheduleReconnect();
+        console.warn("Realtime event poll failed", error);
+      } finally {
+        polling = false;
+        scheduleNext();
       }
     }
 
-    const appStateSubscription = AppState.addEventListener(
-      "change",
-      (state) => {
-        if (state === "active") {
-          void connect();
-          return;
-        }
+    const appStateSubscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        void poll();
+      } else {
+        clearTimer();
+      }
+    });
 
-        clearReconnectTimer();
-
-        if (socket) {
-          const currentSocket = socket;
-          socket = null;
-          currentSocket.close();
-        }
-      },
-    );
-
-    void connect();
+    void poll();
 
     return () => {
       disposed = true;
-      clearReconnectTimer();
+      clearTimer();
       appStateSubscription.remove();
-
-      if (socket) {
-        const currentSocket = socket;
-        socket = null;
-        currentSocket.close();
-      }
     };
   }, [backend, ownerUserId]);
 
   return children;
-}
-
-function maxSequence(
-  current: string | null,
-  next: string,
-): string {
-  if (current === null) {
-    return next;
-  }
-
-  const currentValue = BigInt(current);
-  const nextValue = BigInt(next);
-
-  return nextValue > currentValue ? next : current;
 }

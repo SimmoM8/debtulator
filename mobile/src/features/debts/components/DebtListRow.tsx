@@ -41,6 +41,17 @@ export function DebtListRow({
             ? `You owe ${item.person}`
             : `${item.person} owes you`}
         </Text>
+
+        {item.agreementStatus !== "private" ? (
+          <Text
+            style={[
+              styles.agreement,
+              { color: agreementColor(item.agreementStatus, theme.colors) },
+            ]}
+          >
+            {agreementLabel(item.agreementStatus)}
+          </Text>
+        ) : null}
       </View>
 
       <Text style={[styles.amount, { color: appearance.contentColor }]}>
@@ -64,6 +75,35 @@ export function DebtListRow({
   );
 }
 
+function agreementLabel(status: DebtListItem["agreementStatus"]): string {
+  switch (status) {
+    case "agreed":
+      return "Agreed";
+    case "pending":
+      return "Pending agreement";
+    case "disagreed":
+      return "Not agreed";
+    case "private":
+      return "Private";
+  }
+}
+
+function agreementColor(
+  status: DebtListItem["agreementStatus"],
+  colors: ReturnType<typeof useAppTheme>["colors"],
+): string {
+  switch (status) {
+    case "agreed":
+      return colors.success;
+    case "pending":
+      return colors.warning;
+    case "disagreed":
+      return colors.danger;
+    case "private":
+      return colors.secondaryText;
+  }
+}
+
 const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
@@ -80,6 +120,10 @@ const styles = StyleSheet.create({
     ...textStyles.body,
   },
   subtitle: {
+    ...textStyles.caption,
+    marginTop: spacing.xs,
+  },
+  agreement: {
     ...textStyles.caption,
     marginTop: spacing.xs,
   },

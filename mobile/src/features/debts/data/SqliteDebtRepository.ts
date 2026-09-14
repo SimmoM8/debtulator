@@ -23,6 +23,9 @@ export class SqliteDebtRepository implements DebtRepository {
           due_date,
           created_at,
           updated_at,
+          agreement_status,
+          collaboration_id,
+          agreed_revision,
           version
         FROM debts
         WHERE owner_user_id = ?
@@ -48,6 +51,9 @@ export class SqliteDebtRepository implements DebtRepository {
           due_date,
           created_at,
           updated_at,
+          agreement_status,
+          collaboration_id,
+          agreed_revision,
           version
         FROM debts
         WHERE owner_user_id = ?
@@ -74,9 +80,12 @@ export class SqliteDebtRepository implements DebtRepository {
           due_date,
           created_at,
           updated_at,
+          agreement_status,
+          collaboration_id,
+          agreed_revision,
           version
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 
         ON CONFLICT(id) DO UPDATE SET
           member_id = excluded.member_id,
@@ -86,6 +95,9 @@ export class SqliteDebtRepository implements DebtRepository {
           title = excluded.title,
           due_date = excluded.due_date,
           updated_at = excluded.updated_at,
+          agreement_status = excluded.agreement_status,
+          collaboration_id = excluded.collaboration_id,
+          agreed_revision = excluded.agreed_revision,
           version = excluded.version
 
         WHERE debts.owner_user_id = excluded.owner_user_id
@@ -101,6 +113,9 @@ export class SqliteDebtRepository implements DebtRepository {
         debt.dueDate,
         debt.createdAt,
         debt.updatedAt,
+        debt.agreementStatus,
+        debt.collaborationId,
+        debt.agreedRevision,
         debt.version,
       ],
     );

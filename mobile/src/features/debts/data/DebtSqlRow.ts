@@ -9,5 +9,8 @@ export type DebtSqlRow = {
   due_date: string | null;
   created_at: string;
   updated_at: string;
+  agreement_status: string;
+  collaboration_id: string | null;
+  agreed_revision: number | null;
   version: number | null;
 };

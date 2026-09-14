@@ -291,11 +291,16 @@ function proposalSummary(
   request: DebtRequest,
   counterpartyName: string,
 ): string {
-  if (request.direction === "incoming") {
-    return `${counterpartyName} proposed a new debt with you.`;
-  }
+  const action =
+    request.action === "create"
+      ? "a new debt"
+      : request.action === "update"
+        ? "changes to your shared debt"
+        : "removing your shared debt";
 
-  return `You proposed a new debt with ${counterpartyName}.`;
+  return request.direction === "incoming"
+    ? `${counterpartyName} proposed ${action}.`
+    : `You proposed ${action} with ${counterpartyName}.`;
 }
 
 function relationshipLabel(

@@ -13,6 +13,9 @@ export function mapDebtRow(row: DebtSqlRow): Debt {
     dueDate: row.due_date,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    agreementStatus: requireAgreementStatus(row.agreement_status),
+    collaborationId: row.collaboration_id,
+    agreedRevision: row.agreed_revision,
     version: row.version,
   };
 }
@@ -48,6 +51,14 @@ export function syncPayloadToDebt(value: Record<string, unknown>): Debt {
         : requireString(value.dueDate, "dueDate"),
     createdAt: requireString(value.createdAt, "createdAt"),
     updatedAt: requireString(value.updatedAt, "updatedAt"),
+    agreementStatus: requireAgreementStatus(
+      value.agreementStatus === undefined ? "private" : value.agreementStatus,
+    ),
+    collaborationId:
+      value.collaborationId === null || value.collaborationId === undefined
+        ? null
+        : requireString(value.collaborationId, "collaborationId"),
+    agreedRevision: requireNullablePositiveVersion(value.agreedRevision),
     version: requireVersion(value.version),
   };
 }
@@ -58,6 +69,29 @@ function requireDirection(value: string): DebtDirection {
   }
 
   return value;
+}
+
+function requireAgreementStatus(value: unknown): Debt["agreementStatus"] {
+  if (
+    value !== "private" &&
+    value !== "pending" &&
+    value !== "agreed" &&
+    value !== "disagreed"
+  ) {
+    throw new Error("Invalid debt agreement status.");
+  }
+  return value;
+}
+
+function requireNullablePositiveVersion(value: unknown): number | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  const version = requireVersion(value);
+  if (version === 0) {
+    throw new Error("Invalid debt agreed revision.");
+  }
+  return version;
 }
 
 function requireAmount(value: unknown): string {

@@ -36,6 +36,7 @@ function parseInboxRequest(value: unknown): RequestInboxItem {
   return {
     requestId: requireString(object.requestId, "requestId"),
     type: requireString(object.type, "type"),
+    action: optionalString(object.action, "action"),
     direction: requireDirection(object.direction),
     status: requireString(object.status, "status"),
     counterpartyUserId: requireString(
@@ -65,6 +66,14 @@ function requireString(value: unknown, field: string): string {
   }
 
   return value;
+}
+
+function optionalString(value: unknown, field: string): string | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  return requireString(value, field);
 }
 
 function requireDirection(value: unknown): RequestInboxDirection {

@@ -12,6 +12,7 @@ type InboxRealtimePayload = {
   requestId: string;
   counterpartyName: string;
   status: string;
+  action: string | null;
 };
 
 export function InboxRealtimeEffects() {
@@ -77,11 +78,18 @@ function createToast(
       };
     }
 
-    if (payload.requestType === "debt_create") {
+    if (payload.requestType === "debt") {
+      const subject =
+        payload.action === "update"
+          ? "changes to a debt"
+          : payload.action === "delete"
+            ? "removing a debt"
+            : "a new debt";
+
       return {
         variant: "info" as const,
-        title: "Debt proposal",
-        message: `${payload.counterpartyName} proposed a debt with you.`,
+        title: "Debt request",
+        message: `${payload.counterpartyName} proposed ${subject} with you.`,
         actionLabel: "View",
         onAction: () => {
           router.push({
@@ -144,6 +152,7 @@ function parseInboxRealtimePayload(
   const requestId = readString(event.payload.requestId);
   const counterpartyName = readString(event.payload.counterpartyName);
   const status = readString(event.payload.status);
+  const action = readString(event.payload.action);
 
   if (!requestType || !requestId || !counterpartyName || !status) {
     return null;
@@ -154,6 +163,7 @@ function parseInboxRealtimePayload(
     requestId,
     counterpartyName,
     status,
+    action,
   };
 }
 

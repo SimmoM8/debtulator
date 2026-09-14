@@ -19,10 +19,7 @@ function parseDebtRequest(value: unknown): DebtRequest {
     throw new Error("Backend returned a non-debt agreement request.");
   }
 
-  if (requireString(object.action, "action") !== "create") {
-    throw new Error("Backend returned an unsupported debt request action.");
-  }
-
+  const action = requireAction(object.action);
   const payload = requireObject(object.payload, "payload");
 
   return {
@@ -31,7 +28,7 @@ function parseDebtRequest(value: unknown): DebtRequest {
     userId: requireString(object.userId, "userId"),
     entityId: requireString(object.entityId, "entityId"),
     entityVersion: requireVersion(object.entityVersion),
-    action: "create",
+    action,
     payload: {
       memberId: requireString(payload.memberId, "payload.memberId"),
       direction: requireDebtDirection(payload.direction),
@@ -79,6 +76,16 @@ function requireVersion(value: unknown): number {
   }
 
   return value;
+}
+
+function requireAction(value: unknown): DebtRequest["action"] {
+  const action = requireString(value, "action");
+
+  if (action !== "create" && action !== "update" && action !== "delete") {
+    throw new Error("Backend returned an invalid debt request action.");
+  }
+
+  return action;
 }
 
 function requireDirection(value: unknown): DebtRequest["direction"] {

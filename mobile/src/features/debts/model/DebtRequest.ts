@@ -21,7 +21,7 @@ export type DebtRequest = {
   userId: string;
   entityId: string;
   entityVersion: number;
-  action: "create";
+  action: "create" | "update" | "delete";
   payload: DebtRequestPayload;
   status: DebtRequestStatus;
   createdAt: string;
