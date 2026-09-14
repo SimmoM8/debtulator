@@ -9,6 +9,8 @@ import com.debtulator.backend.members.MemberServiceException;
 import com.debtulator.backend.profiles.Profile;
 import com.debtulator.backend.profiles.ProfileService;
 import com.debtulator.backend.profiles.ProfileServiceException;
+import com.debtulator.backend.realtime.RealtimeEventPublisher;
+import com.debtulator.backend.realtime.RealtimeEventTypes;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
@@ -19,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -31,6 +34,7 @@ public class MemberLinkingService {
     private final ProfileService profileService;
     private final MemberLinkingMapper memberLinkingMapper;
     private final AgreementService agreementService;
+    private final RealtimeEventPublisher realtimeEventPublisher;
     private final JdbcTemplate jdbcTemplate;
     private final Clock clock;
 
@@ -153,6 +157,14 @@ public class MemberLinkingService {
             );
         }
 
+        publishRequestEvent(
+                targetUserId,
+                request,
+                RealtimeEventTypes.INBOX_REQUEST_CREATED,
+                requesterName,
+                MemberLinkRequestStatus.PENDING.getValue()
+        );
+
         return memberLinkingMapper.toResponse(request, requesterUserId);
     }
 
@@ -201,6 +213,15 @@ public class MemberLinkingService {
 
         request.accept(targetMember.getId(), Instant.now(clock));
         requestRepository.flush();
+
+        publishRequestEvent(
+                request.getRequesterUserId(),
+                request,
+                RealtimeEventTypes.INBOX_REQUEST_UPDATED,
+                request.getTargetName(),
+                MemberLinkRequestStatus.ACCEPTED.getValue()
+        );
+
         return memberLinkingMapper.toResponse(request, targetUserId);
     }
 
@@ -218,6 +239,15 @@ public class MemberLinkingService {
         requirePending(request);
         request.reject(Instant.now(clock));
         requestRepository.flush();
+
+        publishRequestEvent(
+                request.getRequesterUserId(),
+                request,
+                RealtimeEventTypes.INBOX_REQUEST_UPDATED,
+                request.getTargetName(),
+                MemberLinkRequestStatus.REJECTED.getValue()
+        );
+
         return memberLinkingMapper.toResponse(request, targetUserId);
     }
 
@@ -232,6 +262,14 @@ public class MemberLinkingService {
         requirePending(request);
         request.cancel(Instant.now(clock));
         requestRepository.flush();
+
+        publishRequestEvent(
+                request.getTargetUserId(),
+                request,
+                RealtimeEventTypes.INBOX_REQUEST_UPDATED,
+                request.getRequesterName(),
+                MemberLinkRequestStatus.CANCELLED.getValue()
+        );
     }
 
     @Transactional
@@ -504,6 +542,25 @@ public class MemberLinkingService {
                 "select pg_advisory_xact_lock(hashtextextended(?, 0))",
                 statement -> statement.setString(1, pairKey),
                 resultSet -> null
+        );
+    }
+
+    private void publishRequestEvent(
+            UUID recipientUserId,
+            MemberLinkRequest request,
+            String eventType,
+            String counterpartyName,
+            String status
+    ) {
+        realtimeEventPublisher.publish(
+                recipientUserId,
+                eventType,
+                Map.of(
+                        "requestType", "member_link",
+                        "requestId", request.getId().toString(),
+                        "counterpartyName", counterpartyName,
+                        "status", status
+                )
         );
     }
 

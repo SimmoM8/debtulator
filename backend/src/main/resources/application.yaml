@@ -66,3 +66,7 @@ debtulator:
       issuer: ${SUPABASE_JWT_ISSUER}
       jwk-set-uri: ${SUPABASE_JWKS_URI}
       audience: ${SUPABASE_JWT_AUDIENCE:authenticated}
+
+  realtime:
+    poll-delay-ms: ${REALTIME_POLL_DELAY_MS:500}
+    keepalive-delay-ms: ${REALTIME_KEEPALIVE_DELAY_MS:25000}
