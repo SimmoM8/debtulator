@@ -119,6 +119,37 @@ public class RealtimeEventRepository {
         );
     }
 
+    public List<StoredRealtimeEvent> findForRecipientBetween(
+            UUID recipientUserId,
+            long afterSequence,
+            long throughSequence,
+            int limit
+    ) {
+        return jdbcTemplate.query(
+                """
+                select sequence, id, recipient_user_id, event_type, payload, occurred_at
+                from public.outbox_events
+                where recipient_user_id = ?
+                  and sequence > ?
+                  and sequence <= ?
+                order by sequence
+                limit ?
+                """,
+                (resultSet, rowNumber) -> new StoredRealtimeEvent(
+                        resultSet.getLong("sequence"),
+                        resultSet.getObject("id", UUID.class),
+                        resultSet.getObject("recipient_user_id", UUID.class),
+                        resultSet.getString("event_type"),
+                        readPayload(resultSet.getString("payload")),
+                        resultSet.getTimestamp("occurred_at").toInstant()
+                ),
+                recipientUserId,
+                afterSequence,
+                throughSequence,
+                limit
+        );
+    }
+
     private String writePayload(Map<String, Object> payload) {
         try {
             return objectMapper.writeValueAsString(payload);

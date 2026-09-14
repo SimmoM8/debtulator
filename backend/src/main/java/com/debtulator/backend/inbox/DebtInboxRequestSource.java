@@ -16,17 +16,16 @@ import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
-public class DebtCreateInboxRequestSource implements InboxRequestSource {
+public class DebtInboxRequestSource implements InboxRequestSource {
 
     private static final String ENTITY_TYPE = "debt";
-    private static final String ACTION = "create";
 
     private final AgreementRepository agreementRepository;
     private final ProfileRepository profileRepository;
 
     @Override
     public InboxRequestType type() {
-        return InboxRequestType.DEBT_CREATE;
+        return InboxRequestType.DEBT;
     }
 
     @Override
@@ -36,27 +35,21 @@ public class DebtCreateInboxRequestSource implements InboxRequestSource {
             int limit
     ) {
         List<AgreementRequest> requests = switch (scope) {
-            case NEEDS_ACTION ->
-                    agreementRepository.findPendingIncomingByEntityAndAction(
-                            userId,
-                            ENTITY_TYPE,
-                            ACTION,
-                            limit
-                    );
-            case SENT ->
-                    agreementRepository.findPendingOutgoingByEntityAndAction(
-                            userId,
-                            ENTITY_TYPE,
-                            ACTION,
-                            limit
-                    );
-            case HISTORY ->
-                    agreementRepository.findHistoryByEntityAndAction(
-                            userId,
-                            ENTITY_TYPE,
-                            ACTION,
-                            limit
-                    );
+            case NEEDS_ACTION -> agreementRepository.findPendingIncomingByEntity(
+                    userId,
+                    ENTITY_TYPE,
+                    limit
+            );
+            case SENT -> agreementRepository.findPendingOutgoingByEntity(
+                    userId,
+                    ENTITY_TYPE,
+                    limit
+            );
+            case HISTORY -> agreementRepository.findHistoryByEntity(
+                    userId,
+                    ENTITY_TYPE,
+                    limit
+            );
         };
 
         Map<UUID, String> names = counterpartyNames(requests, userId);
@@ -92,10 +85,10 @@ public class DebtCreateInboxRequestSource implements InboxRequestSource {
             String counterpartyName
     ) {
         boolean outgoing = request.requesterUserId().equals(currentUserId);
-
         return new InboxRequestResponse(
                 request.id(),
                 type().getValue(),
+                request.action(),
                 outgoing ? "outgoing" : "incoming",
                 request.status(),
                 counterpartyUserId(request, currentUserId),
@@ -105,10 +98,7 @@ public class DebtCreateInboxRequestSource implements InboxRequestSource {
         );
     }
 
-    private UUID counterpartyUserId(
-            AgreementRequest request,
-            UUID currentUserId
-    ) {
+    private UUID counterpartyUserId(AgreementRequest request, UUID currentUserId) {
         return request.requesterUserId().equals(currentUserId)
                 ? request.targetUserId()
                 : request.requesterUserId();
@@ -122,8 +112,6 @@ public class DebtCreateInboxRequestSource implements InboxRequestSource {
     }
 
     private Instant updatedAt(AgreementRequest request) {
-        return request.resolvedAt() != null
-                ? request.resolvedAt()
-                : request.createdAt();
+        return request.resolvedAt() != null ? request.resolvedAt() : request.createdAt();
     }
 }

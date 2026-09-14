@@ -10,7 +10,7 @@ import java.util.Locale;
 @RequiredArgsConstructor
 public enum InboxRequestType {
     MEMBER_LINK("member_link"),
-    DEBT_CREATE("debt_create");
+    DEBT("debt");
 
     private final String value;
 
@@ -18,6 +18,12 @@ public enum InboxRequestType {
         String normalized = value == null
                 ? ""
                 : value.trim().toLowerCase(Locale.ROOT);
+
+        // Compatibility alias for clients released before debt requests were
+        // generalized from debt_create to debt + action.
+        if ("debt_create".equals(normalized)) {
+            return DEBT;
+        }
 
         return Arrays.stream(values())
                 .filter(type -> type.value.equals(normalized))

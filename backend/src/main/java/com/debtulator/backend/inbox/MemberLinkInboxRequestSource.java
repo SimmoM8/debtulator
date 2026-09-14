@@ -53,6 +53,7 @@ public class MemberLinkInboxRequestSource implements InboxRequestSource {
         return new InboxRequestResponse(
                 request.getId(),
                 type().getValue(),
+                null,
                 outgoing ? "outgoing" : "incoming",
                 request.getStatus(),
                 outgoing

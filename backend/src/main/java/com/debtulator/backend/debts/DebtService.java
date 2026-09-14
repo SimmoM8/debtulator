@@ -1,5 +1,6 @@
 package com.debtulator.backend.debts;
 
+import com.debtulator.backend.agreements.AgreementProjection;
 import com.debtulator.backend.agreements.AgreementService;
 import com.debtulator.backend.currencies.Currency;
 import com.debtulator.backend.currencies.CurrencyService;
@@ -82,14 +83,14 @@ public class DebtService {
 
         debtRepository.saveAndFlush(debt);
 
-        agreementService.recordDebtMutation(
+        AgreementProjection projection = agreementService.recordDebtMutation(
                 ownerUserId,
                 member,
                 debt,
                 "create"
         );
 
-        recordUpsert(ownerUserId, debt);
+        recordUpsert(ownerUserId, debt, projection);
         return debt;
     }
 
@@ -145,14 +146,14 @@ public class DebtService {
         );
         debtRepository.flush();
 
-        agreementService.recordDebtMutation(
+        AgreementProjection projection = agreementService.recordDebtMutation(
                 ownerUserId,
                 member,
                 debt,
                 "update"
         );
 
-        recordUpsert(ownerUserId, debt);
+        recordUpsert(ownerUserId, debt, projection);
         return debt;
     }
 
@@ -308,14 +309,18 @@ public class DebtService {
                 && integerDigits <= AMOUNT_MAX_INTEGER_DIGITS;
     }
 
-    private void recordUpsert(UUID ownerUserId, Debt debt) {
+    private void recordUpsert(
+            UUID ownerUserId,
+            Debt debt,
+            AgreementProjection projection
+    ) {
         syncChangeWriter.record(
                 ownerUserId,
                 List.of(new SyncChangeCommand(
                         SyncEntityType.DEBT,
                         debt.getId(),
                         SyncOperation.UPSERT,
-                        debtMapper.toSyncPayload(debt)
+                        debtMapper.toSyncPayload(debt, projection)
                 ))
         );
     }

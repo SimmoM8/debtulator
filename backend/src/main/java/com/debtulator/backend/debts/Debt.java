@@ -30,6 +30,12 @@ public class Debt {
     @Column(name = "created_at", nullable = false) private Instant createdAt;
     @Column(name = "updated_at", nullable = false) private Instant updatedAt;
     @Column(name = "deleted_at") private Instant deletedAt;
+    @Column(name = "agreement_status", nullable = false, insertable = false, updatable = false)
+    private String agreementStatus;
+    @Column(name = "collaboration_id", insertable = false, updatable = false)
+    private UUID collaborationId;
+    @Column(name = "agreed_revision", insertable = false, updatable = false)
+    private Long agreedRevision;
     @Version @Column(name = "version", nullable = false) private Long version;
 
     public Debt(

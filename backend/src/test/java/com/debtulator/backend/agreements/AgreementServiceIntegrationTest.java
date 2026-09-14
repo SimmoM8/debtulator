@@ -45,6 +45,7 @@ class AgreementServiceIntegrationTest {
         jdbcTemplate.update("delete from public.user_discovery_rate_limits");
         jdbcTemplate.update("delete from public.sync_mutations");
         jdbcTemplate.update("delete from public.sync_changes");
+        jdbcTemplate.update("delete from public.debt_collaborations");
         jdbcTemplate.update("delete from public.debts");
         jdbcTemplate.update("delete from public.members");
         jdbcTemplate.update("delete from auth.users");
@@ -157,7 +158,7 @@ class AgreementServiceIntegrationTest {
         assertThat(rejected.getTitle()).isEqualTo("Dinner corrected");
         assertThat(
                 agreementService.getStates(aliceUserId).getFirst().status()
-        ).isEqualTo("rejected");
+        ).isEqualTo("disagreed");
     }
 
     @Test

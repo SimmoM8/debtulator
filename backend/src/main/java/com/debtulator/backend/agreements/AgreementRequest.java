@@ -11,12 +11,44 @@ public record AgreementRequest(
         String entityType,
         UUID entityId,
         long entityVersion,
+        UUID collaborationId,
+        Long baseAgreedRevision,
         String action,
         Map<String, Object> payload,
         String status,
         Instant createdAt,
         Instant resolvedAt
 ) {
+    public AgreementRequest(
+            UUID id,
+            UUID requesterUserId,
+            UUID targetUserId,
+            String entityType,
+            UUID entityId,
+            long entityVersion,
+            String action,
+            Map<String, Object> payload,
+            String status,
+            Instant createdAt,
+            Instant resolvedAt
+    ) {
+        this(
+                id,
+                requesterUserId,
+                targetUserId,
+                entityType,
+                entityId,
+                entityVersion,
+                null,
+                null,
+                action,
+                payload,
+                status,
+                createdAt,
+                resolvedAt
+        );
+    }
+
     public boolean isPending() { return "pending".equals(status); }
     public boolean isAccepted() { return "accepted".equals(status); }
     public boolean isRejected() { return "rejected".equals(status); }
