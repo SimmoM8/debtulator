@@ -1,5 +1,5 @@
 -- Debtulator remote PostgreSQL / Supabase schema
--- Effective schema after Flyway migrations V1 through V7.
+-- Effective schema after Flyway migrations V1 through V11.
 --
 -- Consolidated from:
 --   V1__create_initial_schema.sql
@@ -9,6 +9,10 @@
 --   V5__create_user_discovery.sql
 --   V6__create_member_linking.sql
 --   V7__harden_linking_and_create_agreements.sql
+--   V8__add_usernames_and_expand_user_discovery.sql
+--   V9__defer_member_link_display_name_choice.sql
+--   V10__remove_deferred_member_link_name_choice.sql
+--   V11__create_realtime_event_outbox.sql
 --
 -- This is a current-schema snapshot for a fresh deployment. Historical ALTER,
 -- RENAME, DROP TYPE, and table-rebuild steps have been folded into the final
@@ -87,7 +91,9 @@ create table public.profiles (
         references auth.users(id)
         on delete cascade,
 
+    username text not null,
     name text,
+    phone_number text,
 
     base_currency text not null default 'SEK'
         references public.currencies(code)
@@ -98,8 +104,10 @@ create table public.profiles (
     updated_at timestamptz not null,
 
     member_discovery_enabled boolean not null default false,
+    discoverable_by_username boolean not null default true,
     discoverable_by_name boolean not null default true,
     discoverable_by_email boolean not null default false,
+    discoverable_by_phone boolean not null default false,
     incoming_member_link_requests_enabled boolean not null default true,
 
     -- Constraint name is preserved from V1. PostgreSQL retained the name when
@@ -108,17 +116,42 @@ create table public.profiles (
         check (
             name is null
             or char_length(trim(name)) between 1 and 120
+        ),
+
+    constraint profiles_username_format
+        check (
+            username = lower(username)
+            and username ~ '^[a-z0-9_]{3,40}$'
+        ),
+
+    constraint profiles_phone_number_format
+        check (
+            phone_number is null
+            or phone_number ~ '^\+[1-9][0-9]{7,14}$'
         )
 );
 
+create unique index profiles_username_lower_unique_idx
+    on public.profiles (lower(username));
+
+create index profiles_discovery_username_trgm_idx
+    on public.profiles
+    using gin (lower(username) gin_trgm_ops)
+    where member_discovery_enabled = true
+      and discoverable_by_username = true;
+
 create index profiles_discovery_name_trgm_idx
     on public.profiles
-    using gin (
-        lower(name) gin_trgm_ops
-    )
+    using gin (lower(name) gin_trgm_ops)
     where member_discovery_enabled = true
       and discoverable_by_name = true
       and name is not null;
+
+create index profiles_discovery_phone_idx
+    on public.profiles (phone_number)
+    where member_discovery_enabled = true
+      and discoverable_by_phone = true
+      and phone_number is not null;
 
 
 -- ============================================================================
@@ -459,6 +492,53 @@ values (
 
 
 -- ============================================================================
+-- Account-registration reservations
+-- ============================================================================
+
+create table public.pending_account_registrations (
+    normalized_email text primary key,
+    username text not null unique,
+    name text not null,
+    phone_number text,
+
+    base_currency text not null
+        references public.currencies(code)
+        on update cascade
+        on delete restrict,
+
+    created_at timestamptz not null,
+    expires_at timestamptz not null,
+
+    constraint pending_account_registrations_email_normalized
+        check (
+            normalized_email = lower(trim(normalized_email))
+            and char_length(normalized_email) between 3 and 320
+        ),
+
+    constraint pending_account_registrations_username_format
+        check (
+            username = lower(username)
+            and username ~ '^[a-z0-9_]{3,40}$'
+        ),
+
+    constraint pending_account_registrations_name_valid
+        check (char_length(trim(name)) between 1 and 120),
+
+    constraint pending_account_registrations_phone_format
+        check (
+            phone_number is null
+            or phone_number ~ '^\+[1-9][0-9]{7,14}$'
+        ),
+
+    constraint pending_account_registrations_expiry_valid
+        check (expires_at > created_at)
+);
+
+create index pending_account_registrations_expires_at_idx
+    on public.pending_account_registrations (expires_at);
+
+
+-- ============================================================================
 -- Auth profile provisioning
 -- ============================================================================
 
@@ -468,22 +548,73 @@ language plpgsql
 security definer
 set search_path = ''
 as $$
+declare
+    registration public.pending_account_registrations%rowtype;
 begin
-    insert into public.profiles (
-        user_id,
-        name,
-        base_currency,
-        created_at,
-        updated_at
-    )
-    values (
-        new.id,
-        null,
-        'SEK',
-        now(),
-        now()
-    )
-    on conflict (user_id) do nothing;
+    select pending.*
+    into registration
+    from public.pending_account_registrations pending
+    where pending.normalized_email = lower(trim(new.email))
+      and pending.expires_at > now()
+    limit 1;
+
+    if registration.normalized_email is not null then
+        insert into public.profiles (
+            user_id,
+            username,
+            name,
+            phone_number,
+            base_currency,
+            created_at,
+            updated_at,
+            member_discovery_enabled,
+            discoverable_by_username,
+            discoverable_by_name,
+            discoverable_by_email,
+            discoverable_by_phone,
+            incoming_member_link_requests_enabled
+        )
+        values (
+            new.id,
+            registration.username,
+            registration.name,
+            registration.phone_number,
+            registration.base_currency,
+            now(),
+            now(),
+            true,
+            true,
+            true,
+            true,
+            registration.phone_number is not null,
+            true
+        )
+        on conflict (user_id) do nothing;
+
+        delete from public.pending_account_registrations
+        where normalized_email = registration.normalized_email;
+    else
+        -- Auth users created outside Debtulator's registration endpoint receive
+        -- a safe, undiscoverable fallback profile until completed through the
+        -- backend profile flow.
+        insert into public.profiles (
+            user_id,
+            username,
+            name,
+            base_currency,
+            created_at,
+            updated_at
+        )
+        values (
+            new.id,
+            'user_' || replace(new.id::text, '-', ''),
+            null,
+            'SEK',
+            now(),
+            now()
+        )
+        on conflict (user_id) do nothing;
+    end if;
 
     return new;
 end;
@@ -494,9 +625,11 @@ revoke all privileges
     from public, anon, authenticated;
 
 -- Backfill profiles for Supabase Auth users that may already exist before this
--- application schema snapshot is installed.
+-- application schema snapshot is installed. These fallback profiles remain
+-- undiscoverable until completed through the backend profile flow.
 insert into public.profiles (
     user_id,
+    username,
     name,
     base_currency,
     created_at,
@@ -504,6 +637,7 @@ insert into public.profiles (
 )
 select
     users.id,
+    'user_' || replace(users.id::text, '-', ''),
     null,
     'SEK',
     now(),
@@ -882,6 +1016,80 @@ on conflict (
 
 
 -- ============================================================================
+-- Transactional realtime event outbox
+-- ============================================================================
+
+create table public.outbox_events (
+    sequence bigint generated always as identity primary key,
+
+    id uuid not null unique,
+
+    recipient_user_id uuid not null
+        references auth.users(id)
+        on delete cascade,
+
+    event_type text not null,
+    payload jsonb not null,
+    occurred_at timestamptz not null,
+
+    constraint outbox_events_event_type_valid
+        check (
+            char_length(trim(event_type)) between 1 and 100
+        ),
+
+    constraint outbox_events_payload_object
+        check (
+            jsonb_typeof(payload) = 'object'
+        )
+);
+
+create index outbox_events_recipient_sequence_idx
+    on public.outbox_events (
+        recipient_user_id,
+        sequence
+    );
+
+
+-- ============================================================================
+-- Realtime connection tickets
+-- ============================================================================
+
+create table public.realtime_connection_tickets (
+    id uuid primary key,
+
+    user_id uuid not null
+        references auth.users(id)
+        on delete cascade,
+
+    created_at timestamptz not null,
+    expires_at timestamptz not null,
+    resume_after_sequence bigint not null,
+    consumed_at timestamptz,
+
+    constraint realtime_connection_tickets_expiry_valid
+        check (
+            expires_at > created_at
+        ),
+
+    constraint realtime_connection_tickets_resume_sequence_valid
+        check (
+            resume_after_sequence >= 0
+        ),
+
+    constraint realtime_connection_tickets_consumed_valid
+        check (
+            consumed_at is null
+            or consumed_at >= created_at
+        )
+);
+
+create index realtime_connection_tickets_expires_at_idx
+    on public.realtime_connection_tickets (
+        expires_at
+    );
+
+
+-- ============================================================================
 -- Remote database access boundary
 --
 -- Application data is accessed through the backend API. Supabase mobile roles
@@ -939,3 +1147,20 @@ revoke all privileges
 revoke all privileges
     on table public.agreement_entity_states
     from anon, authenticated;
+
+revoke all privileges
+    on table public.pending_account_registrations
+    from anon, authenticated;
+
+revoke all privileges
+    on table public.outbox_events
+    from anon, authenticated;
+
+revoke all privileges
+    on sequence public.outbox_events_sequence_seq
+    from anon, authenticated;
+
+revoke all privileges
+    on table public.realtime_connection_tickets
+    from anon, authenticated;
+

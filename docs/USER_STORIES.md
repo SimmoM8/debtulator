@@ -2,8 +2,8 @@
 
 > **Document status:** Product requirements baseline  
 > **Purpose:** Define user-facing behaviour and product scope for Debtulator in a way that can guide product design, architecture, implementation, testing, and release planning.  
-> **Last updated:** 2026-09-11  
-> **Implementation baseline:** Backend audit confirms meaningful implementation work across 26 stories; all remain partly implemented pending the remaining user-facing, client-side, integration, and production requirements.
+> **Last updated:** 2026-09-14
+> **Implementation baseline:** Backend snapshot currently records meaningful implementation across 39 stories: 38 partly implemented and 1 fully implemented. Statuses remain governed by the complete-story acceptance criteria below, including client/integration requirements where applicable.
 
 ---
 
@@ -181,7 +181,7 @@ A story must not be marked `[FI]` merely because a screen, route, database table
 
 Implementation status is evaluated per complete user story, not per individual technical component. A story with only some acceptance criteria satisfied should be `[PI]`, not `[FI]`.
 
-**Current baseline:** 26 stories are marked `[PI]` after auditing the current backend across authentication, profile management, members, debts, synchronisation, multi-currency handling, and data-integrity protections. No story is marked `[FI]`; the next frontend audit may confirm additional partial implementation, while full completion still requires each story's complete user-facing behaviour and relevant acceptance criteria.
+**Current baseline:** 38 stories are marked `[PI]` and 1 stories are marked `[FI]` in the current backend snapshot. `NOTIFY-001` is now `[PI]` because authenticated realtime delivery is implemented for member-link request lifecycle events, while the broader notification story remains incomplete across other event types, delivery channels, and user preferences.
 
 
 ## 4.10 Current Actor Coverage
@@ -1257,7 +1257,7 @@ Possible protections include:
 
 **Actor:** Authenticated User  
 **Priority:** P1  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** to receive relevant notifications,  
