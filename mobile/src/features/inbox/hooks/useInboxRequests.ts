@@ -1,7 +1,8 @@
 import { useFocusEffect } from "expo-router";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useBackendClient } from "@/src/data/backend/BackendProvider";
+import { subscribeToRealtimeEvents } from "@/src/data/realtime/realtimeSignal";
 import type {
   RequestInboxItem,
   RequestInboxScope,
@@ -20,44 +21,54 @@ export function useInboxRequests(
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  const refresh = useCallback(async () => {
-    const sequence = ++requestSequence.current;
+  const load = useCallback(
+    async (showLoading: boolean) => {
+      const sequence = ++requestSequence.current;
 
-    if (!backend) {
-      setData([]);
-      setLoading(false);
-      setError(new Error("The backend is not available."));
-      return;
-    }
-
-    setData([]);
-    setLoading(true);
-    setError(null);
-
-    try {
-      const items = await getInboxRequests(
-        backend,
-        scope,
-        requestTypesKey ? requestTypesKey.split(",") : [],
-      );
-
-      if (sequence === requestSequence.current) {
-        setData(items);
-      }
-    } catch (error) {
-      if (sequence === requestSequence.current) {
-        setError(
-          error instanceof Error
-            ? error
-            : new Error("Failed to load Inbox requests."),
-        );
-      }
-    } finally {
-      if (sequence === requestSequence.current) {
+      if (!backend) {
+        setData([]);
         setLoading(false);
+        setError(new Error("The backend is not available."));
+        return;
       }
-    }
-  }, [backend, requestTypesKey, scope]);
+
+      if (showLoading) {
+        setData([]);
+        setLoading(true);
+      }
+
+      setError(null);
+
+      try {
+        const items = await getInboxRequests(
+          backend,
+          scope,
+          requestTypesKey ? requestTypesKey.split(",") : [],
+        );
+
+        if (sequence === requestSequence.current) {
+          setData(items);
+        }
+      } catch (error) {
+        if (sequence === requestSequence.current) {
+          setError(
+            error instanceof Error
+              ? error
+              : new Error("Failed to load Inbox requests."),
+          );
+        }
+      } finally {
+        if (showLoading && sequence === requestSequence.current) {
+          setLoading(false);
+        }
+      }
+    },
+    [backend, requestTypesKey, scope],
+  );
+
+  const refresh = useCallback(async () => {
+    await load(true);
+  }, [load]);
 
   useFocusEffect(
     useCallback(() => {
@@ -67,6 +78,19 @@ export function useInboxRequests(
         requestSequence.current += 1;
       };
     }, [refresh]),
+  );
+
+  useEffect(
+    () =>
+      subscribeToRealtimeEvents((event) => {
+        if (
+          event.type === "inbox.request.created" ||
+          event.type === "inbox.request.updated"
+        ) {
+          void load(false);
+        }
+      }),
+    [load],
   );
 
   return {

@@ -2,20 +2,25 @@ import { Stack } from "expo-router";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { ToastProvider } from "@/src/components/feedback/ToastProvider";
 import { BackendProvider } from "@/src/data/backend/BackendProvider";
+import { RealtimeProvider } from "@/src/data/realtime/RealtimeProvider";
 import { SyncProvider } from "@/src/data/sync/SyncProvider";
 import { AuthProvider, useAuth } from "@/src/features/auth/AuthProvider";
+import { InboxRealtimeEffects } from "@/src/features/inbox/realtime/InboxRealtimeEffects";
 import { AppThemeProvider, useAppTheme } from "@/src/theme";
 
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AppThemeProvider preference="system">
-        <AuthProvider>
-          <BackendProvider>
-            <RootNavigator />
-          </BackendProvider>
-        </AuthProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <BackendProvider>
+              <RootNavigator />
+            </BackendProvider>
+          </AuthProvider>
+        </ToastProvider>
       </AppThemeProvider>
     </SafeAreaProvider>
   );
@@ -50,7 +55,10 @@ function RootNavigator() {
 
   return (
     <SyncProvider key={auth.session.user.id} ownerUserId={auth.session.user.id}>
-      {navigator}
+      <RealtimeProvider ownerUserId={auth.session.user.id}>
+        <InboxRealtimeEffects />
+        {navigator}
+      </RealtimeProvider>
     </SyncProvider>
   );
 }

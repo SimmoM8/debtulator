@@ -234,7 +234,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     if (!authGateway) {
-      setLoading(false);
       return;
     }
 

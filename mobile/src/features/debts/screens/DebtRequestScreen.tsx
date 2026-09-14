@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   title: {
-    ...textStyles.title2,
+    ...textStyles.title,
   },
   subtitle: {
     ...textStyles.body,

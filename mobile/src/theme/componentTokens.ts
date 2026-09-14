@@ -20,6 +20,13 @@ export const componentTokens = {
     iconSize: 19,
   },
 
+  toast: {
+    radius: brand.radius.medium,
+    iconSize: 22,
+    closeIconSize: 18,
+    maxWidth: 560,
+  },
+
   avatar: {
     listSize: 44,
     heroSize: 80,

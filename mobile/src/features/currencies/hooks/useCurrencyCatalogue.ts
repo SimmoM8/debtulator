@@ -31,7 +31,9 @@ export function useCurrencyCatalogue() {
   }, []);
 
   useEffect(() => {
-    void refresh();
+    queueMicrotask(() => {
+      void refresh();
+    });
 
     return subscribeToDataChanges((resources) => {
       if (resources.has("currencies")) {

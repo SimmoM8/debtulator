@@ -41,6 +41,9 @@ export type AppThemeColors = {
 
   positive: string;
   negative: string;
+  success: string;
+  warning: string;
+  danger: string;
 
   transparent: string;
 };
@@ -146,6 +149,9 @@ function createAndroidThemeColors(scheme: AppColorScheme): AppThemeColors {
 
     positive: brand.colors.positive,
     negative: brand.colors.negative,
+    success: brand.colors.success,
+    warning: brand.colors.warning,
+    danger: brand.colors.danger,
 
     transparent: "transparent",
   };
@@ -185,6 +191,9 @@ function createAppleThemeColors(scheme: AppColorScheme): AppThemeColors {
 
       positive: brand.colors.positive,
       negative: brand.colors.negative,
+      success: brand.colors.success,
+      warning: brand.colors.warning,
+      danger: brand.colors.danger,
 
       transparent: "transparent",
     };
@@ -222,6 +231,9 @@ function createAppleThemeColors(scheme: AppColorScheme): AppThemeColors {
 
     positive: brand.colors.positive,
     negative: brand.colors.negative,
+    success: brand.colors.success,
+    warning: brand.colors.warning,
+    danger: brand.colors.danger,
 
     transparent: "transparent",
   };
