@@ -3,7 +3,7 @@
 > **Document status:** Product requirements baseline  
 > **Purpose:** Define user-facing behaviour and product scope for Debtulator in a way that can guide product design, architecture, implementation, testing, and release planning.  
 > **Last updated:** 2026-09-14
-> **Implementation baseline:** Mobile snapshot currently records meaningful implementation across 27 stories: 25 partly implemented and 2 fully implemented. Statuses remain governed by the complete-story acceptance criteria below rather than the presence of isolated screens or infrastructure.
+> **Implementation baseline:** Current mobile implementation marks 25 stories `[PI]` and 2 stories `[FI]`; remaining stories are unimplemented or await complete backend, integration, and production requirements.
 
 ---
 
@@ -172,7 +172,7 @@ A story must not be marked `[FI]` merely because a screen, route, database table
 
 Implementation status is evaluated per complete user story, not per individual technical component. A story with only some acceptance criteria satisfied should be `[PI]`, not `[FI]`.
 
-**Current baseline:** 25 stories are marked `[PI]` and 2 stories are marked `[FI]` in the current mobile snapshot. `NOTIFY-001` is now `[PI]` because authenticated foreground realtime delivery can reconcile the Inbox and show branded in-app feedback for member-link request lifecycle events, while broader notification coverage, background/closed-app delivery, reminders, and notification preferences remain incomplete.
+**Current baseline:** 25 stories are marked `[PI]` and 2 stories are marked `[FI]`. Status remains story-level: partial technical infrastructure does not make a story fully implemented.
 
 
 ## 4.10 Current Actor Coverage

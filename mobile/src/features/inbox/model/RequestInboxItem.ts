@@ -5,6 +5,7 @@ export type RequestInboxDirection = "incoming" | "outgoing";
 export type RequestInboxItem = {
   requestId: string;
   type: string;
+  action: string | null;
   direction: RequestInboxDirection;
   status: string;
   counterpartyUserId: string;

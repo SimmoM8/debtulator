@@ -225,7 +225,7 @@ export function InboxScreen() {
                     </View>
                   ) : null}
 
-                  {item.type === "debt_create" ? (
+                  {item.type === "debt" ? (
                     <Pressable
                       accessibilityRole="button"
                       onPress={() => {
@@ -293,8 +293,8 @@ function requestTypeLabel(type: string): string {
     return "Member link";
   }
 
-  if (type === "debt_create") {
-    return "Debt proposal";
+  if (type === "debt") {
+    return "Debt request";
   }
 
   return sentenceCase(type);
@@ -311,14 +311,21 @@ function requestMessage(item: RequestInboxItem): string {
     return `Member link ${sentenceCase(item.status).toLowerCase()}.`;
   }
 
-  if (item.type === "debt_create") {
+  if (item.type === "debt") {
+    const subject =
+      item.action === "update"
+        ? "debt change"
+        : item.action === "delete"
+          ? "debt removal"
+          : "new debt";
+
     if (item.status === "pending") {
       return item.direction === "incoming"
-        ? "Proposed a new debt with you."
-        : "Waiting for a response to your debt proposal.";
+        ? `Proposed a ${subject} with you.`
+        : `Waiting for a response to your ${subject} proposal.`;
     }
 
-    return `Debt proposal ${sentenceCase(item.status).toLowerCase()}.`;
+    return `Debt request ${sentenceCase(item.status).toLowerCase()}.`;
   }
 
   return `${requestTypeLabel(item.type)} request.`;

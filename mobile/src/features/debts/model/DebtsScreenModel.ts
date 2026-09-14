@@ -29,6 +29,7 @@ export function buildDebtsScreenModel(
       person: memberNames.get(debt.memberId) ?? "Unknown member",
       money: debt.money,
       direction: debt.direction,
+      agreementStatus: debt.agreementStatus,
       date: debt.createdAt,
       dueDate: debt.dueDate,
       dueSoon: isDueSoon(debt.dueDate),

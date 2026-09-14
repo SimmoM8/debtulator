@@ -85,6 +85,11 @@ export async function createSchema(db: SQLiteDatabase): Promise<void> {
       due_date TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
+      agreement_status TEXT NOT NULL DEFAULT 'private'
+        CHECK (agreement_status IN ('private', 'pending', 'agreed', 'disagreed')),
+      collaboration_id TEXT,
+      agreed_revision INTEGER
+        CHECK (agreed_revision IS NULL OR agreed_revision > 0),
       version INTEGER
         CHECK (version IS NULL OR version >= 0),
       FOREIGN KEY (owner_user_id, member_id)

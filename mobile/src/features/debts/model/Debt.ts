@@ -4,6 +4,8 @@ export const DEBT_DIRECTIONS = ["you_owe", "they_owe"] as const;
 
 export type DebtDirection = (typeof DEBT_DIRECTIONS)[number];
 
+export type DebtAgreementStatus = "private" | "pending" | "agreed" | "disagreed";
+
 export type Debt = {
   id: string;
   ownerUserId: string;
@@ -14,5 +16,8 @@ export type Debt = {
   dueDate: string | null;
   createdAt: string;
   updatedAt: string;
+  agreementStatus: DebtAgreementStatus;
+  collaborationId: string | null;
+  agreedRevision: number | null;
   version: number | null;
 };

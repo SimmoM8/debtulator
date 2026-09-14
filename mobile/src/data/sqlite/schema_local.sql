@@ -1,7 +1,7 @@
 -- Debtulator local SQLite schema
--- Effective schema version: 4
+-- Effective schema version: 5
 --
--- Consolidated end-state represented by migrateDatabase.ts after V1 -> V2 -> V3 -> V4.
+-- Consolidated end-state represented by migrateDatabase.ts after V1 -> V2 -> V3 -> V4 -> V5.
 -- This is a reference schema only; runtime upgrades must use migrateDatabase.ts.
 
 PRAGMA foreign_keys = ON;
@@ -58,6 +58,10 @@ CREATE TABLE debts (
   due_date TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
+  agreement_status TEXT NOT NULL DEFAULT 'private'
+    CHECK (agreement_status IN ('private', 'pending', 'agreed', 'disagreed')),
+  collaboration_id TEXT,
+  agreed_revision INTEGER CHECK (agreed_revision IS NULL OR agreed_revision > 0),
   version INTEGER CHECK (version IS NULL OR version >= 0),
   FOREIGN KEY (owner_user_id, member_id)
     REFERENCES members(owner_user_id, id)
@@ -115,4 +119,4 @@ CREATE TABLE sync_state (
     CHECK (bootstrap_completed IN (0, 1))
 );
 
-PRAGMA user_version = 4;
+PRAGMA user_version = 5;
