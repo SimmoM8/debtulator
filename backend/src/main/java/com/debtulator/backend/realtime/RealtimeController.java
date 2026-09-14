@@ -1,17 +1,15 @@
 package com.debtulator.backend.realtime;
 
-import com.debtulator.backend.realtime.dto.CreateRealtimeConnectionTicketRequest;
-import com.debtulator.backend.realtime.dto.RealtimeConnectionTicketResponse;
+import com.debtulator.backend.realtime.dto.RealtimeEventsResponse;
 import com.debtulator.backend.security.AuthenticatedUserProvider;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -19,21 +17,23 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class RealtimeController {
 
-    private final RealtimeConnectionTicketService ticketService;
+    private final RealtimeEventService realtimeEventService;
     private final AuthenticatedUserProvider authenticatedUserProvider;
 
-    @PostMapping("/tickets")
-    public ResponseEntity<RealtimeConnectionTicketResponse> ticket(
+    @GetMapping("/events")
+    public ResponseEntity<RealtimeEventsResponse> events(
             @AuthenticationPrincipal Jwt jwt,
-            @Valid @RequestBody CreateRealtimeConnectionTicketRequest request
+            @RequestParam(required = false) Long after,
+            @RequestParam(required = false) Integer limit
     ) {
         return ResponseEntity
                 .ok()
                 .cacheControl(CacheControl.noStore())
                 .header("Pragma", "no-cache")
-                .body(ticketService.issue(
+                .body(realtimeEventService.poll(
                         authenticatedUserProvider.from(jwt).id(),
-                        request.afterSequence()
+                        after,
+                        limit
                 ));
     }
 }

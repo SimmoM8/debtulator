@@ -3,7 +3,7 @@
 > **Document status:** Product requirements baseline  
 > **Purpose:** Define user-facing behaviour and product scope for Debtulator in a way that can guide product design, architecture, implementation, testing, and release planning.  
 > **Last updated:** 2026-09-14
-> **Implementation baseline:** Backend snapshot currently records meaningful implementation across 39 stories: 38 partly implemented and 1 fully implemented. Statuses remain governed by the complete-story acceptance criteria below, including client/integration requirements where applicable.
+> **Implementation baseline:** Current backend implementation marks 39 stories `[PI]` and 1 stories `[FI]`; remaining stories are unimplemented or await complete user-facing, integration, and production requirements.
 
 ---
 
@@ -181,7 +181,7 @@ A story must not be marked `[FI]` merely because a screen, route, database table
 
 Implementation status is evaluated per complete user story, not per individual technical component. A story with only some acceptance criteria satisfied should be `[PI]`, not `[FI]`.
 
-**Current baseline:** 38 stories are marked `[PI]` and 1 stories are marked `[FI]` in the current backend snapshot. `NOTIFY-001` is now `[PI]` because authenticated realtime delivery is implemented for member-link request lifecycle events, while the broader notification story remains incomplete across other event types, delivery channels, and user preferences.
+**Current baseline:** 39 stories are marked `[PI]` and 1 stories are marked `[FI]`. Status remains story-level: partial technical infrastructure does not make a story fully implemented.
 
 
 ## 4.10 Current Actor Coverage
@@ -1893,7 +1893,7 @@ The product should target applicable modern accessibility guidance, including WC
 
 **Actor:** Linked Member  
 **Priority:** P1  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As a** **Linked Member**,
 **I want** debts created by another person involving me to be clearly distinguished as proposed, pending, accepted, or otherwise governed by defined collaboration rules,  

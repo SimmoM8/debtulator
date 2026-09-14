@@ -23,13 +23,13 @@ public class AgreementRepository {
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
 
-    public void supersedePendingForEntity(
+    public List<AgreementRequest> supersedePendingForEntity(
             UUID requesterUserId,
             String entityType,
             UUID entityId,
             Instant resolvedAt
     ) {
-        jdbcTemplate.update("""
+        return jdbcTemplate.query("""
                 update public.agreement_requests
                 set status = 'superseded',
                     resolved_at = ?
@@ -37,7 +37,9 @@ public class AgreementRepository {
                   and entity_type = ?
                   and entity_id = ?
                   and status = 'pending'
+                returning *
                 """,
+                (resultSet, rowNumber) -> mapRow(resultSet),
                 timestamp(resolvedAt),
                 requesterUserId,
                 entityType,
@@ -54,13 +56,15 @@ public class AgreementRepository {
                     entity_type,
                     entity_id,
                     entity_version,
+                    collaboration_id,
+                    base_agreed_revision,
                     action,
                     payload,
                     status,
                     created_at,
                     resolved_at
                 )
-                values (?, ?, ?, ?, ?, ?, ?, cast(? as jsonb), ?, ?, ?)
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, cast(? as jsonb), ?, ?, ?)
                 """,
                 request.id(),
                 request.requesterUserId(),
@@ -68,6 +72,8 @@ public class AgreementRepository {
                 request.entityType(),
                 request.entityId(),
                 request.entityVersion(),
+                request.collaborationId(),
+                request.baseAgreedRevision(),
                 request.action(),
                 writePayload(request.payload()),
                 request.status(),
@@ -310,6 +316,143 @@ public class AgreementRepository {
         );
     }
 
+    public List<AgreementRequest> findPendingIncomingByEntity(
+            UUID userId,
+            String entityType,
+            int limit
+    ) {
+        return jdbcTemplate.query("""
+                select *
+                from public.agreement_requests
+                where target_user_id = ?
+                  and entity_type = ?
+                  and status = 'pending'
+                order by created_at desc
+                limit ?
+                """,
+                (resultSet, rowNumber) -> mapRow(resultSet),
+                userId, entityType, limit
+        );
+    }
+
+    public List<AgreementRequest> findPendingOutgoingByEntity(
+            UUID userId,
+            String entityType,
+            int limit
+    ) {
+        return jdbcTemplate.query("""
+                select *
+                from public.agreement_requests
+                where requester_user_id = ?
+                  and entity_type = ?
+                  and status = 'pending'
+                order by created_at desc
+                limit ?
+                """,
+                (resultSet, rowNumber) -> mapRow(resultSet),
+                userId, entityType, limit
+        );
+    }
+
+    public List<AgreementRequest> findHistoryByEntity(
+            UUID userId,
+            String entityType,
+            int limit
+    ) {
+        return jdbcTemplate.query("""
+                select *
+                from public.agreement_requests
+                where entity_type = ?
+                  and status <> 'pending'
+                  and (requester_user_id = ? or target_user_id = ?)
+                order by resolved_at desc nulls last, created_at desc
+                limit ?
+                """,
+                (resultSet, rowNumber) -> mapRow(resultSet),
+                entityType, userId, userId, limit
+        );
+    }
+
+    public List<AgreementRequest> supersedePendingForCollaboration(
+            UUID collaborationId,
+            UUID exceptRequestId,
+            Instant resolvedAt
+    ) {
+        return jdbcTemplate.query("""
+                update public.agreement_requests
+                set status = 'superseded',
+                    resolved_at = ?
+                where collaboration_id = ?
+                  and id <> ?
+                  and status = 'pending'
+                returning *
+                """,
+                (resultSet, rowNumber) -> mapRow(resultSet),
+                timestamp(resolvedAt), collaborationId, exceptRequestId
+        );
+    }
+
+    public Optional<UUID> findLinkedMemberId(UUID ownerUserId, UUID linkedUserId) {
+        return jdbcTemplate.query("""
+                select id
+                from public.members
+                where owner_user_id = ?
+                  and linked_user_id = ?
+                  and deleted_at is null
+                limit 1
+                """,
+                (resultSet, rowNumber) -> resultSet.getObject("id", UUID.class),
+                ownerUserId, linkedUserId
+        ).stream().findFirst();
+    }
+
+    public void attachCollaborationToRequest(UUID requestId, UUID collaborationId) {
+        jdbcTemplate.update("""
+                update public.agreement_requests
+                set collaboration_id = ?
+                where id = ?
+                """,
+                collaborationId, requestId
+        );
+    }
+
+    public String profileLabel(UUID userId) {
+        return jdbcTemplate.query("""
+                select name, username
+                from public.profiles
+                where user_id = ?
+                """,
+                (resultSet, rowNumber) -> {
+                    String name = resultSet.getString("name");
+                    if (name != null && !name.isBlank()) return name;
+                    String username = resultSet.getString("username");
+                    return username != null && !username.isBlank()
+                            ? "@" + username
+                            : "Debtulator user";
+                },
+                userId
+        ).stream().findFirst().orElse("Debtulator user");
+    }
+
+    public void updateDebtProjection(
+            UUID ownerUserId,
+            UUID debtId,
+            String status,
+            UUID collaborationId,
+            Long agreedRevision
+    ) {
+        jdbcTemplate.update("""
+                update public.debts
+                set agreement_status = ?,
+                    collaboration_id = ?,
+                    agreed_revision = ?
+                where owner_user_id = ?
+                  and id = ?
+                """,
+                status, collaborationId, agreedRevision, ownerUserId, debtId
+        );
+    }
+
     public void updateStatus(
             UUID requestId,
             String status,
@@ -334,37 +477,40 @@ public class AgreementRepository {
             long entityVersion,
             String status,
             UUID latestRequestId,
+            UUID collaborationId,
+            Long agreedRevision,
             Instant updatedAt
     ) {
         jdbcTemplate.update("""
                 insert into public.agreement_entity_states (
-                    owner_user_id,
-                    entity_type,
-                    entity_id,
-                    entity_version,
-                    status,
-                    latest_request_id,
-                    updated_at
+                    owner_user_id, entity_type, entity_id, entity_version, status,
+                    latest_request_id, collaboration_id, agreed_revision, updated_at
                 )
-                values (?, ?, ?, ?, ?, ?, ?)
-                on conflict (
-                    owner_user_id,
-                    entity_type,
-                    entity_id
-                ) do update
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                on conflict (owner_user_id, entity_type, entity_id) do update
                 set entity_version = excluded.entity_version,
                     status = excluded.status,
                     latest_request_id = excluded.latest_request_id,
+                    collaboration_id = excluded.collaboration_id,
+                    agreed_revision = excluded.agreed_revision,
                     updated_at = excluded.updated_at
                 """,
-                ownerUserId,
-                entityType,
-                entityId,
-                entityVersion,
-                status,
-                latestRequestId,
-                timestamp(updatedAt)
+                ownerUserId, entityType, entityId, entityVersion, status,
+                latestRequestId, collaborationId, agreedRevision, timestamp(updatedAt)
         );
+    }
+
+    public void upsertState(
+            UUID ownerUserId,
+            String entityType,
+            UUID entityId,
+            long entityVersion,
+            String status,
+            UUID latestRequestId,
+            Instant updatedAt
+    ) {
+        upsertState(ownerUserId, entityType, entityId, entityVersion, status,
+                latestRequestId, null, null, updatedAt);
     }
 
     public void updateStateIfLatest(
@@ -433,6 +579,8 @@ public class AgreementRepository {
                     entity_version,
                     status,
                     latest_request_id,
+                    collaboration_id,
+                    agreed_revision,
                     updated_at
                 from public.agreement_entity_states
                 where owner_user_id = ?
@@ -455,6 +603,11 @@ public class AgreementRepository {
                                 "latest_request_id",
                                 UUID.class
                         ),
+                        resultSet.getObject(
+                                "collaboration_id",
+                                UUID.class
+                        ),
+                        resultSet.getObject("agreed_revision", Long.class),
                         resultSet.getTimestamp(
                                 "updated_at"
                         ).toInstant()
@@ -488,6 +641,8 @@ public class AgreementRepository {
                         UUID.class
                 ),
                 resultSet.getLong("entity_version"),
+                resultSet.getObject("collaboration_id", UUID.class),
+                resultSet.getObject("base_agreed_revision", Long.class),
                 resultSet.getString("action"),
                 payloadJson == null
                         ? Map.of()
@@ -544,6 +699,8 @@ public class AgreementRepository {
             long entityVersion,
             String status,
             UUID latestRequestId,
+            UUID collaborationId,
+            Long agreedRevision,
             Instant updatedAt
     ) {
     }

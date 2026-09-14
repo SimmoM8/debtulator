@@ -50,6 +50,7 @@ class DebtCreateInboxIntegrationTest {
         jdbcTemplate.update("delete from public.user_discovery_rate_limits");
         jdbcTemplate.update("delete from public.sync_mutations");
         jdbcTemplate.update("delete from public.sync_changes");
+        jdbcTemplate.update("delete from public.debt_collaborations");
         jdbcTemplate.update("delete from public.debts");
         jdbcTemplate.update("delete from public.members");
         jdbcTemplate.update("delete from auth.users");
@@ -89,11 +90,11 @@ class DebtCreateInboxIntegrationTest {
         String inboxBody = mockMvc.perform(
                         get("/api/v1/inbox/requests")
                                 .param("scope", "needs_action")
-                                .param("type", "debt_create")
+                                .param("type", "debt")
                                 .with(jwt().jwt(jwt -> jwt.subject(bobUserId.toString())))
                 )
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].type").value("debt_create"))
+                .andExpect(jsonPath("$[0].type").value("debt"))
                 .andExpect(jsonPath("$[0].direction").value("incoming"))
                 .andExpect(jsonPath("$[0].counterpartyName").value("Alice"))
                 .andReturn()
@@ -127,7 +128,7 @@ class DebtCreateInboxIntegrationTest {
         mockMvc.perform(
                         get("/api/v1/inbox/requests")
                                 .param("scope", "history")
-                                .param("type", "debt_create")
+                                .param("type", "debt")
                                 .with(jwt().jwt(jwt -> jwt.subject(bobUserId.toString())))
                 )
                 .andExpect(status().isOk())

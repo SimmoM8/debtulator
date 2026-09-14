@@ -1,5 +1,6 @@
 package com.debtulator.backend.debts;
 
+import com.debtulator.backend.agreements.AgreementProjection;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -10,6 +11,22 @@ import java.util.Map;
 public class DebtMapper {
 
     public Map<String, Object> toSyncPayload(Debt debt) {
+        return toSyncPayload(
+                debt,
+                new AgreementProjection(
+                        debt.getAgreementStatus() != null
+                                ? debt.getAgreementStatus()
+                                : "private",
+                        debt.getCollaborationId(),
+                        debt.getAgreedRevision()
+                )
+        );
+    }
+
+    public Map<String, Object> toSyncPayload(
+            Debt debt,
+            AgreementProjection projection
+    ) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("id", debt.getId().toString());
         payload.put("ownerUserId", debt.getOwnerUserId().toString());
@@ -27,6 +44,14 @@ public class DebtMapper {
         payload.put("createdAt", debt.getCreatedAt().toString());
         payload.put("updatedAt", debt.getUpdatedAt().toString());
         payload.put("version", debt.getVersion());
+        payload.put("agreementStatus", projection.status());
+        payload.put(
+                "collaborationId",
+                projection.collaborationId() != null
+                        ? projection.collaborationId().toString()
+                        : null
+        );
+        payload.put("agreedRevision", projection.agreedRevision());
         return payload;
     }
 
