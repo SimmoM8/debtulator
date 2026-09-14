@@ -45,6 +45,16 @@ export function InboxScreen() {
     });
   }
 
+  function openDebtRequest(item: RequestInboxItem) {
+    router.push({
+      pathname: "/(main)/inbox/debt/[requestId]",
+      params: {
+        requestId: item.requestId,
+        name: item.counterpartyName,
+      },
+    });
+  }
+
   function confirmDecline(item: RequestInboxItem) {
     if (!backend || respondingRequestId) {
       return;
@@ -214,6 +224,32 @@ export function InboxScreen() {
                       </Pressable>
                     </View>
                   ) : null}
+
+                  {item.type === "debt_create" ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => {
+                        openDebtRequest(item);
+                      }}
+                      style={({ pressed }) => [
+                        styles.reviewAction,
+                        {
+                          backgroundColor: theme.colors.controlSurface,
+                          borderColor: theme.colors.outline,
+                        },
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.actionText,
+                          { color: theme.colors.onControlSurface },
+                        ]}
+                      >
+                        Review request
+                      </Text>
+                    </Pressable>
+                  ) : null}
                 </View>
               </Card>
             ))}
@@ -257,6 +293,10 @@ function requestTypeLabel(type: string): string {
     return "Member link";
   }
 
+  if (type === "debt_create") {
+    return "Debt proposal";
+  }
+
   return sentenceCase(type);
 }
 
@@ -269,6 +309,16 @@ function requestMessage(item: RequestInboxItem): string {
     }
 
     return `Member link ${sentenceCase(item.status).toLowerCase()}.`;
+  }
+
+  if (item.type === "debt_create") {
+    if (item.status === "pending") {
+      return item.direction === "incoming"
+        ? "Proposed a new debt with you."
+        : "Waiting for a response to your debt proposal.";
+    }
+
+    return `Debt proposal ${sentenceCase(item.status).toLowerCase()}.`;
   }
 
   return `${requestTypeLabel(item.type)} request.`;
@@ -353,6 +403,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
     borderRadius: 14,
+    paddingHorizontal: spacing.md,
+  },
+  reviewAction: {
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderRadius: 14,
+    marginTop: spacing.md,
     paddingHorizontal: spacing.md,
   },
   actionText: {
