@@ -2,8 +2,8 @@
 
 > **Document status:** Product requirements baseline  
 > **Purpose:** Define user-facing behaviour and product scope for Debtulator in a way that can guide product design, architecture, implementation, testing, and release planning.  
-> **Last updated:** 2026-09-14
-> **Implementation baseline:** Current mobile implementation marks 25 stories `[PI]` and 2 stories `[FI]`; remaining stories are unimplemented or await complete backend, integration, and production requirements.
+> **Last updated:** 2026-09-18
+> **Implementation baseline:** Combined Mobile, Local-backend, and Remote implementation marks 37 stories `[PI]` and 3 stories `[FI]`; remaining stories are unimplemented or await complete end-to-end, integration, testing, or production requirements.
 
 ---
 
@@ -107,6 +107,15 @@ A Debtulator user viewed in the context of an established linked-member relation
 
 This actor is used when the requirement specifically concerns the rights, protections, shared records, reminders, auditability, or collaboration of a person who is already linked.
 
+### Linked-pair agreement rule
+
+- Activity created by one user may always be recorded and shown immediately in that user's private ledger.
+- An action, debt, edit, repayment, event, or other record involving a linked pair is not considered mutually agreed merely because one user created or changed it.
+- Where a record is intended to become collaborative or mutually acknowledged, the other linked user must explicitly validate or accept the proposal.
+- Pending approval must not prevent the initiating user from continuing to use or edit their own private ledger.
+- The UI must clearly distinguish private-only state, pending approval state, rejected/disputed state where applicable, and mutually agreed state.
+- A rejected collaborative proposal must not silently erase or rewrite the initiating user's private ledger history.
+
 ## 4.5 Group or Event Participant
 
 A Debtulator user participating in a shared group or event without exercising management authority for the action being described.
@@ -172,7 +181,7 @@ A story must not be marked `[FI]` merely because a screen, route, database table
 
 Implementation status is evaluated per complete user story, not per individual technical component. A story with only some acceptance criteria satisfied should be `[PI]`, not `[FI]`.
 
-**Current baseline:** 25 stories are marked `[PI]` and 2 stories are marked `[FI]`. Status remains story-level: partial technical infrastructure does not make a story fully implemented.
+**Current baseline:** 37 stories are marked `[PI]` and 3 stories are marked `[FI]`. This baseline reconciles the latest Mobile and Remote implementation audits against the combined trunk candidate. Status remains story-level: partial technical infrastructure does not make a story fully implemented.
 
 
 ## 4.10 Current Actor Coverage
@@ -182,13 +191,13 @@ Every current user story has been classified under one of the seven defined acto
 | Actor | Current stories |
 |---|---:|
 | **Visitor** | 6 |
-| **Authenticated User** | 100 |
+| **Authenticated User** | 95 |
 | **Unlinked Member** | 1 |
 | **Linked Member** | 4 |
 | **Group or Event Participant** | 8 |
 | **Group or Event Manager** | 7 |
 | **Administrator** | 10 |
-| **Total** | 136 |
+| **Total** | 131 |
 
 The distribution is intentionally uneven. Most functionality is owned by the **Authenticated User**, while Unlinked Member and Linked Member stories primarily exist where the relationship itself creates distinct privacy, consent, or collaboration requirements.
 
@@ -410,7 +419,7 @@ The onboarding must be skippable.
 
 **Actor:** Authenticated User  
 **Priority:** P1  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** to manage relevant privacy and discoverability settings,  
@@ -617,7 +626,8 @@ Common filters should include:
 - An unlinked member is not presented to other users as a verified Debtulator user.
 - Private notes or metadata added by the creating user are not automatically exposed to the represented person or other users.
 - Creating an unlinked member does not by itself send messages, invitations, or notifications to the represented person.
-- If the member is later linked to a real Debtulator user, historical records are shared only according to an explicit product rule and must not become visible silently.
+- If the member is later linked to a real Debtulator user, existing historical records remain private to the owning user for the current product version and must not become visible silently.
+- A future explicit reconcile/merge workflow may allow users to compare or reconcile historical records without changing this default privacy rule.
 - The system must avoid collecting unnecessary personal information about an unlinked person.
 
 ---
@@ -628,7 +638,7 @@ Common filters should include:
 
 **Actor:** Authenticated User  
 **Priority:** P1  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** to link an existing unlinked member to a real Debtulator user,  
@@ -638,7 +648,9 @@ Common filters should include:
 
 - The target user must be clearly identifiable.
 - Linking must not occur silently without appropriate confirmation.
+- The linking user may keep the existing member display name or replace it with the target user's account name before the request is sent.
 - Existing records must not be duplicated merely because the member becomes linked.
+- Existing member history remains private to its owning user after linking unless a later explicit reconcile/merge workflow is used.
 - Any records becoming visible to another user must follow explicit product rules.
 
 ---
@@ -647,7 +659,7 @@ Common filters should include:
 
 **Actor:** Authenticated User  
 **Priority:** P1  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** to search for other users using allowed identifiers,  
@@ -661,11 +673,19 @@ Search and discoverability must respect privacy settings and anti-enumeration pr
 
 **Actor:** Authenticated User  
 **Priority:** P1  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** to find a Debtulator user and add them directly as a linked member,  
-**so that** I do not need to create an unlinked member first and link them later.
+**so that** I do not need to create an unlinked member first and then separately start the linking workflow.
+
+### Acceptance criteria
+
+- Starting this flow creates a normal unlinked member immediately for the initiating user.
+- The new member remains usable privately while the link request is pending.
+- The initiating user can use the target user's account name as the member display name or enter a custom display name.
+- The member does not become linked until the target user explicitly accepts.
+- If the request is rejected or cancelled, the created member remains as a normal unlinked member unless the owner later removes it through ordinary member rules.
 
 ---
 
@@ -703,11 +723,19 @@ Search and discoverability must respect privacy settings and anti-enumeration pr
 
 **Actor:** Authenticated User  
 **Priority:** P1  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** to accept or reject a request to link with another user,  
 **so that** I control who becomes connected to me.
+
+### Acceptance criteria
+
+- The recipient can select an existing unlinked member representing the requester or create a new member as part of acceptance.
+- When creating a new member, the recipient can use the requester's account name or enter a custom display name.
+- When selecting an existing member, the recipient can keep its current display name or replace it with the requester's account name.
+- Acceptance links both users' member records atomically.
+- Rejection does not delete or rewrite the requester's private member or history.
 
 ---
 
@@ -715,7 +743,7 @@ Search and discoverability must respect privacy settings and anti-enumeration pr
 
 **Actor:** Linked Member  
 **Priority:** P1  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As a** **Linked Member**,
 **I want** to unlink another user when appropriate,  
@@ -799,6 +827,14 @@ A debt should support, where applicable:
 
 Amounts must use safe monetary handling and must not rely on imprecise floating-point assumptions.
 
+For a linked member:
+
+- the creator's private debt is recorded immediately and remains usable without waiting for the other user;
+- the current private debt state is `pending` until the linked user explicitly accepts it;
+- acceptance makes that proposed state mutually `agreed`;
+- rejection marks the proposed state as rejected without rolling back or deleting the creator's private debt; and
+- further private edits supersede the previous pending proposal rather than blocking the creator.
+
 ---
 
 ## DEBT-004 — View debt details
@@ -826,7 +862,10 @@ Amounts must use safe monetary handling and must not rely on imprecise floating-
 ### Acceptance criteria
 
 - Significant changes should be represented clearly in history where appropriate.
-- Collaborative debt changes may require the other participant's approval depending on the change.
+- Changes involving a linked member require the other linked user to accept the proposed state before it is considered mutually agreed.
+- The initiating user's private edit is applied immediately and must not be blocked by pending approval.
+- A newer private edit supersedes any older pending proposal for that debt.
+- Rejection must not roll back or erase the initiating user's private edit.
 - Editing must not silently rewrite financial history in a misleading way.
 
 ---
@@ -1071,7 +1110,7 @@ The feature must not assume the item is literally a bill. It may represent any r
 
 **Actor:** Authenticated User  
 **Priority:** P1  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** to view requests requiring my attention,  
@@ -1095,11 +1134,17 @@ Possible request types include:
 
 **Actor:** Authenticated User  
 **Priority:** P1  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** to accept a valid request,  
-**so that** the proposed change can take effect.
+**so that** the proposed change can become mutually agreed.
+
+### Acceptance criteria
+
+- Acceptance changes the applicable collaborative proposal from pending to agreed.
+- The initiating user's private record may already exist before acceptance.
+- Acceptance must not require the initiator to wait before recording or viewing their own private activity.
 
 ---
 
@@ -1107,11 +1152,17 @@ Possible request types include:
 
 **Actor:** Authenticated User  
 **Priority:** P1  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** to reject a request,  
 **so that** I remain in control of collaborative records affecting me.
+
+### Acceptance criteria
+
+- Rejection prevents the proposal from becoming mutually agreed.
+- Rejection must not silently delete or rewrite the initiating user's private ledger record.
+- The initiating user must be able to see that the proposed collaborative state was rejected where applicable.
 
 ---
 
@@ -1119,11 +1170,16 @@ Possible request types include:
 
 **Actor:** Authenticated User  
 **Priority:** P1  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** to see requests I have sent,  
 **so that** I know which actions are still pending.
+
+### Acceptance criteria
+
+- Pending collaborative activity must be visibly distinguishable from mutually agreed activity.
+- The user must still be able to view and work with their own private record while approval is pending.
 
 ---
 
@@ -1131,7 +1187,7 @@ Possible request types include:
 
 **Actor:** Authenticated User  
 **Priority:** P1  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As an** **Authenticated User**,
 **I want** to cancel an applicable pending request I created,  
@@ -1837,7 +1893,7 @@ The product should target applicable modern accessibility guidance, including WC
 
 **Actor:** Linked Member  
 **Priority:** P1  
-**Implementation status:**
+**Implementation status:** [PI]
 
 **As a** **Linked Member**,
 **I want** debts created by another person involving me to be clearly distinguished as proposed, pending, accepted, or otherwise governed by defined collaboration rules,  
@@ -1849,7 +1905,7 @@ The product should target applicable modern accessibility guidance, including WC
 
 **Actor:** Authenticated User  
 **Priority:** P0  
-**Implementation status:**
+**Implementation status:** [FI]
 
 **As an** **Authenticated User**,
 **I want** account discovery to avoid exposing unnecessary information,  

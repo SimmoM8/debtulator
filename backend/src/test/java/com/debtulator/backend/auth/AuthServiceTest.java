@@ -127,11 +127,11 @@ class AuthServiceTest {
     }
 
     @Test
-    void emailConfirmationUsesSupabaseSignupTokenType() {
+    void emailConfirmationUsesSupabaseEmailTokenType() {
         SupabaseSession session = session();
         when(authGateway.verifyTokenHash(
                 "signup-hash",
-                "signup",
+                "email",
                 "127.0.0.1"
         )).thenReturn(new SupabaseAuthResult(session.user(), session));
 
@@ -155,6 +155,33 @@ class AuthServiceTest {
         );
 
         assertThat(response.accessToken()).isEqualTo("access-token");
+    }
+
+    @Test
+    void passwordRecoveryDoesNotExposeUnknownAccounts() {
+        org.mockito.Mockito.doThrow(new SupabaseAuthException(
+                400,
+                "user_not_found",
+                "Provider-specific account-not-found message"
+        )).when(authGateway).requestPasswordRecovery(
+                "missing@example.com",
+                null,
+                "127.0.0.1"
+        );
+
+        authService.requestPasswordRecovery(
+                new EmailRequest(
+                        "missing@example.com",
+                        null
+                ),
+                "127.0.0.1"
+        );
+
+        verify(authGateway).requestPasswordRecovery(
+                "missing@example.com",
+                null,
+                "127.0.0.1"
+        );
     }
 
     @Test
