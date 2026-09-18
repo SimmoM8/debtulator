@@ -32,7 +32,7 @@ The workflow exposes one stable merge gate:
 CI / Integration Gate
 ```
 
-`main` SHOULD require this check after the foundation workflow has demonstrated stable green runs.
+`main` requires this check through the active `main-trunk-protection` ruleset. The gate has produced a verified successful run on current trunk and is the stable protected-integration contract used by `./scripts/ship`.
 
 Environment-specific jobs are conditional. The integration gate always runs and fails when any applicable job fails or is cancelled. Documentation-only changes may legitimately skip the Mobile/Local and Remote jobs while still producing the integration-gate result.
 
@@ -117,17 +117,39 @@ Once introduced, those jobs SHOULD run only for native-sensitive changes and rel
 
 ## Required status checks and repository protection
 
-After the foundation workflow is proven stable, repository rules SHOULD require:
+Debtulator currently uses an active repository ruleset named `main-trunk-protection` for the default branch.
 
-- pull requests for normal integration to `main`;
-- `CI / Integration Gate`;
+The protected integration contract requires:
+
+- pull requests for normal remote integration to `main`;
+- the real `CI / Integration Gate` check;
+- strict/up-to-date required-check behavior;
+- conversation resolution;
 - linear history;
-- no force pushes to `main`; and
+- no force pushes/non-fast-forward updates to `main`; and
 - no deletion of `main`.
 
-Debtulator is currently primarily single-maintainer, so repository policy MAY require a PR without inventing a mandatory approval count. Review requirements can be raised when additional maintainers participate.
+Debtulator is currently primarily single-maintainer, so repository policy requires the protected PR boundary without inventing a mandatory approval count. Review requirements can be raised when independent review becomes a real collaboration requirement.
 
-Rebase merge remains the preferred integration method; squash merge remains available for noisy one-change branches. Merge commits into `main` remain prohibited except for documented recovery.
+Normal integration is squash-only. GitHub merge commits and GitHub rebase-and-merge are disabled; private stale task branches are rebased locally before publication/update instead. Auto-merge is safe because GitHub cannot complete the PR until the required rules and status checks are satisfied.
+
+`./scripts/ship --setup` is the idempotent, CI-maturity-aware repository-policy reconciler. It must not invent a required check or silently weaken stronger existing policy.
+
+## CI responsibility map
+
+| Standard responsibility | Current Debtulator implementation |
+| --- | --- |
+| Fast quality/static/unit validation | `cd mobile && npm run quality` |
+| Production/build validation | `cd backend && ./mvnw -B -ntp -DskipTests package`; native Mobile builds are intentionally deferred from ordinary merge CI |
+| Integration | Remote Spring/PostgreSQL/Testcontainers tests in `./mvnw test`; Mobile Jest within `npm run quality` |
+| Contracts/generated files | Expo typed-route generation, `expo install --check`, and Expo public configuration validation; no separate generated API-contract gate |
+| Database/migrations | SQLite migration guarantees in Mobile quality; PostgreSQL/Flyway through Remote Testcontainers tests |
+
+## Root repository tooling gap
+
+The current CI change-scope classifier does not run a dedicated root-tooling job for `scripts/**`. The safety-critical `ship` helper therefore runs `node --test scripts/ship.test.mjs` locally before publishing changes that modify the helper.
+
+This is an explicit CI follow-up gap, not an implemented remote gate. A later CI-standardization change should add root integration-tooling test coverage without changing the stable `CI / Integration Gate` contract. This task does not modify CI to add that coverage.
 
 ## Concurrency
 

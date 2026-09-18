@@ -170,7 +170,6 @@ Urgency does not justify moving an existing release tag or editing an applied mi
 Debtulator is not yet production-release-ready. The current known gaps include:
 
 - the root `README.md` still contains legacy architecture/setup material and must be reconciled before it is used as release guidance;
-- repository-host protection for `main` must be enabled after the foundation CI gate is proven stable;
 - release-specific Android/iOS build validation and EAS/store automation are not yet established;
 - a current release-specific manual QA plan must exist before the first candidate; and
 - Remote semantic-version/deployment automation is not yet established.
