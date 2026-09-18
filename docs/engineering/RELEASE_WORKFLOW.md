@@ -1,5 +1,11 @@
 # Release Workflow
 
+## Current project stage
+
+Debtulator is still in pre-release development and is not yet stabilizing its first store version. Ordinary development therefore uses only `main` plus short-lived branches. No `release/mobile/**` branch is maintained until there is an actual Mobile release candidate to stabilize.
+
+The release flow below is the agreed future operating model. Release-specific CI/CD should be introduced when the first release approaches rather than carried as unused complexity in ordinary development CI.
+
 ## Principles
 
 - Releases come from reviewed, tested source.
@@ -46,7 +52,7 @@ Run:
 - applicable native iOS/Android builds;
 - release configuration preflight from `mobile/`;
 - staging/internal build;
-- manual QA from the release checklist;
+- release-specific manual QA using the then-current approved QA plan;
 - compatibility checks against the intended Remote environment.
 
 Candidate source MAY be tagged:
@@ -161,16 +167,12 @@ Urgency does not justify moving an existing release tag or editing an applied mi
 
 ## Current release-readiness gaps
 
-At governance adoption, the repository is not yet production-release-ready solely by following its legacy operational files:
+Debtulator is not yet production-release-ready. The current known gaps include:
 
-- `docs/release-checklist.md` still assumes root-level npm commands and older direct-Supabase architecture;
-- the root `README.md` contains legacy architecture/setup instructions;
-- current GitHub Actions do not yet implement the required consolidated Mobile/Remote CI layout;
-- `main` does not yet have the required branch protection/status checks; and
+- the root `README.md` still contains legacy architecture/setup material and must be reconciled before it is used as release guidance;
+- repository-host protection for `main` must be enabled after the foundation CI gate is proven stable;
+- release-specific Android/iOS build validation and EAS/store automation are not yet established;
+- a current release-specific manual QA plan must exist before the first candidate; and
 - Remote semantic-version/deployment automation is not yet established.
 
-These are follow-up implementation/documentation tasks, not exceptions to the release gates above. A production release MUST use the governance rules here and MUST NOT rely on stale legacy instructions.
-
-## Existing operational checklists
-
-`docs/release-checklist.md` and manual QA documents remain useful source material only after they are reconciled with the consolidated architecture. Where they conflict with this governance suite, this document controls release policy and the stale checklist MUST be updated before it is treated as authoritative.
+These are staged implementation tasks, not exceptions to the release rules above. They should be added when the corresponding release boundary becomes real rather than duplicated in ordinary merge CI prematurely.

@@ -69,7 +69,8 @@
       "expo-sqlite",
       "expo-web-browser",
       "expo-status-bar",
-      "expo-image"
+      "expo-image",
+      "./plugins/withIosUserScriptSandboxing"
     ],
     "experiments": {
       "typedRoutes": true,
