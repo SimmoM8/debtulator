@@ -39,8 +39,8 @@ yarn-error.*
 
 app-example
 
-# generated native folders
-/ios
-/android
+# Expo Continuous Native Generation output
+/mobile/ios/
+/mobile/android/
 
 .agents

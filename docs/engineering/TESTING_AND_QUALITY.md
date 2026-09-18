@@ -22,7 +22,7 @@ The quality command currently covers:
 - ESLint;
 - Jest.
 
-Changes to native configuration/dependencies additionally require the applicable clean native build validation.
+At the current pre-release stage, native configuration/dependency changes SHOULD be checked with clean Expo prebuild/native validation when warranted. Separate Android and iOS compilation become mandatory release validation before the first production candidate and may be promoted into merge CI earlier when native risk justifies it.
 
 ## Remote baseline
 
@@ -136,7 +136,7 @@ Release validation is stricter than merge validation. A production release requi
 
 - all merge-level checks;
 - release preflight;
-- applicable native/build checks;
+- clean Android and iOS native/build checks generated from authoritative Expo CNG inputs;
 - migration validation;
 - release-specific manual QA;
 - environment/version/build-number verification;

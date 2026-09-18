@@ -1,0 +1,208 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  change-scope:
+    name: CI / Change Scope
+    runs-on: ubuntu-latest
+    outputs:
+      mobile: ${{ steps.scope.outputs.mobile }}
+      remote: ${{ steps.scope.outputs.remote }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Determine affected environments
+        id: scope
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+
+          mobile=false
+          remote=false
+          changed_files=()
+
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            mobile=true
+            remote=true
+          elif [[ "$EVENT_NAME" == "push" && "$BASE_SHA" =~ ^0+$ ]]; then
+            mapfile -t changed_files < <(
+              git diff-tree --no-commit-id --name-only -r "$HEAD_SHA"
+            )
+          else
+            mapfile -t changed_files < <(
+              git diff --name-only --diff-filter=ACMRTUXB "$BASE_SHA" "$HEAD_SHA"
+            )
+          fi
+
+          for path in "${changed_files[@]}"; do
+            case "$path" in
+              mobile/*|schema_local.sql)
+                mobile=true
+                ;;
+              backend/*|schema_remote.sql)
+                remote=true
+                ;;
+              config/*|supabase/*|.github/*)
+                mobile=true
+                remote=true
+                ;;
+            esac
+          done
+
+          printf 'mobile=%s\n' "$mobile" >> "$GITHUB_OUTPUT"
+          printf 'remote=%s\n' "$remote" >> "$GITHUB_OUTPUT"
+
+          {
+            echo '### Change scope'
+            echo
+            echo "- Mobile + Local: $mobile"
+            echo "- Remote: $remote"
+            if ((${#changed_files[@]} > 0)); then
+              echo
+              echo '<details><summary>Changed files</summary>'
+              echo
+              printf -- '- `%s`\n' "${changed_files[@]}"
+              echo
+              echo '</details>'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  mobile-local:
+    name: CI / Mobile + Local
+    needs: change-scope
+    if: needs.change-scope.outputs.mobile == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "20.20.2"
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Expo typed routes
+        env:
+          CI: "1"
+        run: npx expo customize tsconfig.json
+
+      - name: Run Mobile and Local quality suite
+        run: npm run quality
+
+      - name: Check Expo dependency versions
+        env:
+          CI: "1"
+        run: npx expo install --check
+
+      - name: Validate Expo configuration
+        run: npx expo config --type public > /dev/null
+
+  remote:
+    name: CI / Remote
+    needs: change-scope
+    if: needs.change-scope.outputs.remote == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: |
+            backend/pom.xml
+            backend/.mvn/wrapper/maven-wrapper.properties
+
+      - name: Run Remote test suite
+        run: ./mvnw -B -ntp test
+
+      - name: Verify Remote package
+        run: ./mvnw -B -ntp -DskipTests package
+
+  integration-gate:
+    name: CI / Integration Gate
+    needs:
+      - change-scope
+      - mobile-local
+      - remote
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Require all applicable checks
+        shell: bash
+        env:
+          SCOPE_RESULT: ${{ needs.change-scope.result }}
+          MOBILE_RESULT: ${{ needs.mobile-local.result }}
+          REMOTE_RESULT: ${{ needs.remote.result }}
+        run: |
+          set -euo pipefail
+
+          require_success() {
+            local name="$1"
+            local result="$2"
+
+            if [[ "$result" != "success" ]]; then
+              echo "::error::$name finished with result '$result'."
+              return 1
+            fi
+          }
+
+          require_success_or_skip() {
+            local name="$1"
+            local result="$2"
+
+            case "$result" in
+              success|skipped)
+                ;;
+              *)
+                echo "::error::$name finished with result '$result'."
+                return 1
+                ;;
+            esac
+          }
+
+          require_success "Change Scope" "$SCOPE_RESULT"
+          require_success_or_skip "Mobile + Local" "$MOBILE_RESULT"
+          require_success_or_skip "Remote" "$REMOTE_RESULT"
+
+          echo "All applicable CI checks passed."

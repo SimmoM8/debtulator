@@ -16,6 +16,17 @@ Typical ownership includes:
 
 Mobile code MAY call Local-backend abstractions and Remote client abstractions. It MUST NOT bypass those boundaries by reaching directly into Remote persistence.
 
+
+### Native project source of truth
+
+Debtulator uses Expo Continuous Native Generation (CNG).
+
+The native source of truth is Expo configuration, dependencies, local config plugins, application source, and assets under `mobile/`. Generated `mobile/ios/**` and `mobile/android/**` projects are build products and MUST NOT be committed.
+
+A native customization that cannot be expressed through ordinary Expo configuration MUST be represented by an owned config plugin under `mobile/plugins/**` (or another explicitly governed source location) before the generated native projects are discarded. Engineers MUST NOT rely on a manual edit inside a generated native directory surviving regeneration.
+
+Moving away from CNG to committed/authoritative native projects would be an architectural policy change and MUST update this governance before the repository changes ownership model.
+
 ## 2. Local backend
 
 The Local backend is backend behavior that executes on-device and ships with the Mobile binary.

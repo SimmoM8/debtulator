@@ -28,13 +28,15 @@ Branches SHOULD normally live for hours or days, not weeks. Large initiatives MU
 
 ### Mobile release branches
 
+A Mobile release branch is optional release-support machinery, not part of ordinary trunk development. Before Debtulator enters its first store-stabilization phase, no `release/mobile/**` branch SHOULD exist.
+
 When a Mobile minor release enters store stabilization, create:
 
 ```text
 release/mobile/X.Y
 ```
 
-The release branch exists only while that Mobile line is actively supported. It is not a second development trunk.
+The release branch exists only while that Mobile line is actively supported. It is not a second development trunk, and new feature development continues from `main`.
 
 ### Remote release branches
 
