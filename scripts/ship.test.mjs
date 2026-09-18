@@ -10,6 +10,7 @@ import {
   buildDesiredRuleset,
   buildExpectedRepositoryPolicy,
   canRewritePublishedBranch,
+  classifyRequiredCheckRegistration,
   classifyLocalMainState,
   decideRebase,
   deriveBranchName,
@@ -105,6 +106,41 @@ test("parses ship arguments including task-runner separators", () => {
     help: false,
   });
   assert.throws(() => parseArgs(["--all"]), /only valid together/);
+});
+
+test("waits for required checks to register without hiding real probe failures", () => {
+  assert.equal(
+    classifyRequiredCheckRegistration({
+      status: 1,
+      stdout: "[]",
+      stderr: "no required checks reported on the branch",
+    }),
+    "waiting",
+  );
+  assert.equal(
+    classifyRequiredCheckRegistration({
+      status: 8,
+      stdout: JSON.stringify([{ name: "Existing Security Gate" }]),
+      stderr: "",
+    }),
+    "waiting",
+  );
+  assert.equal(
+    classifyRequiredCheckRegistration({
+      status: 8,
+      stdout: JSON.stringify([{ name: REQUIRED_CHECK }]),
+      stderr: "",
+    }),
+    "registered",
+  );
+  assert.equal(
+    classifyRequiredCheckRegistration({
+      status: 1,
+      stdout: "",
+      stderr: "authentication failed",
+    }),
+    "error",
+  );
 });
 
 test("represents repository merge policy", () => {
