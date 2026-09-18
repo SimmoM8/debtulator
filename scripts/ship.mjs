@@ -1164,8 +1164,82 @@ function prState(number) {
   return JSON.parse(output);
 }
 
+export function classifyRequiredCheckRegistration({
+  status,
+  stdout,
+  stderr,
+  requiredCheck = REQUIRED_CHECK,
+}) {
+  let checks;
+  try {
+    checks = JSON.parse(stdout || "[]");
+  } catch {
+    return "error";
+  }
+
+  if (!Array.isArray(checks)) {
+    return "error";
+  }
+  if (checks.some((check) => check?.name === requiredCheck)) {
+    return "registered";
+  }
+
+  const message = `${stderr ?? ""}\n${stdout ?? ""}`.toLowerCase();
+  if (
+    status === 0 ||
+    status === 8 ||
+    message.includes("no required checks reported") ||
+    message.includes("no checks reported")
+  ) {
+    return "waiting";
+  }
+
+  return "error";
+}
+
 function waitForRequiredChecks(number) {
   console.log(`\n[ship] Waiting for required GitHub checks (${REQUIRED_CHECK})...`);
+
+  let registered = false;
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    const probe = gh([
+      "pr",
+      "checks",
+      String(number),
+      "--repo",
+      EXPECTED_REPOSITORY,
+      "--required",
+      "--json",
+      "name",
+    ], { allowFailure: true });
+    const registration = classifyRequiredCheckRegistration(probe);
+
+    if (registration === "registered") {
+      registered = true;
+      break;
+    }
+    if (registration === "error") {
+      const details = [probe.stderr, probe.stdout].filter(Boolean).join("\n").trim();
+      fail(
+        `Unable to inspect required checks for PR #${number}.` +
+          (details ? `\n${details}` : ""),
+      );
+    }
+    if (attempt === 0) {
+      console.log("[ship] Required checks have not registered yet; waiting for GitHub Actions...");
+    }
+    if (attempt < 29) {
+      sleep(2000);
+    }
+  }
+
+  if (!registered) {
+    fail(
+      `${REQUIRED_CHECK} did not register for PR #${number}. ` +
+        "Automatic integration stopped rather than treating an absent check as success.",
+    );
+  }
+
   ghVisible([
     "pr",
     "checks",
