@@ -16,12 +16,10 @@ extra_search_path = ["public", "extensions"]
 # The maximum number of rows returns from a view, table, or stored procedure. Limits payload size
 # for accidental or malicious requests.
 max_rows = 1000
-# Controls whether new tables, views, sequences and functions created in the `public` schema by
-# `postgres` are reachable through the Data API roles (`anon`, `authenticated`, `service_role`)
-# without explicit GRANTs. When unset, new entities are NOT auto-exposed, matching the new cloud
-# default. Set to `true` to keep the legacy behaviour of auto-exposing new entities; this is
-# deprecated and the field is removed on 2026-10-30 once the always-revoked behaviour is permanent.
-# auto_expose_new_tables = true
+# New public tables, views, sequences, and functions are not granted to the Data API
+# roles. Supabase removed the `auto_expose_new_tables` switch on 2026-10-30. The hosted
+# project still had the older default privileges; Flyway V13 revokes those defaults for
+# the postgres role and enables row-level security on every public table.
 
 [api.tls]
 # Enable HTTPS endpoints locally using a self-signed certificate.

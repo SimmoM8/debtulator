@@ -70,7 +70,8 @@
       "expo-web-browser",
       "expo-status-bar",
       "expo-image",
-      "./plugins/withIosUserScriptSandboxing"
+      "./plugins/withIosUserScriptSandboxing",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -5,20 +5,26 @@
 The database was deliberately rebuilt from a simpler baseline beginning in
 August 2026.
 
-The first version of the rebuilt remote model contains only the core account
-ledger concepts:
+Flyway migrations under `backend/src/main/resources/db/migration` are the
+schema authority. The current model covers accounts, profiles, members, debts,
+sync, discovery, member linking, agreements, and debt collaboration. Payments,
+settlements, groups, and reminders are not in the schema yet.
 
-- authenticated users
-- profiles
-- members
-- debts
+## Access
 
-Features such as member linking, debt verification, groups, payments,
-settlements, reminders, and collaboration are intentionally excluded from the
-initial schema.
+The mobile app calls the Spring Boot API. It does not query these tables
+through the Supabase Data API. The API connects with JDBC as the table owner.
 
-They will be introduced incrementally when their domain behaviour is actually
-implemented.
+`V13__enable_rls_and_close_data_api.sql` enables row-level security on every
+`public` table and defines no policies, which denies `anon` and
+`authenticated`. The table owner bypasses row-level security, so the API is
+unchanged. Grants to `anon`, `authenticated`, and `service_role` are revoked,
+including the legacy Supabase default that automatically granted new public
+tables to those roles. That default is what exposed `flyway_schema_history`.
+The migration revokes those grants. The API then enables row-level security
+on that history table after Flyway releases its lock
+(`FlywaySchemaHistoryGuard`), because taking the lock inside the migration
+deadlocks startup.
 
 ## Historical schema
 
