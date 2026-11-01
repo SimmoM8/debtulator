@@ -26,6 +26,14 @@ on that history table after Flyway releases its lock
 (`FlywaySchemaHistoryGuard`), because taking the lock inside the migration
 deadlocks startup.
 
+`V14__revoke_default_public_function_execute.sql` also removes the global
+default EXECUTE permission on functions created by the Flyway connection role.
+PostgreSQL's schema-local default REVOKE cannot cancel the global `PUBLIC`
+function grant. This change applies to future functions created by that role
+across schemas; it does not change existing functions or defaults owned by other
+roles (including `supabase_admin`). Grant function execution explicitly only
+when a trusted caller requires it.
+
 ## Historical schema
 
 The complete database implementation that existed immediately before this
