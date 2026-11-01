@@ -180,4 +180,43 @@ class DataApiAccessBoundaryIntegrationTest {
             return null;
         });
     }
+
+    @Test
+    void doesNotExposeFunctionsCreatedLater() {
+        jdbcTemplate.execute((Connection connection) -> {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute(
+                        """
+                        create function public.data_api_function_probe()
+                        returns integer language sql as 'select 1'
+                        """
+                );
+                try (ResultSet privileges = statement.executeQuery(
+                        """
+                        select
+                            has_function_privilege('anon', 'public.data_api_function_probe()', 'EXECUTE'),
+                            has_function_privilege('authenticated', 'public.data_api_function_probe()', 'EXECUTE'),
+                            has_function_privilege('service_role', 'public.data_api_function_probe()', 'EXECUTE')
+                        """
+                )) {
+                    assertThat(privileges.next()).isTrue();
+                    assertThat(privileges.getBoolean(1)).isFalse();
+                    assertThat(privileges.getBoolean(2)).isFalse();
+                    assertThat(privileges.getBoolean(3)).isFalse();
+                }
+                try (ResultSet result = statement.executeQuery(
+                        "select public.data_api_function_probe()"
+                )) {
+                    assertThat(result.next()).isTrue();
+                    assertThat(result.getInt(1)).isEqualTo(1);
+                }
+            } finally {
+                try (Statement cleanup = connection.createStatement()) {
+                    cleanup.execute("drop function if exists public.data_api_function_probe()");
+                }
+            }
+            return null;
+        });
+    }
+
 }
