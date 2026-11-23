@@ -35,6 +35,13 @@ function MemberModalNavigator() {
           title: "Link Member",
         }}
       />
+
+      <Stack.Screen
+        name="edit-name"
+        options={{
+          title: "Edit Display Name",
+        }}
+      />
     </SolidNavHeader>
   );
 }

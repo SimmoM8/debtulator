@@ -25,11 +25,13 @@ const DISPLAY_NAME_CHEVRON: SymbolName = {
 type MemberOverviewSectionProps = {
   member: Member;
   balance: DebtBalanceSummary;
+  onEditDisplayName: () => void;
 };
 
 export function MemberOverviewSection({
   member,
   balance,
+  onEditDisplayName,
 }: MemberOverviewSectionProps) {
   const theme = useAppTheme();
   const linked = member.linkedUserId !== null;
@@ -50,6 +52,7 @@ export function MemberOverviewSection({
               label="Display name"
               value={member.displayName}
               trailingIcon={DISPLAY_NAME_CHEVRON}
+              onPress={onEditDisplayName}
             />
           </GroupedListSection>
 

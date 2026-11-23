@@ -31,6 +31,13 @@ export async function createSchema(db: SQLiteDatabase): Promise<void> {
     CREATE INDEX IF NOT EXISTS members_owner_display_name_idx
       ON members(owner_user_id, display_name);
 
+    CREATE TABLE IF NOT EXISTS linked_account_summaries (
+      owner_user_id TEXT NOT NULL,
+      linked_user_id TEXT NOT NULL,
+      username TEXT NOT NULL CHECK (length(trim(username)) > 0),
+      PRIMARY KEY (owner_user_id, linked_user_id)
+    );
+
     CREATE TABLE IF NOT EXISTS currencies (
       code TEXT PRIMARY KEY NOT NULL,
       name TEXT NOT NULL,

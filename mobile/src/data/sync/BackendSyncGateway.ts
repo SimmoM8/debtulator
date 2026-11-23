@@ -3,6 +3,8 @@ import {
   BackendError,
 } from "@/src/data/backend/BackendClient";
 import type { Currency } from "@/src/features/currencies/model/Currency";
+import type { LinkedAccountSummary } from "@/src/features/members/model/LinkedAccountSummary";
+import { getLinkedAccountSummaries } from "@/src/features/members/operations/getLinkedAccountSummaries";
 import type { Profile } from "@/src/features/profile/model/Profile";
 
 import type {
@@ -173,6 +175,10 @@ export class BackendSyncGateway {
     }
 
     return value.map(parseCurrency);
+  }
+
+  async getLinkedAccountSummaries(): Promise<LinkedAccountSummary[]> {
+    return getLinkedAccountSummaries(this.backend);
   }
 
   async getProfile(): Promise<Profile> {

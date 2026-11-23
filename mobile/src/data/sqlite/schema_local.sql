@@ -1,7 +1,7 @@
 -- Debtulator local SQLite schema
--- Effective schema version: 5
+-- Effective schema version: 6
 --
--- Consolidated end-state represented by migrateDatabase.ts after V1 -> V2 -> V3 -> V4 -> V5.
+-- Consolidated end-state represented by migrateDatabase.ts after V1 -> V2 -> V3 -> V4 -> V5 -> V6.
 -- This is a reference schema only; runtime upgrades must use migrateDatabase.ts.
 
 PRAGMA foreign_keys = ON;
@@ -22,6 +22,13 @@ CREATE INDEX members_owner_user_id_idx
   ON members(owner_user_id);
 CREATE INDEX members_owner_display_name_idx
   ON members(owner_user_id, display_name);
+
+CREATE TABLE linked_account_summaries (
+  owner_user_id TEXT NOT NULL,
+  linked_user_id TEXT NOT NULL,
+  username TEXT NOT NULL CHECK (length(trim(username)) > 0),
+  PRIMARY KEY (owner_user_id, linked_user_id)
+);
 
 CREATE TABLE currencies (
   code TEXT PRIMARY KEY NOT NULL,
@@ -119,4 +126,4 @@ CREATE TABLE sync_state (
     CHECK (bootstrap_completed IN (0, 1))
 );
 
-PRAGMA user_version = 5;
+PRAGMA user_version = 6;

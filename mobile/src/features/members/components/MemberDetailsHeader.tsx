@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Animated, {
   Extrapolation,
   interpolate,
@@ -24,19 +24,28 @@ const COMPACT_IDENTITY_HEIGHT =
 type MemberDetailsHeaderProps = {
   member: Member;
   linked?: boolean;
+  linkedUsername?: string | null;
   compact: boolean;
   collapseProgress: SharedValue<number>;
+  onEditDisplayName: () => void;
 };
 
 export function MemberDetailsHeader({
   member,
   linked = false,
+  linkedUsername = null,
   compact,
   collapseProgress,
+  onEditDisplayName,
 }: MemberDetailsHeaderProps) {
   const theme = useAppTheme();
   const { width: screenWidth } = useWindowDimensions();
   const expandedActionsHeight = useSharedValue(0);
+  const memberStatus = linked
+    ? linkedUsername
+      ? `@${linkedUsername}`
+      : "Linked account"
+    : "Unlinked Member";
 
   const quickActions = useMemo(
     () => [
@@ -172,16 +181,20 @@ export function MemberDetailsHeader({
           importantForAccessibility={compact ? "no-hide-descendants" : "auto"}
           style={[styles.expandedIdentity, expandedIdentityStyle]}
         >
-          <Text
-            style={[
-              styles.expandedName,
-              {
-                color: theme.colors.onHeroBackground,
-              },
-            ]}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Edit display name for ${member.displayName}`}
+            onPress={onEditDisplayName}
           >
-            {member.displayName}
-          </Text>
+            <Text
+              style={[
+                styles.expandedName,
+                { color: theme.colors.onHeroBackground },
+              ]}
+            >
+              {member.displayName}
+            </Text>
+          </Pressable>
 
           <Text
             style={[
@@ -191,7 +204,7 @@ export function MemberDetailsHeader({
               },
             ]}
           >
-            {linked ? "Linked Member" : "Unlinked Member"}
+            {memberStatus}
           </Text>
         </Animated.View>
 
@@ -200,17 +213,22 @@ export function MemberDetailsHeader({
           importantForAccessibility={!compact ? "no-hide-descendants" : "auto"}
           style={[styles.compactIdentity, compactIdentityStyle]}
         >
-          <Text
-            numberOfLines={1}
-            style={[
-              styles.compactName,
-              {
-                color: theme.colors.onHeroBackground,
-              },
-            ]}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Edit display name for ${member.displayName}`}
+            onPress={onEditDisplayName}
+            style={styles.compactNameButton}
           >
-            {member.displayName}
-          </Text>
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.compactName,
+                { color: theme.colors.onHeroBackground },
+              ]}
+            >
+              {member.displayName}
+            </Text>
+          </Pressable>
 
           <Text
             numberOfLines={1}
@@ -221,7 +239,7 @@ export function MemberDetailsHeader({
               },
             ]}
           >
-            {linked ? "Linked Member" : "Unlinked Member"}
+            {memberStatus}
           </Text>
         </Animated.View>
       </Animated.View>
@@ -289,13 +307,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
+  compactNameButton: {
+    flexShrink: 1,
+  },
   compactName: {
     ...textStyles.headline,
-    flexShrink: 1,
   },
   compactStatus: {
     ...textStyles.caption,
-    flexShrink: 0,
+    flexShrink: 1,
     marginLeft: spacing.sm,
   },
   actions: {
