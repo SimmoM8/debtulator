@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from "react";
-import { useCallback, useEffect } from "react";
-import { AppState } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { AppState, View } from "react-native";
 
 import type { BackendClient } from "@/src/data/backend/BackendClient";
 import { useBackendClient } from "@/src/data/backend/BackendProvider";
@@ -8,6 +8,7 @@ import { openDatabase } from "@/src/data/sqlite/openDatabase";
 
 import { BackendSyncGateway } from "./BackendSyncGateway";
 import { SyncBlockedError, SyncEngine } from "./SyncEngine";
+import { SyncStatusPanel } from "./SyncStatusPanel";
 import { subscribeToSyncRequests } from "./syncSignal";
 
 const SYNC_INTERVAL_MS = 60_000;
@@ -18,6 +19,8 @@ type SyncProviderProps = PropsWithChildren<{
 
 export function SyncProvider({ ownerUserId, children }: SyncProviderProps) {
   const backend = useBackendClient();
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncRevision, setSyncRevision] = useState(0);
 
   const runSync = useCallback(async () => {
     if (!backend) {
@@ -28,8 +31,10 @@ export function SyncProvider({ ownerUserId, children }: SyncProviderProps) {
       const db = await openDatabase();
       const engine = getSyncEngine(db, ownerUserId, backend);
       await engine.sync(ownerUserId);
+      setSyncError(null);
     } catch (error) {
       if (error instanceof SyncBlockedError) {
+        setSyncError("One or more changes need your review before sync can continue.");
         console.warn("Sync requires attention", error.message);
         return;
       }
@@ -39,14 +44,23 @@ export function SyncProvider({ ownerUserId, children }: SyncProviderProps) {
        * Pending mutations and the last valid reference-data snapshots remain
        * durable in SQLite for a later retry.
        */
+      setSyncError("Could not reach or complete synchronization. Your unsent changes are still saved on this device.");
       console.warn("Sync failed", error);
+    } finally {
+      setSyncRevision((current) => current + 1);
     }
   }, [backend, ownerUserId]);
 
   useEffect(() => {
-    void runSync();
+    const unsubscribe = subscribeToSyncRequests(runSync);
+    const initialSync = setTimeout(() => {
+      void runSync();
+    }, 0);
 
-    return subscribeToSyncRequests(runSync);
+    return () => {
+      clearTimeout(initialSync);
+      unsubscribe();
+    };
   }, [runSync]);
 
   useEffect(() => {
@@ -69,7 +83,18 @@ export function SyncProvider({ ownerUserId, children }: SyncProviderProps) {
     return () => clearInterval(interval);
   }, [runSync]);
 
-  return children;
+  return (
+    <View style={{ flex: 1 }}>
+      {children}
+      <SyncStatusPanel
+        ownerUserId={ownerUserId}
+        backend={backend}
+        error={syncError}
+        revision={syncRevision}
+        onRetry={runSync}
+      />
+    </View>
+  );
 }
 
 let syncEngine: {
