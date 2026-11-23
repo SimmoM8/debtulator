@@ -820,7 +820,7 @@ A debt should support, where applicable:
 - member;
 - amount;
 - currency;
-- title or description;
+- optional title or description;
 - optional due date;
 - creation timestamp; and
 - appropriate provenance or creator information.

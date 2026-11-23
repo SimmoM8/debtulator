@@ -75,9 +75,7 @@ export function NewDebtScreen() {
   );
 
   const styles = useMemo(() => createStyles(theme.colors), [theme.colors]);
-  const titleInputRef = useRef<TextInput>(null);
   const amountInputRef = useRef<TextInput>(null);
-  const hasFocusedOnceRef = useRef(false);
   const hasAppliedInitialMemberRef = useRef(false);
   const [showAndroidDatePicker, setShowAndroidDatePicker] = useState(false);
   const [showAndroidCurrencyMenu, setShowAndroidCurrencyMenu] = useState(false);
@@ -105,15 +103,7 @@ export function NewDebtScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      const frame = requestAnimationFrame(() => {
-        if (!hasFocusedOnceRef.current) {
-          hasFocusedOnceRef.current = true;
-          titleInputRef.current?.focus();
-          return;
-        }
-
-        amountInputRef.current?.focus();
-      });
+      const frame = requestAnimationFrame(() => amountInputRef.current?.focus());
 
       return () => cancelAnimationFrame(frame);
     }, []),
@@ -261,13 +251,12 @@ export function NewDebtScreen() {
 
           <View style={styles.titleRow}>
             <TextInput
-              ref={titleInputRef}
               value={draft.title}
               onChangeText={draft.setTitle}
               onSubmitEditing={focusAmount}
               autoCapitalize="sentences"
               returnKeyType="next"
-              placeholder="Debt name"
+              placeholder="Debt name (optional)"
               placeholderTextColor={theme.colors.placeholder}
               selectionColor={theme.colors.controlTint}
               maxLength={80}
