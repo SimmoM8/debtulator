@@ -2,7 +2,7 @@ import type { SQLiteDatabase } from "expo-sqlite";
 
 import { createSchema } from "./createSchema";
 
-const DATABASE_VERSION = 5;
+const DATABASE_VERSION = 6;
 
 type UserVersionRow = {
   user_version: number;
@@ -73,6 +73,11 @@ export async function migrateDatabase(db: SQLiteDatabase): Promise<void> {
   if (version < 5) {
     await migrateToDebtAgreementProjection(db);
     version = 5;
+  }
+
+  if (version < 6) {
+    await migrateToLinkedAccountSummaries(db);
+    version = 6;
   }
 
   await assertCurrentSchema(db);
@@ -329,6 +334,23 @@ async function migrateToDebtAgreementProjection(
       "INTEGER CHECK (agreed_revision IS NULL OR agreed_revision > 0)",
     );
     await tx.execAsync("PRAGMA user_version = 5");
+  });
+}
+
+async function migrateToLinkedAccountSummaries(
+  db: SQLiteDatabase,
+): Promise<void> {
+  await db.withExclusiveTransactionAsync(async (tx) => {
+    await tx.execAsync(`
+      CREATE TABLE IF NOT EXISTS linked_account_summaries (
+        owner_user_id TEXT NOT NULL,
+        linked_user_id TEXT NOT NULL,
+        username TEXT NOT NULL CHECK (length(trim(username)) > 0),
+        PRIMARY KEY (owner_user_id, linked_user_id)
+      );
+
+      PRAGMA user_version = 6;
+    `);
   });
 }
 
@@ -631,6 +653,11 @@ async function assertCurrentSchema(db: SQLiteDatabase): Promise<void> {
       "created_at",
       "updated_at",
       "version",
+    ],
+    linked_account_summaries: [
+      "owner_user_id",
+      "linked_user_id",
+      "username",
     ],
     currencies: [
       "code",

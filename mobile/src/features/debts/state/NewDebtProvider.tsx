@@ -55,7 +55,6 @@ export function NewDebtProvider({ children }: PropsWithChildren) {
   const canCreate =
     !isCreating &&
     memberId !== "" &&
-    title.trim().length > 0 &&
     isValidPositiveMoneyInput(amount) &&
     currency.length > 0 &&
     (!hasDueDate || dueDate >= startOfToday());

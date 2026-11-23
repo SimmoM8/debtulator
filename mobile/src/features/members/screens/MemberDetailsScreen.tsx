@@ -1,4 +1,4 @@
-import { Stack, useLocalSearchParams } from "expo-router";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import Animated, {
@@ -16,6 +16,7 @@ import { useDebts } from "@/src/features/debts/hooks/useDebts";
 import { buildDebtsScreenModel } from "@/src/features/debts/model/DebtsScreenModel";
 import { MemberDetailsHeader } from "@/src/features/members/components/MemberDetailsHeader";
 import { useMember } from "@/src/features/members/hooks/useMember";
+import { useLinkedMemberUsername } from "@/src/features/members/hooks/useLinkedMemberUsername";
 import {
   MEMBER_DETAILS_SECTIONS,
   MEMBER_DETAILS_TRANSITION_DURATION,
@@ -38,11 +39,26 @@ export function MemberDetailsScreen() {
   const params = useLocalSearchParams<{ memberId?: string }>();
   const memberId = typeof params.memberId === "string" ? params.memberId : null;
   const member = useMember(memberId);
+  const linkedUsername = useLinkedMemberUsername(
+    memberId,
+    member.data?.linkedUserId ?? null,
+  );
   const debts = useDebts();
   const baseCurrencyCode = useBaseCurrencyCode();
   const [section, setSection] = useState<MemberDetailsSection>("overview");
   const collapseProgress = useSharedValue(0);
   const contentProgress = useSharedValue(1);
+
+  const editDisplayName = useCallback(() => {
+    if (!memberId) {
+      return;
+    }
+
+    router.push({
+      pathname: "/(main)/(modals)/member/edit-name",
+      params: { memberId },
+    });
+  }, [memberId]);
 
   const contentStyle = useAnimatedStyle(() => ({
     opacity: contentProgress.value,
@@ -93,8 +109,10 @@ export function MemberDetailsScreen() {
             <MemberDetailsHeader
               member={member.data}
               linked={member.data.linkedUserId !== null}
+              linkedUsername={linkedUsername}
               compact={section !== "overview"}
               collapseProgress={collapseProgress}
+              onEditDisplayName={editDisplayName}
             />
 
             <View style={styles.sectionControl}>
@@ -111,6 +129,7 @@ export function MemberDetailsScreen() {
                 <MemberOverviewSection
                   member={member.data}
                   balance={memberDebtsModel}
+                  onEditDisplayName={editDisplayName}
                 />
               ) : null}
 

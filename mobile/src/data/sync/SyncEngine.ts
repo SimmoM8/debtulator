@@ -4,6 +4,7 @@ import { emitDataChanged, type DataResource } from "@/src/data/sqlite/dataChange
 import { SqliteCurrencyRepository } from "@/src/features/currencies/data/SqliteCurrencyRepository";
 import { SqliteDebtRepository } from "@/src/features/debts/data/SqliteDebtRepository";
 import { syncPayloadToDebt } from "@/src/features/debts/utils/debtMapper";
+import { SqliteLinkedAccountSummaryRepository } from "@/src/features/members/data/SqliteLinkedAccountSummaryRepository";
 import { SqliteMemberRepository } from "@/src/features/members/data/SqliteMemberRepository";
 import { syncPayloadToMember } from "@/src/features/members/utils/memberMapper";
 import { SqliteProfileRepository } from "@/src/features/profile/data/SqliteProfileRepository";
@@ -100,9 +101,10 @@ export class SyncEngine {
   }
 
   private async syncReferenceData(ownerUserId: string): Promise<void> {
-    const [currencies, profile] = await Promise.all([
+    const [currencies, profile, linkedAccounts] = await Promise.all([
       this.remote.getCurrencyCatalogue(),
       this.remote.getProfile(),
+      this.remote.getLinkedAccountSummaries(),
     ]);
 
     if (currencies.length === 0) {
@@ -118,6 +120,8 @@ export class SyncEngine {
     await this.db.withExclusiveTransactionAsync(async (tx) => {
       const currencyRepository = new SqliteCurrencyRepository(tx);
       const profileRepository = new SqliteProfileRepository(tx);
+      const linkedAccountRepository =
+        new SqliteLinkedAccountSummaryRepository(tx);
 
       await currencyRepository.replaceCatalogue(currencies);
 
@@ -136,9 +140,13 @@ export class SyncEngine {
         ...profile,
         baseCurrencyCode: baseCurrency,
       });
+      await linkedAccountRepository.replaceForOwner(
+        ownerUserId,
+        linkedAccounts,
+      );
     });
 
-    emitDataChanged("currencies", "profile");
+    emitDataChanged("currencies", "profile", "linkedAccounts");
   }
 
   private async push(ownerUserId: string): Promise<void> {
