@@ -306,6 +306,43 @@ export class SqliteSyncStore {
     );
   }
 
+  /**
+   * Retry only an explicitly reviewed stale debt update. Never rebase a debt
+   * automatically: the user must first compare local and server financial data.
+   * A fresh mutation ID avoids replaying the old, recorded conflict result.
+   * The server will still reject a second concurrent version change.
+   */
+  async requeueReviewedDebtConflict(
+    ownerUserId: string,
+    mutationId: string,
+    serverVersion: number,
+  ): Promise<boolean> {
+    if (!Number.isSafeInteger(serverVersion) || serverVersion < 0) {
+      return false;
+    }
+
+    const result = await this.db.runAsync(
+      `
+        UPDATE sync_outbox
+        SET id = ?, base_version = ?, attempt_count = 0,
+            status = 'pending', last_error_code = NULL, last_error = NULL
+        WHERE owner_user_id = ? AND id = ?
+          AND entity_type = 'debt' AND operation = 'upsert'
+          AND base_version IS NOT NULL
+          AND status = 'conflict' AND last_error_code = 'VERSION_CONFLICT'
+          AND NOT EXISTS (
+            SELECT 1 FROM sync_outbox AS other
+            WHERE other.owner_user_id = sync_outbox.owner_user_id
+              AND other.entity_type = sync_outbox.entity_type
+              AND other.entity_id = sync_outbox.entity_id
+              AND other.id <> sync_outbox.id
+          )
+      `,
+      [Crypto.randomUUID(), serverVersion, ownerUserId, mutationId],
+    );
+    return result.changes === 1;
+  }
+
   async hasBlockingFailure(ownerUserId: string): Promise<boolean> {
     const row = await this.db.getFirstAsync<{ count: number }>(
       `
